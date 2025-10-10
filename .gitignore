@@ -1,0 +1,10 @@
+# Ignore Java (Spring Boot)
+backend/target/
+
+# Ignore Node.js (React/Vue)
+frontend/node_modules/
+
+# IDE
+*.iml
+.idea/
+.vscode/
