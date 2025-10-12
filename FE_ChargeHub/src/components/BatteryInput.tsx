@@ -3,7 +3,7 @@ import { Zap, Edit3, Check, X, Plus, Minus } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { useLanguage } from "../contexts/LanguageContext";
-import { toast } from "sonner@2.0.3";
+import { toast } from  "sonner";
 
 interface BatteryInputProps {
   currentBattery?: number;
