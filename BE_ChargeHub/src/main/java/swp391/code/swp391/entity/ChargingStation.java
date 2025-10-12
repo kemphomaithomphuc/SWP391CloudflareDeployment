@@ -37,7 +37,6 @@ public class ChargingStation {
         INACTIVE,
         MAINTENANCE
     }
-    @Column(name = "chargingPointNumber", nullable = false)
     @Column(name = "charging_point_number", nullable = false)
     private int chargingPointNumber;
 }

@@ -5,6 +5,7 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDateTime;
 import java.util.Date;
 
 @Data
@@ -22,9 +23,9 @@ public class Session {
     private Order order;
 
     @Column(nullable = false)
-    private Date startTime;
+    private LocalDateTime startTime;
 
-    private Date endTime;
+    private LocalDateTime endTime;
 
     @Column(nullable = false)
     private Double powerConsumed; //Số kwh đã sạc

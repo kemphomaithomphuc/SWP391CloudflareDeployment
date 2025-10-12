@@ -19,7 +19,6 @@ public class ConnectorType {
     @Column(name = "connector_type_id")
     private Long connectorTypeId;
 
-    @Column(name = "name", nullable = false)
     @Column(name = "type_name", nullable = false)
     private String typeName;
 
@@ -27,15 +26,11 @@ public class ConnectorType {
     private double powerOutput; // in kW
 
     @Column(name = "price_per_kwh", nullable = false)
-    private double pricePerKWh; // in currency VND per kWh//    @ManyToOne
-//    @JsonBackReference(value = "chargingPoint-connectorType")
-//    private ChargingPoint chargingPoint;
+    private double pricePerKWh; // in currency VND per kWh//
 
     @ManyToMany(mappedBy = "connectorTypes", fetch =  FetchType.LAZY)
     @JsonBackReference
     private List<CarModel> carModels;
-
-
 
     @OneToMany(mappedBy = "connectorType", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @JsonBackReference(value = "connectorType-chargingPoint")
