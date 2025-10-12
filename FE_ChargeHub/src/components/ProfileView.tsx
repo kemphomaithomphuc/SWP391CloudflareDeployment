@@ -17,7 +17,7 @@ interface UserProfile {
     userId: number;
     fullName: string;
     email: string;
-    phone: string | null;  // Allow null từ BE
+    phone: string | null;
     dateOfBirth: string | null;
     gender: string | null;
     role: string;
@@ -51,7 +51,7 @@ export default function ProfileView({ onBack }: ProfileViewProps) {
     const [passwordError, setPasswordError] = useState<string | null>(null);
     const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null);
 
-    const userId = localStorage.getItem("userId");  // "13" từ login
+    const userId = localStorage.getItem("userId");  //từ login
     const token = localStorage.getItem("token");
     const emailFallback = localStorage.getItem("email") || "";  // Từ decoded sub
 
@@ -64,7 +64,6 @@ export default function ProfileView({ onBack }: ProfileViewProps) {
             try {
                 setLoading(true);
                 setError(null);
-                // Path param numeric userId
                 const response = await axios.get(`http://localhost:8080/api/user/profile/${userId}`, {
                     headers: {
                         Authorization: `Bearer ${token}`,

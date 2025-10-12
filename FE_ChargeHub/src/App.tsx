@@ -55,7 +55,7 @@ function AppContent() {
   const switchToVehicleSetup = () => setCurrentView("vehicleSetup");
   const switchToStaffProfileSetup = () => setCurrentView("staffProfileSetup");
   const switchToEducationSetup = () => setCurrentView("educationSetup");
-  const completeSetup = () => setCurrentView("dashboard");
+  const completeSetup = () => setCurrentView("login");
   const completeStaffSetup = () => setCurrentView("staffDashboard");
   const switchToStaffLogin = () => setCurrentView("staffLogin");
   const completeStaffLogin = () => setCurrentView("staffDashboard");
