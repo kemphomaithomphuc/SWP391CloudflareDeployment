@@ -4,12 +4,10 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import swp391.code.swp391.dto.ChargingPointDTO;
-import swp391.code.swp391.dto.SessionDTO;
 import swp391.code.swp391.entity.*;
 import swp391.code.swp391.entity.ChargingPoint.ChargingPointStatus;
 import swp391.code.swp391.repository.*;
 
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -21,9 +19,6 @@ public class ChargingPointServiceImpl implements ChargingPointService {
     private final ChargingPointRepository chargingPointRepository;
     private final ChargingStationRepository chargingStationRepository;
     private final ConnectorTypeRepository connectorTypeRepository;
-    private final OrderRepository orderRepository;
-    private final OrderService orderService;
-
 
     @Override
     public ChargingPointDTO createChargingPoint(ChargingPointDTO chargingPointDTO) {

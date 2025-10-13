@@ -3,19 +3,15 @@ package swp391.code.swp391.service;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
-import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.core.userdetails.UserDetailsService;
-import org.springframework.security.core.userdetails.UsernameNotFoundException;
+
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.transaction.annotation.Transactional;
 
 import org.springframework.stereotype.Service;
 import swp391.code.swp391.dto.UpdateUserDTO;
 import org.springframework.web.server.ResponseStatusException;
-import swp391.code.swp391.dto.LoginRequestDTO;
 import swp391.code.swp391.dto.RegisterRequestDTO;
 import swp391.code.swp391.dto.UserDTO;
-import swp391.code.swp391.entity.CustomUserDetails;
 import swp391.code.swp391.entity.User;
 import swp391.code.swp391.repository.UserRepository;
 

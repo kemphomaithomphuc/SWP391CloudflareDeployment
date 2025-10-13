@@ -4,12 +4,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import swp391.code.swp391.dto.APIResponse;
-import swp391.code.swp391.dto.SessionDTO;
 import swp391.code.swp391.entity.Session;
-import swp391.code.swp391.service.OrderService;
 import swp391.code.swp391.service.SessionService;
 
-import java.time.LocalDateTime;
 
 @RestController
 @RequestMapping("/api/sessions")

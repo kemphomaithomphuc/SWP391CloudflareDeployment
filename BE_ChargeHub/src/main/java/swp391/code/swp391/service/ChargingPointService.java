@@ -1,7 +1,6 @@
 package swp391.code.swp391.service;
 
 import swp391.code.swp391.dto.ChargingPointDTO;
-import swp391.code.swp391.dto.SessionDTO;
 import swp391.code.swp391.entity.ChargingPoint.ChargingPointStatus;
 
 import java.util.List;

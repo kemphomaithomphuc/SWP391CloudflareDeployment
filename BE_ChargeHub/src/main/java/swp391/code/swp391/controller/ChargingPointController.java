@@ -145,14 +145,14 @@ public class ChargingPointController {
     }
 
     //======================US10======================
-    @GetMapping("/charging-confirmation/{orderId}/{vehicleId}")
-    public ResponseEntity<APIResponse<SessionDTO>> confirmCharging(@PathVariable Long orderId, @PathVariable Long vehicleId, @RequestParam Long connectorTypeId) {
-        try {
-            SessionDTO sessionDTO = chargingPointService.confirmCharging(orderId, vehicleId,connectorTypeId);
-            return ResponseEntity.ok(APIResponse.success("Charging confirmed", sessionDTO));
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body(APIResponse.error("Charging confirmation failed: " + e.getMessage()));
-        }
-    }
+//    @GetMapping("/charging-confirmation/{orderId}/{vehicleId}")
+//    public ResponseEntity<APIResponse<SessionDTO>> confirmCharging(@PathVariable Long orderId, @PathVariable Long vehicleId, @RequestParam Long connectorTypeId) {
+//        try {
+//            SessionDTO sessionDTO = chargingPointService.confirmCharging(orderId, vehicleId,connectorTypeId);
+//            return ResponseEntity.ok(APIResponse.success("Charging confirmed", sessionDTO));
+//        } catch (Exception e) {
+//            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+//                    .body(APIResponse.error("Charging confirmation failed: " + e.getMessage()));
+//        }
+//    }
 }
