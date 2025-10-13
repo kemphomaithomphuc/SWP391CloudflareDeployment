@@ -36,7 +36,8 @@ public interface VehicleRepository extends JpaRepository<Vehicle, Long> {
     // Kiểm tra vehicle có tồn tại với plate number
     boolean existsByPlateNumber(String plateNumber);
 
-    Optional<Object> getVehiclesByUser_UserId(Long userId);
+//    Optional<Object> getVehiclesByUser_UserId(Long userId);
 
+    Optional<Vehicle> findById(Long id);
 
 }

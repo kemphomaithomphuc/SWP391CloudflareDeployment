@@ -23,9 +23,6 @@ public class ChargingPoint {
     @JsonBackReference
     private ChargingStation station;
 
-//    @OneToMany(mappedBy = "chargingPoint", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-//    private List<ConnectorType> connectorTypes;
-
     @ManyToOne
     @JoinColumn(name = "connector_type_id", nullable = false)
     private ConnectorType connectorType;

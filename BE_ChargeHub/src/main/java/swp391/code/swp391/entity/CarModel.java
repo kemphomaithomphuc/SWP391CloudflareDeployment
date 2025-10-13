@@ -20,7 +20,7 @@ public class CarModel {
     @Column(name = "model")
     private String model;
     @Column(name = "capacity")
-    private double capacity;
+    private double capacity; //kWh
     @Column(name = "product_year")
     private int productYear;
     @Column(name= "img_url")

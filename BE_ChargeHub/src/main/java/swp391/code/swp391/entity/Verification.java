@@ -5,6 +5,8 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import static jakarta.persistence.GenerationType.IDENTITY;
+
+import java.time.LocalDateTime;
 import java.util.Date;
 
 @Entity
@@ -19,9 +21,9 @@ public class Verification {
     @Column(name = "Verification_Token", nullable = false, unique = true)
     private String verificationToken;
     @Column(name = "Expiration", nullable = false)
-    private Date expiration;
+    private LocalDateTime expiration;
     @Column(name = "Created_At", nullable = false)
-    private Date createdAt;
+    private LocalDateTime createdAt;
     @Column(name = "Verification_Type", nullable = false)
     private VerificationType verificationType;
 

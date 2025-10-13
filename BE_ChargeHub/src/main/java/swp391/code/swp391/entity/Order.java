@@ -5,7 +5,7 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.util.Date;
+import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "orders")
@@ -18,19 +18,22 @@ public class Order {
     private Long orderId;
 
     @ManyToOne
-    @JoinColumn(name = "user_id", nullable = false)
+//    @JoinColumn(name = "user_id", nullable = false)
+     @JoinColumn(name = "user_id")
+
     private User user;
 
     @ManyToOne
-    @JoinColumn(name = "charging_point_id", nullable = false)
+//    @JoinColumn(name = "charging_point_id", nullable = false)
+    @JoinColumn(name = "charging_point_id")
     private ChargingPoint chargingPoint;
 
     @ManyToOne
-    @JoinColumn(name = "station_id", nullable = false)
-    private ChargingStation station;
+    @JoinColumn(name = "vehicle_id") //, nullable = false)
+    private Vehicle vehicle;
 
     @Column(nullable = false)
-    private Date startTime;
+    private LocalDateTime startTime;
 
     private Double startedBattery;
 
