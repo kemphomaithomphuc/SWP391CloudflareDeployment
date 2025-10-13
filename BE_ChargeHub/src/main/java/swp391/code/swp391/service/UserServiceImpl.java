@@ -3,19 +3,15 @@ package swp391.code.swp391.service;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
-import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.core.userdetails.UserDetailsService;
-import org.springframework.security.core.userdetails.UsernameNotFoundException;
+
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.transaction.annotation.Transactional;
 
 import org.springframework.stereotype.Service;
 import swp391.code.swp391.dto.UpdateUserDTO;
 import org.springframework.web.server.ResponseStatusException;
-import swp391.code.swp391.dto.LoginRequestDTO;
 import swp391.code.swp391.dto.RegisterRequestDTO;
 import swp391.code.swp391.dto.UserDTO;
-import swp391.code.swp391.entity.CustomUserDetails;
 import swp391.code.swp391.entity.User;
 import swp391.code.swp391.repository.UserRepository;
 
@@ -44,13 +40,6 @@ public class UserServiceImpl implements UserService {
 
     // Lưu trữ mã xác thực tạm thời (trong thực tế nên dùng Redis)
     private final Map<String, VerificationData> verificationCodes = new ConcurrentHashMap<>();
-    // =============== AUTHENTICATION METHODS ===============
-    /**
-     * Loads user details by username (email or phone) for authentication
-     * @param username Email or phone number of the user
-     * @return UserDetails object if user found
-     * @throws UsernameNotFoundException if user not found
-     */
 
     // =============== USER MANAGEMENT METHODS ===============
     /**

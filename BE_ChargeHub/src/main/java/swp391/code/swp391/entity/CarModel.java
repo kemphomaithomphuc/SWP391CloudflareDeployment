@@ -14,6 +14,7 @@ import java.util.List;
 @AllArgsConstructor
 public class CarModel {
     @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long car_model_id;
     @Column(name = "brand")
     private String brand;

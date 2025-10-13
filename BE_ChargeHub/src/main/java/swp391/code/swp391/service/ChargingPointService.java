@@ -48,4 +48,7 @@ public interface ChargingPointService {
 
     // Đếm charging points theo station
     long countChargingPointsByStation(Long stationId);
+
+    // US10
+//    SessionDTO confirmCharging(Long orderId, Long vehicleId,Long connectorTypeId);
 }

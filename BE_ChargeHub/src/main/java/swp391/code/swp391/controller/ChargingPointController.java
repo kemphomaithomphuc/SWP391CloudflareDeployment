@@ -5,8 +5,11 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
+import swp391.code.swp391.dto.APIResponse;
 import swp391.code.swp391.dto.ChargingPointDTO;
+import swp391.code.swp391.dto.SessionDTO;
 import swp391.code.swp391.entity.ChargingPoint.ChargingPointStatus;
+import swp391.code.swp391.entity.Session;
 import swp391.code.swp391.service.ChargingPointService;
 
 import java.util.List;
@@ -140,4 +143,16 @@ public class ChargingPointController {
         long count = chargingPointService.countChargingPointsByStation(stationId);
         return new ResponseEntity<>(count, HttpStatus.OK);
     }
+
+    //======================US10======================
+//    @GetMapping("/charging-confirmation/{orderId}/{vehicleId}")
+//    public ResponseEntity<APIResponse<SessionDTO>> confirmCharging(@PathVariable Long orderId, @PathVariable Long vehicleId, @RequestParam Long connectorTypeId) {
+//        try {
+//            SessionDTO sessionDTO = chargingPointService.confirmCharging(orderId, vehicleId,connectorTypeId);
+//            return ResponseEntity.ok(APIResponse.success("Charging confirmed", sessionDTO));
+//        } catch (Exception e) {
+//            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+//                    .body(APIResponse.error("Charging confirmation failed: " + e.getMessage()));
+//        }
+//    }
 }
