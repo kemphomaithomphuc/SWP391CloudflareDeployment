@@ -18,7 +18,7 @@ public class Order {
     private Long orderId;
 
     @ManyToOne
-//    @JoinColumn(name = "user_id", nullable = false)
+    //    @JoinColumn(name = "user_id", nullable = false)
      @JoinColumn(name = "user_id")
 
     private User user;
@@ -35,6 +35,9 @@ public class Order {
     @Column(nullable = false)
     private LocalDateTime startTime;
 
+    @Column(name = "end_time", nullable = false)
+    private LocalDateTime endTime; // Thời gian dự kiến kết thúc
+
     private Double startedBattery;
 
     private Double expectedBattery;
@@ -43,7 +46,15 @@ public class Order {
     @Column(nullable = false)
     private Status status = Status.BOOKED;
 
+    // Chi phí
+    @Column(name = "price_per_kwh")
+    private Double pricePerKwh; // Giá tại thời điểm đặt
+
     public enum Status {
         BOOKED, CANCELED
+    }
+
+    public boolean isActive() {
+        return status == Status.BOOKED;
     }
 }

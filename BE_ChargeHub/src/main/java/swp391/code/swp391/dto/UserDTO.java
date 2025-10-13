@@ -14,6 +14,7 @@ import java.util.stream.Collectors;
 @AllArgsConstructor
 public class UserDTO {
     private Long userId;
+    private String avatarUrl;
     private String username;
     private String fullName;
     private String email;
@@ -35,7 +36,7 @@ public class UserDTO {
         this.address = user.getAddress();
         this.role = user.getRole();
         this.status = user.getStatus();
-
+        this.avatarUrl = user.getAvatar();
     }
     // Constructor từ User entity (có bao gồm vehicles)
     public UserDTO(User user, boolean includeVehicles) {

@@ -44,13 +44,6 @@ public class UserServiceImpl implements UserService {
 
     // Lưu trữ mã xác thực tạm thời (trong thực tế nên dùng Redis)
     private final Map<String, VerificationData> verificationCodes = new ConcurrentHashMap<>();
-    // =============== AUTHENTICATION METHODS ===============
-    /**
-     * Loads user details by username (email or phone) for authentication
-     * @param username Email or phone number of the user
-     * @return UserDetails object if user found
-     * @throws UsernameNotFoundException if user not found
-     */
 
     // =============== USER MANAGEMENT METHODS ===============
     /**

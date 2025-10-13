@@ -1,6 +1,7 @@
 package swp391.code.swp391.service;
 
 import swp391.code.swp391.dto.ChargingPointDTO;
+import swp391.code.swp391.dto.SessionDTO;
 import swp391.code.swp391.entity.ChargingPoint.ChargingPointStatus;
 
 import java.util.List;
@@ -48,4 +49,7 @@ public interface ChargingPointService {
 
     // Đếm charging points theo station
     long countChargingPointsByStation(Long stationId);
+
+    // US10
+//    SessionDTO confirmCharging(Long orderId, Long vehicleId,Long connectorTypeId);
 }

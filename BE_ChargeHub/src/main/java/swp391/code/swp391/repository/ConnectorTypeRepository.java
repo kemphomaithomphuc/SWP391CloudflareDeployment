@@ -41,4 +41,6 @@ public interface ConnectorTypeRepository extends JpaRepository<ConnectorType, Lo
     // Đếm số lượng vehicles sử dụng connector type
     @Query("SELECT ct, COUNT(v) FROM ConnectorType ct JOIN ct.carModels cm JOIN Vehicle v ON v.carModel = cm WHERE ct.connectorTypeId = :connectorTypeId GROUP BY ct")
     Object[] countVehiclesByConnectorType(@Param("connectorTypeId") Long connectorTypeId);
+
+    Optional<ConnectorType> findConnectorTypeByConnectorTypeId(Long connectorTypeId);
 }
