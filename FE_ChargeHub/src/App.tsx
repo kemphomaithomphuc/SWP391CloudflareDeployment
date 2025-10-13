@@ -113,6 +113,9 @@ function AppContent() {
   const showSidebar = shouldShowSidebar();
 
   const handleRoleSelection = (role: 'driver' | 'staff') => {
+    // Lưu role vào localStorage
+    localStorage.setItem("role", role);
+    
     if (role === 'driver') {
       switchToProfileSetup();
     } else {
