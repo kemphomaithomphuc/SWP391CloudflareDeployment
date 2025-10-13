@@ -116,7 +116,7 @@ export default function Login({ onSwitchToRegister, onLogin, onStaffLogin, onAdm
                 localStorage.setItem("token", accessToken);
                 localStorage.setItem("refreshToken", refreshToken || "");
 
-                console.log("Token (first 50 chars):", accessToken.substring(0, 50) + "...");
+                //console.log("Token (first 50 chars):", accessToken.substring(0, 50) + "...");
 
                 let effectiveRole = "driver";
                 let userId = null;

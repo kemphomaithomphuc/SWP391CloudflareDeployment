@@ -71,12 +71,23 @@ export default function ProfileView({ onBack }: ProfileViewProps) {
                 });
                 // Nested response.data.data hoặc data
                 const profile = response.data.data || response.data;
-                setProfileData(profile);
+                const normalizedData: UserProfile = {
+                    userId: profile.userId,
+                    fullName: profile.fullName || profile.username || "",
+                    email: profile.email,
+                    phone: profile.phoneNumber || null,
+                    dateOfBirth: profile.dateOfBirth || null,
+                    gender: profile.gender || null,
+                    role: profile.role,
+                    address: profile.address || null,
+                    status: profile.status,
+                };
+                setProfileData(normalizedData);
                 console.log("Profile fetched:", profile);
             } catch (err: any) {
                 console.error("Fetch profile error:", err);
                 if (err.response?.status === 405 || err.response?.status === 400) {
-                    setError("Endpoint mismatch (405/400). Check BE mapping for /api/user/profile/{id}. Fallback to local data.");
+                    setError("Endpoint mismatch (405/400). Fallback to local data.");
                 } else if (err.response?.status === 404) {
                     setError("Profile not found for ID " + userId + ". Check user ID.");
                 } else {
@@ -88,7 +99,7 @@ export default function ProfileView({ onBack }: ProfileViewProps) {
                     fullName: localStorage.getItem("fullName") || emailFallback,
                     email: emailFallback,
                     phone: localStorage.getItem("phone") || null,
-                    dateOfBirth: null,
+                    dateOfBirth: localStorage.getItem("dateOfBirth") || null,
                     gender: null,
                     role: localStorage.getItem("role") || "DRIVER",
                     address: null,
@@ -99,7 +110,7 @@ export default function ProfileView({ onBack }: ProfileViewProps) {
             }
         };
 
-        fetchProfile();
+        fetchProfile().then(r =>  {});  // Avoid unused promise warning
     }, [t, userId, token, emailFallback]);
 
     const handleRetryFetch = () => {
