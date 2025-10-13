@@ -24,61 +24,22 @@ export default function Login({ onSwitchToRegister, onLogin, onStaffLogin, onAdm
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    // ⚙️ Xử lý callback trả về từ BE sau khi Google/Facebook login
     useEffect(() => {
-        const urlParams = new URLSearchParams(window.location.search);
-        const code = urlParams.get("code");
-        const state = urlParams.get("state");
-        const accessToken = urlParams.get("accessToken");
-        const refreshToken = urlParams.get("refreshToken");
+        const url = new URL(window.location.href);
+        const code = url.searchParams.get("code");
+        const state = url.searchParams.get("state");
 
-        // 🟢 CASE 1: Redirect có accessToken (BE đã xử lý OAuth)
-        if (accessToken) {
+        if (code && (state === "google" || state === "facebook")) {
+            console.log("Detected OAuth callback:", state, code);
+
             (async () => {
                 try {
-                    console.log("Google redirect với accessToken:", accessToken);
-                    localStorage.setItem("token", accessToken);
-                    if (refreshToken) localStorage.setItem("refreshToken", refreshToken);
+                    setLoading(true);
 
-                    // Gọi BE để lấy userId
-                    const meRes = await axios.post(
-                        "http://localhost:8080/api/auth/me",
-                        null,
-                        { headers: { Authorization: `Bearer ${accessToken}` } }
-                    );
-
-                    if (meRes.data?.success && meRes.data?.data) {
-                        const userId = meRes.data.data;
-                        localStorage.setItem("userId", userId.toString());
-                    }
-
-                    // Decode JWT
-                    const decoded: any = jwtDecode(accessToken);
-                    const role = decoded.role?.toLowerCase() || "driver";
-                    localStorage.setItem("role", role);
-                    localStorage.setItem("email", decoded.sub || "");
-
-                    // Điều hướng
-                    if (role === "driver") onLogin?.();
-                    else if (role === "staff") onStaffLogin?.();
-                    else if (role === "admin") onAdminLogin?.();
-                    else onLogin?.();
-
-                    // Xoá query trên URL
-                    window.history.replaceState({}, document.title, window.location.pathname);
-                } catch (err) {
-                    console.error("Error processing Google redirect:", err);
-                    setError("Failed to process Google login");
-                }
-            })();
-        }
-
-        // 🟡 CASE 2: Callback nhận code (OAuth kiểu truyền thống)
-        else if (code && (state === "google" || state === "facebook")) {
-            (async () => {
-                try {
                     const res = await axios.get(
-                        `http://localhost:8080/api/auth/social/callback?state=${state}&code=${code}`
+                        `http://localhost:8080/api/auth/social/callback?code=${encodeURIComponent(
+                            code
+                        )}&state=${encodeURIComponent(state)}`
                     );
 
                     if (res.data?.success && res.data?.data?.accessToken) {
@@ -86,38 +47,44 @@ export default function Login({ onSwitchToRegister, onLogin, onStaffLogin, onAdm
                         localStorage.setItem("token", accessToken);
                         if (refreshToken) localStorage.setItem("refreshToken", refreshToken);
 
+                        // Gọi API /me để lấy userId
                         const meRes = await axios.post(
                             "http://localhost:8080/api/auth/me",
                             null,
                             { headers: { Authorization: `Bearer ${accessToken}` } }
                         );
+
                         if (meRes.data?.success && meRes.data?.data) {
                             const userId = meRes.data.data;
-                            localStorage.setItem("userId", userId.toString());
+                            localStorage.setItem("userId", String(userId));
                         }
 
+                        // Decode JWT để lấy role & email
                         const decoded: any = jwtDecode(accessToken);
                         const role = decoded.role?.toLowerCase() || "driver";
                         localStorage.setItem("role", role);
-                        localStorage.setItem("email", decoded.sub || "");
+                        localStorage.setItem("email", decoded?.sub || "");
 
+                        // Điều hướng theo vai trò
                         if (role === "driver") onLogin?.();
                         else if (role === "staff") onStaffLogin?.();
                         else if (role === "admin") onAdminLogin?.();
                         else onLogin?.();
 
+                        // Xóa query param trên URL
                         window.history.replaceState({}, document.title, window.location.pathname);
                     } else {
-                        setError("Social login failed: invalid response");
+                        setError("Social login failed: Invalid response");
                     }
                 } catch (err) {
-                    console.error("Social login callback error:", err);
+                    console.error("OAuth callback error:", err);
                     setError("Failed to process social login callback");
+                } finally {
+                    setLoading(false);
                 }
             })();
         }
     }, [onLogin, onStaffLogin, onAdminLogin]);
-
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -149,7 +116,7 @@ export default function Login({ onSwitchToRegister, onLogin, onStaffLogin, onAdm
                 localStorage.setItem("token", accessToken);
                 localStorage.setItem("refreshToken", refreshToken || "");
 
-                console.log("Token (first 50 chars):", accessToken.substring(0, 50) + "...");
+                //console.log("Token (first 50 chars):", accessToken.substring(0, 50) + "...");
 
                 let effectiveRole = "driver";
                 let userId = null;

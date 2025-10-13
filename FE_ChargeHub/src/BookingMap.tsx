@@ -25,13 +25,12 @@ import { Switch } from "./components/ui/switch";
 
 import { Separator } from "./components/ui/separator";
 
-import { motion } from "motion/react";
+import { motion, AnimatePresence } from "motion/react";
 
 import QRCodeGenerator from "./components/QRCodeGenerator";
 
 import ChargingInvoiceView from "./components/ChargingInvoiceView";
 
-import MapContainer from "./components/MapContainer";
 import axios, { AxiosError } from "axios";
 import { toast, Toaster } from "sonner";
 import * as maptilersdk from "@maptiler/sdk";
@@ -100,6 +99,8 @@ import {
 
   MapIcon,
 
+  X,
+
   Satellite,
 
   ZoomIn,
@@ -107,8 +108,6 @@ import {
   ZoomOut,
 
   Settings,
-
-  X,
 
   Pause,
 
@@ -130,6 +129,22 @@ interface ChargingStation {
   longitude?: number;
   chargingPointNumber?: number;
 
+}
+interface ConnectorType {
+  connectorTypeId?: number;
+  typeName: string;
+  powerOutput: number;
+  pricePerKWh: number;
+}
+
+interface ChargingPoint {
+  chargingPointId?: number;
+  status: string;
+  connectorTypeId?: number;
+  stationId?: number;
+  connectorType: ConnectorType;
+  powerOutput?: number;
+  pricePerKwh?: number;
 }
 
 
@@ -178,8 +193,6 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
 
   const [selectedStation, setSelectedStation] = useState<ChargingStation | null>(null);
 
-  const [searchQuery, setSearchQuery] = useState("");
-
   const [mapCenter, setMapCenter] = useState({ lat: 10.8231, lng: 106.6297 }); // Ho Chi Minh City
 
   const [bookingStep, setBookingStep] = useState<"select" | "confirm" | "success" | "qr" | "charging" | "invoice">("select");
@@ -213,6 +226,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
   const [showFilters, setShowFilters] = useState(false);
 
   const markersRef = useRef<maptilersdk.Marker[]>([]);
+
   const [lastUpdateTime, setLastUpdateTime] = useState(new Date());
 
 
@@ -256,7 +270,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
   const [status, setStatus] = useState("");
   const [latitude, setLatitude] = useState(0);
   const [longitude, setLongtitude] = useState(0);
-  
+
   // Sorting
   const [sortByDistance, setSortByDistance] = useState(false);
 
@@ -265,6 +279,134 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
 
   //Cập nhật trạng thái
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+
+  //Đếm trạm dựa trên trạng thái:
+  const [numberOfActiveStation, setNumberOfActiveStation] = useState(0);
+  const [numberOfInactiveStation, setNumberOfInactiveStation] = useState(0);
+  const [numberOfMaintainedStation, setNumberOfMaintainedStation] = useState(0)
+
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(5);
+  const [totalPages, setTotalPages] = useState(0);
+
+  // Charging points states
+  const [chargingPoints, setChargingPoints] = useState<ChargingPoint[]>([]);
+  const [loadingPoints, setLoadingPoints] = useState(false);
+  const [expandedStationId, setExpandedStationId] = useState<string | null>(null);
+
+  // Search states
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<ChargingStation[]>([]);
+  const [showSearchResults, setShowSearchResults] = useState(false);
+  const [isNavigating, setIsNavigating] = useState(false);
+
+  // Total charging points calculation
+  const [totalChargingPoints, setTotalChargingPoints] = useState(0);
+
+  // Calculate total charging points for all stations
+  const calculateTotalChargingPoints = () => {
+    const total = stations.reduce((sum, station) => {
+      return sum + (station.chargingPointNumber || 0);
+    }, 0);
+    setTotalChargingPoints(total);
+  };
+
+  // Update total charging points when stations change
+  useEffect(() => {
+    calculateTotalChargingPoints();
+  }, [stations]);
+
+  // Search function with scoring mechanism
+  const searchStations = (query: string) => {
+    if (!query.trim()) {
+      setSearchResults([]);
+      setShowSearchResults(false);
+      return;
+    }
+
+    const results = stations.map(station => {
+      let score = 0;
+      const queryLower = query.toLowerCase().trim();
+      
+      // Address matching (higher priority)
+      if (station.address?.toLowerCase().includes(queryLower)) {
+        score += 100; // High score for address match
+        // Bonus for exact match
+        if (station.address.toLowerCase() === queryLower) {
+          score += 50;
+        }
+        // Bonus for starts with
+        if (station.address.toLowerCase().startsWith(queryLower)) {
+          score += 30;
+        }
+      }
+      
+      // Station name matching (lower priority)
+      if (station.stationName?.toLowerCase().includes(queryLower)) {
+        score += 50; // Lower score for name match
+        // Bonus for exact match
+        if (station.stationName.toLowerCase() === queryLower) {
+          score += 25;
+        }
+        // Bonus for starts with
+        if (station.stationName.toLowerCase().startsWith(queryLower)) {
+          score += 15;
+        }
+      }
+
+      return { station, score };
+    })
+    .filter(result => result.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .map(result => result.station);
+
+    setSearchResults(results);
+    setShowSearchResults(true);
+  };
+
+  // Handle search input change
+  const handleSearchChange = (value: string) => {
+    setSearchQuery(value);
+    searchStations(value);
+  };
+
+  // Handle search result click with smooth transition
+  const handleSearchResultClick = (station: ChargingStation) => {
+    if (__mapRef.current && station.latitude && station.longitude) {
+      setIsNavigating(true);
+      
+      // Smooth transition to station
+      __mapRef.current.flyTo({
+        center: [station.longitude, station.latitude],
+        zoom: 15,
+        duration: 2000, // 2 seconds smooth transition
+        essential: true // This animation is considered essential with respect to prefers-reduced-motion
+      });
+      
+      // Close search results and reset navigation state
+      setTimeout(() => {
+        setShowSearchResults(false);
+        setSearchQuery("");
+        setIsNavigating(false);
+      }, 2000); // Match the flyTo duration
+    }
+  };
+
+  // Close search results when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Element;
+      if (!target.closest('.search-container')) {
+        setShowSearchResults(false);
+      }
+    };
+
+    if (showSearchResults) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showSearchResults]);
 
 
   //Start Calling Api
@@ -292,6 +434,73 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
     }
   }
 
+  const callApiForGetPointsForEachStation = async(stationId: string): Promise<ChargingPoint[] | null> => {
+    try {
+      const res = await axios.get(`http://localhost:8080/api/charging-points/station/${stationId}`);
+      if (res.status == 200 && Array.isArray(res.data)) {
+        return res.data.map((chargingPoint: any) => ({
+          chargingPointId: chargingPoint.chargingPointId,
+          status: chargingPoint.status,
+          connectorTypeId: chargingPoint.connectorTypeId,
+          stationId: chargingPoint.stationId,
+          connectorType: {
+            connectorTypeId: chargingPoint.connectorType.connectorTypeId,
+            typeName: chargingPoint.connectorType.typeName,
+            powerOutput: chargingPoint.connectorType.powerOutput,
+            pricePerKWh: chargingPoint.connectorType.pricePerKWh
+          },
+          powerOutput: chargingPoint.powerOutput,
+          pricePerKwh: chargingPoint.pricePerKwh
+        } as ChargingPoint))
+      }
+    } catch (err: any) {
+      console.error('Error fetching charging points:', err);
+      return null;
+    }
+    return null;
+  }
+
+  // Handle loading charging points for a station
+  const handleLoadChargingPoints = async (stationId: string) => {
+    console.log('handleLoadChargingPoints called with stationId:', stationId);
+    console.log('Current expandedStationId:', expandedStationId);
+    
+    // If already expanded, collapse it
+    if (expandedStationId === stationId) {
+      console.log('Collapsing expanded station');
+      setExpandedStationId(null);
+      setChargingPoints([]);
+      return;
+    }
+
+    console.log('Loading charging points for station:', stationId);
+    setLoadingPoints(true);
+    
+    try {
+      const points = await callApiForGetPointsForEachStation(stationId);
+      console.log('API response:', points);
+      console.log('Points length:', points?.length);
+      
+      if (points && points.length > 0) {
+        console.log('Setting charging points and expanded station');
+        setChargingPoints(points);
+        setExpandedStationId(stationId);
+        console.log('Charging points loaded successfully:', points.length);
+      } else {
+        console.log('No charging points found');
+        setChargingPoints([]);
+        setExpandedStationId(stationId); // Still expand to show empty state
+        toast.warning(language === 'vi' ? 'Không tìm thấy trụ sạc nào' : 'No charging points found');
+      }
+    } catch (error) {
+      console.error('Error loading charging points:', error);
+      toast.error(language === 'vi' ? 'Lỗi khi tải danh sách trụ sạc' : 'Error loading charging points');
+    } finally {
+      setLoadingPoints(false);
+    }
+  }
+  
+
   //End calling api
 
   //Xử lý api trung gian
@@ -302,7 +511,6 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
       if (list && list.length > 0) {
         console.log("Stations loaded:", list);
         setStations(list);
-        toast.success(`${list.length} stations loaded successfully!`);
       } else {
         console.log("No stations found");
         setStations([]);
@@ -316,6 +524,8 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
     }
   }
 
+
+
   useEffect(() => { handleGetStationList() }, [refreshTrigger]);
 
   //Kết thúc api trung gian
@@ -325,10 +535,10 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
     const R = 6371; // Earth's radius in kilometers
     const dLat = (lat2 - lat1) * Math.PI / 180;
     const dLng = (lng2 - lng1) * Math.PI / 180;
-    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-              Math.sin(dLng/2) * Math.sin(dLng/2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+      Math.sin(dLng / 2) * Math.sin(dLng / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return R * c; // Distance in kilometers
   };
 
@@ -340,11 +550,9 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
           const lat = position.coords.latitude;
           const lng = position.coords.longitude;
           setUserLocation({ lat, lng });
-          toast.success("Location detected successfully!");
         },
         (error) => {
           console.error("Error getting location:", error);
-          toast.error("Unable to get your location");
         }
       );
     } else {
@@ -492,25 +700,51 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
     markerMapRef.current.clear();
     markersRef.current = []; // Reset array ref nếu dùng
 
-    // Lọc chỉ các station ACTIVE
-    const activeStations = stations.filter(station => station.status === "ACTIVE");
+    // Hiển thị tất cả stations với mọi trạng thái
+    const allStations = stations.filter(station =>
+      station.latitude && station.longitude && station.stationId
+    );
+    const activeCount = stations.filter(s => (s.status || '').toUpperCase().trim() === 'ACTIVE').length;
+    setNumberOfActiveStation(activeCount);
 
-    activeStations.forEach((station) => {
-      if (!station.latitude || !station.longitude || !station.stationId) {
-        console.warn("Invalid station data:", station);
-        return;
-      }
+    const inactiveCount = stations.filter(s => (s.status || '').toUpperCase().trim() === 'INACTIVE').length;
+    setNumberOfInactiveStation(inactiveCount);
 
+    const maintainCount = stations.filter(s => (s.status || '').toUpperCase().trim() === 'MAINTENANCE').length;
+    setNumberOfMaintainedStation(maintainCount);
+
+    allStations.forEach((station) => {
       // Tạo element cho marker (tùy chỉnh icon)
       const markerElement = document.createElement("div");
       markerElement.className = "relative";
+
+      // Định nghĩa màu sắc và icon theo trạng thái
+      let backgroundColor = "#6b7280"; // Màu mặc định (xám)
+      let iconColor = "#ffffff";
+
+      switch (station.status) {
+        case "ACTIVE":
+          backgroundColor = "#10b981"; // Xanh lá - Trạm hoạt động
+          break;
+        case "INACTIVE":
+          backgroundColor = "#f59e0b"; // Vàng cam - Trạm không hoạt động
+          break;
+        case "MAINTENANCE":
+          backgroundColor = "#ef4444"; // Đỏ - Trạm bảo trì
+          break;
+        default:
+          backgroundColor = "#6b7280"; // Xám - Trạng thái không xác định
+      }
+
       markerElement.innerHTML = `
-      <div class="w-8 h-8 rounded-full border-4 border-white shadow-lg flex items-center justify-center" style="background-color: #3b82f6;">
-        <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path> <!-- Icon Zap đơn giản -->
-        </svg>
-      </div>
-    `;
+        <div class="w-10 h-10 rounded-full border-4 border-white shadow-lg flex items-center justify-center transition-all duration-200 hover:scale-110" 
+             style="background-color: ${backgroundColor};">
+          <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+          </svg>
+        </div>
+      `;
+
       markerElement.style.cursor = "pointer";
 
       // Tạo marker
@@ -518,13 +752,18 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
         element: markerElement,
         anchor: "bottom"
       })
-        .setLngLat([station.longitude, station.latitude])
+        .setLngLat([station.longitude!, station.latitude!])
         .addTo(map);
 
-      // Thêm popup khi click
+      // Thêm popup khi click với màu sắc tương ứng
+      const statusColor = backgroundColor;
+      const statusText = station.status === "ACTIVE" ? "Hoạt động" :
+        station.status === "INACTIVE" ? "Không hoạt động" :
+          station.status === "MAINTENANCE" ? "Bảo trì" : "Không xác định";
+
       const popup = new maptilersdk.Popup({ offset: 25 })
         .setHTML(`
-        <div class="bg-white rounded-lg shadow-lg border border-gray-200 p-4 min-w-[240px]">
+        <div class="bg-white rounded-lg shadow-lg border border-gray-200 p-4 min-w-[280px]">
           <div class="flex items-center justify-between mb-3">
             <h3 class="font-semibold text-gray-900 text-base">${station.stationName || "Unknown"}</h3>
             <span class="text-xs text-gray-500">ID: ${station.stationId}</span>
@@ -532,18 +771,23 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
           
           <div class="space-y-2 mb-4">
             <div class="flex items-center space-x-2">
-              <div class="w-2 h-2 bg-green-500 rounded-full"></div>
+              <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
+              </svg>
               <p class="text-sm text-gray-600">${station.address || "No address"}</p>
             </div>
             
             <div class="flex items-center space-x-2">
-              <div class="w-2 h-2 bg-blue-500 rounded-full"></div>
-              <p class="text-sm text-gray-600">${station.chargingPointNumber || 0} charging points</p>
+              <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+              </svg>
+              <p class="text-sm text-gray-600">${station.chargingPointNumber || 0} điểm sạc</p>
             </div>
             
             <div class="flex items-center space-x-2">
-              <div class="w-2 h-2 bg-green-500 rounded-full"></div>
-              <p class="text-sm text-gray-600">Status: <span class="font-medium text-green-600">${station.status}</span></p>
+              <div class="w-3 h-3 rounded-full" style="background-color: ${statusColor};"></div>
+              <p class="text-sm text-gray-600">Trạng thái: <span class="font-medium" style="color: ${statusColor};">${statusText}</span></p>
             </div>
           </div>
           
@@ -552,7 +796,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
             </svg>
-            <span>View Details</span>
+            <span>Xem chi tiết</span>
           </button>
         </div>
       `);
@@ -560,11 +804,11 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
       marker.setPopup(popup);
 
       // Lưu marker vào ref
-      markerMapRef.current.set(station.stationId.toString(), marker);
-      markersRef.current.push(marker); // Nếu dùng array
+      markerMapRef.current.set(station.stationId!.toString(), marker);
+      markersRef.current.push(marker);
     });
 
-    console.log(`Added ${activeStations.length} active station markers`);
+    console.log(`Added ${allStations.length} station markers with color coding`);
 
   }, [stations]); // Theo dõi stations thay đổi (sau khi fetch hoặc refresh)
 
@@ -581,9 +825,9 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
   const filteredStations = stations.filter(station => {
     console.log("Filtering station:", station);
     const matchesSearch = station.stationName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-       station.address?.toLowerCase().includes(searchQuery.toLowerCase());
+      station.address?.toLowerCase().includes(searchQuery.toLowerCase());
 
-    const matchesAvailable = station.status === "ACTIVE";
+    const matchesAvailable = station.status === "ACTIVE" || "INACTIVE" || "MAINTENANCE";
     const matchesFastCharging = true;
     const matches24h = true;
 
@@ -601,21 +845,37 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
   }).sort((a, b) => {
     if (sortByDistance && userLocation) {
       const distanceA = calculateDistance(
-        userLocation.lat, 
-        userLocation.lng, 
-        a.latitude || 0, 
+        userLocation.lat,
+        userLocation.lng,
+        a.latitude || 0,
         a.longitude || 0
       );
       const distanceB = calculateDistance(
-        userLocation.lat, 
-        userLocation.lng, 
-        b.latitude || 0, 
+        userLocation.lat,
+        userLocation.lng,
+        b.latitude || 0,
         b.longitude || 0
       );
       return distanceA - distanceB;
     }
     return 0;
   });
+
+  // Pagination logic
+  const totalFilteredStations = filteredStations.length;
+  const totalPagesCalculated = Math.ceil(totalFilteredStations / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedStations = filteredStations.slice(startIndex, endIndex);
+
+  // Update total pages when filtered stations change
+  useEffect(() => {
+    setTotalPages(totalPagesCalculated);
+    // Reset to first page if current page is beyond available pages
+    if (currentPage > totalPagesCalculated && totalPagesCalculated > 0) {
+      setCurrentPage(1);
+    }
+  }, [filteredStations.length, currentPage, totalPagesCalculated]);
 
   console.log("Filtered stations:", filteredStations);
   console.log("Filtered stations length:", filteredStations.length);
@@ -2237,7 +2497,37 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
 
       </div>
 
-
+      {/* Map Legend */}
+      <div className="bg-card/60 backdrop-blur-sm border-b border-border">
+        <div className="container mx-auto px-4 py-3">
+          <div className="flex items-center justify-center space-x-6">
+            <div className="flex items-center space-x-2">
+              <div className="w-4 h-4 rounded-full bg-green-500 border-2 border-white shadow-sm"></div>
+              <span className="text-sm font-medium text-foreground">
+                {language === 'vi' ? 'Hoạt động' : 'Active'}
+              </span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <div className="w-4 h-4 rounded-full bg-amber-500 border-2 border-white shadow-sm"></div>
+              <span className="text-sm font-medium text-foreground">
+                {language === 'vi' ? 'Không hoạt động' : 'Inactive'}
+              </span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <div className="w-4 h-4 rounded-full bg-red-500 border-2 border-white shadow-sm"></div>
+              <span className="text-sm font-medium text-foreground">
+                {language === 'vi' ? 'Bảo trì' : 'Maintenance'}
+              </span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <div className="w-4 h-4 rounded-full bg-gray-500 border-2 border-white shadow-sm"></div>
+              <span className="text-sm font-medium text-foreground">
+                {language === 'vi' ? 'Không xác định' : 'Unknown'}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
 
       {/* Main Content */}
 
@@ -2291,6 +2581,116 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
               </CardHeader>
               <CardContent className="p-0">
                 <div className="relative">
+                  {/* Search Bar */}
+                  <div className="absolute top-4 left-4 z-10 search-container">
+                    <div className="relative w-80">
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-white/70" />
+                        <Input
+                          type="text"
+                          placeholder={language === 'vi' ? 'Tìm kiếm trạm sạc...' : 'Search stations...'}
+                          value={searchQuery}
+                          onChange={(e) => handleSearchChange(e.target.value)}
+                          className="pl-10 pr-10 bg-black/90 backdrop-blur-sm border-2 border-white/30 shadow-xl focus:ring-2 focus:ring-white/30 focus:border-white/60 text-white placeholder:text-white/60 h-10 rounded-lg"
+                        />
+                        {searchQuery && (
+                          <button
+                            onClick={() => {
+                              setSearchQuery("");
+                              setSearchResults([]);
+                              setShowSearchResults(false);
+                            }}
+                            className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-white/70 hover:text-white transition-colors"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Search Results Dropdown */}
+                      <AnimatePresence>
+                        {showSearchResults && searchResults.length > 0 && (
+                          <motion.div
+                            initial={{ opacity: 0, y: -10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -10 }}
+                            transition={{ duration: 0.2 }}
+                            className="absolute top-full left-0 right-0 mt-2 bg-black border border-gray-600 rounded-lg shadow-xl max-h-60 overflow-y-auto z-20"
+                          >
+                            {searchResults.slice(0, 5).map((station, index) => (
+                              <motion.div
+                                key={station.stationId}
+                                initial={{ opacity: 0, x: -10 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                transition={{ duration: 0.2, delay: index * 0.05 }}
+                                onClick={() => handleSearchResultClick(station)}
+                                className={`p-3 hover:bg-gray-800 cursor-pointer border-b border-gray-700 last:border-b-0 transition-colors duration-200 ${
+                                  isNavigating ? 'opacity-50 pointer-events-none' : ''
+                                }`}
+                              >
+                                <div className="flex items-start space-x-3">
+                                  <div className="w-8 h-8 bg-white/10 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
+                                    <MapPin className="w-4 h-4 text-white" />
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <h4 className="font-medium text-white truncate">
+                                      {station.stationName}
+                                    </h4>
+                                    <p className="text-sm text-white/70 truncate">
+                                      {station.address}
+                                    </p>
+                                    <div className="flex items-center space-x-2 mt-1">
+                                      <Badge 
+                                        variant="outline" 
+                                        className={`text-xs ${
+                                          station.status === 'ACTIVE' ? 'bg-green-500/20 text-green-300 border-green-400/30' :
+                                          station.status === 'INACTIVE' ? 'bg-amber-500/20 text-amber-300 border-amber-400/30' :
+                                          station.status === 'MAINTENANCE' ? 'bg-red-500/20 text-red-300 border-red-400/30' :
+                                          'bg-gray-500/20 text-gray-300 border-gray-400/30'
+                                        }`}
+                                      >
+                                        {station.status === 'ACTIVE' ? (language === 'vi' ? 'Hoạt động' : 'Active') :
+                                         station.status === 'INACTIVE' ? (language === 'vi' ? 'Không hoạt động' : 'Inactive') :
+                                         station.status === 'MAINTENANCE' ? (language === 'vi' ? 'Bảo trì' : 'Maintenance') :
+                                         (language === 'vi' ? 'Không xác định' : 'Unknown')}
+                                      </Badge>
+                                      <span className="text-xs text-white/60">
+                                        {station.chargingPointNumber || 0} {language === 'vi' ? 'trụ sạc' : 'charging points'}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+                              </motion.div>
+                            ))}
+                            {/* Navigation Loading Indicator */}
+                            {isNavigating && (
+                              <motion.div 
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                className="p-3 text-center text-sm text-blue-400 border-t border-gray-700 bg-blue-500/10"
+                              >
+                                <div className="flex items-center justify-center space-x-2">
+                                  <div className="w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin"></div>
+                                  <span>
+                                    {language === 'vi' ? 'Đang di chuyển đến trạm...' : 'Navigating to station...'}
+                                  </span>
+                                </div>
+                              </motion.div>
+                            )}
+                            
+                            {searchResults.length > 5 && !isNavigating && (
+                              <div className="p-3 text-center text-sm text-gray-400 border-t border-gray-700">
+                                {language === 'vi' 
+                                  ? `Hiển thị 5 trong ${searchResults.length} kết quả` 
+                                  : `Showing 5 of ${searchResults.length} results`}
+                              </div>
+                            )}
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
+                  </div>
+
                   {/* Map Container */}
                   <div
                     ref={mapContainerRef}
@@ -2327,33 +2727,69 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
+                {/* Total Charging Points Summary */}
+                <div className="bg-gradient-to-r from-primary/10 to-accent/10 rounded-lg p-3 border border-primary/20">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <Zap className="w-4 h-4 text-primary" />
+                      <span className="font-semibold text-sm">
+                        {language === 'vi' ? 'Tổng trụ sạc' : 'Total Charging Points'}
+                      </span>
+                    </div>
+                    <Badge variant="default" className="text-sm font-bold bg-primary text-primary-foreground">
+                      {totalChargingPoints}
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {language === 'vi' 
+                      ? `Tổng cộng ${totalChargingPoints} trụ sạc từ ${filteredStations.length} trạm`
+                      : `Total of ${totalChargingPoints} charging points from ${filteredStations.length} stations`
+                    }
+                  </p>
+                </div>
+
                 <div className="grid grid-cols-1 gap-3 text-sm">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-3">
                       <div className="w-4 h-4 bg-green-500 rounded-full shadow-sm" />
                       <span className="font-medium">Active</span>
                     </div>
-                    <Badge variant="secondary" className="text-xs">
-                      {filteredStations.filter(s => s.status === "Available").length}
-                    </Badge>
+                    <div className="flex items-center space-x-2">
+                      <Badge variant="secondary" className="text-xs">
+                        {filteredStations.filter(s => s.status === "ACTIVE").length}
+                      </Badge>
+                      <span className="text-xs text-muted-foreground">
+                        ({filteredStations.filter(s => s.status === "ACTIVE").reduce((sum, s) => sum + (s.chargingPointNumber || 0), 0)} {language === 'vi' ? 'trụ' : 'points'})
+                      </span>
+                    </div>
                   </div>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-3">
                       <div className="w-4 h-4 bg-yellow-500 rounded-full shadow-sm" />
                       <span className="font-medium">Inactive</span>
                     </div>
-                    <Badge variant="secondary" className="text-xs">
-                      {filteredStations.filter(s => s.status === "Busy").length}
-                    </Badge>
+                    <div className="flex items-center space-x-2">
+                      <Badge variant="secondary" className="text-xs">
+                        {filteredStations.filter(s => s.status === "INACTIVE").length}
+                      </Badge>
+                      <span className="text-xs text-muted-foreground">
+                        ({filteredStations.filter(s => s.status === "INACTIVE").reduce((sum, s) => sum + (s.chargingPointNumber || 0), 0)} {language === 'vi' ? 'trụ' : 'points'})
+                      </span>
+                    </div>
                   </div>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-3">
                       <div className="w-4 h-4 bg-red-500 rounded-full shadow-sm" />
                       <span className="font-medium">Maintenance</span>
                     </div>
-                    <Badge variant="secondary" className="text-xs">
-                      {filteredStations.filter(s => s.status === "Maintenance").length}
-                    </Badge>
+                    <div className="flex items-center space-x-2">
+                      <Badge variant="secondary" className="text-xs">
+                        {filteredStations.filter(s => s.status === "MAINTENANCE").length}
+                      </Badge>
+                      <span className="text-xs text-muted-foreground">
+                        ({filteredStations.filter(s => s.status === "MAINTENANCE").reduce((sum, s) => sum + (s.chargingPointNumber || 0), 0)} {language === 'vi' ? 'trụ' : 'points'})
+                      </span>
+                    </div>
                   </div>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-3">
@@ -2363,26 +2799,6 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                     <Badge variant="outline" className="text-xs">
                       Current
                     </Badge>
-                  </div>
-                </div>
-
-                <Separator />
-
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between text-sm">
-                    <span>Show route to selected station</span>
-                    <Switch
-                      checked={showRoute}
-                      onCheckedChange={(checked: boolean) => {
-                        setShowRoute(checked);
-                        if (checked && selectedStation) {
-                          setIsLoadingRoute(true);
-                          const details = calculateRouteDetails(selectedStation);
-                          setRouteDetails(details);
-                          setTimeout(() => setIsLoadingRoute(false), 1500);
-                        }
-                      }}
-                    />
                   </div>
                 </div>
               </CardContent>
@@ -2410,7 +2826,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                     <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
                     <span>{language === 'vi' ? 'Làm mới' : 'Refresh'}</span>
                   </Button>
-                  
+
                   <Button
                     variant={sortByDistance ? "default" : "outline"}
                     size="sm"
@@ -2425,7 +2841,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                     <Navigation className="w-4 h-4" />
                     <span>{language === 'vi' ? 'Gần nhất' : 'Nearest'}</span>
                   </Button>
-                  
+
                   <span className="text-sm text-muted-foreground">
 
                     {filteredStations.length} stations found
@@ -2484,7 +2900,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
               </div>
             ) : (
               <div className="space-y-2">
-                {filteredStations.map((station) => (
+                {paginatedStations.map((station) => (
 
                   <motion.div
 
@@ -2561,7 +2977,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
 
                     {/* View Details Button */}
 
-                    <div className="flex justify-center mt-3 mb-3">
+                    <div className="flex justify-center mt-3 mb-3 space-x-2">
                       <Button
 
                         variant="outline"
@@ -2583,9 +2999,205 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
 
                       </Button>
 
+                      <Button
+
+                        variant="outline"
+
+                        size="sm"
+
+                        onClick={(e: React.MouseEvent) => {
+                          e.stopPropagation();
+
+                          handleLoadChargingPoints(station.stationId!.toString());
+
+                        }}
+
+                        disabled={loadingPoints}
+
+                        className="flex items-center space-x-2 text-xs px-3 py-1"
+                      >
+
+                        {loadingPoints ? (
+                          <div className="w-3 h-3 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                        ) : (
+                          <Zap className="w-3 h-3" />
+                        )}
+                        <span>
+                          {language === 'vi' ? 'Xem Trụ Sạc' : 'View Charging Points'}
+                        </span>
+
+                      </Button>
+
                     </div>
 
+                    {/* Charging Points Section */}
+                    <AnimatePresence>
+                      {(() => {
+                        const isExpanded = expandedStationId === station.stationId?.toString();
+                        console.log('Checking display condition:', {
+                          expandedStationId,
+                          stationId: station.stationId?.toString(),
+                          isExpanded,
+                          chargingPointsLength: chargingPoints.length,
+                          loadingPoints
+                        });
+                        return isExpanded;
+                      })() && (
+                        <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: "auto" }}
+                        exit={{ opacity: 0, height: 0 }}
+                        transition={{ duration: 0.3 }}
+                        className="mt-4 p-4 bg-muted/30 rounded-lg border border-border"
+                      >
+                        <div className="flex items-center justify-between mb-3">
+                          <h4 className="font-semibold text-sm text-foreground">
+                            {language === 'vi' ? 'Danh sách Trụ Sạc' : 'Charging Points'}
+                          </h4>
+                          <Badge variant="secondary" className="text-xs">
+                            {chargingPoints.length} {language === 'vi' ? 'trụ' : 'points'}
+                          </Badge>
+                        </div>
 
+                        <div className="space-y-3">
+                          {loadingPoints ? (
+                            <div className="flex items-center justify-center py-4">
+                              <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin mr-2"></div>
+                              <span className="text-sm text-muted-foreground">
+                                {language === 'vi' ? 'Đang tải danh sách trụ sạc...' : 'Loading charging points...'}
+                              </span>
+                            </div>
+                          ) : chargingPoints.length > 0 ? (
+                            chargingPoints.map((point, index) => (
+                            <motion.div
+                              key={point.chargingPointId || index}
+                              initial={{ opacity: 0, y: 10 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              transition={{ delay: index * 0.1 }}
+                              className="bg-card rounded-lg p-3 border border-border shadow-sm"
+                            >
+                              <div className="flex items-center justify-between mb-2">
+                                <div className="flex items-center space-x-2">
+                                  <div className="w-2 h-2 rounded-full bg-primary"></div>
+                                  <span className="font-medium text-sm">
+                                    {language === 'vi' ? 'Trụ sạc' : 'Charging Point'} #{point.chargingPointId}
+                                  </span>
+                                </div>
+                                <Badge 
+                                  variant={point.status === 'AVAILABLE' ? 'default' : 'secondary'}
+                                  className={`text-xs ${
+                                    point.status === 'AVAILABLE' 
+                                      ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100' 
+                                      : point.status === 'OCCUPIED'
+                                      ? 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-100'
+                                      : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-100'
+                                  }`}
+                                >
+                                  {point.status}
+                                </Badge>
+                              </div>
+
+                              <div className="grid grid-cols-2 gap-3 text-xs">
+                                <div className="space-y-1">
+                                  <div className="flex items-center space-x-1">
+                                    <Zap className="w-3 h-3 text-primary" />
+                                    <span className="text-muted-foreground">
+                                      {language === 'vi' ? 'Loại:' : 'Type:'}
+                                    </span>
+                                  </div>
+                                  <span className="font-medium text-foreground">
+                                    {point.connectorType.typeName} (ID: {point.connectorType.connectorTypeId})
+                                  </span>
+                                </div>
+
+                                <div className="space-y-1">
+                                  <div className="flex items-center space-x-1">
+                                    <svg className="w-3 h-3 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                                    </svg>
+                                    <span className="text-muted-foreground">
+                                      {language === 'vi' ? 'Công suất:' : 'Power:'}
+                                    </span>
+                                  </div>
+                                  <span className="font-medium text-foreground">
+                                    {point.connectorType.powerOutput} kW
+                                  </span>
+                                </div>
+
+                                <div className="space-y-1">
+                                  <div className="flex items-center space-x-1">
+                                    <svg className="w-3 h-3 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
+                                    </svg>
+                                    <span className="text-muted-foreground">
+                                      {language === 'vi' ? 'Giá:' : 'Price:'}
+                                    </span>
+                                  </div>
+                                  <span className="font-medium text-foreground">
+                                    {point.connectorType.pricePerKWh.toLocaleString('vi-VN')} VND/kWh
+                                  </span>
+                                </div>
+
+                                <div className="space-y-1">
+                                  <div className="flex items-center space-x-1">
+                                    <svg className="w-3 h-3 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                    <span className="text-muted-foreground">
+                                      {language === 'vi' ? 'Trạng thái:' : 'Status:'}
+                                    </span>
+                                  </div>
+                                  <span className={`font-medium ${
+                                    point.status === 'AVAILABLE' 
+                                      ? 'text-green-600' 
+                                      : point.status === 'OCCUPIED'
+                                      ? 'text-orange-600'
+                                      : 'text-red-600'
+                                  }`}>
+                                    {point.status === 'AVAILABLE' 
+                                      ? (language === 'vi' ? 'Khả dụng' : 'Available')
+                                      : point.status === 'OCCUPIED'
+                                      ? (language === 'vi' ? 'Đang sử dụng' : 'Occupied')
+                                      : (language === 'vi' ? 'Không khả dụng' : 'Unavailable')
+                                    }
+                                  </span>
+                                </div>
+                              </div>
+                            </motion.div>
+                            ))
+                          ) : (
+                            <div className="flex items-center justify-center py-4">
+                              <div className="text-center space-y-2">
+                                <div className="w-12 h-12 mx-auto bg-muted rounded-full flex items-center justify-center">
+                                  <Zap className="w-6 h-6 text-muted-foreground" />
+                                </div>
+                                <p className="text-sm text-muted-foreground">
+                                  {language === 'vi' ? 'Không có trụ sạc nào' : 'No charging points available'}
+                                </p>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="mt-3 pt-3 border-t border-border">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setExpandedStationId(null);
+                              setChargingPoints([]);
+                            }}
+                            className="w-full text-xs"
+                          >
+                            <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                            {language === 'vi' ? 'Đóng danh sách' : 'Close List'}
+                          </Button>
+                        </div>
+                      </motion.div>
+                      )}
+                    </AnimatePresence>
 
                     {/* Enhanced Booking Section */}
 
@@ -2703,7 +3315,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
 
                                   className={`h-full transition-all duration-300 ${currentBatteryLevel <= 20 ? 'bg-destructive' :
 
-                                      currentBatteryLevel <= 50 ? 'bg-yellow-500' : 'bg-primary'
+                                    currentBatteryLevel <= 50 ? 'bg-yellow-500' : 'bg-primary'
 
                                     }`}
 
@@ -2733,7 +3345,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
 
                                 <div className={`text-3xl font-bold ${currentBatteryLevel <= 20 ? 'text-destructive' :
 
-                                    currentBatteryLevel <= 50 ? 'text-yellow-600' : 'text-primary'
+                                  currentBatteryLevel <= 50 ? 'text-yellow-600' : 'text-primary'
 
                                   }`}>
 
@@ -2765,15 +3377,15 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
 
                                       className={`p-2 rounded-lg text-sm font-medium transition-all hover:scale-105 ${currentBatteryLevel === level
 
-                                          ? level === 25 ? 'bg-orange-500 text-white' :
+                                        ? level === 25 ? 'bg-orange-500 text-white' :
 
-                                            level === 50 ? 'bg-yellow-500 text-white' :
+                                          level === 50 ? 'bg-yellow-500 text-white' :
 
-                                              level === 75 ? 'bg-green-500 text-white' :
+                                            level === 75 ? 'bg-green-500 text-white' :
 
-                                                'bg-primary text-primary-foreground'
+                                              'bg-primary text-primary-foreground'
 
-                                          : 'bg-muted hover:bg-muted/80 text-muted-foreground'
+                                        : 'bg-muted hover:bg-muted/80 text-muted-foreground'
 
                                         }`}
 
@@ -2813,7 +3425,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
 
                                   <div className={`text-lg font-bold ${currentBatteryLevel <= 20 ? 'text-destructive' :
 
-                                      currentBatteryLevel <= 50 ? 'text-yellow-600' : 'text-primary'
+                                    currentBatteryLevel <= 50 ? 'text-yellow-600' : 'text-primary'
 
                                     }`}>
 
@@ -2892,9 +3504,9 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
 
                                     className={`p-1.5 rounded text-xs font-medium transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed ${targetBatteryLevel === level
 
-                                        ? 'bg-primary text-primary-foreground'
+                                      ? 'bg-primary text-primary-foreground'
 
-                                        : 'bg-muted hover:bg-muted/80'
+                                      : 'bg-muted hover:bg-muted/80'
 
                                       }`}
 
@@ -3399,6 +4011,147 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                 ))}
 
               </div>
+            )}
+
+            {/* Pagination Controls */}
+            {!loading && filteredStations.length > 0 && (
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3 }}
+                className="mt-6 space-y-4"
+              >
+                {/* Pagination Info */}
+                <div className="flex items-center justify-between text-sm text-muted-foreground px-2">
+                  <span>
+                    {language === 'vi' 
+                      ? `Hiển thị ${startIndex + 1}-${Math.min(endIndex, totalFilteredStations)} của ${totalFilteredStations} trạm`
+                      : `Showing ${startIndex + 1}-${Math.min(endIndex, totalFilteredStations)} of ${totalFilteredStations} stations`
+                    }
+                  </span>
+                  <span className="font-medium">
+                    {language === 'vi' ? `Trang ${currentPage}/${totalPages}` : `Page ${currentPage}/${totalPages}`}
+                  </span>
+                </div>
+
+                {/* Pagination Buttons */}
+                <div className="flex items-center justify-center space-x-2">
+                  {/* First Page Button */}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(1)}
+                    disabled={currentPage === 1}
+                    className="h-9 w-9 p-0"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+                    </svg>
+                  </Button>
+
+                  {/* Previous Page Button */}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                    disabled={currentPage === 1}
+                    className="h-9 px-3"
+                  >
+                    <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                    </svg>
+                    {language === 'vi' ? 'Trước' : 'Prev'}
+                  </Button>
+
+                  {/* Page Numbers */}
+                  <div className="flex items-center space-x-1">
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => {
+                      // Show first page, last page, current page, and pages around current
+                      const showPage = 
+                        pageNum === 1 || 
+                        pageNum === totalPages || 
+                        (pageNum >= currentPage - 1 && pageNum <= currentPage + 1);
+                      
+                      const showEllipsisBefore = pageNum === currentPage - 2 && currentPage > 3;
+                      const showEllipsisAfter = pageNum === currentPage + 2 && currentPage < totalPages - 2;
+
+                      if (showEllipsisBefore || showEllipsisAfter) {
+                        return (
+                          <span key={pageNum} className="px-2 text-muted-foreground">
+                            ...
+                          </span>
+                        );
+                      }
+
+                      if (!showPage) return null;
+
+                      return (
+                        <Button
+                          key={pageNum}
+                          variant={currentPage === pageNum ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => setCurrentPage(pageNum)}
+                          className={`h-9 w-9 p-0 ${
+                            currentPage === pageNum 
+                              ? "bg-primary text-primary-foreground shadow-md" 
+                              : "hover:bg-accent"
+                          }`}
+                        >
+                          {pageNum}
+                        </Button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Next Page Button */}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                    disabled={currentPage === totalPages}
+                    className="h-9 px-3"
+                  >
+                    {language === 'vi' ? 'Sau' : 'Next'}
+                    <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </Button>
+
+                  {/* Last Page Button */}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(totalPages)}
+                    disabled={currentPage === totalPages}
+                    className="h-9 w-9 p-0"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+                    </svg>
+                  </Button>
+                </div>
+
+                {/* Quick Jump */}
+                <div className="flex items-center justify-center space-x-2 text-sm">
+                  <span className="text-muted-foreground">
+                    {language === 'vi' ? 'Nhảy đến trang:' : 'Jump to page:'}
+                  </span>
+                  <input
+                    type="number"
+                    min="1"
+                    max={totalPages}
+                    value={currentPage}
+                    onChange={(e) => {
+                      const page = parseInt(e.target.value);
+                      if (page >= 1 && page <= totalPages) {
+                        setCurrentPage(page);
+                      }
+                    }}
+                    className="w-16 h-8 px-2 text-center border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
+                  <span className="text-muted-foreground">/ {totalPages}</span>
+                </div>
+              </motion.div>
             )}
           </div>
 
