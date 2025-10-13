@@ -1,0 +1,417 @@
+-- Insert into connector_types (5 records)
+-- Columns: type_name, power_output, price_per_kwh (connector_type_id is IDENTITY)
+INSERT INTO [dbo].[connector_types] ([type_name], [power_output], [price_per_kwh]) VALUES ('Type 1', 7.4, 0.35);
+INSERT INTO [dbo].[connector_types] ([type_name], [power_output], [price_per_kwh]) VALUES ('Type 2', 22.0, 0.40);
+INSERT INTO [dbo].[connector_types] ([type_name], [power_output], [price_per_kwh]) VALUES ('CCS', 50.0, 0.50);
+INSERT INTO [dbo].[connector_types] ([type_name], [power_output], [price_per_kwh]) VALUES ('CHAdeMO', 50.0, 0.45);
+INSERT INTO [dbo].[connector_types] ([type_name], [power_output], [price_per_kwh]) VALUES ('Tesla Supercharger', 120.0, 0.55);
+
+-- Insert into car_models (5 records)
+-- Columns: brand, model, capacity, product_year, img_url (car_model_id is IDENTITY)
+INSERT INTO [dbo].[car_models] ([brand], [model], [capacity], [product_year], [img_url]) VALUES ('Tesla', 'Model 3', 75.0, 2022, 'https://example.com/tesla_model3.jpg');
+INSERT INTO [dbo].[car_models] ([brand], [model], [capacity], [product_year], [img_url]) VALUES ('Nissan', 'Leaf', 40.0, 2021, 'https://example.com/nissan_leaf.jpg');
+INSERT INTO [dbo].[car_models] ([brand], [model], [capacity], [product_year], [img_url]) VALUES ('Chevrolet', 'Bolt', 66.0, 2023, 'https://example.com/chevy_bolt.jpg');
+INSERT INTO [dbo].[car_models] ([brand], [model], [capacity], [product_year], [img_url]) VALUES ('BMW', 'i3', 42.0, 2020, 'https://example.com/bmw_i3.jpg');
+INSERT INTO [dbo].[car_models] ([brand], [model], [capacity], [product_year], [img_url]) VALUES ('Audi', 'e-tron', 95.0, 2022, 'https://example.com/audi_etron.jpg');
+
+-- Insert into charging_stations (5 records)
+-- Columns: station_name, address, latitude, longitude, charging_point_number, status (station_id is IDENTITY)
+INSERT INTO [dbo].[charging_stations] ([station_name], [address], [latitude], [longitude], [charging_point_number], [status]) VALUES (N'Station A', N'123 Main St, City1', 40.7128, -74.0060, 4, 'ACTIVE');
+INSERT INTO [dbo].[charging_stations] ([station_name], [address], [latitude], [longitude], [charging_point_number], [status]) VALUES (N'Station B', N'456 Elm St, City2', 34.0522, -118.2437, 3, 'ACTIVE');
+INSERT INTO [dbo].[charging_stations] ([station_name], [address], [latitude], [longitude], [charging_point_number], [status]) VALUES (N'Station C', N'789 Oak St, City3', 41.8781, -87.6298, 5, 'INACTIVE');
+INSERT INTO [dbo].[charging_stations] ([station_name], [address], [latitude], [longitude], [charging_point_number], [status]) VALUES (N'Station D', N'101 Pine St, City4', 37.7749, -122.4194, 2, 'ACTIVE');
+INSERT INTO [dbo].[charging_stations] ([station_name], [address], [latitude], [longitude], [charging_point_number], [status]) VALUES (N'Station E', N'202 Maple St, City5', 51.5074, -0.1278, 6, 'MAINTENANCE');
+
+-- Insert into users (5 records)
+-- Columns: full_name, email, phone, password, address, date_of_birth, avatar, facebook_id, google_id, role, status (user_id is IDENTITY)
+-- Mix roles: 2 DRIVER, 1 STAFF, 1 ADMIN, 1 BANNED DRIVER
+INSERT INTO [dbo].[users] ([full_name], [email], [phone], [password], [address], [date_of_birth], [avatar], [facebook_id], [google_id], [role], [status]) VALUES (N'John Doe', 'john@example.com', '1234567890', 'hashedpass1', N'Address1', '1990-01-01', 'avatar1.jpg', NULL, NULL, 'DRIVER', 'ACTIVE');
+INSERT INTO [dbo].[users] ([full_name], [email], [phone], [password], [address], [date_of_birth], [avatar], [facebook_id], [google_id], [role], [status]) VALUES (N'Jane Smith', 'jane@example.com', '0987654321', 'hashedpass2', N'Address2', '1985-05-15', 'avatar2.jpg', NULL, NULL, 'DRIVER', 'ACTIVE');
+INSERT INTO [dbo].[users] ([full_name], [email], [phone], [password], [address], [date_of_birth], [avatar], [facebook_id], [google_id], [role], [status]) VALUES (N'Admin User', 'admin@example.com', '1112223334', 'hashedpass3', N'Admin Address', '1980-10-10', 'admin.jpg', NULL, NULL, 'ADMIN', 'ACTIVE');
+INSERT INTO [dbo].[users] ([full_name], [email], [phone], [password], [address], [date_of_birth], [avatar], [facebook_id], [google_id], [role], [status]) VALUES (N'Staff Member', 'staff@example.com', '4445556667', 'hashedpass4', N'Staff Address', '1995-03-20', 'staff.jpg', NULL, NULL, 'STAFF', 'ACTIVE');
+INSERT INTO [dbo].[users] ([full_name], [email], [phone], [password], [address], [date_of_birth], [avatar], [facebook_id], [google_id], [role], [status]) VALUES (N'Banned Driver', 'banned@example.com', '7778889990', 'hashedpass5', N'Banned Address', '2000-07-07', 'banned.jpg', NULL, NULL, 'DRIVER', 'BANNED');
+
+-- Insert into fee (5 records)
+-- Columns: type, amount (fee_id is IDENTITY)
+-- Types: CHARGING, NO_SHOW, CANCEL
+INSERT INTO [dbo].[fee] ([type], [amount]) VALUES ('CHARGING', 5.0);
+INSERT INTO [dbo].[fee] ([type], [amount]) VALUES ('NO_SHOW', 10.0);
+INSERT INTO [dbo].[fee] ([type], [amount]) VALUES ('CANCEL', 2.5);
+INSERT INTO [dbo].[fee] ([type], [amount]) VALUES ('CHARGING', 7.5);
+INSERT INTO [dbo].[fee] ([type], [amount]) VALUES ('NO_SHOW', 15.0);
+
+-- Now insert into carmodel_connectortype (5 records)
+-- Assuming car_model_id 1-5 and connector_type_id 1-5 exist
+INSERT INTO [dbo].[carmodel_connectortype] ([car_model_id], [connector_type_id]) VALUES (1, 5);  -- Tesla with Tesla Supercharger
+INSERT INTO [dbo].[carmodel_connectortype] ([car_model_id], [connector_type_id]) VALUES (2, 4);  -- Nissan Leaf with CHAdeMO
+INSERT INTO [dbo].[carmodel_connectortype] ([car_model_id], [connector_type_id]) VALUES (3, 3);  -- Chevy Bolt with CCS
+INSERT INTO [dbo].[carmodel_connectortype] ([car_model_id], [connector_type_id]) VALUES (4, 2);  -- BMW i3 with Type 2
+INSERT INTO [dbo].[carmodel_connectortype] ([car_model_id], [connector_type_id]) VALUES (5, 1);  -- Audi e-tron with Type 1
+
+-- Insert into charging_points (5 records)
+-- Columns: connector_type_id, station_station_id, status (charging_point_id is IDENTITY)
+-- Use existing connector_type_id 1-5 and station_id 1-5
+INSERT INTO [dbo].[charging_points] ([connector_type_id], [station_station_id], [status]) VALUES (1, 1, 'AVAILABLE');
+INSERT INTO [dbo].[charging_points] ([connector_type_id], [station_station_id], [status]) VALUES (2, 2, 'OCCUPIED');
+INSERT INTO [dbo].[charging_points] ([connector_type_id], [station_station_id], [status]) VALUES (3, 3, 'MAINTENANCE');
+INSERT INTO [dbo].[charging_points] ([connector_type_id], [station_station_id], [status]) VALUES (4, 4, 'OUT_OF_SERVICE');
+INSERT INTO [dbo].[charging_points] ([connector_type_id], [station_station_id], [status]) VALUES (5, 5, 'AVAILABLE');
+
+-- Insert into vehicles (5 records)
+-- Columns: brand, model, capacity, product_year, plate_number, car_model_id, user_user_id (vehicle_id is IDENTITY)
+-- Use existing car_model_id 1-5 and user_id 1-5 (drivers/admin/staff)
+INSERT INTO [dbo].[vehicles] ([brand], [model], [capacity], [product_year], [plate_number], [car_model_id], [user_user_id]) VALUES ('Tesla', 'Model 3', 75.0, 2022, 'ABC123', 1, 1);
+INSERT INTO [dbo].[vehicles] ([brand], [model], [capacity], [product_year], [plate_number], [car_model_id], [user_user_id]) VALUES ('Nissan', 'Leaf', 40.0, 2021, 'DEF456', 2, 2);
+INSERT INTO [dbo].[vehicles] ([brand], [model], [capacity], [product_year], [plate_number], [car_model_id], [user_user_id]) VALUES ('Chevrolet', 'Bolt', 66.0, 2023, 'GHI789', 3, 1);
+INSERT INTO [dbo].[vehicles] ([brand], [model], [capacity], [product_year], [plate_number], [car_model_id], [user_user_id]) VALUES ('BMW', 'i3', 42.0, 2020, 'JKL012', 4, 2);
+INSERT INTO [dbo].[vehicles] ([brand], [model], [capacity], [product_year], [plate_number], [car_model_id], [user_user_id]) VALUES ('Audi', 'e-tron', 95.0, 2022, 'MNO345', 5, 5);  -- Banned user
+
+-- Insert into wallet (5 records)
+-- Columns: user_id, balance, updated_at (wallet_id is IDENTITY)
+-- One per user (user_id 1-5)
+INSERT INTO [dbo].[wallet] ([user_id], [balance], [updated_at]) VALUES (1, 100.0, '2025-10-12 10:00:00');
+INSERT INTO [dbo].[wallet] ([user_id], [balance], [updated_at]) VALUES (2, 50.0, '2025-10-12 11:00:00');
+INSERT INTO [dbo].[wallet] ([user_id], [balance], [updated_at]) VALUES (3, 200.0, '2025-10-12 12:00:00');
+INSERT INTO [dbo].[wallet] ([user_id], [balance], [updated_at]) VALUES (4, 0.0, '2025-10-12 13:00:00');
+INSERT INTO [dbo].[wallet] ([user_id], [balance], [updated_at]) VALUES (5, 25.0, '2025-10-12 14:00:00');
+
+-- Insert into subscription (5 records)
+-- Columns: user_id, type, start_date, end_date (subscription_id is IDENTITY)
+-- Types: BASIC, PLUS, PREMIUM
+INSERT INTO [dbo].[subscription] ([user_id], [type], [start_date], [end_date]) VALUES (1, 'BASIC', '2025-01-01', '2025-12-31');
+INSERT INTO [dbo].[subscription] ([user_id], [type], [start_date], [end_date]) VALUES (2, 'PLUS', '2025-02-01', '2025-11-30');
+INSERT INTO [dbo].[subscription] ([user_id], [type], [start_date], [end_date]) VALUES (3, 'PREMIUM', '2025-03-01', '2026-03-01');
+INSERT INTO [dbo].[subscription] ([user_id], [type], [start_date], [end_date]) VALUES (4, 'BASIC', '2025-04-01', '2025-10-01');
+INSERT INTO [dbo].[subscription] ([user_id], [type], [start_date], [end_date]) VALUES (5, 'PLUS', '2025-05-01', '2025-09-30');
+
+-- Insert into verification (5 records)
+-- Columns: user_id, verification_type (0-2), verification_token, created_at, expiration (verification_id is IDENTITY)
+INSERT INTO [dbo].[verification] ([user_id], [verification_type], [verification_token], [created_at], [expiration]) VALUES (1, 0, 'token1', '2025-10-12 09:00:00', '2025-10-13 09:00:00');
+INSERT INTO [dbo].[verification] ([user_id], [verification_type], [verification_token], [created_at], [expiration]) VALUES (2, 1, 'token2', '2025-10-12 10:00:00', '2025-10-13 10:00:00');
+INSERT INTO [dbo].[verification] ([user_id], [verification_type], [verification_token], [created_at], [expiration]) VALUES (3, 2, 'token3', '2025-10-12 11:00:00', '2025-10-13 11:00:00');
+INSERT INTO [dbo].[verification] ([user_id], [verification_type], [verification_token], [created_at], [expiration]) VALUES (4, 0, 'token4', '2025-10-12 12:00:00', '2025-10-13 12:00:00');
+INSERT INTO [dbo].[verification] ([user_id], [verification_type], [verification_token], [created_at], [expiration]) VALUES (5, 1, 'token5', '2025-10-12 13:00:00', '2025-10-13 13:00:00');
+
+-- Insert into notification (5 records)
+-- Columns: user_id, content, type, sent_time (notification_id is IDENTITY)
+-- Types: BOOKING, PAYMENT, ISSUE, GENERAL
+INSERT INTO [dbo].[notification] ([user_id], [content], [type], [sent_time]) VALUES (1, 'Your booking is confirmed.', 'BOOKING', '2025-10-12 14:00:00');
+INSERT INTO [dbo].[notification] ([user_id], [content], [type], [sent_time]) VALUES (2, 'Payment successful.', 'PAYMENT', '2025-10-12 15:00:00');
+INSERT INTO [dbo].[notification] ([user_id], [content], [type], [sent_time]) VALUES (3, 'Issue reported.', 'ISSUE', '2025-10-12 16:00:00');
+INSERT INTO [dbo].[notification] ([user_id], [content], [type], [sent_time]) VALUES (4, 'General update.', 'GENERAL', '2025-10-12 17:00:00');
+INSERT INTO [dbo].[notification] ([user_id], [content], [type], [sent_time]) VALUES (5, 'Booking canceled.', 'BOOKING', '2025-10-12 18:00:00');
+
+-- Insert into price_factor (5 records)
+-- Columns: station_id, factor, description, start_time, end_time (price_factor_id is IDENTITY)
+INSERT INTO [dbo].[price_factor] ([station_id], [factor], [description], [start_time], [end_time]) VALUES (1, 1.1, 'Peak hour', '2025-10-12 08:00:00', '2025-10-12 18:00:00');
+INSERT INTO [dbo].[price_factor] ([station_id], [factor], [description], [start_time], [end_time]) VALUES (2, 0.9, 'Off-peak', '2025-10-12 18:00:00', '2025-10-13 08:00:00');
+INSERT INTO [dbo].[price_factor] ([station_id], [factor], [description], [start_time], [end_time]) VALUES (3, 1.2, 'Weekend surge', '2025-10-12 00:00:00', '2025-10-13 23:59:59');
+INSERT INTO [dbo].[price_factor] ([station_id], [factor], [description], [start_time], [end_time]) VALUES (4, 1.0, 'Normal', NULL, NULL);
+INSERT INTO [dbo].[price_factor] ([station_id], [factor], [description], [start_time], [end_time]) VALUES (5, 0.8, 'Discount', '2025-10-12 12:00:00', '2025-10-12 14:00:00');
+
+-- Insert into revenue (5 records)
+-- Columns: station_id, amount, period (revenue_id is IDENTITY)
+INSERT INTO [dbo].[revenue] ([station_id], [amount], [period]) VALUES (1, 500.0, '2025-10-01');
+INSERT INTO [dbo].[revenue] ([station_id], [amount], [period]) VALUES (2, 300.0, '2025-10-02');
+INSERT INTO [dbo].[revenue] ([station_id], [amount], [period]) VALUES (3, 400.0, '2025-10-03');
+INSERT INTO [dbo].[revenue] ([station_id], [amount], [period]) VALUES (4, 200.0, '2025-10-04');
+INSERT INTO [dbo].[revenue] ([station_id], [amount], [period]) VALUES (5, 600.0, '2025-10-05');
+
+-- Insert into issue_report (5 records)
+-- Columns: station_id, staff_id, description, status, reported_time (issue_report_id is IDENTITY)
+-- staff_id: use user_id 4 (STAFF) and 3 (ADMIN) for variety
+INSERT INTO [dbo].[issue_report] ([station_id], [staff_id], [description], [status], [reported_time]) VALUES (1, 4, 'Broken charger', 'INBOX', '2025-10-12 09:00:00');
+INSERT INTO [dbo].[issue_report] ([station_id], [staff_id], [description], [status], [reported_time]) VALUES (2, 4, 'Power outage', 'IN_PROGRESS', '2025-10-12 10:00:00');
+INSERT INTO [dbo].[issue_report] ([station_id], [staff_id], [description], [status], [reported_time]) VALUES (3, 3, 'Vandalism', 'RESOLVED', '2025-10-12 11:00:00');
+INSERT INTO [dbo].[issue_report] ([station_id], [staff_id], [description], [status], [reported_time]) VALUES (4, 4, 'Software glitch', 'INBOX', '2025-10-12 12:00:00');
+INSERT INTO [dbo].[issue_report] ([station_id], [staff_id], [description], [status], [reported_time]) VALUES (5, 3, 'Maintenance needed', 'IN_PROGRESS', '2025-10-12 13:00:00');
+
+-- Insert into orders (5 records)
+-- Columns: user_id, station_id, charging_point_id, connector_type_id, vehicle_id, start_time, end_time, status, price_per_kwh, started_battery, expected_battery (order_id is IDENTITY)
+-- Use existing IDs: user 1-2 (drivers), station 1-5, charging_point 1-5, connector 1-5, vehicle 1-5
+INSERT INTO [dbo].[orders] ([user_id], [station_id], [charging_point_id], [connector_type_id], [vehicle_id], [start_time], [end_time], [status], [price_per_kwh], [started_battery], [expected_battery]) VALUES (1, 1, 1, 1, 1, '2025-10-12 14:00:00', '2025-10-12 15:00:00', 'BOOKED', 0.35, 20.0, 80.0);
+INSERT INTO [dbo].[orders] ([user_id], [station_id], [charging_point_id], [connector_type_id], [vehicle_id], [start_time], [end_time], [status], [price_per_kwh], [started_battery], [expected_battery]) VALUES (2, 2, 2, 2, 2, '2025-10-12 15:00:00', '2025-10-12 16:00:00', 'BOOKED', 0.40, 30.0, 90.0);
+INSERT INTO [dbo].[orders] ([user_id], [station_id], [charging_point_id], [connector_type_id], [vehicle_id], [start_time], [end_time], [status], [price_per_kwh], [started_battery], [expected_battery]) VALUES (1, 3, 3, 3, 3, '2025-10-12 16:00:00', '2025-10-12 17:00:00', 'CANCELED', 0.50, 10.0, 70.0);
+INSERT INTO [dbo].[orders] ([user_id], [station_id], [charging_point_id], [connector_type_id], [vehicle_id], [start_time], [end_time], [status], [price_per_kwh], [started_battery], [expected_battery]) VALUES (2, 4, 4, 4, 4, '2025-10-12 17:00:00', '2025-10-12 18:00:00', 'BOOKED', 0.45, 40.0, 100.0);
+INSERT INTO [dbo].[orders] ([user_id], [station_id], [charging_point_id], [connector_type_id], [vehicle_id], [start_time], [end_time], [status], [price_per_kwh], [started_battery], [expected_battery]) VALUES (1, 5, 5, 5, 5, '2025-10-12 18:00:00', '2025-10-12 19:00:00', 'CANCELED', 0.55, 50.0, 95.0);
+
+-- Insert into session (5 records)
+-- Columns: order_id, start_time, end_time, status, cost, power_consumed, fee_id (session_id is IDENTITY)
+-- Use order_id 1-5, fee_id 1-5
+INSERT INTO [dbo].[session] ([order_id], [start_time], [end_time], [status], [cost], [power_consumed], [fee_id]) VALUES (1, '2025-10-12 14:00:00', '2025-10-12 14:30:00', 'CHARGING', 10.0, 20.0, 1);
+INSERT INTO [dbo].[session] ([order_id], [start_time], [end_time], [status], [cost], [power_consumed], [fee_id]) VALUES (2, '2025-10-12 15:00:00', '2025-10-12 15:45:00', 'COMPLETED', 15.0, 30.0, 2);
+INSERT INTO [dbo].[session] ([order_id], [start_time], [end_time], [status], [cost], [power_consumed], [fee_id]) VALUES (3, '2025-10-12 16:00:00', NULL, 'CHARGING', 5.0, 10.0, 3);
+INSERT INTO [dbo].[session] ([order_id], [start_time], [end_time], [status], [cost], [power_consumed], [fee_id]) VALUES (4, '2025-10-12 17:00:00', '2025-10-12 17:30:00', 'COMPLETED', 7.5, 15.0, 4);
+INSERT INTO [dbo].[session] ([order_id], [start_time], [end_time], [status], [cost], [power_consumed], [fee_id]) VALUES (5, '2025-10-12 18:00:00', NULL, 'CHARGING', 20.0, 40.0, 5);
+
+-- Insert into transaction (5 records)
+-- Columns: session_id, user_id, amount, payment_method, status (transaction_id is IDENTITY)
+-- Use session_id 1-5, user_id from orders (1 or 2)
+INSERT INTO [dbo].[transaction] ([session_id], [user_id], [amount], [payment_method], [status]) VALUES (1, 1, 10.0, 'VNPAY', 'PENDING');
+INSERT INTO [dbo].[transaction] ([session_id], [user_id], [amount], [payment_method], [status]) VALUES (2, 2, 15.0, 'CASH', 'SUCCESS');
+INSERT INTO [dbo].[transaction] ([session_id], [user_id], [amount], [payment_method], [status]) VALUES (3, 1, 5.0, 'QR', 'FAILED');
+INSERT INTO [dbo].[transaction] ([session_id], [user_id], [amount], [payment_method], [status]) VALUES (4, 2, 7.5, 'VNPAY', 'SUCCESS');
+INSERT INTO [dbo].[transaction] ([session_id], [user_id], [amount], [payment_method], [status]) VALUES (5, 1, 20.0, 'CASH', 'PENDING');
+
+-- Insert into wallet_transaction (5 records)
+-- Columns: wallet_id, type, amount, created_at, transaction_id (wallet_transaction_id is IDENTITY)
+-- Use wallet_id 1-5, transaction_id 1-5
+INSERT INTO [dbo].[wallet_transaction] ([wallet_id], [type], [amount], [created_at], [transaction_id]) VALUES (1, 'DEPOSIT', 50.0, '2025-10-12 19:00:00', 1);
+INSERT INTO [dbo].[wallet_transaction] ([wallet_id], [type], [amount], [created_at], [transaction_id]) VALUES (2, 'WITHDRAWAL', 20.0, '2025-10-12 20:00:00', 2);
+INSERT INTO [dbo].[wallet_transaction] ([wallet_id], [type], [amount], [created_at], [transaction_id]) VALUES (3, 'PAYMENT', 30.0, '2025-10-12 21:00:00', 3);
+INSERT INTO [dbo].[wallet_transaction] ([wallet_id], [type], [amount], [created_at], [transaction_id]) VALUES (4, 'DEPOSIT', 10.0, '2025-10-12 22:00:00', 4);
+INSERT INTO [dbo].[wallet_transaction] ([wallet_id], [type], [amount], [created_at], [transaction_id]) VALUES (5, 'WITHDRAWAL', 5.0, '2025-10-12 23:00:00', 5);
+
+-- Insert into booking (5 records)
+-- Columns: charging_point_id, start_time, end_time, order_id (booking_id is IDENTITY)
+-- order_id is varchar(255), so use string values like 'ORD001'
+-- Use charging_point_id 1-5
+INSERT INTO [dbo].[booking] ([charging_point_id], [start_time], [end_time], [order_id]) VALUES (1, '2025-10-12 14:00:00', '2025-10-12 15:00:00', 'ORD001');
+INSERT INTO [dbo].[booking] ([charging_point_id], [start_time], [end_time], [order_id]) VALUES (2, '2025-10-12 15:00:00', '2025-10-12 16:00:00', 'ORD002');
+INSERT INTO [dbo].[booking] ([charging_point_id], [start_time], [end_time], [order_id]) VALUES (3, '2025-10-12 16:00:00', '2025-10-12 17:00:00', 'ORD003');
+INSERT INTO [dbo].[booking] ([charging_point_id], [start_time], [end_time], [order_id]) VALUES (4, '2025-10-12 17:00:00', '2025-10-12 18:00:00', 'ORD004');
+INSERT INTO [dbo].[booking] ([charging_point_id], [start_time], [end_time], [order_id]) VALUES (5, '2025-10-12 18:00:00', '2025-10-12 19:00:00', 'ORD005');
+
+
+
+-- Additional 45 inserts for connector_types
+INSERT INTO [dbo].[connector_types] ([type_name], [power_output], [price_per_kwh]) VALUES
+('Type 1', 7.4, 0.35), ('Type 2', 22.0, 0.40), ('CCS', 50.0, 0.50), ('CHAdeMO', 50.0, 0.45), ('Tesla Supercharger', 120.0, 0.55),
+('Type 1', 7.4, 0.35), ('Type 2', 22.0, 0.40), ('CCS', 50.0, 0.50), ('CHAdeMO', 50.0, 0.45), ('Tesla Supercharger', 120.0, 0.55),
+('Type 1', 7.4, 0.35), ('Type 2', 22.0, 0.40), ('CCS', 50.0, 0.50), ('CHAdeMO', 50.0, 0.45), ('Tesla Supercharger', 120.0, 0.55),
+('Type 1', 7.4, 0.35), ('Type 2', 22.0, 0.40), ('CCS', 50.0, 0.50), ('CHAdeMO', 50.0, 0.45), ('Tesla Supercharger', 120.0, 0.55),
+('Type 1', 7.4, 0.35), ('Type 2', 22.0, 0.40), ('CCS', 50.0, 0.50), ('CHAdeMO', 50.0, 0.45), ('Tesla Supercharger', 120.0, 0.55),
+('Type 1', 7.4, 0.35), ('Type 2', 22.0, 0.40), ('CCS', 50.0, 0.50), ('CHAdeMO', 50.0, 0.45), ('Tesla Supercharger', 120.0, 0.55),
+('Type 1', 7.4, 0.35), ('Type 2', 22.0, 0.40), ('CCS', 50.0, 0.50), ('CHAdeMO', 50.0, 0.45), ('Tesla Supercharger', 120.0, 0.55),
+('Type 1', 7.4, 0.35), ('Type 2', 22.0, 0.40), ('CCS', 50.0, 0.50), ('CHAdeMO', 50.0, 0.45), ('Tesla Supercharger', 120.0, 0.55),
+('Type 1', 7.4, 0.35), ('Type 2', 22.0, 0.40), ('CCS', 50.0, 0.50), ('CHAdeMO', 50.0, 0.45), ('Tesla Supercharger', 120.0, 0.55);
+
+-- Additional 45 inserts for car_models
+INSERT INTO [dbo].[car_models] ([brand], [model], [capacity], [product_year], [img_url]) VALUES
+('Tesla', 'Model 3', 75.0, 2022, 'https://example.com/tesla_model3.jpg'), ('Nissan', 'Leaf', 40.0, 2021, 'https://example.com/nissan_leaf.jpg'), ('Chevrolet', 'Bolt', 66.0, 2023, 'https://example.com/chevy_bolt.jpg'), ('BMW', 'i3', 42.0, 2020, 'https://example.com/bmw_i3.jpg'), ('Audi', 'e-tron', 95.0, 2022, 'https://example.com/audi_etron.jpg'),
+('Tesla', 'Model Y', 80.0, 2023, 'https://example.com/tesla_modely.jpg'), ('Hyundai', 'Ioniq', 58.0, 2022, 'https://example.com/hyundai_ioniq.jpg'), ('Ford', 'Mustang Mach-E', 88.0, 2021, 'https://example.com/ford_mache.jpg'), ('Volkswagen', 'ID.4', 77.0, 2023, 'https://example.com/vw_id4.jpg'), ('Kia', 'EV6', 77.4, 2022, 'https://example.com/kia_ev6.jpg'),
+('Tesla', 'Model 3', 75.0, 2022, 'https://example.com/tesla_model3.jpg'), ('Nissan', 'Leaf', 40.0, 2021, 'https://example.com/nissan_leaf.jpg'), ('Chevrolet', 'Bolt', 66.0, 2023, 'https://example.com/chevy_bolt.jpg'), ('BMW', 'i3', 42.0, 2020, 'https://example.com/bmw_i3.jpg'), ('Audi', 'e-tron', 95.0, 2022, 'https://example.com/audi_etron.jpg'),
+('Tesla', 'Model Y', 80.0, 2023, 'https://example.com/tesla_modely.jpg'), ('Hyundai', 'Ioniq', 58.0, 2022, 'https://example.com/hyundai_ioniq.jpg'), ('Ford', 'Mustang Mach-E', 88.0, 2021, 'https://example.com/ford_mache.jpg'), ('Volkswagen', 'ID.4', 77.0, 2023, 'https://example.com/vw_id4.jpg'), ('Kia', 'EV6', 77.4, 2022, 'https://example.com/kia_ev6.jpg'),
+('Tesla', 'Model 3', 75.0, 2022, 'https://example.com/tesla_model3.jpg'), ('Nissan', 'Leaf', 40.0, 2021, 'https://example.com/nissan_leaf.jpg'), ('Chevrolet', 'Bolt', 66.0, 2023, 'https://example.com/chevy_bolt.jpg'), ('BMW', 'i3', 42.0, 2020, 'https://example.com/bmw_i3.jpg'), ('Audi', 'e-tron', 95.0, 2022, 'https://example.com/audi_etron.jpg'),
+('Tesla', 'Model Y', 80.0, 2023, 'https://example.com/tesla_modely.jpg'), ('Hyundai', 'Ioniq', 58.0, 2022, 'https://example.com/hyundai_ioniq.jpg'), ('Ford', 'Mustang Mach-E', 88.0, 2021, 'https://example.com/ford_mache.jpg'), ('Volkswagen', 'ID.4', 77.0, 2023, 'https://example.com/vw_id4.jpg'), ('Kia', 'EV6', 77.4, 2022, 'https://example.com/kia_ev6.jpg'),
+('Tesla', 'Model 3', 75.0, 2022, 'https://example.com/tesla_model3.jpg'), ('Nissan', 'Leaf', 40.0, 2021, 'https://example.com/nissan_leaf.jpg'), ('Chevrolet', 'Bolt', 66.0, 2023, 'https://example.com/chevy_bolt.jpg'), ('BMW', 'i3', 42.0, 2020, 'https://example.com/bmw_i3.jpg'), ('Audi', 'e-tron', 95.0, 2022, 'https://example.com/audi_etron.jpg'),
+('Tesla', 'Model Y', 80.0, 2023, 'https://example.com/tesla_modely.jpg'), ('Hyundai', 'Ioniq', 58.0, 2022, 'https://example.com/hyundai_ioniq.jpg'), ('Ford', 'Mustang Mach-E', 88.0, 2021, 'https://example.com/ford_mache.jpg'), ('Volkswagen', 'ID.4', 77.0, 2023, 'https://example.com/vw_id4.jpg'), ('Kia', 'EV6', 77.4, 2022, 'https://example.com/kia_ev6.jpg'),
+('Tesla', 'Model 3', 75.0, 2022, 'https://example.com/tesla_model3.jpg'), ('Nissan', 'Leaf', 40.0, 2021, 'https://example.com/nissan_leaf.jpg'), ('Chevrolet', 'Bolt', 66.0, 2023, 'https://example.com/chevy_bolt.jpg'), ('BMW', 'i3', 42.0, 2020, 'https://example.com/bmw_i3.jpg'), ('Audi', 'e-tron', 95.0, 2022, 'https://example.com/audi_etron.jpg');
+
+-- Additional 45 inserts for charging_stations
+INSERT INTO [dbo].[charging_stations] ([station_name], [address], [latitude], [longitude], [charging_point_number], [status]) VALUES
+(N'Station F', N'303 Cedar St, City6', 48.8566, 2.3522, 4, 'ACTIVE'), (N'Station G', N'404 Birch St, City7', 35.6895, 139.6917, 3, 'INACTIVE'), (N'Station H', N'505 Walnut St, City8', 55.7558, 37.6173, 5, 'MAINTENANCE'), (N'Station I', N'606 Chestnut St, City9', 19.4326, -99.1332, 2, 'ACTIVE'), (N'Station J', N'707 Spruce St, City10', -33.8688, 151.2093, 6, 'ACTIVE'),
+(N'Station K', N'808 Fir St, City11', 40.7128, -74.0060, 4, 'ACTIVE'), (N'Station L', N'909 Pine St, City12', 34.0522, -118.2437, 3, 'INACTIVE'), (N'Station M', N'1010 Oak St, City13', 41.8781, -87.6298, 5, 'MAINTENANCE'), (N'Station N', N'1111 Elm St, City14', 37.7749, -122.4194, 2, 'ACTIVE'), (N'Station O', N'1212 Maple St, City15', 51.5074, -0.1278, 6, 'ACTIVE'),
+(N'Station P', N'1313 Cedar St, City16', 48.8566, 2.3522, 4, 'ACTIVE'), (N'Station Q', N'1414 Birch St, City17', 35.6895, 139.6917, 3, 'INACTIVE'), (N'Station R', N'1515 Walnut St, City18', 55.7558, 37.6173, 5, 'MAINTENANCE'), (N'Station S', N'1616 Chestnut St, City19', 19.4326, -99.1332, 2, 'ACTIVE'), (N'Station T', N'1717 Spruce St, City20', -33.8688, 151.2093, 6, 'ACTIVE'),
+(N'Station U', N'1818 Fir St, City21', 40.7128, -74.0060, 4, 'ACTIVE'), (N'Station V', N'1919 Pine St, City22', 34.0522, -118.2437, 3, 'INACTIVE'), (N'Station W', N'2020 Oak St, City23', 41.8781, -87.6298, 5, 'MAINTENANCE'), (N'Station X', N'2121 Elm St, City24', 37.7749, -122.4194, 2, 'ACTIVE'), (N'Station Y', N'2222 Maple St, City25', 51.5074, -0.1278, 6, 'ACTIVE'),
+(N'Station Z', N'2323 Cedar St, City26', 48.8566, 2.3522, 4, 'ACTIVE'), (N'Station AA', N'2424 Birch St, City27', 35.6895, 139.6917, 3, 'INACTIVE'), (N'Station AB', N'2525 Walnut St, City28', 55.7558, 37.6173, 5, 'MAINTENANCE'), (N'Station AC', N'2626 Chestnut St, City29', 19.4326, -99.1332, 2, 'ACTIVE'), (N'Station AD', N'2727 Spruce St, City30', -33.8688, 151.2093, 6, 'ACTIVE'),
+(N'Station AE', N'2828 Fir St, City31', 40.7128, -74.0060, 4, 'ACTIVE'), (N'Station AF', N'2929 Pine St, City32', 34.0522, -118.2437, 3, 'INACTIVE'), (N'Station AG', N'3030 Oak St, City33', 41.8781, -87.6298, 5, 'MAINTENANCE'), (N'Station AH', N'3131 Elm St, City34', 37.7749, -122.4194, 2, 'ACTIVE'), (N'Station AI', N'3232 Maple St, City35', 51.5074, -0.1278, 6, 'ACTIVE'),
+(N'Station AJ', N'3333 Cedar St, City36', 48.8566, 2.3522, 4, 'ACTIVE'), (N'Station AK', N'3434 Birch St, City37', 35.6895, 139.6917, 3, 'INACTIVE'), (N'Station AL', N'3535 Walnut St, City38', 55.7558, 37.6173, 5, 'MAINTENANCE'), (N'Station AM', N'3636 Chestnut St, City39', 19.4326, -99.1332, 2, 'ACTIVE'), (N'Station AN', N'3737 Spruce St, City40', -33.8688, 151.2093, 6, 'ACTIVE'),
+(N'Station AO', N'3838 Fir St, City41', 40.7128, -74.0060, 4, 'ACTIVE'), (N'Station AP', N'3939 Pine St, City42', 34.0522, -118.2437, 3, 'INACTIVE'), (N'Station AQ', N'4040 Oak St, City43', 41.8781, -87.6298, 5, 'MAINTENANCE'), (N'Station AR', N'4141 Elm St, City44', 37.7749, -122.4194, 2, 'ACTIVE'), (N'Station AS', N'4242 Maple St, City45', 51.5074, -0.1278, 6, 'ACTIVE'),
+(N'Station AT', N'4343 Cedar St, City46', 48.8566, 2.3522, 4, 'ACTIVE'), (N'Station AU', N'4444 Birch St, City47', 35.6895, 139.6917, 3, 'INACTIVE'), (N'Station AV', N'4545 Walnut St, City48', 55.7558, 37.6173, 5, 'MAINTENANCE'), (N'Station AW', N'4646 Chestnut St, City49', 19.4326, -99.1332, 2, 'ACTIVE'), (N'Station AX', N'4747 Spruce St, City50', -33.8688, 151.2093, 6, 'ACTIVE');
+
+-- Additional 45 inserts for users (mix roles)
+INSERT INTO [dbo].[users] ([full_name], [email], [phone], [password], [address], [date_of_birth], [avatar], [facebook_id], [google_id], [role], [status]) VALUES
+(N'User6', 'user6@example.com', '1234567891', 'hashedpass6', N'Address6', '1991-02-02', 'avatar6.jpg', NULL, NULL, 'DRIVER', 'ACTIVE'), (N'User7', 'user7@example.com', '0987654322', 'hashedpass7', N'Address7', '1986-06-16', 'avatar7.jpg', NULL, NULL, 'DRIVER', 'INACTIVE'), (N'User8', 'user8@example.com', '1112223335', 'hashedpass8', N'Address8', '1981-11-11', 'avatar8.jpg', NULL, NULL, 'ADMIN', 'ACTIVE'), (N'User9', 'user9@example.com', '4445556668', 'hashedpass9', N'Address9', '1996-04-21', 'avatar9.jpg', NULL, NULL, 'STAFF', 'ACTIVE'), (N'User10', 'user10@example.com', '7778889991', 'hashedpass10', N'Address10', '2001-08-08', 'avatar10.jpg', NULL, NULL, 'DRIVER', 'BANNED'),
+(N'User11', 'user11@example.com', '1234567892', 'hashedpass11', N'Address11', '1992-03-03', 'avatar11.jpg', NULL, NULL, 'DRIVER', 'ACTIVE'), (N'User12', 'user12@example.com', '0987654323', 'hashedpass12', N'Address12', '1987-07-17', 'avatar12.jpg', NULL, NULL, 'DRIVER', 'INACTIVE'), (N'User13', 'user13@example.com', '1112223336', 'hashedpass13', N'Address13', '1982-12-12', 'avatar13.jpg', NULL, NULL, 'ADMIN', 'ACTIVE'), (N'User14', 'user14@example.com', '4445556669', 'hashedpass14', N'Address14', '1997-05-22', 'avatar14.jpg', NULL, NULL, 'STAFF', 'ACTIVE'), (N'User15', 'user15@example.com', '7778889992', 'hashedpass15', N'Address15', '2002-09-09', 'avatar15.jpg', NULL, NULL, 'DRIVER', 'BANNED'),
+(N'User16', 'user16@example.com', '1234567893', 'hashedpass16', N'Address16', '1993-04-04', 'avatar16.jpg', NULL, NULL, 'DRIVER', 'ACTIVE'), (N'User17', 'user17@example.com', '0987654324', 'hashedpass17', N'Address17', '1988-08-18', 'avatar17.jpg', NULL, NULL, 'DRIVER', 'INACTIVE'), (N'User18', 'user18@example.com', '1112223337', 'hashedpass18', N'Address18', '1983-01-13', 'avatar18.jpg', NULL, NULL, 'ADMIN', 'ACTIVE'), (N'User19', 'user19@example.com', '4445556670', 'hashedpass19', N'Address19', '1998-06-23', 'avatar19.jpg', NULL, NULL, 'STAFF', 'ACTIVE'), (N'User20', 'user20@example.com', '7778889993', 'hashedpass20', N'Address20', '2003-10-10', 'avatar20.jpg', NULL, NULL, 'DRIVER', 'BANNED'),
+(N'User21', 'user21@example.com', '1234567894', 'hashedpass21', N'Address21', '1994-05-05', 'avatar21.jpg', NULL, NULL, 'DRIVER', 'ACTIVE'), (N'User22', 'user22@example.com', '0987654325', 'hashedpass22', N'Address22', '1989-09-19', 'avatar22.jpg', NULL, NULL, 'DRIVER', 'INACTIVE'), (N'User23', 'user23@example.com', '1112223338', 'hashedpass23', N'Address23', '1984-02-14', 'avatar23.jpg', NULL, NULL, 'ADMIN', 'ACTIVE'), (N'User24', 'user24@example.com', '4445556671', 'hashedpass24', N'Address24', '1999-07-24', 'avatar24.jpg', NULL, NULL, 'STAFF', 'ACTIVE'), (N'User25', 'user25@example.com', '7778889994', 'hashedpass25', N'Address25', '2004-11-11', 'avatar25.jpg', NULL, NULL, 'DRIVER', 'BANNED'),
+(N'User26', 'user26@example.com', '1234567895', 'hashedpass26', N'Address26', '1995-06-06', 'avatar26.jpg', NULL, NULL, 'DRIVER', 'ACTIVE'), (N'User27', 'user27@example.com', '0987654326', 'hashedpass27', N'Address27', '1990-10-20', 'avatar27.jpg', NULL, NULL, 'DRIVER', 'INACTIVE'), (N'User28', 'user28@example.com', '1112223339', 'hashedpass28', N'Address28', '1985-03-15', 'avatar28.jpg', NULL, NULL, 'ADMIN', 'ACTIVE'), (N'User29', 'user29@example.com', '4445556672', 'hashedpass29', N'Address29', '2000-08-25', 'avatar29.jpg', NULL, NULL, 'STAFF', 'ACTIVE'), (N'User30', 'user30@example.com', '7778889995', 'hashedpass30', N'Address30', '2005-12-12', 'avatar30.jpg', NULL, NULL, 'DRIVER', 'BANNED'),
+(N'User31', 'user31@example.com', '1234567896', 'hashedpass31', N'Address31', '1996-07-07', 'avatar31.jpg', NULL, NULL, 'DRIVER', 'ACTIVE'), (N'User32', 'user32@example.com', '0987654327', 'hashedpass32', N'Address32', '1991-11-21', 'avatar32.jpg', NULL, NULL, 'DRIVER', 'INACTIVE'), (N'User33', 'user33@example.com', '1112223340', 'hashedpass33', N'Address33', '1986-04-16', 'avatar33.jpg', NULL, NULL, 'ADMIN', 'ACTIVE'), (N'User34', 'user34@example.com', '4445556673', 'hashedpass34', N'Address34', '2001-09-26', 'avatar34.jpg', NULL, NULL, 'STAFF', 'ACTIVE'), (N'User35', 'user35@example.com', '7778889996', 'hashedpass35', N'Address35', '2006-01-01', 'avatar35.jpg', NULL, NULL, 'DRIVER', 'BANNED'),
+(N'User36', 'user36@example.com', '1234567897', 'hashedpass36', N'Address36', '1997-08-08', 'avatar36.jpg', NULL, NULL, 'DRIVER', 'ACTIVE'), (N'User37', 'user37@example.com', '0987654328', 'hashedpass37', N'Address37', '1992-12-22', 'avatar37.jpg', NULL, NULL, 'DRIVER', 'INACTIVE'), (N'User38', 'user38@example.com', '1112223341', 'hashedpass38', N'Address38', '1987-05-17', 'avatar38.jpg', NULL, NULL, 'ADMIN', 'ACTIVE'), (N'User39', 'user39@example.com', '4445556674', 'hashedpass39', N'Address39', '2002-10-27', 'avatar39.jpg', NULL, NULL, 'STAFF', 'ACTIVE'), (N'User40', 'user40@example.com', '7778889997', 'hashedpass40', N'Address40', '2007-02-02', 'avatar40.jpg', NULL, NULL, 'DRIVER', 'BANNED'),
+(N'User41', 'user41@example.com', '1234567898', 'hashedpass41', N'Address41', '1998-09-09', 'avatar41.jpg', NULL, NULL, 'DRIVER', 'ACTIVE'), (N'User42', 'user42@example.com', '0987654329', 'hashedpass42', N'Address42', '1993-01-23', 'avatar42.jpg', NULL, NULL, 'DRIVER', 'INACTIVE'), (N'User43', 'user43@example.com', '1112223342', 'hashedpass43', N'Address43', '1988-06-18', 'avatar43.jpg', NULL, NULL, 'ADMIN', 'ACTIVE'), (N'User44', 'user44@example.com', '4445556675', 'hashedpass44', N'Address44', '2003-11-28', 'avatar44.jpg', NULL, NULL, 'STAFF', 'ACTIVE'), (N'User45', 'user45@example.com', '7778889998', 'hashedpass45', N'Address45', '2008-03-03', 'avatar45.jpg', NULL, NULL, 'DRIVER', 'BANNED'),
+(N'User46', 'user46@example.com', '1234567899', 'hashedpass46', N'Address46', '1999-10-10', 'avatar46.jpg', NULL, NULL, 'DRIVER', 'ACTIVE'), (N'User47', 'user47@example.com', '0987654330', 'hashedpass47', N'Address47', '1994-02-24', 'avatar47.jpg', NULL, NULL, 'DRIVER', 'INACTIVE'), (N'User48', 'user48@example.com', '1112223343', 'hashedpass48', N'Address48', '1989-07-19', 'avatar48.jpg', NULL, NULL, 'ADMIN', 'ACTIVE'), (N'User49', 'user49@example.com', '4445556676', 'hashedpass49', N'Address49', '2004-12-29', 'avatar49.jpg', NULL, NULL, 'STAFF', 'ACTIVE'), (N'User50', 'user50@example.com', '7778889999', 'hashedpass50', N'Address50', '2009-04-04', 'avatar50.jpg', NULL, NULL, 'DRIVER', 'BANNED');
+
+-- Additional 45 inserts for fee
+INSERT INTO [dbo].[fee] ([type], [amount]) VALUES
+('CHARGING', 6.0), ('NO_SHOW', 11.0), ('CANCEL', 3.0), ('CHARGING', 8.0), ('NO_SHOW', 16.0),
+('CHARGING', 5.5), ('NO_SHOW', 10.5), ('CANCEL', 2.75), ('CHARGING', 7.75), ('NO_SHOW', 15.5),
+('CHARGING', 6.0), ('NO_SHOW', 11.0), ('CANCEL', 3.0), ('CHARGING', 8.0), ('NO_SHOW', 16.0),
+('CHARGING', 5.5), ('NO_SHOW', 10.5), ('CANCEL', 2.75), ('CHARGING', 7.75), ('NO_SHOW', 15.5),
+('CHARGING', 6.0), ('NO_SHOW', 11.0), ('CANCEL', 3.0), ('CHARGING', 8.0), ('NO_SHOW', 16.0),
+('CHARGING', 5.5), ('NO_SHOW', 10.5), ('CANCEL', 2.75), ('CHARGING', 7.75), ('NO_SHOW', 15.5),
+('CHARGING', 6.0), ('NO_SHOW', 11.0), ('CANCEL', 3.0), ('CHARGING', 8.0), ('NO_SHOW', 16.0),
+('CHARGING', 5.5), ('NO_SHOW', 10.5), ('CANCEL', 2.75), ('CHARGING', 7.75), ('NO_SHOW', 15.5),
+('CHARGING', 6.0), ('NO_SHOW', 11.0), ('CANCEL', 3.0), ('CHARGING', 8.0), ('NO_SHOW', 16.0);
+
+-- Additional 45 inserts for carmodel_connectortype (using car_model_id 6-50 and connector_type_id cycling 1-5)
+INSERT INTO [dbo].[carmodel_connectortype] ([car_model_id], [connector_type_id]) VALUES
+(6, 1), (7, 2), (8, 3), (9, 4), (10, 5),
+(11, 1), (12, 2), (13, 3), (14, 4), (15, 5),
+(16, 1), (17, 2), (18, 3), (19, 4), (20, 5),
+(21, 1), (22, 2), (23, 3), (24, 4), (25, 5),
+(26, 1), (27, 2), (28, 3), (29, 4), (30, 5),
+(31, 1), (32, 2), (33, 3), (34, 4), (35, 5),
+(36, 1), (37, 2), (38, 3), (39, 4), (40, 5),
+(41, 1), (42, 2), (43, 3), (44, 4), (45, 5),
+(46, 1), (47, 2), (48, 3), (49, 4), (50, 5);
+
+-- Additional 45 inserts for charging_points (connector_type_id cycling 6-50, station_station_id 6-50, status varying)
+INSERT INTO [dbo].[charging_points] ([connector_type_id], [station_station_id], [status]) VALUES
+(6, 6, 'AVAILABLE'), (7, 7, 'OCCUPIED'), (8, 8, 'MAINTENANCE'), (9, 9, 'OUT_OF_SERVICE'), (10, 10, 'AVAILABLE'),
+(11, 11, 'OCCUPIED'), (12, 12, 'MAINTENANCE'), (13, 13, 'OUT_OF_SERVICE'), (14, 14, 'AVAILABLE'), (15, 15, 'OCCUPIED'),
+(16, 16, 'MAINTENANCE'), (17, 17, 'OUT_OF_SERVICE'), (18, 18, 'AVAILABLE'), (19, 19, 'OCCUPIED'), (20, 20, 'MAINTENANCE'),
+(21, 21, 'OUT_OF_SERVICE'), (22, 22, 'AVAILABLE'), (23, 23, 'OCCUPIED'), (24, 24, 'MAINTENANCE'), (25, 25, 'OUT_OF_SERVICE'),
+(26, 26, 'AVAILABLE'), (27, 27, 'OCCUPIED'), (28, 28, 'MAINTENANCE'), (29, 29, 'OUT_OF_SERVICE'), (30, 30, 'AVAILABLE'),
+(31, 31, 'OCCUPIED'), (32, 32, 'MAINTENANCE'), (33, 33, 'OUT_OF_SERVICE'), (34, 34, 'AVAILABLE'), (35, 35, 'OCCUPIED'),
+(36, 36, 'MAINTENANCE'), (37, 37, 'OUT_OF_SERVICE'), (38, 38, 'AVAILABLE'), (39, 39, 'OCCUPIED'), (40, 40, 'MAINTENANCE'),
+(41, 41, 'OUT_OF_SERVICE'), (42, 42, 'AVAILABLE'), (43, 43, 'OCCUPIED'), (44, 44, 'MAINTENANCE'), (45, 45, 'OUT_OF_SERVICE'),
+(46, 46, 'AVAILABLE'), (47, 47, 'OCCUPIED'), (48, 48, 'MAINTENANCE'), (49, 49, 'OUT_OF_SERVICE'), (50, 50, 'AVAILABLE');
+
+-- Additional 45 inserts for vehicles (brand/model/capacity/year from car_models pattern, plate_number unique, car_model_id 6-50, user_user_id 6-50)
+INSERT INTO [dbo].[vehicles] ([brand], [model], [capacity], [product_year], [plate_number], [car_model_id], [user_user_id]) VALUES
+('Tesla', 'Model Y', 80.0, 2023, 'PQR678', 6, 6), ('Hyundai', 'Ioniq', 58.0, 2022, 'STU901', 7, 7), ('Ford', 'Mustang Mach-E', 88.0, 2021, 'VWX234', 8, 8), ('Volkswagen', 'ID.4', 77.0, 2023, 'YZA567', 9, 9), ('Kia', 'EV6', 77.4, 2022, 'BCD890', 10, 10),
+('Tesla', 'Model 3', 75.0, 2022, 'EFG123', 11, 11), ('Nissan', 'Leaf', 40.0, 2021, 'HIJ456', 12, 12), ('Chevrolet', 'Bolt', 66.0, 2023, 'KLM789', 13, 13), ('BMW', 'i3', 42.0, 2020, 'NOP012', 14, 14), ('Audi', 'e-tron', 95.0, 2022, 'QRS345', 15, 15),
+('Tesla', 'Model Y', 80.0, 2023, 'TUV678', 16, 16), ('Hyundai', 'Ioniq', 58.0, 2022, 'WXY901', 17, 17), ('Ford', 'Mustang Mach-E', 88.0, 2021, 'ZAB234', 18, 18), ('Volkswagen', 'ID.4', 77.0, 2023, 'CDE567', 19, 19), ('Kia', 'EV6', 77.4, 2022, 'FGH890', 20, 20),
+('Tesla', 'Model 3', 75.0, 2022, 'IJK123', 21, 21), ('Nissan', 'Leaf', 40.0, 2021, 'LMN456', 22, 22), ('Chevrolet', 'Bolt', 66.0, 2023, 'OPQ789', 23, 23), ('BMW', 'i3', 42.0, 2020, 'RST012', 24, 24), ('Audi', 'e-tron', 95.0, 2022, 'UVW345', 25, 25),
+('Tesla', 'Model Y', 80.0, 2023, 'XYZ678', 26, 26), ('Hyundai', 'Ioniq', 58.0, 2022, 'ABC901', 27, 27), ('Ford', 'Mustang Mach-E', 88.0, 2021, 'DEF234', 28, 28), ('Volkswagen', 'ID.4', 77.0, 2023, 'GHI567', 29, 29), ('Kia', 'EV6', 77.4, 2022, 'JKL890', 30, 30),
+('Tesla', 'Model 3', 75.0, 2022, 'MNO123', 31, 31), ('Nissan', 'Leaf', 40.0, 2021, 'PQR456', 32, 32), ('Chevrolet', 'Bolt', 66.0, 2023, 'STU789', 33, 33), ('BMW', 'i3', 42.0, 2020, 'VWX012', 34, 34), ('Audi', 'e-tron', 95.0, 2022, 'YZA345', 35, 35),
+('Tesla', 'Model Y', 80.0, 2023, 'BCD678', 36, 36), ('Hyundai', 'Ioniq', 58.0, 2022, 'EFG901', 37, 37), ('Ford', 'Mustang Mach-E', 88.0, 2021, 'HIJ234', 38, 38), ('Volkswagen', 'ID.4', 77.0, 2023, 'KLM567', 39, 39), ('Kia', 'EV6', 77.4, 2022, 'NOP890', 40, 40),
+('Tesla', 'Model 3', 75.0, 2022, 'QRS123', 41, 41), ('Nissan', 'Leaf', 40.0, 2021, 'TUV456', 42, 42), ('Chevrolet', 'Bolt', 66.0, 2023, 'WXY789', 43, 43), ('BMW', 'i3', 42.0, 2020, 'ZAB012', 44, 44), ('Audi', 'e-tron', 95.0, 2022, 'CDE345', 45, 45),
+('Tesla', 'Model Y', 80.0, 2023, 'FGH678', 46, 46), ('Hyundai', 'Ioniq', 58.0, 2022, 'IJK901', 47, 47), ('Ford', 'Mustang Mach-E', 88.0, 2021, 'LMN234', 48, 48), ('Volkswagen', 'ID.4', 77.0, 2023, 'OPQ567', 49, 49), ('Kia', 'EV6', 77.4, 2022, 'RST890', 50, 50);
+
+-- Additional 45 inserts for wallet (user_id 6-50)
+INSERT INTO [dbo].[wallet] ([user_id], [balance], [updated_at]) VALUES
+(6, 110.0, '2025-10-13 10:00:00'), (7, 60.0, '2025-10-13 11:00:00'), (8, 210.0, '2025-10-13 12:00:00'), (9, 10.0, '2025-10-13 13:00:00'), (10, 35.0, '2025-10-13 14:00:00'),
+(11, 120.0, '2025-10-13 15:00:00'), (12, 70.0, '2025-10-13 16:00:00'), (13, 220.0, '2025-10-13 17:00:00'), (14, 20.0, '2025-10-13 18:00:00'), (15, 45.0, '2025-10-13 19:00:00'),
+(16, 130.0, '2025-10-13 20:00:00'), (17, 80.0, '2025-10-13 21:00:00'), (18, 230.0, '2025-10-13 22:00:00'), (19, 30.0, '2025-10-13 23:00:00'), (20, 55.0, '2025-10-14 00:00:00'),
+(21, 140.0, '2025-10-14 01:00:00'), (22, 90.0, '2025-10-14 02:00:00'), (23, 240.0, '2025-10-14 03:00:00'), (24, 40.0, '2025-10-14 04:00:00'), (25, 65.0, '2025-10-14 05:00:00'),
+(26, 150.0, '2025-10-14 06:00:00'), (27, 100.0, '2025-10-14 07:00:00'), (28, 250.0, '2025-10-14 08:00:00'), (29, 50.0, '2025-10-14 09:00:00'), (30, 75.0, '2025-10-14 10:00:00'),
+(31, 160.0, '2025-10-14 11:00:00'), (32, 110.0, '2025-10-14 12:00:00'), (33, 260.0, '2025-10-14 13:00:00'), (34, 60.0, '2025-10-14 14:00:00'), (35, 85.0, '2025-10-14 15:00:00'),
+(36, 170.0, '2025-10-14 16:00:00'), (37, 120.0, '2025-10-14 17:00:00'), (38, 270.0, '2025-10-14 18:00:00'), (39, 70.0, '2025-10-14 19:00:00'), (40, 95.0, '2025-10-14 20:00:00'),
+(41, 180.0, '2025-10-14 21:00:00'), (42, 130.0, '2025-10-14 22:00:00'), (43, 280.0, '2025-10-14 23:00:00'), (44, 80.0, '2025-10-15 00:00:00'), (45, 105.0, '2025-10-15 01:00:00'),
+(46, 190.0, '2025-10-15 02:00:00'), (47, 140.0, '2025-10-15 03:00:00'), (48, 290.0, '2025-10-15 04:00:00'), (49, 90.0, '2025-10-15 05:00:00'), (50, 115.0, '2025-10-15 06:00:00');
+
+-- Additional 45 inserts for subscription (user_id 6-50)
+INSERT INTO [dbo].[subscription] ([user_id], [type], [start_date], [end_date]) VALUES
+(6, 'BASIC', '2025-06-01', '2025-12-31'), (7, 'PLUS', '2025-07-01', '2025-11-30'), (8, 'PREMIUM', '2025-08-01', '2026-08-01'), (9, 'BASIC', '2025-09-01', '2025-10-01'), (10, 'PLUS', '2025-10-01', '2025-09-30'),
+(11, 'PREMIUM', '2025-11-01', '2026-11-01'), (12, 'BASIC', '2025-12-01', '2026-12-31'), (13, 'PLUS', '2026-01-01', '2026-12-31'), (14, 'PREMIUM', '2026-02-01', '2027-02-01'), (15, 'BASIC', '2026-03-01', '2026-03-31'),
+(16, 'PLUS', '2026-04-01', '2026-04-30'), (17, 'PREMIUM', '2026-05-01', '2027-05-01'), (18, 'BASIC', '2026-06-01', '2026-06-30'), (19, 'PLUS', '2026-07-01', '2026-07-31'), (20, 'PREMIUM', '2026-08-01', '2027-08-01'),
+(21, 'BASIC', '2026-09-01', '2026-09-30'), (22, 'PLUS', '2026-10-01', '2026-10-31'), (23, 'PREMIUM', '2026-11-01', '2027-11-01'), (24, 'BASIC', '2026-12-01', '2026-12-31'), (25, 'PLUS', '2027-01-01', '2027-01-31'),
+(26, 'PREMIUM', '2027-02-01', '2028-02-01'), (27, 'BASIC', '2027-03-01', '2027-03-31'), (28, 'PLUS', '2027-04-01', '2027-04-30'), (29, 'PREMIUM', '2027-05-01', '2028-05-01'), (30, 'BASIC', '2027-06-01', '2027-06-30'),
+(31, 'PLUS', '2027-07-01', '2027-07-31'), (32, 'PREMIUM', '2027-08-01', '2028-08-01'), (33, 'BASIC', '2027-09-01', '2027-09-30'), (34, 'PLUS', '2027-10-01', '2027-10-31'), (35, 'PREMIUM', '2027-11-01', '2028-11-01'),
+(36, 'BASIC', '2027-12-01', '2027-12-31'), (37, 'PLUS', '2028-01-01', '2028-01-31'), (38, 'PREMIUM', '2028-02-01', '2029-02-01'), (39, 'BASIC', '2028-03-01', '2028-03-31'), (40, 'PLUS', '2028-04-01', '2028-04-30'),
+(41, 'PREMIUM', '2028-05-01', '2029-05-01'), (42, 'BASIC', '2028-06-01', '2028-06-30'), (43, 'PLUS', '2028-07-01', '2028-07-31'), (44, 'PREMIUM', '2028-08-01', '2029-08-01'), (45, 'BASIC', '2028-09-01', '2028-09-30'),
+(46, 'PLUS', '2028-10-01', '2028-10-31'), (47, 'PREMIUM', '2028-11-01', '2029-11-01'), (48, 'BASIC', '2028-12-01', '2028-12-31'), (49, 'PLUS', '2029-01-01', '2029-01-31'), (50, 'PREMIUM', '2029-02-01', '2030-02-01');
+
+-- Additional 45 inserts for verification (user_id 6-50, type 0-2 cycling)
+INSERT INTO [dbo].[verification] ([user_id], [verification_type], [verification_token], [created_at], [expiration]) VALUES
+(6, 0, 'token6', '2025-10-13 09:00:00', '2025-10-14 09:00:00'), (7, 1, 'token7', '2025-10-13 10:00:00', '2025-10-14 10:00:00'), (8, 2, 'token8', '2025-10-13 11:00:00', '2025-10-14 11:00:00'), (9, 0, 'token9', '2025-10-13 12:00:00', '2025-10-14 12:00:00'), (10, 1, 'token10', '2025-10-13 13:00:00', '2025-10-14 13:00:00'),
+(11, 2, 'token11', '2025-10-13 14:00:00', '2025-10-14 14:00:00'), (12, 0, 'token12', '2025-10-13 15:00:00', '2025-10-14 15:00:00'), (13, 1, 'token13', '2025-10-13 16:00:00', '2025-10-14 16:00:00'), (14, 2, 'token14', '2025-10-13 17:00:00', '2025-10-14 17:00:00'), (15, 0, 'token15', '2025-10-13 18:00:00', '2025-10-14 18:00:00'),
+(16, 1, 'token16', '2025-10-13 19:00:00', '2025-10-14 19:00:00'), (17, 2, 'token17', '2025-10-13 20:00:00', '2025-10-14 20:00:00'), (18, 0, 'token18', '2025-10-13 21:00:00', '2025-10-14 21:00:00'), (19, 1, 'token19', '2025-10-13 22:00:00', '2025-10-14 22:00:00'), (20, 2, 'token20', '2025-10-13 23:00:00', '2025-10-14 23:00:00'),
+(21, 0, 'token21', '2025-10-14 00:00:00', '2025-10-15 00:00:00'), (22, 1, 'token22', '2025-10-14 01:00:00', '2025-10-15 01:00:00'), (23, 2, 'token23', '2025-10-14 02:00:00', '2025-10-15 02:00:00'), (24, 0, 'token24', '2025-10-14 03:00:00', '2025-10-15 03:00:00'), (25, 1, 'token25', '2025-10-14 04:00:00', '2025-10-15 04:00:00'),
+(26, 2, 'token26', '2025-10-14 05:00:00', '2025-10-15 05:00:00'), (27, 0, 'token27', '2025-10-14 06:00:00', '2025-10-15 06:00:00'), (28, 1, 'token28', '2025-10-14 07:00:00', '2025-10-15 07:00:00'), (29, 2, 'token29', '2025-10-14 08:00:00', '2025-10-15 08:00:00'), (30, 0, 'token30', '2025-10-14 09:00:00', '2025-10-15 09:00:00'),
+(31, 1, 'token31', '2025-10-14 10:00:00', '2025-10-15 10:00:00'), (32, 2, 'token32', '2025-10-14 11:00:00', '2025-10-15 11:00:00'), (33, 0, 'token33', '2025-10-14 12:00:00', '2025-10-15 12:00:00'), (34, 1, 'token34', '2025-10-14 13:00:00', '2025-10-15 13:00:00'), (35, 2, 'token35', '2025-10-14 14:00:00', '2025-10-15 14:00:00'),
+(36, 0, 'token36', '2025-10-14 15:00:00', '2025-10-15 15:00:00'), (37, 1, 'token37', '2025-10-14 16:00:00', '2025-10-15 16:00:00'), (38, 2, 'token38', '2025-10-14 17:00:00', '2025-10-15 17:00:00'), (39, 0, 'token39', '2025-10-14 18:00:00', '2025-10-15 18:00:00'), (40, 1, 'token40', '2025-10-14 19:00:00', '2025-10-15 19:00:00'),
+(41, 2, 'token41', '2025-10-14 20:00:00', '2025-10-15 20:00:00'), (42, 0, 'token42', '2025-10-14 21:00:00', '2025-10-15 21:00:00'), (43, 1, 'token43', '2025-10-14 22:00:00', '2025-10-15 22:00:00'), (44, 2, 'token44', '2025-10-14 23:00:00', '2025-10-15 23:00:00'), (45, 0, 'token45', '2025-10-15 00:00:00', '2025-10-16 00:00:00'),
+(46, 1, 'token46', '2025-10-15 01:00:00', '2025-10-16 01:00:00'), (47, 2, 'token47', '2025-10-15 02:00:00', '2025-10-16 02:00:00'), (48, 0, 'token48', '2025-10-15 03:00:00', '2025-10-16 03:00:00'), (49, 1, 'token49', '2025-10-15 04:00:00', '2025-10-16 04:00:00'), (50, 2, 'token50', '2025-10-15 05:00:00', '2025-10-16 05:00:00');
+
+-- Additional 45 inserts for notification (user_id 6-50, type varying)
+INSERT INTO [dbo].[notification] ([user_id], [content], [type], [sent_time]) VALUES
+(6, 'Booking confirmed.', 'BOOKING', '2025-10-13 14:00:00'), (7, 'Payment received.', 'PAYMENT', '2025-10-13 15:00:00'), (8, 'Issue resolved.', 'ISSUE', '2025-10-13 16:00:00'), (9, 'System update.', 'GENERAL', '2025-10-13 17:00:00'), (10, 'Booking canceled.', 'BOOKING', '2025-10-13 18:00:00'),
+(11, 'Payment failed.', 'PAYMENT', '2025-10-13 19:00:00'), (12, 'New issue reported.', 'ISSUE', '2025-10-13 20:00:00'), (13, 'Promotion alert.', 'GENERAL', '2025-10-13 21:00:00'), (14, 'Booking updated.', 'BOOKING', '2025-10-13 22:00:00'), (15, 'Refund processed.', 'PAYMENT', '2025-10-13 23:00:00'),
+(16, 'Maintenance notice.', 'ISSUE', '2025-10-14 00:00:00'), (17, 'Account verified.', 'GENERAL', '2025-10-14 01:00:00'), (18, 'Booking reminder.', 'BOOKING', '2025-10-14 02:00:00'), (19, 'Payment due.', 'PAYMENT', '2025-10-14 03:00:00'), (20, 'Issue update.', 'ISSUE', '2025-10-14 04:00:00'),
+(21, 'Newsletter.', 'GENERAL', '2025-10-14 05:00:00'), (22, 'Booking complete.', 'BOOKING', '2025-10-14 06:00:00'), (23, 'Charge successful.', 'PAYMENT', '2025-10-14 07:00:00'), (24, 'Report submitted.', 'ISSUE', '2025-10-14 08:00:00'), (25, 'Welcome message.', 'GENERAL', '2025-10-14 09:00:00'),
+(26, 'Cancellation notice.', 'BOOKING', '2025-10-14 10:00:00'), (27, 'Invoice sent.', 'PAYMENT', '2025-10-14 11:00:00'), (28, 'Problem fixed.', 'ISSUE', '2025-10-14 12:00:00'), (29, 'Event invite.', 'GENERAL', '2025-10-14 13:00:00'), (30, 'Reservation made.', 'BOOKING', '2025-10-14 14:00:00'),
+(31, 'Transaction complete.', 'PAYMENT', '2025-10-14 15:00:00'), (32, 'Alert: issue.', 'ISSUE', '2025-10-14 16:00:00'), (33, 'Tips and tricks.', 'GENERAL', '2025-10-14 17:00:00'), (34, 'Booking alert.', 'BOOKING', '2025-10-14 18:00:00'), (35, 'Payment reminder.', 'PAYMENT', '2025-10-14 19:00:00'),
+(36, 'Service disruption.', 'ISSUE', '2025-10-14 20:00:00'), (37, 'Feedback request.', 'GENERAL', '2025-10-14 21:00:00'), (38, 'Appointment set.', 'BOOKING', '2025-10-14 22:00:00'), (39, 'Bill paid.', 'PAYMENT', '2025-10-14 23:00:00'), (40, 'Error reported.', 'ISSUE', '2025-10-15 00:00:00'),
+(41, 'Update available.', 'GENERAL', '2025-10-15 01:00:00'), (42, 'Slot booked.', 'BOOKING', '2025-10-15 02:00:00'), (43, 'Funds added.', 'PAYMENT', '2025-10-15 03:00:00'), (44, 'Bug fixed.', 'ISSUE', '2025-10-15 04:00:00'), (45, 'News alert.', 'GENERAL', '2025-10-15 05:00:00'),
+(46, 'Reservation canceled.', 'BOOKING', '2025-10-15 06:00:00'), (47, 'Charge refunded.', 'PAYMENT', '2025-10-15 07:00:00'), (48, 'Maintenance complete.', 'ISSUE', '2025-10-15 08:00:00'), (49, 'Survey invite.', 'GENERAL', '2025-10-15 09:00:00'), (50, 'Booking rescheduled.', 'BOOKING', '2025-10-15 10:00:00');
+
+-- Additional 45 inserts for price_factor (station_id 6-50)
+INSERT INTO [dbo].[price_factor] ([station_id], [factor], [description], [start_time], [end_time]) VALUES
+(6, 1.2, 'Peak hour', '2025-10-13 08:00:00', '2025-10-13 18:00:00'), (7, 0.8, 'Off-peak', '2025-10-13 18:00:00', '2025-10-14 08:00:00'), (8, 1.3, 'Weekend surge', '2025-10-13 00:00:00', '2025-10-14 23:59:59'), (9, 1.0, 'Normal', NULL, NULL), (10, 0.7, 'Discount', '2025-10-13 12:00:00', '2025-10-13 14:00:00'),
+(11, 1.2, 'Peak hour', '2025-10-13 08:00:00', '2025-10-13 18:00:00'), (12, 0.8, 'Off-peak', '2025-10-13 18:00:00', '2025-10-14 08:00:00'), (13, 1.3, 'Weekend surge', '2025-10-13 00:00:00', '2025-10-14 23:59:59'), (14, 1.0, 'Normal', NULL, NULL), (15, 0.7, 'Discount', '2025-10-13 12:00:00', '2025-10-13 14:00:00'),
+(16, 1.2, 'Peak hour', '2025-10-13 08:00:00', '2025-10-13 18:00:00'), (17, 0.8, 'Off-peak', '2025-10-13 18:00:00', '2025-10-14 08:00:00'), (18, 1.3, 'Weekend surge', '2025-10-13 00:00:00', '2025-10-14 23:59:59'), (19, 1.0, 'Normal', NULL, NULL), (20, 0.7, 'Discount', '2025-10-13 12:00:00', '2025-10-13 14:00:00'),
+(21, 1.2, 'Peak hour', '2025-10-13 08:00:00', '2025-10-13 18:00:00'), (22, 0.8, 'Off-peak', '2025-10-13 18:00:00', '2025-10-14 08:00:00'), (23, 1.3, 'Weekend surge', '2025-10-13 00:00:00', '2025-10-14 23:59:59'), (24, 1.0, 'Normal', NULL, NULL), (25, 0.7, 'Discount', '2025-10-13 12:00:00', '2025-10-13 14:00:00'),
+(26, 1.2, 'Peak hour', '2025-10-13 08:00:00', '2025-10-13 18:00:00'), (27, 0.8, 'Off-peak', '2025-10-13 18:00:00', '2025-10-14 08:00:00'), (28, 1.3, 'Weekend surge', '2025-10-13 00:00:00', '2025-10-14 23:59:59'), (29, 1.0, 'Normal', NULL, NULL), (30, 0.7, 'Discount', '2025-10-13 12:00:00', '2025-10-13 14:00:00'),
+(31, 1.2, 'Peak hour', '2025-10-13 08:00:00', '2025-10-13 18:00:00'), (32, 0.8, 'Off-peak', '2025-10-13 18:00:00', '2025-10-14 08:00:00'), (33, 1.3, 'Weekend surge', '2025-10-13 00:00:00', '2025-10-14 23:59:59'), (34, 1.0, 'Normal', NULL, NULL), (35, 0.7, 'Discount', '2025-10-13 12:00:00', '2025-10-13 14:00:00'),
+(36, 1.2, 'Peak hour', '2025-10-13 08:00:00', '2025-10-13 18:00:00'), (37, 0.8, 'Off-peak', '2025-10-13 18:00:00', '2025-10-14 08:00:00'), (38, 1.3, 'Weekend surge', '2025-10-13 00:00:00', '2025-10-14 23:59:59'), (39, 1.0, 'Normal', NULL, NULL), (40, 0.7, 'Discount', '2025-10-13 12:00:00', '2025-10-13 14:00:00'),
+(41, 1.2, 'Peak hour', '2025-10-13 08:00:00', '2025-10-13 18:00:00'), (42, 0.8, 'Off-peak', '2025-10-13 18:00:00', '2025-10-14 08:00:00'), (43, 1.3, 'Weekend surge', '2025-10-13 00:00:00', '2025-10-14 23:59:59'), (44, 1.0, 'Normal', NULL, NULL), (45, 0.7, 'Discount', '2025-10-13 12:00:00', '2025-10-13 14:00:00'),
+(46, 1.2, 'Peak hour', '2025-10-13 08:00:00', '2025-10-13 18:00:00'), (47, 0.8, 'Off-peak', '2025-10-13 18:00:00', '2025-10-14 08:00:00'), (48, 1.3, 'Weekend surge', '2025-10-13 00:00:00', '2025-10-14 23:59:59'), (49, 1.0, 'Normal', NULL, NULL), (50, 0.7, 'Discount', '2025-10-13 12:00:00', '2025-10-13 14:00:00');
+
+-- Additional 45 inserts for revenue (station_id 6-50)
+INSERT INTO [dbo].[revenue] ([station_id], [amount], [period]) VALUES
+(6, 550.0, '2025-10-06'), (7, 350.0, '2025-10-07'), (8, 450.0, '2025-10-08'), (9, 250.0, '2025-10-09'), (10, 650.0, '2025-10-10'),
+(11, 600.0, '2025-10-11'), (12, 400.0, '2025-10-12'), (13, 500.0, '2025-10-13'), (14, 300.0, '2025-10-14'), (15, 700.0, '2025-10-15'),
+(16, 650.0, '2025-10-16'), (17, 450.0, '2025-10-17'), (18, 550.0, '2025-10-18'), (19, 350.0, '2025-10-19'), (20, 750.0, '2025-10-20'),
+(21, 700.0, '2025-10-21'), (22, 500.0, '2025-10-22'), (23, 600.0, '2025-10-23'), (24, 400.0, '2025-10-24'), (25, 800.0, '2025-10-25'),
+(26, 750.0, '2025-10-26'), (27, 550.0, '2025-10-27'), (28, 650.0, '2025-10-28'), (29, 450.0, '2025-10-29'), (30, 850.0, '2025-10-30'),
+(31, 800.0, '2025-10-31'), (32, 600.0, '2025-11-01'), (33, 700.0, '2025-11-02'), (34, 500.0, '2025-11-03'), (35, 900.0, '2025-11-04'),
+(36, 850.0, '2025-11-05'), (37, 650.0, '2025-11-06'), (38, 750.0, '2025-11-07'), (39, 550.0, '2025-11-08'), (40, 950.0, '2025-11-09'),
+(41, 900.0, '2025-11-10'), (42, 700.0, '2025-11-11'), (43, 800.0, '2025-11-12'), (44, 600.0, '2025-11-13'), (45, 1000.0, '2025-11-14'),
+(46, 950.0, '2025-11-15'), (47, 750.0, '2025-11-16'), (48, 850.0, '2025-11-17'), (49, 650.0, '2025-11-18'), (50, 1050.0, '2025-11-19');
+
+-- Additional 45 inserts for issue_report (station_id 6-50, staff_id cycling from existing staff/admins, e.g. 4,3,9,14,... but to simplify cycle 3-50 where appropriate)
+-- Assuming more staff now, use 3,4,8,9,13,14,... cycling
+INSERT INTO [dbo].[issue_report] ([station_id], [staff_id], [description], [status], [reported_time]) VALUES
+(6, 3, 'Cable damaged', 'INBOX', '2025-10-13 09:00:00'), (7, 4, 'No power', 'IN_PROGRESS', '2025-10-13 10:00:00'), (8, 8, 'Screen broken', 'RESOLVED', '2025-10-13 11:00:00'), (9, 9, 'Connection error', 'INBOX', '2025-10-13 12:00:00'), (10, 3, 'Overheating', 'IN_PROGRESS', '2025-10-13 13:00:00'),
+(11, 4, 'Cable damaged', 'INBOX', '2025-10-13 14:00:00'), (12, 8, 'No power', 'IN_PROGRESS', '2025-10-13 15:00:00'), (13, 9, 'Screen broken', 'RESOLVED', '2025-10-13 16:00:00'), (14, 3, 'Connection error', 'INBOX', '2025-10-13 17:00:00'), (15, 4, 'Overheating', 'IN_PROGRESS', '2025-10-13 18:00:00'),
+(16, 8, 'Cable damaged', 'INBOX', '2025-10-13 19:00:00'), (17, 9, 'No power', 'IN_PROGRESS', '2025-10-13 20:00:00'), (18, 3, 'Screen broken', 'RESOLVED', '2025-10-13 21:00:00'), (19, 4, 'Connection error', 'INBOX', '2025-10-13 22:00:00'), (20, 8, 'Overheating', 'IN_PROGRESS', '2025-10-13 23:00:00'),
+(21, 9, 'Cable damaged', 'INBOX', '2025-10-14 00:00:00'), (22, 3, 'No power', 'IN_PROGRESS', '2025-10-14 01:00:00'), (23, 4, 'Screen broken', 'RESOLVED', '2025-10-14 02:00:00'), (24, 8, 'Connection error', 'INBOX', '2025-10-14 03:00:00'), (25, 9, 'Overheating', 'IN_PROGRESS', '2025-10-14 04:00:00'),
+(26, 3, 'Cable damaged', 'INBOX', '2025-10-14 05:00:00'), (27, 4, 'No power', 'IN_PROGRESS', '2025-10-14 06:00:00'), (28, 8, 'Screen broken', 'RESOLVED', '2025-10-14 07:00:00'), (29, 9, 'Connection error', 'INBOX', '2025-10-14 08:00:00'), (30, 3, 'Overheating', 'IN_PROGRESS', '2025-10-14 09:00:00'),
+(31, 4, 'Cable damaged', 'INBOX', '2025-10-14 10:00:00'), (32, 8, 'No power', 'IN_PROGRESS', '2025-10-14 11:00:00'), (33, 9, 'Screen broken', 'RESOLVED', '2025-10-14 12:00:00'), (34, 3, 'Connection error', 'INBOX', '2025-10-14 13:00:00'), (35, 4, 'Overheating', 'IN_PROGRESS', '2025-10-14 14:00:00'),
+(36, 8, 'Cable damaged', 'INBOX', '2025-10-14 15:00:00'), (37, 9, 'No power', 'IN_PROGRESS', '2025-10-14 16:00:00'), (38, 3, 'Screen broken', 'RESOLVED', '2025-10-14 17:00:00'), (39, 4, 'Connection error', 'INBOX', '2025-10-14 18:00:00'), (40, 8, 'Overheating', 'IN_PROGRESS', '2025-10-14 19:00:00'),
+(41, 9, 'Cable damaged', 'INBOX', '2025-10-14 20:00:00'), (42, 3, 'No power', 'IN_PROGRESS', '2025-10-14 21:00:00'), (43, 4, 'Screen broken', 'RESOLVED', '2025-10-14 22:00:00'), (44, 8, 'Connection error', 'INBOX', '2025-10-14 23:00:00'), (45, 9, 'Overheating', 'IN_PROGRESS', '2025-10-15 00:00:00'),
+(46, 3, 'Cable damaged', 'INBOX', '2025-10-15 01:00:00'), (47, 4, 'No power', 'IN_PROGRESS', '2025-10-15 02:00:00'), (48, 8, 'Screen broken', 'RESOLVED', '2025-10-15 03:00:00'), (49, 9, 'Connection error', 'INBOX', '2025-10-15 04:00:00'), (50, 3, 'Overheating', 'IN_PROGRESS', '2025-10-15 05:00:00');
+
+-- Additional 45 inserts for orders (user_id cycling drivers 1,2,6,7,11,... station_id 6-50, charging_point_id 6-50, connector_type_id 6-50, vehicle_id 6-50, status BOOKED or CANCELED)
+INSERT INTO [dbo].[orders] ([user_id], [station_id], [charging_point_id], [connector_type_id], [vehicle_id], [start_time], [end_time], [status], [price_per_kwh], [started_battery], [expected_battery]) VALUES
+(6, 6, 6, 6, 6, '2025-10-13 14:00:00', '2025-10-13 15:00:00', 'BOOKED', 0.36, 25.0, 85.0), (7, 7, 7, 7, 7, '2025-10-13 15:00:00', '2025-10-13 16:00:00', 'CANCELED', 0.41, 35.0, 95.0), (11, 8, 8, 8, 8, '2025-10-13 16:00:00', '2025-10-13 17:00:00', 'BOOKED', 0.51, 15.0, 75.0), (12, 9, 9, 9, 9, '2025-10-13 17:00:00', '2025-10-13 18:00:00', 'CANCELED', 0.46, 45.0, 100.0), (16, 10, 10, 10, 10, '2025-10-13 18:00:00', '2025-10-13 19:00:00', 'BOOKED', 0.56, 55.0, 100.0),
+(17, 11, 11, 11, 11, '2025-10-13 19:00:00', '2025-10-13 20:00:00', 'CANCELED', 0.36, 25.0, 85.0), (21, 12, 12, 12, 12, '2025-10-13 20:00:00', '2025-10-13 21:00:00', 'BOOKED', 0.41, 35.0, 95.0), (22, 13, 13, 13, 13, '2025-10-13 21:00:00', '2025-10-13 22:00:00', 'CANCELED', 0.51, 15.0, 75.0), (26, 14, 14, 14, 14, '2025-10-13 22:00:00', '2025-10-13 23:00:00', 'BOOKED', 0.46, 45.0, 100.0), (27, 15, 15, 15, 15, '2025-10-13 23:00:00', '2025-10-14 00:00:00', 'CANCELED', 0.56, 55.0, 100.0),
+(31, 16, 16, 16, 16, '2025-10-14 00:00:00', '2025-10-14 01:00:00', 'BOOKED', 0.36, 25.0, 85.0), (32, 17, 17, 17, 17, '2025-10-14 01:00:00', '2025-10-14 02:00:00', 'CANCELED', 0.41, 35.0, 95.0), (36, 18, 18, 18, 18, '2025-10-14 02:00:00', '2025-10-14 03:00:00', 'BOOKED', 0.51, 15.0, 75.0), (37, 19, 19, 19, 19, '2025-10-14 03:00:00', '2025-10-14 04:00:00', 'CANCELED', 0.46, 45.0, 100.0), (41, 20, 20, 20, 20, '2025-10-14 04:00:00', '2025-10-14 05:00:00', 'BOOKED', 0.56, 55.0, 100.0),
+(42, 21, 21, 21, 21, '2025-10-14 05:00:00', '2025-10-14 06:00:00', 'CANCELED', 0.36, 25.0, 85.0), (46, 22, 22, 22, 22, '2025-10-14 06:00:00', '2025-10-14 07:00:00', 'BOOKED', 0.41, 35.0, 95.0), (47, 23, 23, 23, 23, '2025-10-14 07:00:00', '2025-10-14 08:00:00', 'CANCELED', 0.51, 15.0, 75.0), (1, 24, 24, 24, 24, '2025-10-14 08:00:00', '2025-10-14 09:00:00', 'BOOKED', 0.46, 45.0, 100.0), (2, 25, 25, 25, 25, '2025-10-14 09:00:00', '2025-10-14 10:00:00', 'CANCELED', 0.56, 55.0, 100.0),
+(6, 26, 26, 26, 26, '2025-10-14 10:00:00', '2025-10-14 11:00:00', 'BOOKED', 0.36, 25.0, 85.0), (7, 27, 27, 27, 27, '2025-10-14 11:00:00', '2025-10-14 12:00:00', 'CANCELED', 0.41, 35.0, 95.0), (11, 28, 28, 28, 28, '2025-10-14 12:00:00', '2025-10-14 13:00:00', 'BOOKED', 0.51, 15.0, 75.0), (12, 29, 29, 29, 29, '2025-10-14 13:00:00', '2025-10-14 14:00:00', 'CANCELED', 0.46, 45.0, 100.0), (16, 30, 30, 30, 30, '2025-10-14 14:00:00', '2025-10-14 15:00:00', 'BOOKED', 0.56, 55.0, 100.0),
+(17, 31, 31, 31, 31, '2025-10-14 15:00:00', '2025-10-14 16:00:00', 'CANCELED', 0.36, 25.0, 85.0), (21, 32, 32, 32, 32, '2025-10-14 16:00:00', '2025-10-14 17:00:00', 'BOOKED', 0.41, 35.0, 95.0), (22, 33, 33, 33, 33, '2025-10-14 17:00:00', '2025-10-14 18:00:00', 'CANCELED', 0.51, 15.0, 75.0), (26, 34, 34, 34, 34, '2025-10-14 18:00:00', '2025-10-14 19:00:00', 'BOOKED', 0.46, 45.0, 100.0), (27, 35, 35, 35, 35, '2025-10-14 19:00:00', '2025-10-14 20:00:00', 'CANCELED', 0.56, 55.0, 100.0),
+(31, 36, 36, 36, 36, '2025-10-14 20:00:00', '2025-10-14 21:00:00', 'BOOKED', 0.36, 25.0, 85.0), (32, 37, 37, 37, 37, '2025-10-14 21:00:00', '2025-10-14 22:00:00', 'CANCELED', 0.41, 35.0, 95.0), (36, 38, 38, 38, 38, '2025-10-14 22:00:00', '2025-10-14 23:00:00', 'BOOKED', 0.51, 15.0, 75.0), (37, 39, 39, 39, 39, '2025-10-14 23:00:00', '2025-10-15 00:00:00', 'CANCELED', 0.46, 45.0, 100.0), (41, 40, 40, 40, 40, '2025-10-15 00:00:00', '2025-10-15 01:00:00', 'BOOKED', 0.56, 55.0, 100.0),
+(42, 41, 41, 41, 41, '2025-10-15 01:00:00', '2025-10-15 02:00:00', 'CANCELED', 0.36, 25.0, 85.0), (46, 42, 42, 42, 42, '2025-10-15 02:00:00', '2025-10-15 03:00:00', 'BOOKED', 0.41, 35.0, 95.0), (47, 43, 43, 43, 43, '2025-10-15 03:00:00', '2025-10-15 04:00:00', 'CANCELED', 0.51, 15.0, 75.0), (1, 44, 44, 44, 44, '2025-10-15 04:00:00', '2025-10-15 05:00:00', 'BOOKED', 0.46, 45.0, 100.0), (2, 45, 45, 45, 45, '2025-10-15 05:00:00', '2025-10-15 06:00:00', 'CANCELED', 0.56, 55.0, 100.0),
+(6, 46, 46, 46, 46, '2025-10-15 06:00:00', '2025-10-15 07:00:00', 'BOOKED', 0.36, 25.0, 85.0), (7, 47, 47, 47, 47, '2025-10-15 07:00:00', '2025-10-15 08:00:00', 'CANCELED', 0.41, 35.0, 95.0), (11, 48, 48, 48, 48, '2025-10-15 08:00:00', '2025-10-15 09:00:00', 'BOOKED', 0.51, 15.0, 75.0), (12, 49, 49, 49, 49, '2025-10-15 09:00:00', '2025-10-15 10:00:00', 'CANCELED', 0.46, 45.0, 100.0), (16, 50, 50, 50, 50, '2025-10-15 10:00:00', '2025-10-15 11:00:00', 'BOOKED', 0.56, 55.0, 100.0);
+
+-- Additional 45 inserts for session (order_id 6-50, fee_id 6-50)
+INSERT INTO [dbo].[session] ([order_id], [start_time], [end_time], [status], [cost], [power_consumed], [fee_id]) VALUES
+(6, '2025-10-13 14:00:00', '2025-10-13 14:30:00', 'CHARGING', 15.0, 25.0, 6), (7, '2025-10-13 15:00:00', '2025-10-13 15:45:00', 'COMPLETED', 20.0, 35.0, 7), (8, '2025-10-13 16:00:00', NULL, 'CHARGING', 10.0, 15.0, 8), (9, '2025-10-13 17:00:00', '2025-10-13 17:30:00', 'COMPLETED', 12.5, 20.0, 9), (10, '2025-10-13 18:00:00', NULL, 'CHARGING', 25.0, 45.0, 10),
+(11, '2025-10-13 19:00:00', '2025-10-13 19:30:00', 'CHARGING', 15.0, 25.0, 11), (12, '2025-10-13 20:00:00', '2025-10-13 20:45:00', 'COMPLETED', 20.0, 35.0, 12), (13, '2025-10-13 21:00:00', NULL, 'CHARGING', 10.0, 15.0, 13), (14, '2025-10-13 22:00:00', '2025-10-13 22:30:00', 'COMPLETED', 12.5, 20.0, 14), (15, '2025-10-13 23:00:00', NULL, 'CHARGING', 25.0, 45.0, 15),
+(16, '2025-10-14 00:00:00', '2025-10-14 00:30:00', 'CHARGING', 15.0, 25.0, 16), (17, '2025-10-14 01:00:00', '2025-10-14 01:45:00', 'COMPLETED', 20.0, 35.0, 17), (18, '2025-10-14 02:00:00', NULL, 'CHARGING', 10.0, 15.0, 18), (19, '2025-10-14 03:00:00', '2025-10-14 03:30:00', 'COMPLETED', 12.5, 20.0, 19), (20, '2025-10-14 04:00:00', NULL, 'CHARGING', 25.0, 45.0, 20),
+(21, '2025-10-14 05:00:00', '2025-10-14 05:30:00', 'CHARGING', 15.0, 25.0, 21), (22, '2025-10-14 06:00:00', '2025-10-14 06:45:00', 'COMPLETED', 20.0, 35.0, 22), (23, '2025-10-14 07:00:00', NULL, 'CHARGING', 10.0, 15.0, 23), (24, '2025-10-14 08:00:00', '2025-10-14 08:30:00', 'COMPLETED', 12.5, 20.0, 24), (25, '2025-10-14 09:00:00', NULL, 'CHARGING', 25.0, 45.0, 25),
+(26, '2025-10-14 10:00:00', '2025-10-14 10:30:00', 'CHARGING', 15.0, 25.0, 26), (27, '2025-10-14 11:00:00', '2025-10-14 11:45:00', 'COMPLETED', 20.0, 35.0, 27), (28, '2025-10-14 12:00:00', NULL, 'CHARGING', 10.0, 15.0, 28), (29, '2025-10-14 13:00:00', '2025-10-14 13:30:00', 'COMPLETED', 12.5, 20.0, 29), (30, '2025-10-14 14:00:00', NULL, 'CHARGING', 25.0, 45.0, 30),
+(31, '2025-10-14 15:00:00', '2025-10-14 15:30:00', 'CHARGING', 15.0, 25.0, 31), (32, '2025-10-14 16:00:00', '2025-10-14 16:45:00', 'COMPLETED', 20.0, 35.0, 32), (33, '2025-10-14 17:00:00', NULL, 'CHARGING', 10.0, 15.0, 33), (34, '2025-10-14 18:00:00', '2025-10-14 18:30:00', 'COMPLETED', 12.5, 20.0, 34), (35, '2025-10-14 19:00:00', NULL, 'CHARGING', 25.0, 45.0, 35),
+(36, '2025-10-14 20:00:00', '2025-10-14 20:30:00', 'CHARGING', 15.0, 25.0, 36), (37, '2025-10-14 21:00:00', '2025-10-14 21:45:00', 'COMPLETED', 20.0, 35.0, 37), (38, '2025-10-14 22:00:00', NULL, 'CHARGING', 10.0, 15.0, 38), (39, '2025-10-14 23:00:00', '2025-10-14 23:30:00', 'COMPLETED', 12.5, 20.0, 39), (40, '2025-10-15 00:00:00', NULL, 'CHARGING', 25.0, 45.0, 40),
+(41, '2025-10-15 01:00:00', '2025-10-15 01:30:00', 'CHARGING', 15.0, 25.0, 41), (42, '2025-10-15 02:00:00', '2025-10-15 02:45:00', 'COMPLETED', 20.0, 35.0, 42), (43, '2025-10-15 03:00:00', NULL, 'CHARGING', 10.0, 15.0, 43), (44, '2025-10-15 04:00:00', '2025-10-15 04:30:00', 'COMPLETED', 12.5, 20.0, 44), (45, '2025-10-15 05:00:00', NULL, 'CHARGING', 25.0, 45.0, 45),
+(46, '2025-10-15 06:00:00', '2025-10-15 06:30:00', 'CHARGING', 15.0, 25.0, 46), (47, '2025-10-15 07:00:00', '2025-10-15 07:45:00', 'COMPLETED', 20.0, 35.0, 47), (48, '2025-10-15 08:00:00', NULL, 'CHARGING', 10.0, 15.0, 48), (49, '2025-10-15 09:00:00', '2025-10-15 09:30:00', 'COMPLETED', 12.5, 20.0, 49), (50, '2025-10-15 10:00:00', NULL, 'CHARGING', 25.0, 45.0, 50);
+
+-- Additional 45 inserts for transaction (session_id 6-50, user_id from corresponding order's user)
+-- Assuming session_id 6-50 correspond to order_id 6-50, user_id as above
+INSERT INTO [dbo].[transaction] ([session_id], [user_id], [amount], [payment_method], [status]) VALUES
+(6, 6, 15.0, 'VNPAY', 'PENDING'), (7, 7, 20.0, 'CASH', 'SUCCESS'), (8, 11, 10.0, 'QR', 'FAILED'), (9, 12, 12.5, 'VNPAY', 'SUCCESS'), (10, 16, 25.0, 'CASH', 'PENDING'),
+(11, 17, 15.0, 'VNPAY', 'PENDING'), (12, 21, 20.0, 'CASH', 'SUCCESS'), (13, 22, 10.0, 'QR', 'FAILED'), (14, 26, 12.5, 'VNPAY', 'SUCCESS'), (15, 27, 25.0, 'CASH', 'PENDING'),
+(16, 31, 15.0, 'VNPAY', 'PENDING'), (17, 32, 20.0, 'CASH', 'SUCCESS'), (18, 36, 10.0, 'QR', 'FAILED'), (19, 37, 12.5, 'VNPAY', 'SUCCESS'), (20, 41, 25.0, 'CASH', 'PENDING'),
+(21, 42, 15.0, 'VNPAY', 'PENDING'), (22, 46, 20.0, 'CASH', 'SUCCESS'), (23, 47, 10.0, 'QR', 'FAILED'), (24, 1, 12.5, 'VNPAY', 'SUCCESS'), (25, 2, 25.0, 'CASH', 'PENDING'),
+(26, 6, 15.0, 'VNPAY', 'PENDING'), (27, 7, 20.0, 'CASH', 'SUCCESS'), (28, 11, 10.0, 'QR', 'FAILED'), (29, 12, 12.5, 'VNPAY', 'SUCCESS'), (30, 16, 25.0, 'CASH', 'PENDING'),
+(31, 17, 15.0, 'VNPAY', 'PENDING'), (32, 21, 20.0, 'CASH', 'SUCCESS'), (33, 22, 10.0, 'QR', 'FAILED'), (34, 26, 12.5, 'VNPAY', 'SUCCESS'), (35, 27, 25.0, 'CASH', 'PENDING'),
+(36, 31, 15.0, 'VNPAY', 'PENDING'), (37, 32, 20.0, 'CASH', 'SUCCESS'), (38, 36, 10.0, 'QR', 'FAILED'), (39, 37, 12.5, 'VNPAY', 'SUCCESS'), (40, 41, 25.0, 'CASH', 'PENDING'),
+(41, 42, 15.0, 'VNPAY', 'PENDING'), (42, 46, 20.0, 'CASH', 'SUCCESS'), (43, 47, 10.0, 'QR', 'FAILED'), (44, 1, 12.5, 'VNPAY', 'SUCCESS'), (45, 2, 25.0, 'CASH', 'PENDING'),
+(46, 6, 15.0, 'VNPAY', 'PENDING'), (47, 7, 20.0, 'CASH', 'SUCCESS'), (48, 11, 10.0, 'QR', 'FAILED'), (49, 12, 12.5, 'VNPAY', 'SUCCESS'), (50, 16, 25.0, 'CASH', 'PENDING');
+
+-- Additional 45 inserts for wallet_transaction (wallet_id 6-50, type varying, transaction_id 6-50)
+INSERT INTO [dbo].[wallet_transaction] ([wallet_id], [type], [amount], [created_at], [transaction_id]) VALUES
+(6, 'DEPOSIT', 55.0, '2025-10-13 19:00:00', 6), (7, 'WITHDRAWAL', 25.0, '2025-10-13 20:00:00', 7), (8, 'PAYMENT', 35.0, '2025-10-13 21:00:00', 8), (9, 'DEPOSIT', 15.0, '2025-10-13 22:00:00', 9), (10, 'WITHDRAWAL', 10.0, '2025-10-13 23:00:00', 10),
+(11, 'PAYMENT', 45.0, '2025-10-14 00:00:00', 11), (12, 'DEPOSIT', 25.0, '2025-10-14 01:00:00', 12), (13, 'WITHDRAWAL', 35.0, '2025-10-14 02:00:00', 13), (14, 'PAYMENT', 15.0, '2025-10-14 03:00:00', 14), (15, 'DEPOSIT', 10.0, '2025-10-14 04:00:00', 15),
+(16, 'WITHDRAWAL', 45.0, '2025-10-14 05:00:00', 16), (17, 'PAYMENT', 25.0, '2025-10-14 06:00:00', 17), (18, 'DEPOSIT', 35.0, '2025-10-14 07:00:00', 18), (19, 'WITHDRAWAL', 15.0, '2025-10-14 08:00:00', 19), (20, 'PAYMENT', 10.0, '2025-10-14 09:00:00', 20),
+(21, 'DEPOSIT', 45.0, '2025-10-14 10:00:00', 21), (22, 'WITHDRAWAL', 25.0, '2025-10-14 11:00:00', 22), (23, 'PAYMENT', 35.0, '2025-10-14 12:00:00', 23), (24, 'DEPOSIT', 15.0, '2025-10-14 13:00:00', 24), (25, 'WITHDRAWAL', 10.0, '2025-10-14 14:00:00', 25),
+(26, 'PAYMENT', 45.0, '2025-10-14 15:00:00', 26), (27, 'DEPOSIT', 25.0, '2025-10-14 16:00:00', 27), (28, 'WITHDRAWAL', 35.0, '2025-10-14 17:00:00', 28), (29, 'PAYMENT', 15.0, '2025-10-14 18:00:00', 29), (30, 'DEPOSIT', 10.0, '2025-10-14 19:00:00', 30),
+(31, 'WITHDRAWAL', 45.0, '2025-10-14 20:00:00', 31), (32, 'PAYMENT', 25.0, '2025-10-14 21:00:00', 32), (33, 'DEPOSIT', 35.0, '2025-10-14 22:00:00', 33), (34, 'WITHDRAWAL', 15.0, '2025-10-14 23:00:00', 34), (35, 'PAYMENT', 10.0, '2025-10-15 00:00:00', 35),
+(36, 'DEPOSIT', 45.0, '2025-10-15 01:00:00', 36), (37, 'WITHDRAWAL', 25.0, '2025-10-15 02:00:00', 37), (38, 'PAYMENT', 35.0, '2025-10-15 03:00:00', 38), (39, 'DEPOSIT', 15.0, '2025-10-15 04:00:00', 39), (40, 'WITHDRAWAL', 10.0, '2025-10-15 05:00:00', 40),
+(41, 'PAYMENT', 45.0, '2025-10-15 06:00:00', 41), (42, 'DEPOSIT', 25.0, '2025-10-15 07:00:00', 42), (43, 'WITHDRAWAL', 35.0, '2025-10-15 08:00:00', 43), (44, 'PAYMENT', 15.0, '2025-10-15 09:00:00', 44), (45, 'DEPOSIT', 10.0, '2025-10-15 10:00:00', 45),
+(46, 'WITHDRAWAL', 45.0, '2025-10-15 11:00:00', 46), (47, 'PAYMENT', 25.0, '2025-10-15 12:00:00', 47), (48, 'DEPOSIT', 35.0, '2025-10-15 13:00:00', 48), (49, 'WITHDRAWAL', 15.0, '2025-10-15 14:00:00', 49), (50, 'PAYMENT', 10.0, '2025-10-15 15:00:00', 50);
+
+-- Additional 45 inserts for booking (charging_point_id 6-50, order_id 'ORD006' to 'ORD050')
+INSERT INTO [dbo].[booking] ([charging_point_id], [start_time], [end_time], [order_id]) VALUES
+(6, '2025-10-13 14:00:00', '2025-10-13 15:00:00', 'ORD006'), (7, '2025-10-13 15:00:00', '2025-10-13 16:00:00', 'ORD007'), (8, '2025-10-13 16:00:00', '2025-10-13 17:00:00', 'ORD008'), (9, '2025-10-13 17:00:00', '2025-10-13 18:00:00', 'ORD009'), (10, '2025-10-13 18:00:00', '2025-10-13 19:00:00', 'ORD010'),
+(11, '2025-10-13 19:00:00', '2025-10-13 20:00:00', 'ORD011'), (12, '2025-10-13 20:00:00', '2025-10-13 21:00:00', 'ORD012'), (13, '2025-10-13 21:00:00', '2025-10-13 22:00:00', 'ORD013'), (14, '2025-10-13 22:00:00', '2025-10-13 23:00:00', 'ORD014'), (15, '2025-10-13 23:00:00', '2025-10-14 00:00:00', 'ORD015'),
+(16, '2025-10-14 00:00:00', '2025-10-14 01:00:00', 'ORD016'), (17, '2025-10-14 01:00:00', '2025-10-14 02:00:00', 'ORD017'), (18, '2025-10-14 02:00:00', '2025-10-14 03:00:00', 'ORD018'), (19, '2025-10-14 03:00:00', '2025-10-14 04:00:00', 'ORD019'), (20, '2025-10-14 04:00:00', '2025-10-14 05:00:00', 'ORD020'),
+(21, '2025-10-14 05:00:00', '2025-10-14 06:00:00', 'ORD021'), (22, '2025-10-14 06:00:00', '2025-10-14 07:00:00', 'ORD022'), (23, '2025-10-14 07:00:00', '2025-10-14 08:00:00', 'ORD023'), (24, '2025-10-14 08:00:00', '2025-10-14 09:00:00', 'ORD024'), (25, '2025-10-14 09:00:00', '2025-10-14 10:00:00', 'ORD025'),
+(26, '2025-10-14 10:00:00', '2025-10-14 11:00:00', 'ORD026'), (27, '2025-10-14 11:00:00', '2025-10-14 12:00:00', 'ORD027'), (28, '2025-10-14 12:00:00', '2025-10-14 13:00:00', 'ORD028'), (29, '2025-10-14 13:00:00', '2025-10-14 14:00:00', 'ORD029'), (30, '2025-10-14 14:00:00', '2025-10-14 15:00:00', 'ORD030'),
+(31, '2025-10-14 15:00:00', '2025-10-14 16:00:00', 'ORD031'), (32, '2025-10-14 16:00:00', '2025-10-14 17:00:00', 'ORD032'), (33, '2025-10-14 17:00:00', '2025-10-14 18:00:00', 'ORD033'), (34, '2025-10-14 18:00:00', '2025-10-14 19:00:00', 'ORD034'), (35, '2025-10-14 19:00:00', '2025-10-14 20:00:00', 'ORD035'),
+(36, '2025-10-14 20:00:00', '2025-10-14 21:00:00', 'ORD036'), (37, '2025-10-14 21:00:00', '2025-10-14 22:00:00', 'ORD037'), (38, '2025-10-14 22:00:00', '2025-10-14 23:00:00', 'ORD038'), (39, '2025-10-14 23:00:00', '2025-10-15 00:00:00', 'ORD039'), (40, '2025-10-15 00:00:00', '2025-10-15 01:00:00', 'ORD040'),
+(41, '2025-10-15 01:00:00', '2025-10-15 02:00:00', 'ORD041'), (42, '2025-10-15 02:00:00', '2025-10-15 03:00:00', 'ORD042'), (43, '2025-10-15 03:00:00', '2025-10-15 04:00:00', 'ORD043'), (44, '2025-10-15 04:00:00', '2025-10-15 05:00:00', 'ORD044'), (45, '2025-10-15 05:00:00', '2025-10-15 06:00:00', 'ORD045'),
+(46, '2025-10-15 06:00:00', '2025-10-15 07:00:00', 'ORD046'), (47, '2025-10-15 07:00:00', '2025-10-15 08:00:00', 'ORD047'), (48, '2025-10-15 08:00:00', '2025-10-15 09:00:00', 'ORD048'), (49, '2025-10-15 09:00:00', '2025-10-15 10:00:00', 'ORD049'), (50, '2025-10-15 10:00:00', '2025-10-15 11:00:00', 'ORD050');

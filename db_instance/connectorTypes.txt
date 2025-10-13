@@ -1,0 +1,15 @@
+INSERT INTO connector_types  (type_name, power_output, price_per_kwh)
+VALUES
+    (N'Type 2', 22.0, 3500.0),
+    ( N'CCS2', 150.0, 4000.0),
+    ( N'CHAdeMO', 125.0, 4200.0),
+    ( N'GB/T', 180.0, 3900.0),
+    (N'Tesla Supercharger', 250.0, 4500.0);
+
+    or
+
+    INSERT INTO [dbo].[connector_types] ([type_name], [power_output], [price_per_kwh]) VALUES ('Type 1', 7.4, 0.35);
+    INSERT INTO [dbo].[connector_types] ([type_name], [power_output], [price_per_kwh]) VALUES ('Type 2', 22.0, 0.40);
+    INSERT INTO [dbo].[connector_types] ([type_name], [power_output], [price_per_kwh]) VALUES ('CCS', 50.0, 0.50);
+    INSERT INTO [dbo].[connector_types] ([type_name], [power_output], [price_per_kwh]) VALUES ('CHAdeMO', 50.0, 0.45);
+    INSERT INTO [dbo].[connector_types] ([type_name], [power_output], [price_per_kwh]) VALUES ('Tesla Supercharger', 120.0, 0.55);

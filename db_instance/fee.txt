@@ -1,0 +1,20 @@
+-- Insert into fee (5 records)
+-- Columns: type, amount (fee_id is IDENTITY)
+-- Types: CHARGING, NO_SHOW, CANCEL
+INSERT INTO [dbo].[fee] ([type], [amount]) VALUES ('CHARGING', 5.0);
+INSERT INTO [dbo].[fee] ([type], [amount]) VALUES ('NO_SHOW', 10.0);
+INSERT INTO [dbo].[fee] ([type], [amount]) VALUES ('CANCEL', 2.5);
+INSERT INTO [dbo].[fee] ([type], [amount]) VALUES ('CHARGING', 7.5);
+INSERT INTO [dbo].[fee] ([type], [amount]) VALUES ('NO_SHOW', 15.0);
+
+-- Additional 45 inserts for fee
+INSERT INTO [dbo].[fee] ([type], [amount]) VALUES
+('CHARGING', 6.0), ('NO_SHOW', 11.0), ('CANCEL', 3.0), ('CHARGING', 8.0), ('NO_SHOW', 16.0),
+('CHARGING', 5.5), ('NO_SHOW', 10.5), ('CANCEL', 2.75), ('CHARGING', 7.75), ('NO_SHOW', 15.5),
+('CHARGING', 6.0), ('NO_SHOW', 11.0), ('CANCEL', 3.0), ('CHARGING', 8.0), ('NO_SHOW', 16.0),
+('CHARGING', 5.5), ('NO_SHOW', 10.5), ('CANCEL', 2.75), ('CHARGING', 7.75), ('NO_SHOW', 15.5),
+('CHARGING', 6.0), ('NO_SHOW', 11.0), ('CANCEL', 3.0), ('CHARGING', 8.0), ('NO_SHOW', 16.0),
+('CHARGING', 5.5), ('NO_SHOW', 10.5), ('CANCEL', 2.75), ('CHARGING', 7.75), ('NO_SHOW', 15.5),
+('CHARGING', 6.0), ('NO_SHOW', 11.0), ('CANCEL', 3.0), ('CHARGING', 8.0), ('NO_SHOW', 16.0),
+('CHARGING', 5.5), ('NO_SHOW', 10.5), ('CANCEL', 2.75), ('CHARGING', 7.75), ('NO_SHOW', 15.5),
+('CHARGING', 6.0), ('NO_SHOW', 11.0), ('CANCEL', 3.0), ('CHARGING', 8.0), ('NO_SHOW', 16.0);
