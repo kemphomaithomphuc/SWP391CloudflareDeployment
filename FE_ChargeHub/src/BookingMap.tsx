@@ -25,7 +25,7 @@ import { Switch } from "./components/ui/switch";
 
 import { Separator } from "./components/ui/separator";
 
-import { motion } from "motion/react";
+import { motion, AnimatePresence } from "motion/react";
 
 import QRCodeGenerator from "./components/QRCodeGenerator";
 
@@ -99,6 +99,8 @@ import {
 
   MapIcon,
 
+  X,
+
   Satellite,
 
   ZoomIn,
@@ -106,8 +108,6 @@ import {
   ZoomOut,
 
   Settings,
-
-  X,
 
   Pause,
 
@@ -129,6 +129,22 @@ interface ChargingStation {
   longitude?: number;
   chargingPointNumber?: number;
 
+}
+interface ConnectorType {
+  connectorTypeId?: number;
+  typeName: string;
+  powerOutput: number;
+  pricePerKWh: number;
+}
+
+interface ChargingPoint {
+  chargingPointId?: number;
+  status: string;
+  connectorTypeId?: number;
+  stationId?: number;
+  connectorType: ConnectorType;
+  powerOutput?: number;
+  pricePerKwh?: number;
 }
 
 
@@ -176,8 +192,6 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
 
   const [selectedStation, setSelectedStation] = useState<ChargingStation | null>(null);
-
-  const [searchQuery, setSearchQuery] = useState("");
 
   const [mapCenter, setMapCenter] = useState({ lat: 10.8231, lng: 106.6297 }); // Ho Chi Minh City
 
@@ -276,6 +290,124 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
   const [itemsPerPage] = useState(5);
   const [totalPages, setTotalPages] = useState(0);
 
+  // Charging points states
+  const [chargingPoints, setChargingPoints] = useState<ChargingPoint[]>([]);
+  const [loadingPoints, setLoadingPoints] = useState(false);
+  const [expandedStationId, setExpandedStationId] = useState<string | null>(null);
+
+  // Search states
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<ChargingStation[]>([]);
+  const [showSearchResults, setShowSearchResults] = useState(false);
+  const [isNavigating, setIsNavigating] = useState(false);
+
+  // Total charging points calculation
+  const [totalChargingPoints, setTotalChargingPoints] = useState(0);
+
+  // Calculate total charging points for all stations
+  const calculateTotalChargingPoints = () => {
+    const total = stations.reduce((sum, station) => {
+      return sum + (station.chargingPointNumber || 0);
+    }, 0);
+    setTotalChargingPoints(total);
+  };
+
+  // Update total charging points when stations change
+  useEffect(() => {
+    calculateTotalChargingPoints();
+  }, [stations]);
+
+  // Search function with scoring mechanism
+  const searchStations = (query: string) => {
+    if (!query.trim()) {
+      setSearchResults([]);
+      setShowSearchResults(false);
+      return;
+    }
+
+    const results = stations.map(station => {
+      let score = 0;
+      const queryLower = query.toLowerCase().trim();
+      
+      // Address matching (higher priority)
+      if (station.address?.toLowerCase().includes(queryLower)) {
+        score += 100; // High score for address match
+        // Bonus for exact match
+        if (station.address.toLowerCase() === queryLower) {
+          score += 50;
+        }
+        // Bonus for starts with
+        if (station.address.toLowerCase().startsWith(queryLower)) {
+          score += 30;
+        }
+      }
+      
+      // Station name matching (lower priority)
+      if (station.stationName?.toLowerCase().includes(queryLower)) {
+        score += 50; // Lower score for name match
+        // Bonus for exact match
+        if (station.stationName.toLowerCase() === queryLower) {
+          score += 25;
+        }
+        // Bonus for starts with
+        if (station.stationName.toLowerCase().startsWith(queryLower)) {
+          score += 15;
+        }
+      }
+
+      return { station, score };
+    })
+    .filter(result => result.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .map(result => result.station);
+
+    setSearchResults(results);
+    setShowSearchResults(true);
+  };
+
+  // Handle search input change
+  const handleSearchChange = (value: string) => {
+    setSearchQuery(value);
+    searchStations(value);
+  };
+
+  // Handle search result click with smooth transition
+  const handleSearchResultClick = (station: ChargingStation) => {
+    if (__mapRef.current && station.latitude && station.longitude) {
+      setIsNavigating(true);
+      
+      // Smooth transition to station
+      __mapRef.current.flyTo({
+        center: [station.longitude, station.latitude],
+        zoom: 15,
+        duration: 2000, // 2 seconds smooth transition
+        essential: true // This animation is considered essential with respect to prefers-reduced-motion
+      });
+      
+      // Close search results and reset navigation state
+      setTimeout(() => {
+        setShowSearchResults(false);
+        setSearchQuery("");
+        setIsNavigating(false);
+      }, 2000); // Match the flyTo duration
+    }
+  };
+
+  // Close search results when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Element;
+      if (!target.closest('.search-container')) {
+        setShowSearchResults(false);
+      }
+    };
+
+    if (showSearchResults) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showSearchResults]);
+
 
   //Start Calling Api
   const callApiForGetStationList = async (): Promise<ChargingStation[] | null> => {
@@ -299,6 +431,72 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
         err?.response?.data?.message || language === "vi" ? "Không lấy được trạm sạc" : "Unable to fetch station list";
       toast.error(msg);
       return null;
+    }
+  }
+
+  const callApiForGetPointsForEachStation = async(stationId: string): Promise<ChargingPoint[] | null> => {
+    try {
+      const res = await axios.get(`http://localhost:8080/api/charging-points/station/${stationId}`);
+      if (res.status == 200 && Array.isArray(res.data)) {
+        return res.data.map((chargingPoint: any) => ({
+          chargingPointId: chargingPoint.chargingPointId,
+          status: chargingPoint.status,
+          connectorTypeId: chargingPoint.connectorTypeId,
+          stationId: chargingPoint.stationId,
+          connectorType: {
+            connectorTypeId: chargingPoint.connectorType.connectorTypeId,
+            typeName: chargingPoint.connectorType.typeName,
+            powerOutput: chargingPoint.connectorType.powerOutput,
+            pricePerKWh: chargingPoint.connectorType.pricePerKWh
+          },
+          powerOutput: chargingPoint.powerOutput,
+          pricePerKwh: chargingPoint.pricePerKwh
+        } as ChargingPoint))
+      }
+    } catch (err: any) {
+      console.error('Error fetching charging points:', err);
+      return null;
+    }
+    return null;
+  }
+
+  // Handle loading charging points for a station
+  const handleLoadChargingPoints = async (stationId: string) => {
+    console.log('handleLoadChargingPoints called with stationId:', stationId);
+    console.log('Current expandedStationId:', expandedStationId);
+    
+    // If already expanded, collapse it
+    if (expandedStationId === stationId) {
+      console.log('Collapsing expanded station');
+      setExpandedStationId(null);
+      setChargingPoints([]);
+      return;
+    }
+
+    console.log('Loading charging points for station:', stationId);
+    setLoadingPoints(true);
+    
+    try {
+      const points = await callApiForGetPointsForEachStation(stationId);
+      console.log('API response:', points);
+      console.log('Points length:', points?.length);
+      
+      if (points && points.length > 0) {
+        console.log('Setting charging points and expanded station');
+        setChargingPoints(points);
+        setExpandedStationId(stationId);
+        console.log('Charging points loaded successfully:', points.length);
+      } else {
+        console.log('No charging points found');
+        setChargingPoints([]);
+        setExpandedStationId(stationId); // Still expand to show empty state
+        toast.warning(language === 'vi' ? 'Không tìm thấy trụ sạc nào' : 'No charging points found');
+      }
+    } catch (error) {
+      console.error('Error loading charging points:', error);
+      toast.error(language === 'vi' ? 'Lỗi khi tải danh sách trụ sạc' : 'Error loading charging points');
+    } finally {
+      setLoadingPoints(false);
     }
   }
   
@@ -325,6 +523,8 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
       toast.error("Failed to load stations");
     }
   }
+
+
 
   useEffect(() => { handleGetStationList() }, [refreshTrigger]);
 
@@ -2381,6 +2581,116 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
               </CardHeader>
               <CardContent className="p-0">
                 <div className="relative">
+                  {/* Search Bar */}
+                  <div className="absolute top-4 left-4 z-10 search-container">
+                    <div className="relative w-80">
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-white/70" />
+                        <Input
+                          type="text"
+                          placeholder={language === 'vi' ? 'Tìm kiếm trạm sạc...' : 'Search stations...'}
+                          value={searchQuery}
+                          onChange={(e) => handleSearchChange(e.target.value)}
+                          className="pl-10 pr-10 bg-black/90 backdrop-blur-sm border-2 border-white/30 shadow-xl focus:ring-2 focus:ring-white/30 focus:border-white/60 text-white placeholder:text-white/60 h-10 rounded-lg"
+                        />
+                        {searchQuery && (
+                          <button
+                            onClick={() => {
+                              setSearchQuery("");
+                              setSearchResults([]);
+                              setShowSearchResults(false);
+                            }}
+                            className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-white/70 hover:text-white transition-colors"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Search Results Dropdown */}
+                      <AnimatePresence>
+                        {showSearchResults && searchResults.length > 0 && (
+                          <motion.div
+                            initial={{ opacity: 0, y: -10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -10 }}
+                            transition={{ duration: 0.2 }}
+                            className="absolute top-full left-0 right-0 mt-2 bg-black border border-gray-600 rounded-lg shadow-xl max-h-60 overflow-y-auto z-20"
+                          >
+                            {searchResults.slice(0, 5).map((station, index) => (
+                              <motion.div
+                                key={station.stationId}
+                                initial={{ opacity: 0, x: -10 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                transition={{ duration: 0.2, delay: index * 0.05 }}
+                                onClick={() => handleSearchResultClick(station)}
+                                className={`p-3 hover:bg-gray-800 cursor-pointer border-b border-gray-700 last:border-b-0 transition-colors duration-200 ${
+                                  isNavigating ? 'opacity-50 pointer-events-none' : ''
+                                }`}
+                              >
+                                <div className="flex items-start space-x-3">
+                                  <div className="w-8 h-8 bg-white/10 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
+                                    <MapPin className="w-4 h-4 text-white" />
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <h4 className="font-medium text-white truncate">
+                                      {station.stationName}
+                                    </h4>
+                                    <p className="text-sm text-white/70 truncate">
+                                      {station.address}
+                                    </p>
+                                    <div className="flex items-center space-x-2 mt-1">
+                                      <Badge 
+                                        variant="outline" 
+                                        className={`text-xs ${
+                                          station.status === 'ACTIVE' ? 'bg-green-500/20 text-green-300 border-green-400/30' :
+                                          station.status === 'INACTIVE' ? 'bg-amber-500/20 text-amber-300 border-amber-400/30' :
+                                          station.status === 'MAINTENANCE' ? 'bg-red-500/20 text-red-300 border-red-400/30' :
+                                          'bg-gray-500/20 text-gray-300 border-gray-400/30'
+                                        }`}
+                                      >
+                                        {station.status === 'ACTIVE' ? (language === 'vi' ? 'Hoạt động' : 'Active') :
+                                         station.status === 'INACTIVE' ? (language === 'vi' ? 'Không hoạt động' : 'Inactive') :
+                                         station.status === 'MAINTENANCE' ? (language === 'vi' ? 'Bảo trì' : 'Maintenance') :
+                                         (language === 'vi' ? 'Không xác định' : 'Unknown')}
+                                      </Badge>
+                                      <span className="text-xs text-white/60">
+                                        {station.chargingPointNumber || 0} {language === 'vi' ? 'trụ sạc' : 'charging points'}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+                              </motion.div>
+                            ))}
+                            {/* Navigation Loading Indicator */}
+                            {isNavigating && (
+                              <motion.div 
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                className="p-3 text-center text-sm text-blue-400 border-t border-gray-700 bg-blue-500/10"
+                              >
+                                <div className="flex items-center justify-center space-x-2">
+                                  <div className="w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin"></div>
+                                  <span>
+                                    {language === 'vi' ? 'Đang di chuyển đến trạm...' : 'Navigating to station...'}
+                                  </span>
+                                </div>
+                              </motion.div>
+                            )}
+                            
+                            {searchResults.length > 5 && !isNavigating && (
+                              <div className="p-3 text-center text-sm text-gray-400 border-t border-gray-700">
+                                {language === 'vi' 
+                                  ? `Hiển thị 5 trong ${searchResults.length} kết quả` 
+                                  : `Showing 5 of ${searchResults.length} results`}
+                              </div>
+                            )}
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
+                  </div>
+
                   {/* Map Container */}
                   <div
                     ref={mapContainerRef}
@@ -2417,33 +2727,69 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
+                {/* Total Charging Points Summary */}
+                <div className="bg-gradient-to-r from-primary/10 to-accent/10 rounded-lg p-3 border border-primary/20">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <Zap className="w-4 h-4 text-primary" />
+                      <span className="font-semibold text-sm">
+                        {language === 'vi' ? 'Tổng trụ sạc' : 'Total Charging Points'}
+                      </span>
+                    </div>
+                    <Badge variant="default" className="text-sm font-bold bg-primary text-primary-foreground">
+                      {totalChargingPoints}
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {language === 'vi' 
+                      ? `Tổng cộng ${totalChargingPoints} trụ sạc từ ${filteredStations.length} trạm`
+                      : `Total of ${totalChargingPoints} charging points from ${filteredStations.length} stations`
+                    }
+                  </p>
+                </div>
+
                 <div className="grid grid-cols-1 gap-3 text-sm">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-3">
                       <div className="w-4 h-4 bg-green-500 rounded-full shadow-sm" />
                       <span className="font-medium">Active</span>
                     </div>
-                    <Badge variant="secondary" className="text-xs">
-                      {filteredStations.filter(s => s.status === "ACTIVE").length}
-                    </Badge>
+                    <div className="flex items-center space-x-2">
+                      <Badge variant="secondary" className="text-xs">
+                        {filteredStations.filter(s => s.status === "ACTIVE").length}
+                      </Badge>
+                      <span className="text-xs text-muted-foreground">
+                        ({filteredStations.filter(s => s.status === "ACTIVE").reduce((sum, s) => sum + (s.chargingPointNumber || 0), 0)} {language === 'vi' ? 'trụ' : 'points'})
+                      </span>
+                    </div>
                   </div>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-3">
                       <div className="w-4 h-4 bg-yellow-500 rounded-full shadow-sm" />
                       <span className="font-medium">Inactive</span>
                     </div>
-                    <Badge variant="secondary" className="text-xs">
-                      {filteredStations.filter(s => s.status === "INACTIVE").length}
-                    </Badge>
+                    <div className="flex items-center space-x-2">
+                      <Badge variant="secondary" className="text-xs">
+                        {filteredStations.filter(s => s.status === "INACTIVE").length}
+                      </Badge>
+                      <span className="text-xs text-muted-foreground">
+                        ({filteredStations.filter(s => s.status === "INACTIVE").reduce((sum, s) => sum + (s.chargingPointNumber || 0), 0)} {language === 'vi' ? 'trụ' : 'points'})
+                      </span>
+                    </div>
                   </div>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-3">
                       <div className="w-4 h-4 bg-red-500 rounded-full shadow-sm" />
                       <span className="font-medium">Maintenance</span>
                     </div>
-                    <Badge variant="secondary" className="text-xs">
-                      {filteredStations.filter(s => s.status === "MAINTENANCE").length}
-                    </Badge>
+                    <div className="flex items-center space-x-2">
+                      <Badge variant="secondary" className="text-xs">
+                        {filteredStations.filter(s => s.status === "MAINTENANCE").length}
+                      </Badge>
+                      <span className="text-xs text-muted-foreground">
+                        ({filteredStations.filter(s => s.status === "MAINTENANCE").reduce((sum, s) => sum + (s.chargingPointNumber || 0), 0)} {language === 'vi' ? 'trụ' : 'points'})
+                      </span>
+                    </div>
                   </div>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-3">
@@ -2631,7 +2977,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
 
                     {/* View Details Button */}
 
-                    <div className="flex justify-center mt-3 mb-3">
+                    <div className="flex justify-center mt-3 mb-3 space-x-2">
                       <Button
 
                         variant="outline"
@@ -2653,9 +2999,205 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
 
                       </Button>
 
+                      <Button
+
+                        variant="outline"
+
+                        size="sm"
+
+                        onClick={(e: React.MouseEvent) => {
+                          e.stopPropagation();
+
+                          handleLoadChargingPoints(station.stationId!.toString());
+
+                        }}
+
+                        disabled={loadingPoints}
+
+                        className="flex items-center space-x-2 text-xs px-3 py-1"
+                      >
+
+                        {loadingPoints ? (
+                          <div className="w-3 h-3 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                        ) : (
+                          <Zap className="w-3 h-3" />
+                        )}
+                        <span>
+                          {language === 'vi' ? 'Xem Trụ Sạc' : 'View Charging Points'}
+                        </span>
+
+                      </Button>
+
                     </div>
 
+                    {/* Charging Points Section */}
+                    <AnimatePresence>
+                      {(() => {
+                        const isExpanded = expandedStationId === station.stationId?.toString();
+                        console.log('Checking display condition:', {
+                          expandedStationId,
+                          stationId: station.stationId?.toString(),
+                          isExpanded,
+                          chargingPointsLength: chargingPoints.length,
+                          loadingPoints
+                        });
+                        return isExpanded;
+                      })() && (
+                        <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: "auto" }}
+                        exit={{ opacity: 0, height: 0 }}
+                        transition={{ duration: 0.3 }}
+                        className="mt-4 p-4 bg-muted/30 rounded-lg border border-border"
+                      >
+                        <div className="flex items-center justify-between mb-3">
+                          <h4 className="font-semibold text-sm text-foreground">
+                            {language === 'vi' ? 'Danh sách Trụ Sạc' : 'Charging Points'}
+                          </h4>
+                          <Badge variant="secondary" className="text-xs">
+                            {chargingPoints.length} {language === 'vi' ? 'trụ' : 'points'}
+                          </Badge>
+                        </div>
 
+                        <div className="space-y-3">
+                          {loadingPoints ? (
+                            <div className="flex items-center justify-center py-4">
+                              <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin mr-2"></div>
+                              <span className="text-sm text-muted-foreground">
+                                {language === 'vi' ? 'Đang tải danh sách trụ sạc...' : 'Loading charging points...'}
+                              </span>
+                            </div>
+                          ) : chargingPoints.length > 0 ? (
+                            chargingPoints.map((point, index) => (
+                            <motion.div
+                              key={point.chargingPointId || index}
+                              initial={{ opacity: 0, y: 10 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              transition={{ delay: index * 0.1 }}
+                              className="bg-card rounded-lg p-3 border border-border shadow-sm"
+                            >
+                              <div className="flex items-center justify-between mb-2">
+                                <div className="flex items-center space-x-2">
+                                  <div className="w-2 h-2 rounded-full bg-primary"></div>
+                                  <span className="font-medium text-sm">
+                                    {language === 'vi' ? 'Trụ sạc' : 'Charging Point'} #{point.chargingPointId}
+                                  </span>
+                                </div>
+                                <Badge 
+                                  variant={point.status === 'AVAILABLE' ? 'default' : 'secondary'}
+                                  className={`text-xs ${
+                                    point.status === 'AVAILABLE' 
+                                      ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100' 
+                                      : point.status === 'OCCUPIED'
+                                      ? 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-100'
+                                      : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-100'
+                                  }`}
+                                >
+                                  {point.status}
+                                </Badge>
+                              </div>
+
+                              <div className="grid grid-cols-2 gap-3 text-xs">
+                                <div className="space-y-1">
+                                  <div className="flex items-center space-x-1">
+                                    <Zap className="w-3 h-3 text-primary" />
+                                    <span className="text-muted-foreground">
+                                      {language === 'vi' ? 'Loại:' : 'Type:'}
+                                    </span>
+                                  </div>
+                                  <span className="font-medium text-foreground">
+                                    {point.connectorType.typeName} (ID: {point.connectorType.connectorTypeId})
+                                  </span>
+                                </div>
+
+                                <div className="space-y-1">
+                                  <div className="flex items-center space-x-1">
+                                    <svg className="w-3 h-3 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                                    </svg>
+                                    <span className="text-muted-foreground">
+                                      {language === 'vi' ? 'Công suất:' : 'Power:'}
+                                    </span>
+                                  </div>
+                                  <span className="font-medium text-foreground">
+                                    {point.connectorType.powerOutput} kW
+                                  </span>
+                                </div>
+
+                                <div className="space-y-1">
+                                  <div className="flex items-center space-x-1">
+                                    <svg className="w-3 h-3 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
+                                    </svg>
+                                    <span className="text-muted-foreground">
+                                      {language === 'vi' ? 'Giá:' : 'Price:'}
+                                    </span>
+                                  </div>
+                                  <span className="font-medium text-foreground">
+                                    {point.connectorType.pricePerKWh.toLocaleString('vi-VN')} VND/kWh
+                                  </span>
+                                </div>
+
+                                <div className="space-y-1">
+                                  <div className="flex items-center space-x-1">
+                                    <svg className="w-3 h-3 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                    <span className="text-muted-foreground">
+                                      {language === 'vi' ? 'Trạng thái:' : 'Status:'}
+                                    </span>
+                                  </div>
+                                  <span className={`font-medium ${
+                                    point.status === 'AVAILABLE' 
+                                      ? 'text-green-600' 
+                                      : point.status === 'OCCUPIED'
+                                      ? 'text-orange-600'
+                                      : 'text-red-600'
+                                  }`}>
+                                    {point.status === 'AVAILABLE' 
+                                      ? (language === 'vi' ? 'Khả dụng' : 'Available')
+                                      : point.status === 'OCCUPIED'
+                                      ? (language === 'vi' ? 'Đang sử dụng' : 'Occupied')
+                                      : (language === 'vi' ? 'Không khả dụng' : 'Unavailable')
+                                    }
+                                  </span>
+                                </div>
+                              </div>
+                            </motion.div>
+                            ))
+                          ) : (
+                            <div className="flex items-center justify-center py-4">
+                              <div className="text-center space-y-2">
+                                <div className="w-12 h-12 mx-auto bg-muted rounded-full flex items-center justify-center">
+                                  <Zap className="w-6 h-6 text-muted-foreground" />
+                                </div>
+                                <p className="text-sm text-muted-foreground">
+                                  {language === 'vi' ? 'Không có trụ sạc nào' : 'No charging points available'}
+                                </p>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="mt-3 pt-3 border-t border-border">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setExpandedStationId(null);
+                              setChargingPoints([]);
+                            }}
+                            className="w-full text-xs"
+                          >
+                            <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                            {language === 'vi' ? 'Đóng danh sách' : 'Close List'}
+                          </Button>
+                        </div>
+                      </motion.div>
+                      )}
+                    </AnimatePresence>
 
                     {/* Enhanced Booking Section */}
 
