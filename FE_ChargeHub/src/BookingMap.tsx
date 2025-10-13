@@ -31,7 +31,6 @@ import QRCodeGenerator from "./components/QRCodeGenerator";
 
 import ChargingInvoiceView from "./components/ChargingInvoiceView";
 
-import MapContainer from "./components/MapContainer";
 import axios, { AxiosError } from "axios";
 import { toast, Toaster } from "sonner";
 import * as maptilersdk from "@maptiler/sdk";
@@ -213,6 +212,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
   const [showFilters, setShowFilters] = useState(false);
 
   const markersRef = useRef<maptilersdk.Marker[]>([]);
+
   const [lastUpdateTime, setLastUpdateTime] = useState(new Date());
 
 
@@ -256,7 +256,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
   const [status, setStatus] = useState("");
   const [latitude, setLatitude] = useState(0);
   const [longitude, setLongtitude] = useState(0);
-  
+
   // Sorting
   const [sortByDistance, setSortByDistance] = useState(false);
 
@@ -265,6 +265,16 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
 
   //Cập nhật trạng thái
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+
+  //Đếm trạm dựa trên trạng thái:
+  const [numberOfActiveStation, setNumberOfActiveStation] = useState(0);
+  const [numberOfInactiveStation, setNumberOfInactiveStation] = useState(0);
+  const [numberOfMaintainedStation, setNumberOfMaintainedStation] = useState(0)
+
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(5);
+  const [totalPages, setTotalPages] = useState(0);
 
 
   //Start Calling Api
@@ -291,6 +301,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
       return null;
     }
   }
+  
 
   //End calling api
 
@@ -302,7 +313,6 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
       if (list && list.length > 0) {
         console.log("Stations loaded:", list);
         setStations(list);
-        toast.success(`${list.length} stations loaded successfully!`);
       } else {
         console.log("No stations found");
         setStations([]);
@@ -325,10 +335,10 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
     const R = 6371; // Earth's radius in kilometers
     const dLat = (lat2 - lat1) * Math.PI / 180;
     const dLng = (lng2 - lng1) * Math.PI / 180;
-    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-              Math.sin(dLng/2) * Math.sin(dLng/2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+      Math.sin(dLng / 2) * Math.sin(dLng / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return R * c; // Distance in kilometers
   };
 
@@ -340,11 +350,9 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
           const lat = position.coords.latitude;
           const lng = position.coords.longitude;
           setUserLocation({ lat, lng });
-          toast.success("Location detected successfully!");
         },
         (error) => {
           console.error("Error getting location:", error);
-          toast.error("Unable to get your location");
         }
       );
     } else {
@@ -492,25 +500,51 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
     markerMapRef.current.clear();
     markersRef.current = []; // Reset array ref nếu dùng
 
-    // Lọc chỉ các station ACTIVE
-    const activeStations = stations.filter(station => station.status === "ACTIVE");
+    // Hiển thị tất cả stations với mọi trạng thái
+    const allStations = stations.filter(station =>
+      station.latitude && station.longitude && station.stationId
+    );
+    const activeCount = stations.filter(s => (s.status || '').toUpperCase().trim() === 'ACTIVE').length;
+    setNumberOfActiveStation(activeCount);
 
-    activeStations.forEach((station) => {
-      if (!station.latitude || !station.longitude || !station.stationId) {
-        console.warn("Invalid station data:", station);
-        return;
-      }
+    const inactiveCount = stations.filter(s => (s.status || '').toUpperCase().trim() === 'INACTIVE').length;
+    setNumberOfInactiveStation(inactiveCount);
 
+    const maintainCount = stations.filter(s => (s.status || '').toUpperCase().trim() === 'MAINTENANCE').length;
+    setNumberOfMaintainedStation(maintainCount);
+
+    allStations.forEach((station) => {
       // Tạo element cho marker (tùy chỉnh icon)
       const markerElement = document.createElement("div");
       markerElement.className = "relative";
+
+      // Định nghĩa màu sắc và icon theo trạng thái
+      let backgroundColor = "#6b7280"; // Màu mặc định (xám)
+      let iconColor = "#ffffff";
+
+      switch (station.status) {
+        case "ACTIVE":
+          backgroundColor = "#10b981"; // Xanh lá - Trạm hoạt động
+          break;
+        case "INACTIVE":
+          backgroundColor = "#f59e0b"; // Vàng cam - Trạm không hoạt động
+          break;
+        case "MAINTENANCE":
+          backgroundColor = "#ef4444"; // Đỏ - Trạm bảo trì
+          break;
+        default:
+          backgroundColor = "#6b7280"; // Xám - Trạng thái không xác định
+      }
+
       markerElement.innerHTML = `
-      <div class="w-8 h-8 rounded-full border-4 border-white shadow-lg flex items-center justify-center" style="background-color: #3b82f6;">
-        <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path> <!-- Icon Zap đơn giản -->
-        </svg>
-      </div>
-    `;
+        <div class="w-10 h-10 rounded-full border-4 border-white shadow-lg flex items-center justify-center transition-all duration-200 hover:scale-110" 
+             style="background-color: ${backgroundColor};">
+          <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+          </svg>
+        </div>
+      `;
+
       markerElement.style.cursor = "pointer";
 
       // Tạo marker
@@ -518,13 +552,18 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
         element: markerElement,
         anchor: "bottom"
       })
-        .setLngLat([station.longitude, station.latitude])
+        .setLngLat([station.longitude!, station.latitude!])
         .addTo(map);
 
-      // Thêm popup khi click
+      // Thêm popup khi click với màu sắc tương ứng
+      const statusColor = backgroundColor;
+      const statusText = station.status === "ACTIVE" ? "Hoạt động" :
+        station.status === "INACTIVE" ? "Không hoạt động" :
+          station.status === "MAINTENANCE" ? "Bảo trì" : "Không xác định";
+
       const popup = new maptilersdk.Popup({ offset: 25 })
         .setHTML(`
-        <div class="bg-white rounded-lg shadow-lg border border-gray-200 p-4 min-w-[240px]">
+        <div class="bg-white rounded-lg shadow-lg border border-gray-200 p-4 min-w-[280px]">
           <div class="flex items-center justify-between mb-3">
             <h3 class="font-semibold text-gray-900 text-base">${station.stationName || "Unknown"}</h3>
             <span class="text-xs text-gray-500">ID: ${station.stationId}</span>
@@ -532,18 +571,23 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
           
           <div class="space-y-2 mb-4">
             <div class="flex items-center space-x-2">
-              <div class="w-2 h-2 bg-green-500 rounded-full"></div>
+              <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
+              </svg>
               <p class="text-sm text-gray-600">${station.address || "No address"}</p>
             </div>
             
             <div class="flex items-center space-x-2">
-              <div class="w-2 h-2 bg-blue-500 rounded-full"></div>
-              <p class="text-sm text-gray-600">${station.chargingPointNumber || 0} charging points</p>
+              <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+              </svg>
+              <p class="text-sm text-gray-600">${station.chargingPointNumber || 0} điểm sạc</p>
             </div>
             
             <div class="flex items-center space-x-2">
-              <div class="w-2 h-2 bg-green-500 rounded-full"></div>
-              <p class="text-sm text-gray-600">Status: <span class="font-medium text-green-600">${station.status}</span></p>
+              <div class="w-3 h-3 rounded-full" style="background-color: ${statusColor};"></div>
+              <p class="text-sm text-gray-600">Trạng thái: <span class="font-medium" style="color: ${statusColor};">${statusText}</span></p>
             </div>
           </div>
           
@@ -552,7 +596,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
             </svg>
-            <span>View Details</span>
+            <span>Xem chi tiết</span>
           </button>
         </div>
       `);
@@ -560,11 +604,11 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
       marker.setPopup(popup);
 
       // Lưu marker vào ref
-      markerMapRef.current.set(station.stationId.toString(), marker);
-      markersRef.current.push(marker); // Nếu dùng array
+      markerMapRef.current.set(station.stationId!.toString(), marker);
+      markersRef.current.push(marker);
     });
 
-    console.log(`Added ${activeStations.length} active station markers`);
+    console.log(`Added ${allStations.length} station markers with color coding`);
 
   }, [stations]); // Theo dõi stations thay đổi (sau khi fetch hoặc refresh)
 
@@ -581,9 +625,9 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
   const filteredStations = stations.filter(station => {
     console.log("Filtering station:", station);
     const matchesSearch = station.stationName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-       station.address?.toLowerCase().includes(searchQuery.toLowerCase());
+      station.address?.toLowerCase().includes(searchQuery.toLowerCase());
 
-    const matchesAvailable = station.status === "ACTIVE";
+    const matchesAvailable = station.status === "ACTIVE" || "INACTIVE" || "MAINTENANCE";
     const matchesFastCharging = true;
     const matches24h = true;
 
@@ -601,21 +645,37 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
   }).sort((a, b) => {
     if (sortByDistance && userLocation) {
       const distanceA = calculateDistance(
-        userLocation.lat, 
-        userLocation.lng, 
-        a.latitude || 0, 
+        userLocation.lat,
+        userLocation.lng,
+        a.latitude || 0,
         a.longitude || 0
       );
       const distanceB = calculateDistance(
-        userLocation.lat, 
-        userLocation.lng, 
-        b.latitude || 0, 
+        userLocation.lat,
+        userLocation.lng,
+        b.latitude || 0,
         b.longitude || 0
       );
       return distanceA - distanceB;
     }
     return 0;
   });
+
+  // Pagination logic
+  const totalFilteredStations = filteredStations.length;
+  const totalPagesCalculated = Math.ceil(totalFilteredStations / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedStations = filteredStations.slice(startIndex, endIndex);
+
+  // Update total pages when filtered stations change
+  useEffect(() => {
+    setTotalPages(totalPagesCalculated);
+    // Reset to first page if current page is beyond available pages
+    if (currentPage > totalPagesCalculated && totalPagesCalculated > 0) {
+      setCurrentPage(1);
+    }
+  }, [filteredStations.length, currentPage, totalPagesCalculated]);
 
   console.log("Filtered stations:", filteredStations);
   console.log("Filtered stations length:", filteredStations.length);
@@ -2237,7 +2297,37 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
 
       </div>
 
-
+      {/* Map Legend */}
+      <div className="bg-card/60 backdrop-blur-sm border-b border-border">
+        <div className="container mx-auto px-4 py-3">
+          <div className="flex items-center justify-center space-x-6">
+            <div className="flex items-center space-x-2">
+              <div className="w-4 h-4 rounded-full bg-green-500 border-2 border-white shadow-sm"></div>
+              <span className="text-sm font-medium text-foreground">
+                {language === 'vi' ? 'Hoạt động' : 'Active'}
+              </span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <div className="w-4 h-4 rounded-full bg-amber-500 border-2 border-white shadow-sm"></div>
+              <span className="text-sm font-medium text-foreground">
+                {language === 'vi' ? 'Không hoạt động' : 'Inactive'}
+              </span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <div className="w-4 h-4 rounded-full bg-red-500 border-2 border-white shadow-sm"></div>
+              <span className="text-sm font-medium text-foreground">
+                {language === 'vi' ? 'Bảo trì' : 'Maintenance'}
+              </span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <div className="w-4 h-4 rounded-full bg-gray-500 border-2 border-white shadow-sm"></div>
+              <span className="text-sm font-medium text-foreground">
+                {language === 'vi' ? 'Không xác định' : 'Unknown'}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
 
       {/* Main Content */}
 
@@ -2334,7 +2424,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                       <span className="font-medium">Active</span>
                     </div>
                     <Badge variant="secondary" className="text-xs">
-                      {filteredStations.filter(s => s.status === "Available").length}
+                      {filteredStations.filter(s => s.status === "ACTIVE").length}
                     </Badge>
                   </div>
                   <div className="flex items-center justify-between">
@@ -2343,7 +2433,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                       <span className="font-medium">Inactive</span>
                     </div>
                     <Badge variant="secondary" className="text-xs">
-                      {filteredStations.filter(s => s.status === "Busy").length}
+                      {filteredStations.filter(s => s.status === "INACTIVE").length}
                     </Badge>
                   </div>
                   <div className="flex items-center justify-between">
@@ -2352,7 +2442,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                       <span className="font-medium">Maintenance</span>
                     </div>
                     <Badge variant="secondary" className="text-xs">
-                      {filteredStations.filter(s => s.status === "Maintenance").length}
+                      {filteredStations.filter(s => s.status === "MAINTENANCE").length}
                     </Badge>
                   </div>
                   <div className="flex items-center justify-between">
@@ -2363,26 +2453,6 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                     <Badge variant="outline" className="text-xs">
                       Current
                     </Badge>
-                  </div>
-                </div>
-
-                <Separator />
-
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between text-sm">
-                    <span>Show route to selected station</span>
-                    <Switch
-                      checked={showRoute}
-                      onCheckedChange={(checked: boolean) => {
-                        setShowRoute(checked);
-                        if (checked && selectedStation) {
-                          setIsLoadingRoute(true);
-                          const details = calculateRouteDetails(selectedStation);
-                          setRouteDetails(details);
-                          setTimeout(() => setIsLoadingRoute(false), 1500);
-                        }
-                      }}
-                    />
                   </div>
                 </div>
               </CardContent>
@@ -2410,7 +2480,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                     <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
                     <span>{language === 'vi' ? 'Làm mới' : 'Refresh'}</span>
                   </Button>
-                  
+
                   <Button
                     variant={sortByDistance ? "default" : "outline"}
                     size="sm"
@@ -2425,7 +2495,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                     <Navigation className="w-4 h-4" />
                     <span>{language === 'vi' ? 'Gần nhất' : 'Nearest'}</span>
                   </Button>
-                  
+
                   <span className="text-sm text-muted-foreground">
 
                     {filteredStations.length} stations found
@@ -2484,7 +2554,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
               </div>
             ) : (
               <div className="space-y-2">
-                {filteredStations.map((station) => (
+                {paginatedStations.map((station) => (
 
                   <motion.div
 
@@ -2703,7 +2773,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
 
                                   className={`h-full transition-all duration-300 ${currentBatteryLevel <= 20 ? 'bg-destructive' :
 
-                                      currentBatteryLevel <= 50 ? 'bg-yellow-500' : 'bg-primary'
+                                    currentBatteryLevel <= 50 ? 'bg-yellow-500' : 'bg-primary'
 
                                     }`}
 
@@ -2733,7 +2803,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
 
                                 <div className={`text-3xl font-bold ${currentBatteryLevel <= 20 ? 'text-destructive' :
 
-                                    currentBatteryLevel <= 50 ? 'text-yellow-600' : 'text-primary'
+                                  currentBatteryLevel <= 50 ? 'text-yellow-600' : 'text-primary'
 
                                   }`}>
 
@@ -2765,15 +2835,15 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
 
                                       className={`p-2 rounded-lg text-sm font-medium transition-all hover:scale-105 ${currentBatteryLevel === level
 
-                                          ? level === 25 ? 'bg-orange-500 text-white' :
+                                        ? level === 25 ? 'bg-orange-500 text-white' :
 
-                                            level === 50 ? 'bg-yellow-500 text-white' :
+                                          level === 50 ? 'bg-yellow-500 text-white' :
 
-                                              level === 75 ? 'bg-green-500 text-white' :
+                                            level === 75 ? 'bg-green-500 text-white' :
 
-                                                'bg-primary text-primary-foreground'
+                                              'bg-primary text-primary-foreground'
 
-                                          : 'bg-muted hover:bg-muted/80 text-muted-foreground'
+                                        : 'bg-muted hover:bg-muted/80 text-muted-foreground'
 
                                         }`}
 
@@ -2813,7 +2883,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
 
                                   <div className={`text-lg font-bold ${currentBatteryLevel <= 20 ? 'text-destructive' :
 
-                                      currentBatteryLevel <= 50 ? 'text-yellow-600' : 'text-primary'
+                                    currentBatteryLevel <= 50 ? 'text-yellow-600' : 'text-primary'
 
                                     }`}>
 
@@ -2892,9 +2962,9 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
 
                                     className={`p-1.5 rounded text-xs font-medium transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed ${targetBatteryLevel === level
 
-                                        ? 'bg-primary text-primary-foreground'
+                                      ? 'bg-primary text-primary-foreground'
 
-                                        : 'bg-muted hover:bg-muted/80'
+                                      : 'bg-muted hover:bg-muted/80'
 
                                       }`}
 
@@ -3399,6 +3469,147 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                 ))}
 
               </div>
+            )}
+
+            {/* Pagination Controls */}
+            {!loading && filteredStations.length > 0 && (
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3 }}
+                className="mt-6 space-y-4"
+              >
+                {/* Pagination Info */}
+                <div className="flex items-center justify-between text-sm text-muted-foreground px-2">
+                  <span>
+                    {language === 'vi' 
+                      ? `Hiển thị ${startIndex + 1}-${Math.min(endIndex, totalFilteredStations)} của ${totalFilteredStations} trạm`
+                      : `Showing ${startIndex + 1}-${Math.min(endIndex, totalFilteredStations)} of ${totalFilteredStations} stations`
+                    }
+                  </span>
+                  <span className="font-medium">
+                    {language === 'vi' ? `Trang ${currentPage}/${totalPages}` : `Page ${currentPage}/${totalPages}`}
+                  </span>
+                </div>
+
+                {/* Pagination Buttons */}
+                <div className="flex items-center justify-center space-x-2">
+                  {/* First Page Button */}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(1)}
+                    disabled={currentPage === 1}
+                    className="h-9 w-9 p-0"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+                    </svg>
+                  </Button>
+
+                  {/* Previous Page Button */}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                    disabled={currentPage === 1}
+                    className="h-9 px-3"
+                  >
+                    <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                    </svg>
+                    {language === 'vi' ? 'Trước' : 'Prev'}
+                  </Button>
+
+                  {/* Page Numbers */}
+                  <div className="flex items-center space-x-1">
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => {
+                      // Show first page, last page, current page, and pages around current
+                      const showPage = 
+                        pageNum === 1 || 
+                        pageNum === totalPages || 
+                        (pageNum >= currentPage - 1 && pageNum <= currentPage + 1);
+                      
+                      const showEllipsisBefore = pageNum === currentPage - 2 && currentPage > 3;
+                      const showEllipsisAfter = pageNum === currentPage + 2 && currentPage < totalPages - 2;
+
+                      if (showEllipsisBefore || showEllipsisAfter) {
+                        return (
+                          <span key={pageNum} className="px-2 text-muted-foreground">
+                            ...
+                          </span>
+                        );
+                      }
+
+                      if (!showPage) return null;
+
+                      return (
+                        <Button
+                          key={pageNum}
+                          variant={currentPage === pageNum ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => setCurrentPage(pageNum)}
+                          className={`h-9 w-9 p-0 ${
+                            currentPage === pageNum 
+                              ? "bg-primary text-primary-foreground shadow-md" 
+                              : "hover:bg-accent"
+                          }`}
+                        >
+                          {pageNum}
+                        </Button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Next Page Button */}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                    disabled={currentPage === totalPages}
+                    className="h-9 px-3"
+                  >
+                    {language === 'vi' ? 'Sau' : 'Next'}
+                    <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </Button>
+
+                  {/* Last Page Button */}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(totalPages)}
+                    disabled={currentPage === totalPages}
+                    className="h-9 w-9 p-0"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+                    </svg>
+                  </Button>
+                </div>
+
+                {/* Quick Jump */}
+                <div className="flex items-center justify-center space-x-2 text-sm">
+                  <span className="text-muted-foreground">
+                    {language === 'vi' ? 'Nhảy đến trang:' : 'Jump to page:'}
+                  </span>
+                  <input
+                    type="number"
+                    min="1"
+                    max={totalPages}
+                    value={currentPage}
+                    onChange={(e) => {
+                      const page = parseInt(e.target.value);
+                      if (page >= 1 && page <= totalPages) {
+                        setCurrentPage(page);
+                      }
+                    }}
+                    className="w-16 h-8 px-2 text-center border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
+                  <span className="text-muted-foreground">/ {totalPages}</span>
+                </div>
+              </motion.div>
             )}
           </div>
 
