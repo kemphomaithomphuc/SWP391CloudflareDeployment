@@ -25,6 +25,9 @@ public interface ChargingStationRepository extends JpaRepository<ChargingStation
     // Tìm charging station theo tên chính xác
     Optional<ChargingStation> findByStationName(String stationName);
 
+    // Tìm charging station theo id chính xác
+    Optional<ChargingStation> findByStationId(Long stationId);
+
     // Kiểm tra station ID đã tồn tại
     boolean existsByStationId(Long stationId);
 
