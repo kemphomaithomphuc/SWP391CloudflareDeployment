@@ -25,7 +25,7 @@ import { Switch } from "./components/ui/switch";
 
 import { Separator } from "./components/ui/separator";
 
-import { motion } from "motion/react";
+import { motion, AnimatePresence } from "motion/react";
 
 import QRCodeGenerator from "./components/QRCodeGenerator";
 
@@ -99,6 +99,8 @@ import {
 
   MapIcon,
 
+  X,
+
   Satellite,
 
   ZoomIn,
@@ -106,8 +108,6 @@ import {
   ZoomOut,
 
   Settings,
-
-  X,
 
   Pause,
 
@@ -130,26 +130,25 @@ interface ChargingStation {
   chargingPointNumber?: number;
 
 }
-
-
-
-interface FilterState {
-
-  priceRange: [number, number];
-
-  powerLevels: string[];
-
-  amenities: string[];
-
-  operators: string[];
-
-  availableOnly: boolean;
-
-  fastChargingOnly: boolean;
-
-  open24h: boolean;
-
+interface ConnectorType {
+  connectorTypeId?: number;
+  typeName: string;
+  powerOutput: number;
+  pricePerKWh: number;
 }
+
+interface ChargingPoint {
+  chargingPointId?: number;
+  status: string;
+  connectorTypeId?: number;
+  stationId?: number;
+  connectorType: ConnectorType;
+  powerOutput?: number;
+  pricePerKwh?: number;
+}
+
+
+
 
 
 
@@ -176,8 +175,6 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
 
   const [selectedStation, setSelectedStation] = useState<ChargingStation | null>(null);
-
-  const [searchQuery, setSearchQuery] = useState("");
 
   const [mapCenter, setMapCenter] = useState({ lat: 10.8231, lng: 106.6297 }); // Ho Chi Minh City
 
@@ -229,7 +226,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
 
   const [chargingProgress, setChargingProgress] = useState(0);
 
-  const [chargingStartTime, setChargingStartTime] = useState<Date | null>(null);
+  const [chargingStartTimeSession, setChargingStartTimeSession] = useState<Date | null>(null);
 
   const [currentChargingBattery, setCurrentChargingBattery] = useState(0);
 
@@ -246,6 +243,14 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
 
   const [detailsStation, setDetailsStation] = useState<ChargingStation | null>(null);
+
+  // Charging configuration states
+  const [isChargingConfigOpen, setIsChargingConfigOpen] = useState(false);
+  const [configStation, setConfigStation] = useState<ChargingStation | null>(null);
+  const [initialBatteryLevel, setInitialBatteryLevel] = useState(75);
+  const [targetBatteryLevelConfig, setTargetBatteryLevelConfig] = useState(80);
+  const [chargingStartTimeInput, setChargingStartTimeInput] = useState("");
+  const [chargingEndTime, setChargingEndTime] = useState("");
 
 
   //Charging Station states
@@ -276,6 +281,155 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
   const [itemsPerPage] = useState(5);
   const [totalPages, setTotalPages] = useState(0);
 
+  // Charging points states
+  const [chargingPoints, setChargingPoints] = useState<ChargingPoint[]>([]);
+  const [loadingPoints, setLoadingPoints] = useState(false);
+  const [expandedStationId, setExpandedStationId] = useState<string | null>(null);
+
+  // Available charging points by type for each station
+  const [stationChargingPoints, setStationChargingPoints] = useState<{ [stationId: string]: { [typeName: string]: { total: number, available: number } } }>({});
+
+  // Calculate available charging points by type for a station
+  const calculateStationChargingPoints = async (stationId: string) => {
+    try {
+      const points = await callApiForGetPointsForEachStation(stationId);
+      if (points && points.length > 0) {
+        const typeStats: { [typeName: string]: { total: number, available: number } } = {};
+
+        points.forEach(point => {
+          const typeName = point.connectorType.typeName;
+          if (!typeStats[typeName]) {
+            typeStats[typeName] = { total: 0, available: 0 };
+          }
+          typeStats[typeName].total++;
+          if (point.status === 'AVAILABLE') {
+            typeStats[typeName].available++;
+          }
+        });
+
+        setStationChargingPoints(prev => ({
+          ...prev,
+          [stationId]: typeStats
+        }));
+      }
+    } catch (error) {
+      console.error('Error calculating station charging points:', error);
+    }
+  };
+
+  // Search states
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<ChargingStation[]>([]);
+  const [showSearchResults, setShowSearchResults] = useState(false);
+  const [isNavigating, setIsNavigating] = useState(false);
+
+
+  // Auto-load charging points for all stations
+  useEffect(() => {
+    const loadAllStationChargingPoints = async () => {
+      for (const station of stations) {
+        if (station.stationId) {
+          await calculateStationChargingPoints(station.stationId.toString());
+        }
+      }
+    };
+
+    if (stations.length > 0) {
+      loadAllStationChargingPoints();
+    }
+  }, [stations]);
+
+  // Search function with scoring mechanism
+  const searchStations = (query: string) => {
+    if (!query.trim()) {
+      setSearchResults([]);
+      setShowSearchResults(false);
+      return;
+    }
+
+    const results = stations.map(station => {
+      let score = 0;
+      const queryLower = query.toLowerCase().trim();
+
+      // Address matching (higher priority)
+      if (station.address?.toLowerCase().includes(queryLower)) {
+        score += 100; // High score for address match
+        // Bonus for exact match
+        if (station.address.toLowerCase() === queryLower) {
+          score += 50;
+        }
+        // Bonus for starts with
+        if (station.address.toLowerCase().startsWith(queryLower)) {
+          score += 30;
+        }
+      }
+
+      // Station name matching (lower priority)
+      if (station.stationName?.toLowerCase().includes(queryLower)) {
+        score += 50; // Lower score for name match
+        // Bonus for exact match
+        if (station.stationName.toLowerCase() === queryLower) {
+          score += 25;
+        }
+        // Bonus for starts with
+        if (station.stationName.toLowerCase().startsWith(queryLower)) {
+          score += 15;
+        }
+      }
+
+      return { station, score };
+    })
+      .filter(result => result.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .map(result => result.station);
+
+    setSearchResults(results);
+    setShowSearchResults(true);
+  };
+
+  // Handle search input change
+  const handleSearchChange = (value: string) => {
+    setSearchQuery(value);
+    searchStations(value);
+  };
+
+  // Handle search result click with smooth transition
+  const handleSearchResultClick = (station: ChargingStation) => {
+    if (__mapRef.current && station.latitude && station.longitude) {
+      setIsNavigating(true);
+
+      // Smooth transition to station
+      __mapRef.current.flyTo({
+        center: [station.longitude, station.latitude],
+        zoom: 15,
+        duration: 2000, // 2 seconds smooth transition
+        essential: true // This animation is considered essential with respect to prefers-reduced-motion
+      });
+
+      // Close search results and reset navigation state
+      setTimeout(() => {
+        setShowSearchResults(false);
+        setSearchQuery("");
+        setIsNavigating(false);
+      }, 2000); // Match the flyTo duration
+    }
+  };
+
+  // Close search results when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Element;
+      if (!target.closest('.search-container')) {
+        setShowSearchResults(false);
+      }
+    };
+
+    if (showSearchResults) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showSearchResults]);
+
 
   //Start Calling Api
   const callApiForGetStationList = async (): Promise<ChargingStation[] | null> => {
@@ -301,7 +455,73 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
       return null;
     }
   }
-  
+
+  const callApiForGetPointsForEachStation = async (stationId: string): Promise<ChargingPoint[] | null> => {
+    try {
+      const res = await axios.get(`http://localhost:8080/api/charging-points/station/${stationId}`);
+      if (res.status == 200 && Array.isArray(res.data)) {
+        return res.data.map((chargingPoint: any) => ({
+          chargingPointId: chargingPoint.chargingPointId,
+          status: chargingPoint.status,
+          connectorTypeId: chargingPoint.connectorTypeId,
+          stationId: chargingPoint.stationId,
+          connectorType: {
+            connectorTypeId: chargingPoint.connectorType.connectorTypeId,
+            typeName: chargingPoint.connectorType.typeName,
+            powerOutput: chargingPoint.connectorType.powerOutput,
+            pricePerKWh: chargingPoint.connectorType.pricePerKWh
+          },
+          powerOutput: chargingPoint.powerOutput,
+          pricePerKwh: chargingPoint.pricePerKwh
+        } as ChargingPoint))
+      }
+    } catch (err: any) {
+      console.error('Error fetching charging points:', err);
+      return null;
+    }
+    return null;
+  }
+
+  // Handle loading charging points for a station
+  const handleLoadChargingPoints = async (stationId: string) => {
+    console.log('handleLoadChargingPoints called with stationId:', stationId);
+    console.log('Current expandedStationId:', expandedStationId);
+
+    // If already expanded, collapse it
+    if (expandedStationId === stationId) {
+      console.log('Collapsing expanded station');
+      setExpandedStationId(null);
+      setChargingPoints([]);
+      return;
+    }
+
+    console.log('Loading charging points for station:', stationId);
+    setLoadingPoints(true);
+
+    try {
+      const points = await callApiForGetPointsForEachStation(stationId);
+      console.log('API response:', points);
+      console.log('Points length:', points?.length);
+
+      if (points && points.length > 0) {
+        console.log('Setting charging points and expanded station');
+        setChargingPoints(points);
+        setExpandedStationId(stationId);
+        console.log('Charging points loaded successfully:', points.length);
+      } else {
+        console.log('No charging points found');
+        setChargingPoints([]);
+        setExpandedStationId(stationId); // Still expand to show empty state
+        toast.warning(language === 'vi' ? 'Không tìm thấy trụ sạc nào' : 'No charging points found');
+      }
+    } catch (error) {
+      console.error('Error loading charging points:', error);
+      toast.error(language === 'vi' ? 'Lỗi khi tải danh sách trụ sạc' : 'Error loading charging points');
+    } finally {
+      setLoadingPoints(false);
+    }
+  }
+
 
   //End calling api
 
@@ -325,6 +545,8 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
       toast.error("Failed to load stations");
     }
   }
+
+
 
   useEffect(() => { handleGetStationList() }, [refreshTrigger]);
 
@@ -404,11 +626,76 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
   // Handler for opening station details
 
   const handleViewDetails = (station: ChargingStation) => {
+    // Check if station is ACTIVE
+    if (station.status !== "ACTIVE") {
+      toast.warning(
+        language === 'vi' 
+          ? 'Trạm này không hoạt động, không thể đặt lịch sạc' 
+          : 'This station is not active, cannot book charging'
+      );
+      return;
+    }
+
+    // Check if station has available charging points
+    const stationPoints = stationChargingPoints[station.stationId?.toString() || ''];
+    if (stationPoints) {
+      const hasAvailablePoints = Object.values(stationPoints).some(stats => stats.available > 0);
+      if (!hasAvailablePoints) {
+        toast.warning(
+          language === 'vi' 
+            ? 'Trạm này không còn trụ sạc trống, không thể đặt lịch' 
+            : 'This station has no available charging points, cannot book'
+        );
+        return;
+      }
+    } else {
+      // If we don't have charging points data yet, show warning but still allow booking
+      toast.info(
+        language === 'vi' 
+          ? 'Đang kiểm tra trạng thái trụ sạc...' 
+          : 'Checking charging points status...'
+      );
+    }
 
     setDetailsStation(station);
-
     setIsDetailsDialogOpen(true);
+  };
 
+  // Handler for opening charging configuration
+  const handleOpenChargingConfig = (station: ChargingStation) => {
+    // Check if station is ACTIVE
+    if (station.status !== "ACTIVE") {
+      toast.warning(
+        language === 'vi' 
+          ? 'Trạm này không hoạt động, không thể đặt lịch sạc' 
+          : 'This station is not active, cannot book charging'
+      );
+      return;
+    }
+
+    // Check if station has available charging points
+    const stationPoints = stationChargingPoints[station.stationId?.toString() || ''];
+    if (stationPoints) {
+      const hasAvailablePoints = Object.values(stationPoints).some(stats => stats.available > 0);
+      if (!hasAvailablePoints) {
+        toast.warning(
+          language === 'vi' 
+            ? 'Trạm này không còn trụ sạc trống, không thể đặt lịch' 
+            : 'This station has no available charging points, cannot book'
+        );
+        return;
+      }
+    } else {
+      // If we don't have charging points data yet, show warning but still allow booking
+      toast.info(
+        language === 'vi' 
+          ? 'Đang kiểm tra trạng thái trụ sạc...' 
+          : 'Checking charging points status...'
+      );
+    }
+
+    setConfigStation(station);
+    setIsChargingConfigOpen(true);
   };
 
 
@@ -430,6 +717,16 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
 
   }, [chargingIntervalRef]);
 
+  // Add function to window for popup onclick
+  useEffect(() => {
+    (window as any).handleOpenChargingConfig = (station: any) => {
+      console.log('Button clicked, station:', station);
+      handleOpenChargingConfig(station);
+    };
+    return () => {
+      delete (window as any).handleOpenChargingConfig;
+    };
+  }, [handleOpenChargingConfig]);
 
   //Mount bản đồ
   useEffect(() => {
@@ -536,14 +833,14 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
           backgroundColor = "#6b7280"; // Xám - Trạng thái không xác định
       }
 
-      markerElement.innerHTML = `
+          markerElement.innerHTML = `
         <div class="w-10 h-10 rounded-full border-4 border-white shadow-lg flex items-center justify-center transition-all duration-200 hover:scale-110" 
              style="background-color: ${backgroundColor};">
           <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
-          </svg>
-        </div>
-      `;
+        </svg>
+      </div>
+    `;
 
       markerElement.style.cursor = "pointer";
 
@@ -563,7 +860,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
 
       const popup = new maptilersdk.Popup({ offset: 25 })
         .setHTML(`
-        <div class="bg-white rounded-lg shadow-lg border border-gray-200 p-4 min-w-[280px]">
+        <div>
           <div class="flex items-center justify-between mb-3">
             <h3 class="font-semibold text-gray-900 text-base">${station.stationName || "Unknown"}</h3>
             <span class="text-xs text-gray-500">ID: ${station.stationId}</span>
@@ -591,17 +888,31 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
             </div>
           </div>
           
-          <button class="w-full px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-md transition-colors duration-200 flex items-center justify-center space-x-2" onclick="handleViewDetails(${JSON.stringify(station)})">
+          <button id="booking-btn-${station.stationId}" class="w-full px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-md transition-colors duration-200 flex items-center justify-center space-x-2">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
             </svg>
-            <span>Xem chi tiết</span>
+            <span>Đặt lịch sạc</span>
           </button>
         </div>
       `);
 
       marker.setPopup(popup);
+
+      // Add event listener after popup is created
+      popup.on('open', () => {
+        setTimeout(() => {
+          const button = document.getElementById(`booking-btn-${station.stationId}`);
+          if (button) {
+            button.addEventListener('click', (e) => {
+              e.stopPropagation();
+              console.log('Button clicked via event listener!');
+              handleOpenChargingConfig(station);
+            });
+          }
+        }, 100);
+      });
 
       // Lưu marker vào ref
       markerMapRef.current.set(station.stationId!.toString(), marker);
@@ -972,7 +1283,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
 
     const startTime = new Date();
 
-    setChargingStartTime(startTime);
+    setChargingStartTimeSession(startTime);
 
     setCurrentChargingBattery(currentBatteryLevel);
 
@@ -1793,7 +2104,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
 
   if (bookingStep === "charging" && selectedStation) {
 
-    const elapsedTime = chargingStartTime ? Math.floor((Date.now() - chargingStartTime.getTime()) / 1000) : 0;
+    const elapsedTime = chargingStartTimeSession ? Math.floor((Date.now() - chargingStartTimeSession.getTime()) / 1000) : 0;
 
     const elapsedMinutes = Math.floor(elapsedTime / 60);
 
@@ -2094,7 +2405,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
 
                   setChargingCost(0);
 
-                  setChargingStartTime(null);
+                  setChargingStartTimeSession(null);
 
                   setRemainingTime(0);
 
@@ -2165,7 +2476,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
 
           setChargingCost(0);
 
-          setChargingStartTime(null);
+          setChargingStartTimeSession(null);
 
           setRemainingTime(0);
 
@@ -2195,7 +2506,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
 
           setChargingCost(0);
 
-          setChargingStartTime(null);
+          setChargingStartTimeSession(null);
 
           setRemainingTime(0);
 
@@ -2269,65 +2580,12 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
 
 
 
-            {/* Enhanced Header Controls */}
-
-            <div className="flex items-center space-x-4">
-
-              {/* Subscription Info in Header */}
-
-              {subscriptionPlan && (
-
-                <div className="hidden lg:flex items-center space-x-2 bg-primary/10 rounded-lg px-3 py-2">
-
-                  <div className="w-2 h-2 bg-primary rounded-full animate-pulse" />
-
-                  <span className="text-sm font-medium text-primary">{subscriptionPlan.name}</span>
-
-                  <span className="text-xs text-primary/80">({subscriptionPlan.chargingDiscount}% off)</span>
-
                 </div>
 
-              )}
-
             </div>
 
           </div>
 
-        </div>
-
-      </div>
-
-      {/* Map Legend */}
-      <div className="bg-card/60 backdrop-blur-sm border-b border-border">
-        <div className="container mx-auto px-4 py-3">
-          <div className="flex items-center justify-center space-x-6">
-            <div className="flex items-center space-x-2">
-              <div className="w-4 h-4 rounded-full bg-green-500 border-2 border-white shadow-sm"></div>
-              <span className="text-sm font-medium text-foreground">
-                {language === 'vi' ? 'Hoạt động' : 'Active'}
-              </span>
-            </div>
-            <div className="flex items-center space-x-2">
-              <div className="w-4 h-4 rounded-full bg-amber-500 border-2 border-white shadow-sm"></div>
-              <span className="text-sm font-medium text-foreground">
-                {language === 'vi' ? 'Không hoạt động' : 'Inactive'}
-              </span>
-            </div>
-            <div className="flex items-center space-x-2">
-              <div className="w-4 h-4 rounded-full bg-red-500 border-2 border-white shadow-sm"></div>
-              <span className="text-sm font-medium text-foreground">
-                {language === 'vi' ? 'Bảo trì' : 'Maintenance'}
-              </span>
-            </div>
-            <div className="flex items-center space-x-2">
-              <div className="w-4 h-4 rounded-full bg-gray-500 border-2 border-white shadow-sm"></div>
-              <span className="text-sm font-medium text-foreground">
-                {language === 'vi' ? 'Không xác định' : 'Unknown'}
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
 
       {/* Main Content */}
 
@@ -2367,39 +2625,132 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                     </CardTitle>
                     <p className="text-sm text-muted-foreground">Interactive charging station map</p>
                   </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={refreshStations}
-                    disabled={loading}
-                    className="flex items-center space-x-2"
-                  >
-                    <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-                    <span>{language === 'vi' ? 'Làm mới' : 'Refresh'}</span>
-                  </Button>
                 </div>
               </CardHeader>
               <CardContent className="p-0">
                 <div className="relative">
+                  {/* Search Bar */}
+                  <div className="absolute top-4 left-4 z-10 search-container">
+                    <div className="relative w-80">
+                      <div className="relative">
+                        <Search
+                          className="absolute left-3 top-1/2 transform -translate-y-1/2 
+                              w-4 h-4 
+                              text-white/90 
+                              bg-black/80 backdrop-blur-md 
+                              p-1.5 rounded-full 
+                              shadow-[0_0_8px_rgba(0,0,0,0.8)] 
+                              ring-1 ring-white/10 hover:ring-blue-400/40 
+                              transition-all duration-300"
+                        />
+                        <Input
+                          type="text"
+                          placeholder={language === 'vi' ? 'Tìm kiếm trạm sạc...' : 'Search stations...'}
+                          value={searchQuery}
+                          onChange={(e) => handleSearchChange(e.target.value)}
+                          className="pl-10 pr-10 bg-black/90 backdrop-blur-sm border-2 border-white/30 shadow-xl focus:ring-2 focus:ring-white/30 focus:border-white/60 text-white placeholder:text-white/60 h-10 rounded-lg"
+                        />
+                        {searchQuery && (
+                          <button
+                            onClick={() => {
+                              setSearchQuery("");
+                              setSearchResults([]);
+                              setShowSearchResults(false);
+                            }}
+                            className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-white/70 hover:text-white transition-colors"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        )}
+                          </div>
+
+                      {/* Search Results Dropdown */}
+                      <AnimatePresence>
+                        {showSearchResults && searchResults.length > 0 && (
+                          <motion.div
+                            initial={{ opacity: 0, y: -10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -10 }}
+                            transition={{ duration: 0.2 }}
+                            className="absolute top-full left-0 right-0 mt-2 bg-black border border-gray-600 rounded-lg shadow-xl max-h-60 overflow-y-auto z-20"
+                          >
+                            {searchResults.slice(0, 5).map((station, index) => (
+                              <motion.div
+                                key={station.stationId}
+                                initial={{ opacity: 0, x: -10 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                transition={{ duration: 0.2, delay: index * 0.05 }}
+                                onClick={() => handleSearchResultClick(station)}
+                                className={`p-3 hover:bg-gray-800 cursor-pointer border-b border-gray-700 last:border-b-0 transition-colors duration-200 ${isNavigating ? 'opacity-50 pointer-events-none' : ''
+                                  }`}
+                              >
+                                <div className="flex items-start space-x-3">
+                                  <div className="w-8 h-8 bg-white/10 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
+                                    <MapPin className="w-4 h-4 text-white" />
+                          </div>
+                                  <div className="flex-1 min-w-0">
+                                    <h4 className="font-medium text-white truncate">
+                                      {station.stationName}
+                                    </h4>
+                                    <p className="text-sm text-white/70 truncate">
+                                      {station.address}
+                                    </p>
+                                    <div className="flex items-center space-x-2 mt-1">
+                                      <Badge
+                                        variant="outline"
+                                        className={`text-xs ${station.status === 'ACTIVE' ? 'bg-green-500/20 text-green-300 border-green-400/30' :
+                                            station.status === 'INACTIVE' ? 'bg-amber-500/20 text-amber-300 border-amber-400/30' :
+                                              station.status === 'MAINTENANCE' ? 'bg-red-500/20 text-red-300 border-red-400/30' :
+                                                'bg-gray-500/20 text-gray-300 border-gray-400/30'
+                                          }`}
+                                      >
+                                        {station.status === 'ACTIVE' ? (language === 'vi' ? 'Hoạt động' : 'Active') :
+                                          station.status === 'INACTIVE' ? (language === 'vi' ? 'Không hoạt động' : 'Inactive') :
+                                            station.status === 'MAINTENANCE' ? (language === 'vi' ? 'Bảo trì' : 'Maintenance') :
+                                              (language === 'vi' ? 'Không xác định' : 'Unknown')}
+                                      </Badge>
+                                      <span className="text-xs text-white/60">
+                                        {station.chargingPointNumber || 0} {language === 'vi' ? 'trụ sạc' : 'charging points'}
+                                      </span>
+                        </div>
+                      </div>
+                                </div>
+                              </motion.div>
+                            ))}
+                            {/* Navigation Loading Indicator */}
+                            {isNavigating && (
+                              <motion.div
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                className="p-3 text-center text-sm text-blue-400 border-t border-gray-700 bg-blue-500/10"
+                              >
+                                <div className="flex items-center justify-center space-x-2">
+                                  <div className="w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin"></div>
+                                  <span>
+                                    {language === 'vi' ? 'Đang di chuyển đến trạm...' : 'Navigating to station...'}
+                                  </span>
+                                </div>
+                              </motion.div>
+                            )}
+
+                            {searchResults.length > 5 && !isNavigating && (
+                              <div className="p-3 text-center text-sm text-gray-400 border-t border-gray-700">
+                                {language === 'vi'
+                                  ? `Hiển thị 5 trong ${searchResults.length} kết quả`
+                                  : `Showing 5 of ${searchResults.length} results`}
+                              </div>
+                            )}
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
+                  </div>
+
                   {/* Map Container */}
                   <div
                     ref={mapContainerRef}
                     className="h-[500px] xl:h-[700px] w-full rounded-lg relative overflow-hidden bg-gradient-to-br from-green-50 to-blue-50 dark:from-green-950 dark:to-blue-950 border border-border/50 shadow-sm"
                   >
-                    {/* Map sẽ được render vào đây */}
-                    {!__mapRef.current && (
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <div className="text-center space-y-4">
-                          <div className="w-20 h-20 mx-auto bg-primary/10 rounded-full flex items-center justify-center">
-                            <MapPin className="w-10 h-10 text-primary/60" />
-                          </div>
-                          <div className="space-y-2">
-                            <h3 className="text-xl font-medium text-muted-foreground">Loading Map...</h3>
-                            <p className="text-base text-muted-foreground/70">Initializing map container</p>
-                          </div>
-                        </div>
-                      </div>
-                    )}
                   </div>
                 </div>
               </CardContent>
@@ -2417,33 +2768,40 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
+
                 <div className="grid grid-cols-1 gap-3 text-sm">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-3">
                       <div className="w-4 h-4 bg-green-500 rounded-full shadow-sm" />
                       <span className="font-medium">Active</span>
                     </div>
+                    <div className="flex items-center space-x-2">
                     <Badge variant="secondary" className="text-xs">
-                      {filteredStations.filter(s => s.status === "ACTIVE").length}
+                        {filteredStations.filter(s => s.status === "ACTIVE").length}
                     </Badge>
+                    </div>
                   </div>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-3">
                       <div className="w-4 h-4 bg-yellow-500 rounded-full shadow-sm" />
                       <span className="font-medium">Inactive</span>
                     </div>
+                    <div className="flex items-center space-x-2">
                     <Badge variant="secondary" className="text-xs">
-                      {filteredStations.filter(s => s.status === "INACTIVE").length}
+                        {filteredStations.filter(s => s.status === "INACTIVE").length}
                     </Badge>
+                    </div>
                   </div>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-3">
                       <div className="w-4 h-4 bg-red-500 rounded-full shadow-sm" />
                       <span className="font-medium">Maintenance</span>
                     </div>
+                    <div className="flex items-center space-x-2">
                     <Badge variant="secondary" className="text-xs">
-                      {filteredStations.filter(s => s.status === "MAINTENANCE").length}
+                        {filteredStations.filter(s => s.status === "MAINTENANCE").length}
                     </Badge>
+                    </div>
                   </div>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-3">
@@ -2465,6 +2823,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
             <div className="space-y-4">
 
               <div className="flex items-center justify-between">
+               {/* Tổng quan về danh sách trạm */} 
 
                 <h2 className="text-foreground">{t('find_charging_stations')}</h2>
 
@@ -2533,6 +2892,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
 
 
             {/* Stations Grid */}
+            {/* Loading Station */}
             {loading ? (
               <div className="flex items-center justify-center py-8">
                 <div className="text-center space-y-4">
@@ -2553,6 +2913,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                 </div>
               </div>
             ) : (
+              //Hiển thị card trạm sạc
               <div className="space-y-2">
                 {paginatedStations.map((station) => (
 
@@ -2574,6 +2935,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                       <div className="flex-1">
 
                         <div className="flex items-center space-x-2 mb-1">
+                          {/* Station Name */}
                           <h3 className="font-semibold text-card-foreground text-sm">{station.stationName}</h3>
                           <Badge
 
@@ -2582,30 +2944,41 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                             className={`${station.status === "Available" ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100" : ""
 
                               }`}
-
                           >
-
                             {station.status}
 
                           </Badge>
 
                         </div>
-
+                        {/* Station Address */}
                         <p className="text-xs text-muted-foreground mb-2">{station.address}</p>
+
+                        {/* Charging Points by Type */}
+                        <div className="mb-2">
+                          {stationChargingPoints[station.stationId?.toString() || ''] ? (
+                            <div className="flex flex-wrap gap-1">
+                              {Object.entries(stationChargingPoints[station.stationId?.toString() || ''] || {}).map(([typeName, stats]) => (
+                                <div key={typeName} className="flex items-center space-x-1 bg-primary/10 rounded px-2 py-1">
+                                  <Zap className="w-3 h-3 text-primary" />
+                                  <span className="text-xs font-medium text-primary">
+                                    {typeName}: {stats.available}/{stats.total}
+                          </span>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="flex items-center space-x-1 text-xs text-muted-foreground">
+                              <Zap className="w-3 h-3" />
+                              <span>{station.chargingPointNumber} charging points</span>
+                            </div>
+                          )}
+                        </div>
+
                         <div className="flex items-center space-x-3 text-xs text-muted-foreground">
                           <span className="flex items-center space-x-1">
-
-                            <Zap className="w-4 h-4" />
-
-                            <span>{station.chargingPointNumber} charging points</span>
-                          </span>
-
-                          <span className="flex items-center space-x-1">
-
                             <MapPin className="w-4 h-4" />
                             <span>{station.latitude?.toFixed(4) || '0.0000'}, {station.longitude?.toFixed(4) || '0.0000'}</span>
                           </span>
-
                         </div>
 
                       </div>
@@ -2631,7 +3004,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
 
                     {/* View Details Button */}
 
-                    <div className="flex justify-center mt-3 mb-3">
+                    <div className="flex justify-center mt-3 mb-3 space-x-2">
                       <Button
 
                         variant="outline"
@@ -2641,7 +3014,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                         onClick={(e: React.MouseEvent) => {
                           e.stopPropagation();
 
-                          handleViewDetails(station);
+                          handleOpenChargingConfig(station);
 
                         }}
 
@@ -2653,13 +3026,13 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
 
                       </Button>
 
-                    </div>
 
+                    </div>
 
 
                     {/* Enhanced Booking Section */}
 
-                    {selectedStation?.stationId === station.stationId && station.status === "Available" && (
+                    {selectedStation && selectedStation.stationId === station.stationId && station.status === "Available" && (
                       <div className="pt-4 border-t border-border space-y-4">
 
                         <div className="flex items-center justify-between">
@@ -3473,7 +3846,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
 
             {/* Pagination Controls */}
             {!loading && filteredStations.length > 0 && (
-              <motion.div 
+              <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.3 }}
@@ -3482,7 +3855,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                 {/* Pagination Info */}
                 <div className="flex items-center justify-between text-sm text-muted-foreground px-2">
                   <span>
-                    {language === 'vi' 
+                    {language === 'vi'
                       ? `Hiển thị ${startIndex + 1}-${Math.min(endIndex, totalFilteredStations)} của ${totalFilteredStations} trạm`
                       : `Showing ${startIndex + 1}-${Math.min(endIndex, totalFilteredStations)} of ${totalFilteredStations} stations`
                     }
@@ -3490,7 +3863,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                   <span className="font-medium">
                     {language === 'vi' ? `Trang ${currentPage}/${totalPages}` : `Page ${currentPage}/${totalPages}`}
                   </span>
-                </div>
+          </div>
 
                 {/* Pagination Buttons */}
                 <div className="flex items-center justify-center space-x-2">
@@ -3525,11 +3898,11 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                   <div className="flex items-center space-x-1">
                     {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => {
                       // Show first page, last page, current page, and pages around current
-                      const showPage = 
-                        pageNum === 1 || 
-                        pageNum === totalPages || 
+                      const showPage =
+                        pageNum === 1 ||
+                        pageNum === totalPages ||
                         (pageNum >= currentPage - 1 && pageNum <= currentPage + 1);
-                      
+
                       const showEllipsisBefore = pageNum === currentPage - 2 && currentPage > 3;
                       const showEllipsisAfter = pageNum === currentPage + 2 && currentPage < totalPages - 2;
 
@@ -3549,11 +3922,10 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                           variant={currentPage === pageNum ? "default" : "outline"}
                           size="sm"
                           onClick={() => setCurrentPage(pageNum)}
-                          className={`h-9 w-9 p-0 ${
-                            currentPage === pageNum 
-                              ? "bg-primary text-primary-foreground shadow-md" 
+                          className={`h-9 w-9 p-0 ${currentPage === pageNum
+                              ? "bg-primary text-primary-foreground shadow-md"
                               : "hover:bg-accent"
-                          }`}
+                            }`}
                         >
                           {pageNum}
                         </Button>
@@ -3621,8 +3993,6 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
             {/* Map Controls */}
 
 
-
-            {/* Map Legend */}
 
 
 
@@ -3834,15 +4204,6 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
 
                   </div>
 
-                  <div>
-
-                    <h4 className="font-medium text-sm text-muted-foreground mb-1">
-
-                      {language === 'vi' ? 'Số điểm sạc' : 'Charging Points'}
-                    </h4>
-
-                    <p className="text-sm">{detailsStation.chargingPointNumber} points</p>
-                  </div>
 
                 </div>
 
@@ -3983,6 +4344,191 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
 
         </DialogContent>
 
+      </Dialog>
+
+      {/* Charging Configuration Dialog */}
+      <Dialog open={isChargingConfigOpen} onOpenChange={setIsChargingConfigOpen}>
+        <DialogContent className="max-w-md max-h-[60vh] overflow-y-auto">
+          <DialogHeader className="text-center">
+            <DialogTitle className="flex items-center justify-center space-x-2">
+              <Zap className="w-5 h-5 text-primary" />
+              <span>{language === 'vi' ? 'Cấu hình sạc xe' : 'Charging Configuration'}</span>
+            </DialogTitle>
+            <DialogDescription className="text-center">
+              {language === 'vi' ? 'Cấu hình mức pin và thời gian sạc cho trạm' : 'Configure battery level and charging time for station'}
+            </DialogDescription>
+          </DialogHeader>
+
+          {configStation && (
+            <div className="space-y-6">
+              {/* Station Info */}
+              <div className="bg-muted/50 rounded-lg p-4 text-center">
+                <h4 className="font-medium mb-2">{configStation.stationName}</h4>
+                <p className="text-sm text-muted-foreground">{configStation.address}</p>
+                <div className="flex items-center justify-center space-x-4 mt-2 text-sm">
+                  <span className="flex items-center space-x-1">
+                    <Zap className="w-4 h-4 text-primary" />
+                    <span>{configStation.chargingPointNumber} {language === 'vi' ? 'trụ sạc' : 'charging points'}</span>
+                  </span>
+                  <Badge variant="outline" className="bg-green-100 text-green-800">
+                    {language === 'vi' ? 'Hoạt động' : 'Active'}
+                  </Badge>
+                </div>
+              </div>
+
+              {/* Battery Configuration */}
+              <div className="space-y-2">
+                <h4 className="font-medium flex items-center justify-center space-x-2 text-sm">
+                  <Battery className="w-4 h-4 text-primary" />
+                  <span>{language === 'vi' ? 'Cấu hình pin' : 'Battery Configuration'}</span>
+                </h4>
+
+                {/* Initial Battery Level */}
+                <div className="space-y-1">
+                  <label className="text-sm font-medium text-center block">
+                    {language === 'vi' ? 'Mức pin ban đầu' : 'Initial Battery Level'}
+                  </label>
+                  <div className="flex items-center justify-center space-x-3">
+                    <button
+                      onClick={() => setInitialBatteryLevel(Math.max(0, initialBatteryLevel - 1))}
+                      className="w-8 h-8 bg-muted hover:bg-muted/80 rounded-lg flex items-center justify-center transition-colors text-sm"
+                    >
+                      −
+                    </button>
+                    <div className="flex flex-col items-center">
+                      <input
+                        type="number"
+                        value={initialBatteryLevel}
+                        onChange={(e) => {
+                          const value = parseInt(e.target.value) || 0;
+                          const clampedValue = Math.max(0, Math.min(100, value));
+                          setInitialBatteryLevel(clampedValue);
+                        }}
+                        className="w-16 h-10 text-center text-lg font-bold bg-transparent border-2 border-primary rounded-lg outline-none focus:ring-2 focus:ring-primary/20"
+                        min="0"
+                        max="100"
+                      />
+                      <span className="text-xs text-muted-foreground">%</span>
+                    </div>
+                    <button
+                      onClick={() => setInitialBatteryLevel(Math.min(100, initialBatteryLevel + 1))}
+                      className="w-8 h-8 bg-muted hover:bg-muted/80 rounded-lg flex items-center justify-center transition-colors text-sm"
+                    >
+                      +
+                    </button>
+                  </div>
+                  
+                  {/* Battery Level Visual Bar */}
+                  <div className="relative w-full h-4 bg-muted rounded-full overflow-hidden">
+                    <div
+                      className={`h-full transition-all duration-300 ${
+                        initialBatteryLevel <= 20 ? 'bg-red-500' :
+                        initialBatteryLevel <= 50 ? 'bg-yellow-500' : 'bg-green-500'
+                      }`}
+                      style={{ width: `${initialBatteryLevel}%` }}
+                    />
+                  </div>
+                  
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span>0%</span>
+                    <span>50%</span>
+                    <span>100%</span>
+                  </div>
+                </div>
+
+                {/* Target Battery Level */}
+                <div className="space-y-1">
+                  <label className="text-sm font-medium text-center block">
+                    {language === 'vi' ? 'Mức pin mục tiêu' : 'Target Battery Level'}
+                  </label>
+                  <div className="flex items-center justify-center space-x-3">
+                    <button
+                      onClick={() => setTargetBatteryLevelConfig(Math.max(initialBatteryLevel + 5, targetBatteryLevelConfig - 1))}
+                      className="w-8 h-8 bg-muted hover:bg-muted/80 rounded-lg flex items-center justify-center transition-colors text-sm"
+                    >
+                      −
+                    </button>
+                    <div className="flex flex-col items-center">
+                      <input
+                        type="number"
+                        value={targetBatteryLevelConfig}
+                        onChange={(e) => {
+                          const value = parseInt(e.target.value) || 0;
+                          const clampedValue = Math.max(initialBatteryLevel + 5, Math.min(100, value));
+                          setTargetBatteryLevelConfig(clampedValue);
+                        }}
+                        className="w-16 h-10 text-center text-lg font-bold bg-transparent border-2 border-primary rounded-lg outline-none focus:ring-2 focus:ring-primary/20"
+                        min={initialBatteryLevel + 5}
+                        max="100"
+                      />
+                      <span className="text-xs text-muted-foreground">%</span>
+                    </div>
+                    <button
+                      onClick={() => setTargetBatteryLevelConfig(Math.min(100, targetBatteryLevelConfig + 1))}
+                      className="w-8 h-8 bg-muted hover:bg-muted/80 rounded-lg flex items-center justify-center transition-colors text-sm"
+                    >
+                      +
+                    </button>
+                  </div>
+                  
+                  <Slider
+                    value={[targetBatteryLevelConfig]}
+                    onValueChange={(value: number[]) => setTargetBatteryLevelConfig(value[0] || 80)}
+                    max={100}
+                    min={initialBatteryLevel + 5}
+                    step={1}
+                    className="w-full"
+                  />
+                </div>
+              </div>
+
+              {/* Time Configuration */}
+              <div className="space-y-2">
+                <h4 className="font-medium flex items-center justify-center space-x-2 text-sm">
+                  <Clock className="w-4 h-4 text-primary" />
+                  <span>{language === 'vi' ? 'Thời gian sạc' : 'Charging Time'}</span>
+                </h4>
+
+                <div className="flex flex-col items-center space-y-2">
+                  <label className="text-sm font-medium text-center">
+                    {language === 'vi' ? 'Giờ bắt đầu sạc' : 'Start Charging Time'}
+                  </label>
+                  <Input
+                    type="time"
+                    value={chargingStartTimeInput}
+                    onChange={(e) => setChargingStartTimeInput(e.target.value)}
+                    className="w-32 h-10 text-center text-lg font-medium border-2 border-primary rounded-lg focus:ring-2 focus:ring-primary/20"
+                    placeholder="HH:MM"
+                  />
+                </div>
+              </div>
+
+
+              {/* Action Buttons */}
+              <div className="flex space-x-2 pt-2 border-t">
+                <Button
+                  onClick={() => {
+                    // Handle booking logic here
+                    toast.success(language === 'vi' ? 'Đặt lịch thành công!' : 'Booking successful!');
+                    setIsChargingConfigOpen(false);
+                  }}
+                  className="flex-1"
+                  disabled={!chargingStartTimeInput || targetBatteryLevelConfig <= initialBatteryLevel}
+                >
+                  <Calendar className="w-4 h-4 mr-2" />
+                  {language === 'vi' ? 'Xác nhận đặt lịch' : 'Confirm Booking'}
+                </Button>
+                
+                <Button
+                  variant="outline"
+                  onClick={() => setIsChargingConfigOpen(false)}
+                >
+                  {language === 'vi' ? 'Hủy' : 'Cancel'}
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
       </Dialog>
 
     </div>

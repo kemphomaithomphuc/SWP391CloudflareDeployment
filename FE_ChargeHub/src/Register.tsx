@@ -79,10 +79,20 @@ export default function Register({
     const accessToken = urlParams.get("accessToken");
     const refreshToken = urlParams.get("refreshToken");
 
+    // Hàm helper để làm sạch URL ngay lập tức
+    const cleanUrl = () => {
+      const cleanUrl = url.origin + url.pathname;
+      window.history.replaceState({}, document.title, cleanUrl);
+    };
+
     // CASE 1: Có sẵn accessToken trên URL (BE đã tự xử lý xong OAuth)
     if (accessToken) {
+      // Làm sạch URL ngay lập tức để tránh leak thông tin
+      cleanUrl();
+      
       (async () => {
         try {
+          setLoading(true);
           localStorage.setItem("token", accessToken);
           if (refreshToken) localStorage.setItem("refreshToken", refreshToken);
 
@@ -102,12 +112,13 @@ export default function Register({
           localStorage.setItem("email", decoded?.sub || "");
 
           onSwitchToRoleSelection();
-
-          // Xóa query, giữ nguyên path (vd /social)
-          window.history.replaceState({}, document.title, url.pathname);
-        } catch (err) {
+        } catch (err: any) {
           console.error("Error processing OAuth redirect:", err);
-          setError("Failed to process social login");
+          const errorMsg = err?.response?.data?.message || err?.message || "Failed to process social login";
+          setError(errorMsg);
+          toast.error(errorMsg);
+        } finally {
+          setLoading(false);
         }
       })();
 
@@ -116,8 +127,12 @@ export default function Register({
 
     // CASE 2: Nhận code + state từ Google/Facebook → gọi callback để đổi token
     if (code && (state === "google" || state === "facebook")) {
+      // Làm sạch URL ngay lập tức để tránh leak thông tin
+      cleanUrl();
+      
       (async () => {
         try {
+          setLoading(true);
           const res = await axios.get(
             `http://localhost:8080/api/auth/social/callback?code=${encodeURIComponent(
               code
@@ -147,15 +162,16 @@ export default function Register({
             localStorage.setItem("email", decoded?.sub || "");
 
             onSwitchToRoleSelection();
-
-            // Xóa query, giữ nguyên path (vd /social)
-            window.history.replaceState({}, document.title, url.pathname);
           } else {
             setError("Social login failed: invalid response");
           }
-        } catch (err) {
+        } catch (err: any) {
           console.error("Social login callback error:", err);
-          setError("Failed to process social login callback");
+          const errorMsg = err?.response?.data?.message || err?.message || "Failed to process social login callback";
+          setError(errorMsg);
+          toast.error(errorMsg);
+        } finally {
+          setLoading(false);
         }
       })();
     }
@@ -461,6 +477,13 @@ export default function Register({
               {t("create_chargehub_account")}
             </Button>
           </form>
+
+          {loading && (
+            <div className="bg-primary/10 border border-primary/20 rounded-lg p-3 text-primary text-sm flex items-center justify-center space-x-2">
+              <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+              <span>Processing social login...</span>
+            </div>
+          )}
 
           {error && (
             <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-3 text-destructive text-sm">
