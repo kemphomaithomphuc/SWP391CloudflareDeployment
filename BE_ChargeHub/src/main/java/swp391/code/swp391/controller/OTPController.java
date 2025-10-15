@@ -1,8 +1,11 @@
 package swp391.code.swp391.controller;
 
-import swp391.code.swp391.dto.OTPResponse;
-import swp391.code.swp391.dto.SendOTPRequest;
-import swp391.code.swp391.dto.VerifyOTPRequest;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.web.server.ResponseStatusException;
+import swp391.code.swp391.dto.*;
+import swp391.code.swp391.entity.CustomUserDetails;
+import swp391.code.swp391.entity.User;
 import swp391.code.swp391.service.OTPService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -11,6 +14,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import swp391.code.swp391.service.UserServiceImpl;
+
+import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/otp")
@@ -19,6 +25,7 @@ import org.springframework.web.bind.annotation.*;
 public class OTPController {
 
     private final OTPService otpService;
+    private UserServiceImpl userServiceImpl;
 
     @PostMapping("/send/registration")
     @Operation(summary = "Gửi OTP đăng ký")
@@ -87,31 +94,58 @@ public class OTPController {
             @Valid @RequestBody VerifyOTPRequest request,
             Authentication authentication) {
 
-        Long userId = getUserIdFromAuth(authentication);
-        boolean isValid = otpService.verifyOTPForEmailChange(request.getEmail(), userId, request.getOtpCode());
+        try {
+            Long userId = getUserIdFromAuth(authentication);
+            boolean isValid = otpService.verifyOTPForEmailChange(request.getEmail(), userId, request.getOtpCode());
 
-        if (isValid) {
-            return ResponseEntity.ok(new OTPResponse(
-                    true,
-                    "Xác thực OTP thành công. Email đã được cập nhật.",
-                    request.getEmail()
-            ));
-        } else {
-            return ResponseEntity.badRequest().body(new OTPResponse(
-                    false,
-                    "Mã OTP không đúng hoặc đã hết hạn",
-                    request.getEmail()
-            ));
+            if (isValid) {
+                userServiceImpl.changeEmail(userId, request.getEmail());
+                return ResponseEntity.ok(new OTPResponse(
+                        true,
+                        "Xác thực OTP thành công. Email đã được cập nhật.",
+                        request.getEmail()
+                ));
+            } else {
+                return ResponseEntity.badRequest().body(new OTPResponse(
+                        false,
+                        "Mã OTP không đúng hoặc đã hết hạn",
+                        request.getEmail()
+                ));
+            }
+
+        } catch (ResponseStatusException e) {
+            // Lỗi có chủ đích từ service
+            return ResponseEntity.status(e.getStatusCode())
+                    .body(new OTPResponse(false, e.getReason(), request.getEmail()));
+
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new OTPResponse(false, "Lỗi hệ thống: " + e.getMessage(), request.getEmail()));
         }
     }
 
-    private Long getUserIdFromAuth(Authentication authentication) {
-        if (authentication == null) {
-            throw new RuntimeException("Chưa đăng nhập");
-        }
-        // TODO: Implement theo cấu trúc User của bạn
-        // Ví dụ: return ((CustomUserDetails) authentication.getPrincipal()).getId();
+        private Long getUserIdFromAuth(Authentication authentication) {
+            if (authentication == null) {
+                throw new RuntimeException("Chưa đăng nhập");
+            }
 
-        return 1L;
+            String email;
+            Object principal = authentication.getPrincipal();
+            if (principal instanceof CustomUserDetails userDetails) {
+                // Khi dùng UsernamePasswordAuthenticationToken (login thường)
+                email = userDetails.getUsername();
+            } else if (principal instanceof Jwt jwt) {
+                // Khi dùng ResourceServer (JWT token)
+                email = jwt.getClaimAsString("sub");
+            } else {
+                email = null;
+                throw new RuntimeException("Không xác định được người dùng từ Authentication principal: "
+                        + principal.getClass().getName());
+            }
+
+            Optional<User> user = userServiceImpl.getUserByEmail(email);
+
+            return user.map(User::getUserId)
+                    .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng với email: " + email));
+        }
     }
-}

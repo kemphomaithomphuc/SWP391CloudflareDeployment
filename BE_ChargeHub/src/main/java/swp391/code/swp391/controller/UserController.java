@@ -46,10 +46,6 @@ public class UserController {
                 // Lấy user kèm vehicles
                 userDTO = userServiceImpl.getUserByIdWithVehicles(id);
             }
-//            else {
-//                // Chỉ lấy thông tin user cơ bản (mặc định)
-//                user = userServiceImpl.getUserById(id);
-//            }
             return ResponseEntity.ok(
                     APIResponse.success("Lấy thông tin user thành công", userDTO)
             );
@@ -112,112 +108,9 @@ public class UserController {
         }
     }
 
-    /**
-     * 3A. GỬI MÃ XÁC THỰC cho email mới
-     * POST /api/users/{id}/verify-email
-     */
-    @PostMapping("/{id}/verify-email")
-    public ResponseEntity<APIResponse<String>> sendEmailVerification(
-            @PathVariable Long id,
-            @RequestBody VerificationDTO verificationDTO) {
-
-        try {
-            // TODO: Gọi service để gửi mã xác thực email
-            // String result = userService.sendEmailVerification(id, verificationDTO.getNewEmail());
-
-            return ResponseEntity.ok(
-                    APIResponse.success("Mã xác thực đã được gửi đến email mới", null)
-            );
-        } catch (RuntimeException e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(APIResponse.error("Không tìm thấy user: " + e.getMessage()));
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(APIResponse.error("Lỗi khi gửi mã xác thực: " + e.getMessage()));
-        }
-    }
 
     /**
-     * 3B. XÁC THỰC email mới
-     * POST /api/users/{id}/confirm-email
-     */
-    @PostMapping("/{id}/confirm-email")
-    public ResponseEntity<APIResponse<User>> confirmEmailChange(
-            @PathVariable Long id,
-            @RequestBody VerificationDTO verificationDTO) {
-
-        try {
-            // TODO: Gọi service để xác thực và cập nhật email
-            // User updatedUser = userService.confirmEmailChange(id,
-            //     verificationDTO.getNewEmail(),
-            //     verificationDTO.getVerificationCode());
-
-            return ResponseEntity.ok(
-                    APIResponse.success("Email đã được cập nhật thành công", null)
-            );
-        } catch (RuntimeException e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(APIResponse.error("Không tìm thấy user: " + e.getMessage()));
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(APIResponse.error("Lỗi khi xác thực email: " + e.getMessage()));
-        }
-    }
-
-    /**
-     * 3C. GỬI MÃ XÁC THỰC cho số điện thoại mới
-     * POST /api/users/{id}/verify-phone
-     */
-    @PostMapping("/{id}/verify-phone")
-    public ResponseEntity<APIResponse<String>> sendPhoneVerification(
-            @PathVariable Long id,
-            @RequestBody VerificationDTO verificationDTO) {
-
-        try {
-            // TODO: Gọi service để gửi mã xác thực phone
-            // String result = userService.sendPhoneVerification(id, verificationDTO.getNewPhoneNumber());
-
-            return ResponseEntity.ok(
-                    APIResponse.success("Mã xác thực đã được gửi đến số điện thoại mới", null)
-            );
-        } catch (RuntimeException e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(APIResponse.error("Không tìm thấy user: " + e.getMessage()));
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(APIResponse.error("Lỗi khi gửi mã xác thực: " + e.getMessage()));
-        }
-    }
-
-    /**
-     * 3D. XÁC THỰC số điện thoại mới
-     * POST /api/users/{id}/confirm-phone
-     */
-    @PostMapping("/{id}/confirm-phone")
-    public ResponseEntity<APIResponse<User>> confirmPhoneChange(
-            @PathVariable Long id,
-            @RequestBody VerificationDTO verificationDTO) {
-
-        try {
-            // TODO: Gọi service để xác thực và cập nhật phone
-            // User updatedUser = userService.confirmPhoneChange(id,
-            //     verificationDTO.getNewPhoneNumber(),
-            //     verificationDTO.getVerificationCode());
-
-            return ResponseEntity.ok(
-                    APIResponse.success("Số điện thoại đã được cập nhật thành công", null)
-            );
-        } catch (RuntimeException e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(APIResponse.error("Không tìm thấy user: " + e.getMessage()));
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(APIResponse.error("Lỗi khi xác thực số điện thoại: " + e.getMessage()));
-        }
-    }
-
-    /**
-     * 4. XÓA USER
+     * 3. XÓA USER
      * DELETE /api/user/{id}
      */
     @DeleteMapping("/{id}")
@@ -237,7 +130,7 @@ public class UserController {
     }
 
     /**
-     * 5. BAN USER
+     * 4. BAN USER
      * PUT /api/user/{id}/ban
      */
     @PutMapping("/{id}/ban")
@@ -256,7 +149,7 @@ public class UserController {
         }
     }
     /**
-     * 6. XEM DANH SÁCH VEHICLE CỦA USER
+     * 5. XEM DANH SÁCH VEHICLE CỦA USER
      * GET /api/users/{id}/vehicles
      */
     @GetMapping("/{id}/vehicles")

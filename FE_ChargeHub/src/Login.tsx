@@ -7,8 +7,7 @@ import { Label } from "./components/ui/label";
 import { Separator } from "./components/ui/separator";
 import { Zap } from "lucide-react";
 import { useLanguage } from "./contexts/LanguageContext";
-import { GoogleOAuthProvider, GoogleLogin, googleLogout } from "@react-oauth/google"; // Thêm import
-import FacebookLogin from "@greatsumini/react-facebook-login"; // Thêm import
+
 
 interface LoginProps {
     onSwitchToRegister: () => void;
@@ -31,11 +30,10 @@ export default function Login({ onSwitchToRegister, onLogin, onStaffLogin, onAdm
 
         if (code && (state === "google" || state === "facebook")) {
             console.log("Detected OAuth callback:", state, code);
+            setLoading(true);
 
             (async () => {
                 try {
-                    setLoading(true);
-
                     const res = await axios.get(
                         `http://localhost:8080/api/auth/social/callback?code=${encodeURIComponent(
                             code
@@ -44,10 +42,13 @@ export default function Login({ onSwitchToRegister, onLogin, onStaffLogin, onAdm
 
                     if (res.data?.success && res.data?.data?.accessToken) {
                         const { accessToken, refreshToken } = res.data.data;
-                        localStorage.setItem("token", accessToken);
-                        if (refreshToken) localStorage.setItem("refreshToken", refreshToken);
 
-                        // Gọi API /me để lấy userId
+                        //Lưu token
+                        localStorage.setItem("token", accessToken);
+                        if (refreshToken)
+                            localStorage.setItem("refreshToken", refreshToken);
+
+                        //userId
                         const meRes = await axios.post(
                             "http://localhost:8080/api/auth/me",
                             null,
@@ -55,15 +56,14 @@ export default function Login({ onSwitchToRegister, onLogin, onStaffLogin, onAdm
                         );
 
                         if (meRes.data?.success && meRes.data?.data) {
-                            const userId = meRes.data.data;
-                            localStorage.setItem("userId", String(userId));
+                            localStorage.setItem("userId", String(meRes.data.data));
                         }
 
-                        // Decode JWT để lấy role & email
+                        //Decode JWT
                         const decoded: any = jwtDecode(accessToken);
                         const role = decoded.role?.toLowerCase() || "driver";
                         localStorage.setItem("role", role);
-                        localStorage.setItem("email", decoded?.sub || "");
+                        localStorage.setItem("email", decoded.sub || "");
 
                         // Điều hướng theo vai trò
                         if (role === "driver") onLogin?.();
@@ -71,8 +71,8 @@ export default function Login({ onSwitchToRegister, onLogin, onStaffLogin, onAdm
                         else if (role === "admin") onAdminLogin?.();
                         else onLogin?.();
 
-                        // Xóa query param trên URL
-                        window.history.replaceState({}, document.title, window.location.pathname);
+                        // 🧹 Xóa query để URL sạch
+                        window.history.replaceState({}, document.title, "/login");
                     } else {
                         setError("Social login failed: Invalid response");
                     }
@@ -190,47 +190,6 @@ export default function Login({ onSwitchToRegister, onLogin, onStaffLogin, onAdm
         } catch (err) {
             console.error("Facebook login error:", err);
             setError("Kết nối tới Facebook thất bại");
-        }
-    };
-
-    //Sau khi BE trả về JSON token (thay vì redirect FE), ta xử lý ở đây
-    const handleSocialCallback = async (loginType: "google" | "facebook") => {
-        try {
-            // Gửi request callback đến BE
-            const res = await axios.get(
-                `http://localhost:8080/api/auth/social/callback?state=${loginType}&code=YOUR_CODE_HERE`
-            );
-            if (res.data?.success && res.data?.data?.accessToken) {
-                const { accessToken, refreshToken } = res.data.data;
-                localStorage.setItem("token", accessToken);
-                if (refreshToken) localStorage.setItem("refreshToken", refreshToken);
-
-                // Lấy userId từ token
-                const meRes = await axios.post(
-                    "http://localhost:8080/api/auth/me",
-                    null,
-                    { headers: { Authorization: `Bearer ${accessToken}` } }
-                );
-                if (meRes.data?.success && meRes.data?.data)
-                    localStorage.setItem("userId", meRes.data.data.toString());
-
-                // Decode JWT để lấy role
-                const decoded: any = jwtDecode(accessToken);
-                const role = decoded.role?.toLowerCase() || "driver";
-                localStorage.setItem("role", role);
-                localStorage.setItem("email", decoded.sub || "");
-
-                // Điều hướng role
-                if (role === "driver") onLogin?.();
-                else if (role === "staff") onStaffLogin?.();
-                else if (role === "admin") onAdminLogin?.();
-                else onLogin?.();
-            } else {
-                setError("Social login failed: invalid response");
-            }
-        } catch (err) {
-            console.error("Social callback error:", err);
-            setError("Social login failed");
         }
     };
 

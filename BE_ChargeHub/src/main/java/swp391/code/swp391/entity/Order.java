@@ -2,6 +2,7 @@ package swp391.code.swp391.entity;
 
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.ToString;
@@ -11,6 +12,7 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "orders")
 @Data
+@Builder
 @AllArgsConstructor
 @NoArgsConstructor
 public class Order {
@@ -20,8 +22,8 @@ public class Order {
     private Long orderId;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id")
     @ToString.Exclude
+    @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
     @ManyToOne
@@ -34,7 +36,7 @@ public class Order {
     @ToString.Exclude
     private Vehicle vehicle;
 
-    @Column(nullable = false)
+    @Column(name ="start_time", nullable = false)
     private LocalDateTime startTime;
 
     @Column(name = "end_time", nullable = false)
@@ -47,10 +49,6 @@ public class Order {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private Status status = Status.BOOKED;
-
-    // Chi phí
-    @Column(name = "price_per_kwh")
-    private Double pricePerKwh; // Giá tại thời điểm đặt
 
     public enum Status {
         BOOKED, CANCELED, COMPLETED,CHARGING

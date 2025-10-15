@@ -187,28 +187,6 @@ public class ChargingPointServiceImpl implements ChargingPointService {
         return chargingPointRepository.countByStationStationId(stationId);
     }
 
-//    // US10
-//    @Override
-//    public SessionDTO confirmCharging(Long orderId, Long vehicleId, Long connectorTypeId) {
-//        // Logic to confirm charging session
-//        // This is a placeholder implementation
-//        SessionDTO sessionDTO = new SessionDTO();
-//        Order order = orderRepository.findById(orderId)
-//                .orElseThrow(() -> new RuntimeException("Order not found with id: " + orderId));
-//        ConnectorType connectorType = connectorTypeRepository.findById(connectorTypeId)
-//                .orElseThrow(() -> new RuntimeException("Connector type not found with id: " + connectorTypeId));
-//
-//        sessionDTO.setChargingPointId(order.getChargingPoint().getChargingPointId());
-//        sessionDTO.setOrderId(orderId);
-//        sessionDTO.setVehicleId(vehicleId);
-//        sessionDTO.setStartTime(order.getStartTime());
-//        sessionDTO.setCurrentBattery(order.getStartedBattery());
-//        sessionDTO.setExpectedBattery(order.getExpectedBattery());
-//        LocalDateTime expectedEndTime = orderService.calculateEndtime(orderId, vehicleId, connectorTypeId);
-//        sessionDTO.setConnectorTypeId(connectorTypeId);
-//        return sessionDTO;
-//    }
-
     // Helper methods
     private ChargingPoint convertToEntity(ChargingPointDTO chargingPointDTO) {
         ChargingPoint chargingPoint = new ChargingPoint();
@@ -228,32 +206,35 @@ public class ChargingPointServiceImpl implements ChargingPointService {
         if (chargingPointDTO.getConnectorTypeId() != null) {
             ConnectorType connectorType = connectorTypeRepository.findById(chargingPointDTO.getConnectorTypeId())
                     .orElseThrow(() -> new RuntimeException("Connector type not found with id: " + chargingPointDTO.getConnectorTypeId()));
-            // Tìm connector type theo tên
-            if (chargingPointDTO.getTypeName() != null) {
-                connectorType = connectorTypeRepository.findByTypeName(chargingPointDTO.getTypeName())
-                        .orElseThrow(() -> new RuntimeException("Connector type not found with name: " + chargingPointDTO.getTypeName()));
-                chargingPoint.setConnectorType(connectorType);
-            }
-        }
-            return chargingPoint;
+            chargingPoint.setConnectorType(connectorType);
         }
 
-    private ChargingPointDTO convertToDTO(ChargingPoint chargingPoint) {
-        ChargingPointDTO dto = new ChargingPointDTO();
-        dto.setChargingPointId(chargingPoint.getChargingPointId());
-        dto.setStatus(chargingPoint.getStatus());
+        // Nếu có typeName thì ưu tiên tìm theo tên
+        if (chargingPointDTO.getTypeName() != null) {
+            ConnectorType connectorTypeByName = connectorTypeRepository.findByTypeName(chargingPointDTO.getTypeName())
+                    .orElseThrow(() -> new RuntimeException("Connector type not found with name: " + chargingPointDTO.getTypeName()));
+            chargingPoint.setConnectorType(connectorTypeByName);
+        }
 
-        // Output: full object nếu cần
-        dto.setStation(chargingPoint.getStation());
-        dto.setConnectorType(chargingPoint.getConnectorType());
-
-        // Input: ID
-        if (chargingPoint.getStation() != null)
-            dto.setStationId(chargingPoint.getStation().getStationId());
-
-        if (chargingPoint.getConnectorType() != null)
-            dto.setConnectorTypeId(chargingPoint.getConnectorType().getConnectorTypeId());
-
-        return dto;
+        return chargingPoint;
     }
-}
+
+    private ChargingPointDTO convertToDTO (ChargingPoint chargingPoint){
+            ChargingPointDTO dto = new ChargingPointDTO();
+            dto.setChargingPointId(chargingPoint.getChargingPointId());
+            dto.setStatus(chargingPoint.getStatus());
+
+            // Output: full object nếu cần
+            dto.setStation(chargingPoint.getStation());
+            dto.setConnectorType(chargingPoint.getConnectorType());
+
+            // Input: ID
+            if (chargingPoint.getStation() != null)
+                dto.setStationId(chargingPoint.getStation().getStationId());
+
+            if (chargingPoint.getConnectorType() != null)
+                dto.setConnectorTypeId(chargingPoint.getConnectorType().getConnectorTypeId());
+
+            return dto;
+        }
+    }

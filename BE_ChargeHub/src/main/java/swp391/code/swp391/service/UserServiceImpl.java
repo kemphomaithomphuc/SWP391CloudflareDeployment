@@ -3,15 +3,17 @@ package swp391.code.swp391.service;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
-
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.transaction.annotation.Transactional;
 
 import org.springframework.stereotype.Service;
 import swp391.code.swp391.dto.UpdateUserDTO;
 import org.springframework.web.server.ResponseStatusException;
+import swp391.code.swp391.dto.LoginRequestDTO;
 import swp391.code.swp391.dto.RegisterRequestDTO;
 import swp391.code.swp391.dto.UserDTO;
+import swp391.code.swp391.entity.CustomUserDetails;
 import swp391.code.swp391.entity.User;
 import swp391.code.swp391.repository.UserRepository;
 
@@ -40,6 +42,14 @@ public class UserServiceImpl implements UserService {
 
     // Lưu trữ mã xác thực tạm thời (trong thực tế nên dùng Redis)
     private final Map<String, VerificationData> verificationCodes = new ConcurrentHashMap<>();
+    // =============== AUTHENTICATION METHODS ===============
+
+    /**
+     * Loads user details by username (email or phone) for authentication
+     * @param username Email or phone number of the user
+     * @return UserDetails object if user found
+     * @throws UsernameNotFoundException if user not found
+     */
 
     // =============== USER MANAGEMENT METHODS ===============
     /**
@@ -168,7 +178,7 @@ public class UserServiceImpl implements UserService {
     }
 
     /**
-     * 2. CẬP NHẬT THÔNG TIN CƠ BẢN (không cần xác thực)
+     * 2.1 CẬP NHẬT PASSWORD (không cần xác thực)
      */
     public User changePassword(Long userId, UpdateUserDTO dto) {
         User user = getUserById(userId);
@@ -191,86 +201,36 @@ public class UserServiceImpl implements UserService {
 
 
     /**
-     * 3A. GỬI MÃ XÁC THỰC EMAIL
+     * 2.2 CẬP NHẬT EMAIL (sau khi xác thực OTP)
      */
-    public String sendEmailVerification(Long userId, String newEmail) {
-        // Kiểm tra user tồn tại
+    public User changeEmail(Long userId, String newEmail) {
+        //  Lấy thông tin user từ DB
         User user = getUserById(userId);
 
-        // Kiểm tra email mới có hợp lệ không
-        if (newEmail == null || newEmail.trim().isEmpty()) {
-            throw new IllegalArgumentException("Email mới không được để trống");
+        //  Kiểm tra email mới có hợp lệ không
+        if (newEmail == null || newEmail.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email mới không được để trống");
         }
 
-        if (!isValidEmail(newEmail)) {
-            throw new IllegalArgumentException("Email không hợp lệ");
+        //  Kiểm tra nếu email mới trùng với email cũ
+        if (user.getEmail().equalsIgnoreCase(newEmail)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email mới trùng với email hiện tại");
         }
 
-        // Kiểm tra email đã tồn tại chưa
+        //  Kiểm tra xem email mới đã tồn tại trong hệ thống chưa
         if (userRepository.existsByEmail(newEmail)) {
-            throw new IllegalArgumentException("Email này đã được sử dụng bởi user khác");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email này đã được sử dụng");
         }
 
-        // Kiểm tra không trùng với email hiện tại
-        if (newEmail.equals(user.getEmail())) {
-            throw new IllegalArgumentException("Email mới không được trùng với email hiện tại");
-        }
-
-        // Tạo mã xác thực
-        String verificationCode = generateVerificationCode();
-
-        // Lưu mã xác thực (key = userId_email_type)
-        String key = userId + "_" + newEmail + "_EMAIL";
-        verificationCodes.put(key, new VerificationData(
-                verificationCode,
-                newEmail,
-                LocalDateTime.now().plusMinutes(15) // Hết hạn sau 15 phút
-        ));
-
-        // Gửi email (giả lập)
-        sendEmailCode(newEmail, verificationCode, user.getFullName());
-
-        return "Mã xác thực đã được gửi đến: " + maskEmail(newEmail);
-    }
-
-    /**
-     * 3B. XÁC THỰC VÀ CẬP NHẬT EMAIL
-     */
-    public User confirmEmailChange(Long userId, String newEmail, String verificationCode) {
-        User user = getUserById(userId);
-
-        // Kiểm tra mã xác thực
-        String key = userId + "_" + newEmail + "_EMAIL";
-        VerificationData verificationData = verificationCodes.get(key);
-
-        if (verificationData == null) {
-            throw new IllegalArgumentException("Không tìm thấy mã xác thực. Vui lòng gửi lại mã.");
-        }
-
-        if (verificationData.isExpired()) {
-            verificationCodes.remove(key);
-            throw new IllegalArgumentException("Mã xác thực đã hết hạn. Vui lòng gửi lại mã.");
-        }
-
-        if (!verificationData.getCode().equals(verificationCode)) {
-            throw new IllegalArgumentException("Mã xác thực không đúng");
-        }
-
-        // Kiểm tra email lần nữa (phòng trường hợp có người khác dùng trong lúc chờ)
-        if (userRepository.existsByEmail(newEmail)) {
-            verificationCodes.remove(key);
-            throw new IllegalArgumentException("Email này đã được sử dụng bởi user khác");
-        }
-
-        // Cập nhật email
+        //  Cập nhật email mới
         user.setEmail(newEmail);
-        User savedUser = userRepository.save(user);
 
-        // Xóa mã xác thực đã sử dụng
-        verificationCodes.remove(key);
-
-        return savedUser;
+        //  Lưu vào DB
+        return userRepository.save(user);
     }
+
+
+
 
     /**
      * 4A. GỬI MÃ XÁC THỰC SỐ ĐIỆN THOẠI
@@ -280,7 +240,7 @@ public class UserServiceImpl implements UserService {
         User user = getUserById(userId);
 
         // Kiểm tra số điện thoại hợp lệ
-        if ( isValidVietnamPhone(newPhone)) {
+        if (!isValidVietnamPhone(newPhone)) {
             throw new IllegalArgumentException("Số điện thoại không hợp lệ");
         }
 
@@ -414,21 +374,7 @@ public class UserServiceImpl implements UserService {
                 phone.substring(phone.length() - 3);
     }
 
-    /**
-     * Giả lập gửi email
-     */
-    private void sendEmailCode(String email, String code, String fullName) {
-        System.out.println("=== SENDING EMAIL ===");
-        System.out.println("To: " + email);
-        System.out.println("Subject: Mã xác thực thay đổi email");
-        System.out.println("Content: Xin chào " + fullName + ",");
-        System.out.println("Mã xác thực của bạn là: " + code);
-        System.out.println("Mã có hiệu lực trong 15 phút.");
-        System.out.println("====================");
 
-        // TODO: Implement real email sending
-        // emailService.sendVerificationCode(email, code, fullName);
-    }
 
     /**
      * Giả lập gửi SMS

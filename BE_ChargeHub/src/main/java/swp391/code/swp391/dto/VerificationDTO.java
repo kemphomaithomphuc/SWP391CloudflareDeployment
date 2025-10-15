@@ -17,6 +17,8 @@ public class VerificationDTO {
 
     @Email(message = "Invalid Email format")
     private String email;
+    @Email(message = "Invalid Email format")
+    private String newEmail;
     @Pattern(regexp = "^(0|\\+84)(3|5|7|8|9)[0-9]{8}$", message = "Invalid Vietnam phone number format")
     private String newPhoneNumber;
     @Size(min = 6, max = 6, message = "Verification code must be 6 characters")

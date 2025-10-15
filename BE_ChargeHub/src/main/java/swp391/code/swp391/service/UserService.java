@@ -57,24 +57,6 @@ public interface UserService {
      */
     User updateUserProfile(Long userId, UpdateUserDTO updateDTO);
 
-    /**
-     * Gửi mã xác thực đến email mới.
-     * @param userId ID của user
-     * @param newEmail Email mới cần xác thực
-     * @return String thông báo kết quả
-     * @throws RuntimeException nếu không tìm thấy user
-     */
-    String sendEmailVerification(Long userId, String newEmail);
-
-    /**
-     * Xác thực và cập nhật email mới.
-     * @param userId ID của user
-     * @param newEmail Email mới
-     * @param verificationCode Mã xác thực
-     * @return User object đã cập nhật
-     * @throws RuntimeException nếu không tìm thấy user hoặc mã xác thực không hợp lệ
-     */
-    User confirmEmailChange(Long userId, String newEmail, String verificationCode);
 
     /**
      * Gửi mã xác thực đến số điện thoại mới.

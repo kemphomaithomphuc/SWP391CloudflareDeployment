@@ -144,6 +144,9 @@
                             <artifactId>lombok</artifactId>
                         </path>
                     </annotationProcessorPaths>
+                    <source>17</source>
+                    <target>17</target>
+
                 </configuration>
             </plugin>
             <plugin>
