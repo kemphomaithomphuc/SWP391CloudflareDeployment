@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.ToString;
 
 import java.time.LocalDateTime;
 
@@ -15,21 +16,22 @@ import java.time.LocalDateTime;
 public class Order {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "order_id")
     private Long orderId;
 
-    @ManyToOne
-    //    @JoinColumn(name = "user_id", nullable = false)
-     @JoinColumn(name = "user_id")
-
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id")
+    @ToString.Exclude
     private User user;
 
     @ManyToOne
-//    @JoinColumn(name = "charging_point_id", nullable = false)
-    @JoinColumn(name = "charging_point_id")
+    @JoinColumn(name = "charging_point_id", nullable = false)
+    @ToString.Exclude
     private ChargingPoint chargingPoint;
 
     @ManyToOne
-    @JoinColumn(name = "vehicle_id") //, nullable = false)
+    @JoinColumn(name = "vehicle_id", nullable = false)
+    @ToString.Exclude
     private Vehicle vehicle;
 
     @Column(nullable = false)
@@ -51,8 +53,9 @@ public class Order {
     private Double pricePerKwh; // Giá tại thời điểm đặt
 
     public enum Status {
-        BOOKED, CANCELED
+        BOOKED, CANCELED, COMPLETED,CHARGING
     }
+    LocalDateTime createdAt = LocalDateTime.now();
 
     public boolean isActive() {
         return status == Status.BOOKED;

@@ -8,6 +8,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.sql.Date;
+import java.time.LocalDate;
 
 /**
  * DTO cho việc cập nhật thông tin cơ bản của user và thay đổi mật khẩu
@@ -30,7 +31,7 @@ public class UpdateUserDTO {
      * Có thể null nếu người dùng không muốn cung cấp
      */
     @Past(message = "Ngày sinh phải là ngày trong quá khứ")
-    private Date dateOfBirth;
+    private LocalDate dateOfBirth;
 
     /**
      * Mật khẩu cũ để xác thực danh tính người dùng
@@ -61,7 +62,7 @@ public class UpdateUserDTO {
     public UpdateUserDTO() {}
 
     // Constructor đầy đủ
-    public UpdateUserDTO(String fullName, String address, Date dateOfBirth,
+    public UpdateUserDTO(String fullName, String address, LocalDate dateOfBirth,
                          String oldPassword, String newPassword, String confirmNewPassword) {
         this.fullName = fullName;
         this.address = address;

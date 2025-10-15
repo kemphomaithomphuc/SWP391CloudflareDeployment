@@ -9,7 +9,7 @@ import java.util.List;
 public interface OrderService {
 
     //Tinh toan thoi gian ket thuc phien sac dua tren current and expected Battery
-    LocalDateTime calculateEndtime(Long orderId, Long vehicleId,Long connectorTypeId);
+//    LocalDateTime calculateEndtime(Long orderId, Long vehicleId,Long connectorTypeId);
     Order getOrderById(Long orderId);
     Order createOrder(Order order);
     List<Order> getAllOrders();

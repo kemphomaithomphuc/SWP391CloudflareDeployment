@@ -1,8 +1,12 @@
 package swp391.code.swp391.service;
 
 
+import swp391.code.swp391.dto.SessionProgressDTO;
+import swp391.code.swp391.entity.Order;
 import swp391.code.swp391.entity.Session;
+import swp391.code.swp391.entity.Vehicle;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -10,19 +14,13 @@ public interface SessionService {
 
     boolean isValidTime(Long orderId,int maxStartDelayMinutes);
 
-    //CRUD cho Session
-    //Tao moi session khi tao order
-    Optional<Session> createSession(Long orderId);
+    public Long startSession(Long userId, Long orderId, Long vehicleId, LocalDateTime startTime);
 
-    //Lay session dua tren sessionId
-    Session getSessionById(Long sessionId);
+    SessionProgressDTO monitorSession(Long sessionId, Long userId);
 
-    //Lay tat ca session
-    List<Session> getAllSessions();
+    Double calculatePenaltyAmount(String type, Order order);
 
-    //Cap nhat session
-    Session updateSession(Session session);
+    long expectedMinutes(Vehicle vehicle, Double expectedBattery);
 
-    //Xoa session
-    void deleteSession(Long sessionId);
+    Double calculateBatteryPercentage(Vehicle vehicle, Double kwh);
 }

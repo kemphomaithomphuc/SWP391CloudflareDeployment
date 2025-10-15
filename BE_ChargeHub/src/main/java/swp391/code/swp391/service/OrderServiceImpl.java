@@ -51,19 +51,5 @@ public class OrderServiceImpl implements OrderService {
         orderRepository.deleteById(orderId);
     }
 
-    @Override
-    public LocalDateTime calculateEndtime(Long orderId, Long vehicleId, Long connectorTypeId) {
-        Order order = orderRepository.findByOrderId(orderId);
-        Vehicle vehicle = vehicleRepository.findById(vehicleId).orElse(null);
-        double capacity = vehicle.getCarModel().getCapacity();
-        double currentBattery = order.getStartedBattery();
-        double expectedBattery = order.getExpectedBattery();
-        double power = connectorTypeRepository.findById(connectorTypeId).orElse(null).getPowerOutput();
-        // Tính toán thời gian kết thúc dựa trên currentBattery và expectedBattery
 
-        double energyNeeded = (expectedBattery - currentBattery) / 100 * capacity; // kWh cần thiết
-        double hoursNeeded = energyNeeded / power; // Giờ cần thiết để sạc đầy (hours)
-        LocalDateTime endTime = order.getStartTime().plusMinutes((long) (hoursNeeded * 60)); // Thời gian kết thúc
-        return endTime;
-    }
 }

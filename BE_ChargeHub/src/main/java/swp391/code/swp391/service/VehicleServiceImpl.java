@@ -8,6 +8,7 @@ import swp391.code.swp391.entity.User;
 import swp391.code.swp391.entity.Vehicle;
 import swp391.code.swp391.repository.UserRepository;
 import swp391.code.swp391.repository.VehicleRepository;
+import swp391.code.swp391.repository.CarModelRepository;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -19,6 +20,7 @@ public class VehicleServiceImpl implements VehicleService {
 
     private final VehicleRepository vehicleRepository;
     private final UserRepository userRepository;
+    private final CarModelRepository carModelRepository;
 
     @Override
     public VehicleDTO createVehicle(VehicleDTO vehicleDTO) {
@@ -61,11 +63,12 @@ public class VehicleServiceImpl implements VehicleService {
         Vehicle existingVehicle = vehicleRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Vehicle not found"));
 
-        // Cập nhật thông tin
-        existingVehicle.setBrand(vehicleDTO.getBrand());
-        existingVehicle.setModel(vehicleDTO.getModel());
-        existingVehicle.setCapacity(vehicleDTO.getCapacity());
-        existingVehicle.setProductYear(vehicleDTO.getProductYear());
+        existingVehicle.setPlateNumber(vehicleDTO.getPlateNumber());
+
+        // Cập nhật carModel nếu có
+        if (vehicleDTO.getCarModel() != null) {
+            existingVehicle.setCarModel(vehicleDTO.getCarModel());
+        }
 
         // Cập nhật user nếu có
         if (vehicleDTO.getUserId() != null) {
@@ -73,14 +76,6 @@ public class VehicleServiceImpl implements VehicleService {
                     .orElseThrow(() -> new RuntimeException("User not found with id: " + vehicleDTO.getUserId()));
             existingVehicle.setUser(user);
         }
-
-        // Cập nhật connector types nếu có
-//        if (vehicleDTO.getConnectorTypeIds() != null && !vehicleDTO.getConnectorTypeIds().isEmpty()) {
-//            List<ConnectorType> connectorTypes = connectorTypeRepository.findAllById(vehicleDTO.getConnectorTypeIds());
-//            existingVehicle.setConnectorTypes(connectorTypes);
-//        }
-        // đã thay đổi db, thêm carmodel nên connectortype không thay đổi theo từng vehicle mà theo model
-
 
         Vehicle updatedVehicle = vehicleRepository.save(existingVehicle);
         return convertToDTO(updatedVehicle);
@@ -100,32 +95,48 @@ public class VehicleServiceImpl implements VehicleService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<VehicleDTO> searchVehiclesByBrand(String brand) {
-        return vehicleRepository.findByBrandContainingIgnoreCase(brand).stream()
-                .map(this::convertToDTO)
-                .collect(Collectors.toList());
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public List<VehicleDTO> searchVehiclesByModel(String model) {
-        return vehicleRepository.findByModelContainingIgnoreCase(model).stream()
-                .map(this::convertToDTO)
-                .collect(Collectors.toList());
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public List<VehicleDTO> searchVehiclesByProductYear(int productYear) {
-        return vehicleRepository.findByProductYear(productYear).stream()
-                .map(this::convertToDTO)
-                .collect(Collectors.toList());
-    }
-
-    @Override
-    @Transactional(readOnly = true)
     public List<VehicleDTO> searchVehiclesByConnectorType(Long connectorTypeId) {
         return vehicleRepository.findByCarModelConnectorTypeId(connectorTypeId).stream()
+                .map(this::convertToDTO)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<VehicleDTO> searchVehiclesByCarModelBrand(String brand) {
+        return vehicleRepository.findByCarModelBrandContainingIgnoreCase(brand).stream()
+                .map(this::convertToDTO)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<VehicleDTO> searchVehiclesByCarModelName(String modelName) {
+        return vehicleRepository.findByCarModelNameContainingIgnoreCase(modelName).stream()
+                .map(this::convertToDTO)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<VehicleDTO> searchVehiclesByCarModelYear(int year) {
+        return vehicleRepository.findByCarModelYear(year).stream()
+                .map(this::convertToDTO)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<VehicleDTO> searchVehiclesByCarModelCapacity(double capacity) {
+        return vehicleRepository.findByCarModelCapacity(capacity).stream()
+                .map(this::convertToDTO)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<VehicleDTO> searchVehiclesByCarModelCapacityRange(double minCapacity, double maxCapacity) {
+        return vehicleRepository.findByCarModelCapacityBetween(minCapacity, maxCapacity).stream()
                 .map(this::convertToDTO)
                 .collect(Collectors.toList());
     }
@@ -134,10 +145,11 @@ public class VehicleServiceImpl implements VehicleService {
     private Vehicle convertToEntity(VehicleDTO vehicleDTO) {
         Vehicle vehicle = new Vehicle();
         vehicle.setPlateNumber(vehicleDTO.getPlateNumber());
-        vehicle.setBrand(vehicleDTO.getBrand());
-        vehicle.setModel(vehicleDTO.getModel());
-        vehicle.setCapacity(vehicleDTO.getCapacity());
-        vehicle.setProductYear(vehicleDTO.getProductYear());
+
+        // Set carModel
+        if (vehicleDTO.getCarModel() != null) {
+            vehicle.setCarModel(vehicleDTO.getCarModel());
+        }
 
         // Set user
         if (vehicleDTO.getUserId() != null) {
@@ -146,27 +158,16 @@ public class VehicleServiceImpl implements VehicleService {
             vehicle.setUser(user);
         }
 
-         //Set connector types
-//        if (vehicleDTO.getConnectorTypeIds() != null && !vehicleDTO.getConnectorTypeIds().isEmpty()) {
-//            List<ConnectorType> connectorTypes = connectorTypeRepository.findAllById(vehicleDTO.getConnectorTypeIds());
-//
-//            vehicle.setConnectorTypes(connectorTypes);
-//        }
-
         return vehicle;
     }
 
     private VehicleDTO convertToDTO(Vehicle vehicle) {
         VehicleDTO dto = new VehicleDTO();
         dto.setPlateNumber(vehicle.getPlateNumber());
-        dto.setBrand(vehicle.getBrand());
-        dto.setModel(vehicle.getModel());
-        dto.setCapacity(vehicle.getCapacity());
-        dto.setProductYear(vehicle.getProductYear());
 
         // Cho response: set full objects
         //dto.setUser(vehicle.getUser());
-        if (vehicle.getCarModel() != null){
+        if (vehicle.getCarModel() != null) {
 //            dto.setCarModel(vehicle.getCarModel().getCar_model_id());
 
             //lấy ConnectorType từ carModel

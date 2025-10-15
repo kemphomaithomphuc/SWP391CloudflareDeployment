@@ -1,17 +1,55 @@
-INSERT INTO [dbo].[car_models] ([brand], [model], [capacity], [product_year], [img_url]) VALUES ('Tesla', 'Model 3', 75.0, 2022, 'https://example.com/tesla_model3.jpg');
-INSERT INTO [dbo].[car_models] ([brand], [model], [capacity], [product_year], [img_url]) VALUES ('Nissan', 'Leaf', 40.0, 2021, 'https://example.com/nissan_leaf.jpg');
-INSERT INTO [dbo].[car_models] ([brand], [model], [capacity], [product_year], [img_url]) VALUES ('Chevrolet', 'Bolt', 66.0, 2023, 'https://example.com/chevy_bolt.jpg');
-INSERT INTO [dbo].[car_models] ([brand], [model], [capacity], [product_year], [img_url]) VALUES ('BMW', 'i3', 42.0, 2020, 'https://example.com/bmw_i3.jpg');
-INSERT INTO [dbo].[car_models] ([brand], [model], [capacity], [product_year], [img_url]) VALUES ('Audi', 'e-tron', 95.0, 2022, 'https://example.com/audi_etron.jpg');
-
--- Additional 45 inserts for car_models
+-- Insert into car_models (50 unique records)
+-- Columns: brand, model, capacity (kWh), product_year, img_url
+-- Includes Vietnam-specific EVs (e.g., VinFast) and global models
+-- Ensures unique brand-model combinations, realistic capacities, and Vietnam-relevant years
 INSERT INTO [dbo].[car_models] ([brand], [model], [capacity], [product_year], [img_url]) VALUES
-('Tesla', 'Model 3', 75.0, 2022, 'https://example.com/tesla_model3.jpg'), ('Nissan', 'Leaf', 40.0, 2021, 'https://example.com/nissan_leaf.jpg'), ('Chevrolet', 'Bolt', 66.0, 2023, 'https://example.com/chevy_bolt.jpg'), ('BMW', 'i3', 42.0, 2020, 'https://example.com/bmw_i3.jpg'), ('Audi', 'e-tron', 95.0, 2022, 'https://example.com/audi_etron.jpg'),
-('Tesla', 'Model Y', 80.0, 2023, 'https://example.com/tesla_modely.jpg'), ('Hyundai', 'Ioniq', 58.0, 2022, 'https://example.com/hyundai_ioniq.jpg'), ('Ford', 'Mustang Mach-E', 88.0, 2021, 'https://example.com/ford_mache.jpg'), ('Volkswagen', 'ID.4', 77.0, 2023, 'https://example.com/vw_id4.jpg'), ('Kia', 'EV6', 77.4, 2022, 'https://example.com/kia_ev6.jpg'),
-('Tesla', 'Model 3', 75.0, 2022, 'https://example.com/tesla_model3.jpg'), ('Nissan', 'Leaf', 40.0, 2021, 'https://example.com/nissan_leaf.jpg'), ('Chevrolet', 'Bolt', 66.0, 2023, 'https://example.com/chevy_bolt.jpg'), ('BMW', 'i3', 42.0, 2020, 'https://example.com/bmw_i3.jpg'), ('Audi', 'e-tron', 95.0, 2022, 'https://example.com/audi_etron.jpg'),
-('Tesla', 'Model Y', 80.0, 2023, 'https://example.com/tesla_modely.jpg'), ('Hyundai', 'Ioniq', 58.0, 2022, 'https://example.com/hyundai_ioniq.jpg'), ('Ford', 'Mustang Mach-E', 88.0, 2021, 'https://example.com/ford_mache.jpg'), ('Volkswagen', 'ID.4', 77.0, 2023, 'https://example.com/vw_id4.jpg'), ('Kia', 'EV6', 77.4, 2022, 'https://example.com/kia_ev6.jpg'),
-('Tesla', 'Model 3', 75.0, 2022, 'https://example.com/tesla_model3.jpg'), ('Nissan', 'Leaf', 40.0, 2021, 'https://example.com/nissan_leaf.jpg'), ('Chevrolet', 'Bolt', 66.0, 2023, 'https://example.com/chevy_bolt.jpg'), ('BMW', 'i3', 42.0, 2020, 'https://example.com/bmw_i3.jpg'), ('Audi', 'e-tron', 95.0, 2022, 'https://example.com/audi_etron.jpg'),
-('Tesla', 'Model Y', 80.0, 2023, 'https://example.com/tesla_modely.jpg'), ('Hyundai', 'Ioniq', 58.0, 2022, 'https://example.com/hyundai_ioniq.jpg'), ('Ford', 'Mustang Mach-E', 88.0, 2021, 'https://example.com/ford_mache.jpg'), ('Volkswagen', 'ID.4', 77.0, 2023, 'https://example.com/vw_id4.jpg'), ('Kia', 'EV6', 77.4, 2022, 'https://example.com/kia_ev6.jpg'),
-('Tesla', 'Model 3', 75.0, 2022, 'https://example.com/tesla_model3.jpg'), ('Nissan', 'Leaf', 40.0, 2021, 'https://example.com/nissan_leaf.jpg'), ('Chevrolet', 'Bolt', 66.0, 2023, 'https://example.com/chevy_bolt.jpg'), ('BMW', 'i3', 42.0, 2020, 'https://example.com/bmw_i3.jpg'), ('Audi', 'e-tron', 95.0, 2022, 'https://example.com/audi_etron.jpg'),
-('Tesla', 'Model Y', 80.0, 2023, 'https://example.com/tesla_modely.jpg'), ('Hyundai', 'Ioniq', 58.0, 2022, 'https://example.com/hyundai_ioniq.jpg'), ('Ford', 'Mustang Mach-E', 88.0, 2021, 'https://example.com/ford_mache.jpg'), ('Volkswagen', 'ID.4', 77.0, 2023, 'https://example.com/vw_id4.jpg'), ('Kia', 'EV6', 77.4, 2022, 'https://example.com/kia_ev6.jpg'),
-('Tesla', 'Model 3', 75.0, 2022, 'https://example.com/tesla_model3.jpg'), ('Nissan', 'Leaf', 40.0, 2021, 'https://example.com/nissan_leaf.jpg'), ('Chevrolet', 'Bolt', 66.0, 2023, 'https://example.com/chevy_bolt.jpg'), ('BMW', 'i3', 42.0, 2020, 'https://example.com/bmw_i3.jpg'), ('Audi', 'e-tron', 95.0, 2022, 'https://example.com/audi_etron.jpg');
+('VinFast', 'VF e34', 42.0, 2022, '/images/vinfast_vfe34.jpg'),
+('VinFast', 'VF 8', 82.0, 2023, '/images/vinfast_vf8.jpg'),
+('VinFast', 'VF 9', 123.0, 2023, '/images/vinfast_vf9.jpg'),
+('Tesla', 'Model 3 Standard Range', 60.0, 2022, '/images/tesla_model3_sr.jpg'),
+('Tesla', 'Model 3 Long Range', 82.0, 2022, '/images/tesla_model3_lr.jpg'),
+('Tesla', 'Model Y', 81.0, 2023, '/images/tesla_modely.jpg'),
+('Tesla', 'Model S', 100.0, 2021, '/images/tesla_models.jpg'),
+('Nissan', 'Leaf', 40.0, 2021, '/images/nissan_leaf.jpg'),
+('Nissan', 'Leaf Plus', 62.0, 2022, '/images/nissan_leaf_plus.jpg'),
+('Nissan', 'Ariya', 87.0, 2023, '/images/nissan_ariya.jpg'),
+('Chevrolet', 'Bolt EV', 66.0, 2023, '/images/chevrolet_bolt_ev.jpg'),
+('Chevrolet', 'Bolt EUV', 65.0, 2022, '/images/chevrolet_bolt_euv.jpg'),
+('BMW', 'i3', 42.2, 2020, '/images/bmw_i3.jpg'),
+('BMW', 'i4', 83.9, 2022, '/images/bmw_i4.jpg'),
+('BMW', 'iX', 111.5, 2023, '/images/bmw_ix.jpg'),
+('Audi', 'e-tron 55', 95.0, 2022, '/images/audi_etron_55.jpg'),
+('Audi', 'Q4 e-tron', 82.0, 2023, '/images/audi_q4_etron.jpg'),
+('Hyundai', 'Ioniq 5', 77.4, 2022, '/images/hyundai_ioniq5.jpg'),
+('Hyundai', 'Ioniq 6', 77.4, 2023, '/images/hyundai_ioniq6.jpg'),
+('Hyundai', 'Kona Electric', 64.0, 2021, '/images/hyundai_kona_electric.jpg'),
+('Kia', 'EV6', 77.4, 2022, '/images/kia_ev6.jpg'),
+('Kia', 'Niro EV', 64.8, 2022, '/images/kia_niro_ev.jpg'),
+('Ford', 'Mustang Mach-E Standard', 75.7, 2021, '/images/ford_mache_standard.jpg'),
+('Ford', 'Mustang Mach-E Extended', 98.8, 2022, '/images/ford_mache_extended.jpg'),
+('Volkswagen', 'ID.3', 58.0, 2021, '/images/vw_id3.jpg'),
+('Volkswagen', 'ID.4', 77.0, 2023, '/images/vw_id4.jpg'),
+('BYD', 'Han EV', 85.4, 2022, '/images/byd_han_ev.jpg'),
+('BYD', 'Atto 3', 60.5, 2023, '/images/byd_atto3.jpg'),
+('BYD', 'Dolphin', 44.9, 2023, '/images/byd_dolphin.jpg'),
+('Mercedes-Benz', 'EQS', 107.8, 2022, '/images/mercedes_eqs.jpg'),
+('Mercedes-Benz', 'EQE', 90.6, 2023, '/images/mercedes_eqe.jpg'),
+('Porsche', 'Taycan', 93.4, 2021, '/images/porsche_taycan.jpg'),
+('Volvo', 'XC40 Recharge', 78.0, 2022, '/images/volvo_xc40_recharge.jpg'),
+('Volvo', 'C40 Recharge', 78.0, 2023, '/images/volvo_c40_recharge.jpg'),
+('MG', 'ZS EV', 51.1, 2022, '/images/mg_zs_ev.jpg'),
+('MG', '4 EV', 64.0, 2023, '/images/mg_4_ev.jpg'),
+('Rivian', 'R1T', 135.0, 2022, '/images/rivian_r1t.jpg'),
+('Rivian', 'R1S', 135.0, 2022, '/images/rivian_r1s.jpg'),
+('Lucid', 'Air Dream', 118.0, 2022, '/images/lucid_air_dream.jpg'),
+('Polestar', '2', 78.0, 2022, '/images/polestar_2.jpg'),
+('Honda', 'e', 35.5, 2021, '/images/honda_e.jpg'),
+('Toyota', 'bZ4X', 71.4, 2023, '/images/toyota_bz4x.jpg'),
+('Subaru', 'Solterra', 71.4, 2023, '/images/subaru_solterra.jpg'),
+('Mini', 'Cooper SE', 32.6, 2021, '/images/mini_cooper_se.jpg'),
+('Jaguar', 'I-PACE', 90.0, 2022, '/images/jaguar_ipace.jpg'),
+('VinFast', 'VF 6', 59.6, 2023, '/images/vinfast_vf6.jpg'),
+('VinFast', 'VF 7', 75.3, 2024, '/images/vinfast_vf7.jpg'),
+('BYD', 'Seagull', 38.8, 2023, '/images/byd_seagull.jpg'),
+('NIO', 'ES6', 84.0, 2022, '/images/nio_es6.jpg'),
+('XPeng', 'P7', 80.9, 2022, '/images/xpeng_p7.jpg');

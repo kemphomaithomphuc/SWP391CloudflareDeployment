@@ -32,12 +32,13 @@ public class ChargingPoint {
     private ChargingPointStatus status = ChargingPointStatus.AVAILABLE;
 
     @OneToMany(mappedBy = "chargingPoint", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    private List<Booking> bookings;
+    private List<Order> orders;
 
     public enum ChargingPointStatus {
         AVAILABLE,
         OCCUPIED,
         OUT_OF_SERVICE,
-        MAINTENANCE
+        MAINTENANCE,
+        RESERVED
     }
 }

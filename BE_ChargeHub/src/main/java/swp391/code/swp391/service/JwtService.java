@@ -25,6 +25,7 @@ public class JwtService {
 
     private final JwtDecoder jwtDecoder;
     private final UserRepository userRepository;
+
     @Value("${app.jwt.secret}")
     private String secretKey;
 
@@ -55,7 +56,7 @@ public class JwtService {
         Date issueTime = new Date();
         Date expiredTime = Date.from(issueTime.toInstant().plus(30, java.time.temporal.ChronoUnit.DAYS));
 
-        JWSHeader header = new JWSHeader(JWSAlgorithm.HS512); //HS512: thuật toán băm, mã hóa đối xứng
+        JWSHeader header = new JWSHeader(JWSAlgorithm.HS512);
 
         JWTClaimsSet claimsSet = new JWTClaimsSet.Builder() //tạo các thông tin trong payload
                 .subject(user.getUsername())
@@ -118,6 +119,14 @@ public class JwtService {
         return userOptional.orElse(null);
     }
 
+    public Long getUserIdByTokenDecode(String token) throws ParseException, JOSEException {
+        User user = getUserByTokenDecode(token);
+        if (user != null) {
+            return user.getUserId();
+        }
+        throw new IllegalArgumentException("User not found for the provided token");
+    }
+
     public User getUserByTokenThroughSecurityContext() throws ParseException, JOSEException {
         String identifier = getUsernameFromContext();
         Optional<User> userOptional;
@@ -130,6 +139,18 @@ public class JwtService {
         }
         return userOptional.orElse(null);
     }
+
+    public String getTokenFromRequestHeader(String header) {
+        return getTokenFromHeader(header);
+    }
+    public String getTokenFromHeader(String header) {
+        if (header != null && header.startsWith("Bearer ")) {
+            return header.substring(7);
+        }
+        throw new IllegalArgumentException("Invalid Authorization header");
+    }
+
+    //-------------------Validation utils-------------------
     /**
      * Validates email format using regex pattern
      */

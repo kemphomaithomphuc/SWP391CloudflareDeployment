@@ -1,11 +1,19 @@
 package swp391.code.swp391.controller;
 
+import com.nimbusds.jose.JOSEException;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import swp391.code.swp391.dto.APIResponse;
+import swp391.code.swp391.dto.SessionProgressDTO;
+import swp391.code.swp391.dto.StartSessionRequestDTO;
 import swp391.code.swp391.entity.Session;
+import swp391.code.swp391.service.JwtService;
 import swp391.code.swp391.service.SessionService;
+
+import java.text.ParseException;
 
 
 @RestController
@@ -14,34 +22,53 @@ import swp391.code.swp391.service.SessionService;
 public class SessionController {
 
     private final SessionService sessionService;
-    //Tao session moi khi bat dau sac
+    private final JwtService jwtService;
+
+    // US10: POST /api/sessions/start
     @PostMapping("/start")
-    public ResponseEntity<APIResponse<Session>> startSession(@RequestParam Long orderId, @RequestParam Long userId) {
-        // Logic to start a session using the data from sessionDTO
-        int maxStartDelayMinutes = 15; // Example: maximum allowed start delay is 15 minutes
+    public ResponseEntity<APIResponse<Long>> startSession(@RequestBody StartSessionRequestDTO request,
+                                             HttpServletRequest httpServletRequest) {
+        String header = httpServletRequest.getHeader("Authorization");
+        String token = jwtService.getTokenFromHeader(header);
+        Long sessionId = null;
+        Long userId = null;
         try {
-            if (!sessionService.isValidTime(orderId,maxStartDelayMinutes)){ //Check if user is late
-                //Send notification to user here
-                //respond to charge user
-                return ResponseEntity.badRequest().body(APIResponse.error("Invalid start time for session"));
-            }
-            Session session = sessionService.createSession(orderId).orElseThrow(() -> new RuntimeException("Failed to create session"));
-            //Send notification here
-            //respond (successfully)
-            return ResponseEntity.ok(APIResponse.success("Session started successfully", session));
-        } catch (RuntimeException e) {
+            userId = jwtService.getUserIdByTokenDecode(token);
+            sessionId = sessionService.startSession(userId, request.getOrderId(), request.getVehicleId(), request.getStartTime());
+        } catch (ParseException e) {
             throw new RuntimeException(e);
+        } catch (JOSEException e) {
+            throw new RuntimeException(e);
+        } catch (RuntimeException e){
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(APIResponse.error(e.getMessage()));
+        } catch (Exception e){
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(APIResponse.error(e.getMessage()));
         }
+        return ResponseEntity.status(HttpStatus.CREATED).body(APIResponse.success("Session started successfully", sessionId));
     }
 
-//    @PostMapping("{sessionId}")
-//    public ResponseEntity updateSession(@PathVariable Long sessionId,
-//                                          @RequestParam(required = false) Long feeId) {
-//        try {
-////            Session updatedSession = sessionService.updateSession(sessionIdfeeId);
-//            return ResponseEntity.ok(updatedSession);
-//        } catch (RuntimeException e) {
-//            throw new RuntimeException(e);
-//        }
-//    }
+    // US11: GET /api/sessions/{sessionId}/monitor
+    @GetMapping("/{sessionId}/monitor")
+    public ResponseEntity<APIResponse<SessionProgressDTO>> monitorSession(@PathVariable Long sessionId,
+                                                             HttpServletRequest httpServletRequest) {
+        String header = httpServletRequest.getHeader("Authorization");
+        String token = jwtService.getTokenFromHeader(header);
+        Long userId = null;
+        SessionProgressDTO progress = null;
+        try {
+            userId = jwtService.getUserIdByTokenDecode(token);
+            progress = sessionService.monitorSession(sessionId, userId);
+        } catch (ParseException e) {
+            throw new RuntimeException(e);
+        } catch (JOSEException e) {
+            throw new RuntimeException(e);
+        }catch (RuntimeException e){
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(APIResponse.error(e.getMessage()));
+        }catch (Exception e){
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(APIResponse.error(e.getMessage()));
+        }
+
+        return ResponseEntity.ok(APIResponse.success("Session progress updated successfully", progress));
+    }
+
 }
