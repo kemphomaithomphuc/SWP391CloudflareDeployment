@@ -19,9 +19,6 @@ public class ChargingPointDTO {
 
     private Long chargingPointId;
 
-
-
-
     @NotNull(message = "Type name is required")
     private String typeName;
 

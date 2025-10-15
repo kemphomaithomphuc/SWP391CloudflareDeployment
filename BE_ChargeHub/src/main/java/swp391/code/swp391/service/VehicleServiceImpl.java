@@ -93,53 +93,6 @@ public class VehicleServiceImpl implements VehicleService {
         vehicleRepository.deleteById(id);
     }
 
-    @Override
-    @Transactional(readOnly = true)
-    public List<VehicleDTO> searchVehiclesByConnectorType(Long connectorTypeId) {
-        return vehicleRepository.findByCarModelConnectorTypeId(connectorTypeId).stream()
-                .map(this::convertToDTO)
-                .collect(Collectors.toList());
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public List<VehicleDTO> searchVehiclesByCarModelBrand(String brand) {
-        return vehicleRepository.findByCarModelBrandContainingIgnoreCase(brand).stream()
-                .map(this::convertToDTO)
-                .collect(Collectors.toList());
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public List<VehicleDTO> searchVehiclesByCarModelName(String modelName) {
-        return vehicleRepository.findByCarModelNameContainingIgnoreCase(modelName).stream()
-                .map(this::convertToDTO)
-                .collect(Collectors.toList());
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public List<VehicleDTO> searchVehiclesByCarModelYear(int year) {
-        return vehicleRepository.findByCarModelYear(year).stream()
-                .map(this::convertToDTO)
-                .collect(Collectors.toList());
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public List<VehicleDTO> searchVehiclesByCarModelCapacity(double capacity) {
-        return vehicleRepository.findByCarModelCapacity(capacity).stream()
-                .map(this::convertToDTO)
-                .collect(Collectors.toList());
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public List<VehicleDTO> searchVehiclesByCarModelCapacityRange(double minCapacity, double maxCapacity) {
-        return vehicleRepository.findByCarModelCapacityBetween(minCapacity, maxCapacity).stream()
-                .map(this::convertToDTO)
-                .collect(Collectors.toList());
-    }
 
     // Helper methods
     private Vehicle convertToEntity(VehicleDTO vehicleDTO) {
@@ -165,15 +118,9 @@ public class VehicleServiceImpl implements VehicleService {
         VehicleDTO dto = new VehicleDTO();
         dto.setPlateNumber(vehicle.getPlateNumber());
 
-        // Cho response: set full objects
-        //dto.setUser(vehicle.getUser());
-        if (vehicle.getCarModel() != null) {
-//            dto.setCarModel(vehicle.getCarModel().getCar_model_id());
 
-            //lấy ConnectorType từ carModel
-            dto.setConnectorTypes(vehicle.getCarModel().getConnectorTypes());
-        }
-        if (vehicle.getUser() != null)
+        // Cho response: set full objects
+        if (vehicle.getCarModel() != null && vehicle.getUser() != null)
             dto.setUserId(vehicle.getUser().getUserId());
 
         return dto;

@@ -56,8 +56,6 @@ public class UpdateUserDTO {
 
     @AssertTrue(message = "Mật khẩu mới và xác nhận mật khẩu không khớp")
 
-
-
     // Constructor rỗng
     public UpdateUserDTO() {}
 
@@ -72,15 +70,4 @@ public class UpdateUserDTO {
         this.confirmNewPassword = confirmNewPassword;
     }
 
-//    @Override
-//    public String toString() {
-//        return "UpdateUserDTO{" +
-//                "fullName='" + fullName + '\'' +
-//                ", address='" + address + '\'' +
-//                ", dateOfBirth=" + dateOfBirth +
-//                ", oldPassword='[REDACTED]'" +
-//                ", newPassword='[REDACTED]'" +
-//                ", confirmNewPassword='[REDACTED]'" +
-//                '}';
-//    }
 }

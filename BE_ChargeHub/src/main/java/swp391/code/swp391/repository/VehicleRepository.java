@@ -24,25 +24,4 @@ public interface VehicleRepository extends JpaRepository<Vehicle, Long> {
     // Kiểm tra vehicle có tồn tại với plate number
     boolean existsByPlateNumber(String plateNumber);
 
-    Optional<Vehicle> findById(Long id);
-
-    // Tìm kiếm theo brand của CarModel
-    @Query("SELECT v FROM Vehicle v JOIN v.carModel cm WHERE LOWER(cm.brand) LIKE LOWER(CONCAT('%', :brand, '%'))")
-    List<Vehicle> findByCarModelBrandContainingIgnoreCase(@Param("brand") String brand);
-
-    // Tìm kiếm theo tên model của CarModel
-    @Query("SELECT v FROM Vehicle v JOIN v.carModel cm WHERE LOWER(cm.model) LIKE LOWER(CONCAT('%', :modelName, '%'))")
-    List<Vehicle> findByCarModelNameContainingIgnoreCase(@Param("modelName") String modelName);
-
-    // Tìm kiếm theo năm của CarModel
-    @Query("SELECT v FROM Vehicle v JOIN v.carModel cm WHERE cm.productYear = :year")
-    List<Vehicle> findByCarModelYear(@Param("year") int year);
-
-    // Tìm kiếm theo capacity của CarModel
-    @Query("SELECT v FROM Vehicle v JOIN v.carModel cm WHERE cm.capacity = :capacity")
-    List<Vehicle> findByCarModelCapacity(@Param("capacity") double capacity);
-
-    // Tìm kiếm theo khoảng capacity của CarModel
-    @Query("SELECT v FROM Vehicle v JOIN v.carModel cm WHERE cm.capacity BETWEEN :minCapacity AND :maxCapacity")
-    List<Vehicle> findByCarModelCapacityBetween(@Param("minCapacity") double minCapacity, @Param("maxCapacity") double maxCapacity);
 }

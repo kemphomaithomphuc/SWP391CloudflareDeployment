@@ -76,6 +76,7 @@ public class VehicleController {
             return new ResponseEntity<>(e.getMessage(), HttpStatus.NOT_FOUND);
         }
     }
+
     //Các method cũ tìm kiếm brand, model, year, capacity
 
 

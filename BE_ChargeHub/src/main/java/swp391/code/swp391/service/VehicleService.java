@@ -21,10 +21,6 @@ public interface VehicleService {
     // Cập nhật vehicle
     VehicleDTO updateVehicle(Long id, VehicleDTO vehicleDTO);
 
-
-    // Tìm kiếm vehicle theo connector type
-    List<VehicleDTO> searchVehiclesByConnectorType(Long connectorTypeId);
-
     // Xóa vehicle với user validation
     void deleteVehicleByUser(Long id, Long userId);
 
