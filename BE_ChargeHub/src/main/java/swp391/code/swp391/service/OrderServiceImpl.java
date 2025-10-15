@@ -225,7 +225,6 @@ public class OrderServiceImpl implements OrderService {
                 .status(Order.Status.BOOKED)
                 .startedBattery(request.getCurrentBattery())
                 .expectedBattery(request.getTargetBattery())
-                .pricePerKwh(chargingPoint.getConnectorType().getPricePerKWh())
                 .createdAt(LocalDateTime.now())
                 .build();
 
@@ -264,8 +263,8 @@ public class OrderServiceImpl implements OrderService {
 
         return AvailableSlotsResponseDTO.VehicleInfo.builder()
                 .vehicleId(vehicle.getId())
-                .brand(vehicle.getBrand())
-                .model(vehicle.getModel())
+                .brand(vehicle.getCarModel().getBrand())
+                .model(vehicle.getCarModel().getModel())
                 .batteryCapacity(vehicle.getCarModel().getCapacity())
                 .compatibleConnectors(compatibleConnectors)
                 .build();
@@ -283,7 +282,7 @@ public class OrderServiceImpl implements OrderService {
                 (order.getExpectedBattery() - order.getStartedBattery()) / 100.0 * order.getVehicle().getCarModel().getCapacity(),
                 order.getChargingPoint().getConnectorType().getPowerOutput());
         double energyToCharge = -order.getStartedBattery() + order.getExpectedBattery();
-        double estimatedCost = energyToCharge * order.getPricePerKwh();
+        double estimatedCost = energyToCharge * order.getChargingPoint().getConnectorType().getPricePerKWh();
         return OrderResponseDTO.builder()
                 .orderId(order.getOrderId())
                 .stationName(order.getChargingPoint().getStation() != null ? order.getChargingPoint().getStation().getStationName() : null)
@@ -294,7 +293,7 @@ public class OrderServiceImpl implements OrderService {
                 .estimatedDuration(estimatedDuration)
                 .energyToCharge(-order.getStartedBattery()+ order.getExpectedBattery())
                 .chargingPower(order.getChargingPoint().getConnectorType().getPowerOutput())
-                .pricePerKwh(order.getPricePerKwh())
+                .pricePerKwh(order.getChargingPoint().getConnectorType().getPricePerKWh())
                 .estimatedCost(estimatedCost)
                 .status(order.getStatus() != null ? order.getStatus().name() : null)
                 .createdAt(order.getCreatedAt())

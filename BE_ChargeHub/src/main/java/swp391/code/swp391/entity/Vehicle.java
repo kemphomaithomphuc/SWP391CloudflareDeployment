@@ -21,14 +21,6 @@ public class Vehicle {
     private int id;
     @Column(name = "plate_number", nullable = false, unique = true)
     private String plateNumber;
-    @Column(name = "brand", nullable = false)
-    private String brand;
-    @Column(name = "model", nullable = false)
-    private String model;
-    @Column(name = "capacity", nullable = false)
-    private double capacity;
-    @Column(name = "product_year", nullable = false)
-    private int productYear;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "car_model_id")
@@ -38,11 +30,4 @@ public class Vehicle {
     @JsonBackReference(value = "user-vehicle")
     private User user;
 
-    @ManyToMany
-    @JoinTable(
-        name = "vehicle_connector_types",
-        joinColumns = @JoinColumn(name = "plateNumber"),
-        inverseJoinColumns = @JoinColumn(name = "connector_type_id")
-    )
-    private List<ConnectorType> connectorTypes;
 }

@@ -16,11 +16,6 @@ import java.time.LocalDateTime;
 @Builder
 public class AvailableTimeSlotDTO {
 
-    //private Long chargingPointId;
-    //private String connectorTypeName;
-    //private Double chargingPower; // kW
-    //private Double pricePerKwh; // VND/kWh
-
     // Khoảng thời gian TRỐNG
     private LocalDateTime freeFrom; // Bắt đầu khoảng trống
     private LocalDateTime freeTo;   // Kết thúc khoảng trống

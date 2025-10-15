@@ -50,15 +50,13 @@ public class VehicleDTO {
     // cho output: full carModel object
     private CarModel carModel;
 
-    // Cho output: full ConnectorType objects
-    private List<ConnectorType> connectorTypes;
 
     public VehicleDTO(Vehicle vehicle) {
         this.plateNumber = vehicle.getPlateNumber();
-        this.brand = vehicle.getBrand();
-        this.model = vehicle.getModel();
-        this.capacity = vehicle.getCapacity();
-        this.productYear = vehicle.getProductYear();
+        this.brand = vehicle.getCarModel().getBrand();
+        this.model = vehicle.getCarModel().getModel();
+        this.capacity = vehicle.getCarModel().getCapacity();
+        this.productYear = vehicle.getCarModel().getProductYear();
         //this.carModel = vehicle.getCarModel();
 
         // Set IDs
@@ -66,11 +64,6 @@ public class VehicleDTO {
             this.userId = vehicle.getUser().getUserId();
         }
 
-        // Set connectorTypeIds nếu có
-        if (vehicle.getCarModel().getConnectorTypes() != null && !vehicle.getCarModel().getConnectorTypes().isEmpty()) {
-            this.connectorTypes = vehicle.getCarModel().getConnectorTypes();
-
-        }
         }
     }
 

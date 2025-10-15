@@ -10,5 +10,4 @@ public class BatteryLevelDTO {
     private String batteryStatus;
     private Boolean needsChargingSoon;
 
-
 }

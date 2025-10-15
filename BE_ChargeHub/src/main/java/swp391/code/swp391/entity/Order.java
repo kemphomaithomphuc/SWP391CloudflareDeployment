@@ -46,10 +46,6 @@ public class Order {
     @Column(nullable = false)
     private Status status = Status.BOOKED;
 
-    // Chi phí
-    @Column(name = "price_per_kwh")
-    private Double pricePerKwh; // Giá tại thời điểm đặt
-
     public enum Status {
         BOOKED, CANCELED
     }
