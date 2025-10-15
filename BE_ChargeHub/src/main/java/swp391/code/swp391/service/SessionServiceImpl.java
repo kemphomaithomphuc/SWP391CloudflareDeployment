@@ -14,7 +14,6 @@ import java.time.temporal.ChronoUnit;
 @RequiredArgsConstructor
 public class SessionServiceImpl implements SessionService {
 
-    private final OrderService orderService;
     private final SessionRepository sessionRepository;
     private final OrderRepository orderRepository;
     private final ChargingPointRepository chargingPointRepository;

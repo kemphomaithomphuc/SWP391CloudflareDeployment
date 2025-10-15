@@ -1,7 +1,6 @@
 package swp391.code.swp391.service;
 
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import swp391.code.swp391.dto.*;
@@ -73,7 +72,6 @@ public class OrderServiceImpl implements OrderService {
                 chargingPointsAvailability.add(availability);
             }
         }
-     final ConnectorTypeRepository connectorTypeRepository;
 
         if (chargingPointsAvailability.isEmpty()) {
             throw new ApiRequestException("Không tìm thấy khoảng thời gian trống đủ để sạc trong ngày hôm nay");
