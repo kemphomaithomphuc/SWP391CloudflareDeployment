@@ -7,6 +7,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.sql.Date;
+import java.time.LocalDate;
 import java.util.List;
 
 @Entity
@@ -29,7 +30,7 @@ public class User {
     @Column(name = "phone", unique = true) //Nullable true để đăng ký bằng email (gg)
     private String phone;
     @Column(name = "date_Of_Birth")
-    private Date dateOfBirth;
+    private LocalDate dateOfBirth;
 
     private String googleId; // For OAuth2 Google login
     private String facebookId; // For OAuth2 Facebook login
@@ -53,7 +54,7 @@ public class User {
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private List<Verification> verifications;
 
-    public User(String fullName, String email, String password, String phone, Date dateOfBirth, String address) {
+    public User(String fullName, String email, String password, String phone, LocalDate dateOfBirth, String address) {
         this.fullName = fullName;
         this.email = email;
         this.password = password;
