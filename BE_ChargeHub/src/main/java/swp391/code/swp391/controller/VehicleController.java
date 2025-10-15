@@ -76,42 +76,4 @@ public class VehicleController {
             return new ResponseEntity<>(e.getMessage(), HttpStatus.NOT_FOUND);
         }
     }
-
-    //Các method cũ tìm kiếm brand, model, year, capacity
-
-
-    // Tìm kiếm vehicles theo connector type
-    @GetMapping("/search/connector-type")
-    public ResponseEntity<List<VehicleDTO>> searchVehiclesByConnectorType(@RequestParam Long connectorTypeId) {
-        List<VehicleDTO> vehicles = vehicleService.searchVehiclesByConnectorType(connectorTypeId);
-        return new ResponseEntity<>(vehicles, HttpStatus.OK);
-    }
-
-    // Tìm kiếm vehicles theo brand của CarModel
-    @GetMapping("/search/car-model/brand")
-    public ResponseEntity<List<VehicleDTO>> searchVehiclesByCarModelBrand(@RequestParam String brand) {
-        List<VehicleDTO> vehicles = vehicleService.searchVehiclesByCarModelBrand(brand);
-        return new ResponseEntity<>(vehicles, HttpStatus.OK);
-    }
-
-    // Tìm kiếm vehicles theo tên model của CarModel
-    @GetMapping("/search/car-model/model")
-    public ResponseEntity<List<VehicleDTO>> searchVehiclesByCarModelName(@RequestParam String modelName) {
-        List<VehicleDTO> vehicles = vehicleService.searchVehiclesByCarModelName(modelName);
-        return new ResponseEntity<>(vehicles, HttpStatus.OK);
-    }
-
-    // Tìm kiếm vehicles theo năm của CarModel
-    @GetMapping("/search/car-model/year")
-    public ResponseEntity<List<VehicleDTO>> searchVehiclesByCarModelYear(@RequestParam int year) {
-        List<VehicleDTO> vehicles = vehicleService.searchVehiclesByCarModelYear(year);
-        return new ResponseEntity<>(vehicles, HttpStatus.OK);
-    }
-
-    // Tìm kiếm vehicles theo dung lượng pin của CarModel
-    @GetMapping("/search/car-model/capacity")
-    public ResponseEntity<List<VehicleDTO>> searchVehiclesByCarModelCapacity(@RequestParam double capacity) {
-        List<VehicleDTO> vehicles = vehicleService.searchVehiclesByCarModelCapacity(capacity);
-        return new ResponseEntity<>(vehicles, HttpStatus.OK);
-    }
 }

@@ -12,6 +12,7 @@ import java.util.List;
 @Repository
 public interface OrderRepository extends JpaRepository<Order, Long> {
 
+    Order findByOrderId(Long orderId);
     /**
      * Tìm các orders trùng lặp thời gian với khoảng time slot cần kiểm tra
      *

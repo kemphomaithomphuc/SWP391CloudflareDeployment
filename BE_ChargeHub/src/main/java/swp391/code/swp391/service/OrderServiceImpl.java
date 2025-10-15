@@ -73,7 +73,7 @@ public class OrderServiceImpl implements OrderService {
                 chargingPointsAvailability.add(availability);
             }
         }
-    private final ConnectorTypeRepository connectorTypeRepository;
+     final ConnectorTypeRepository connectorTypeRepository;
 
         if (chargingPointsAvailability.isEmpty()) {
             throw new ApiRequestException("Không tìm thấy khoảng thời gian trống đủ để sạc trong ngày hôm nay");

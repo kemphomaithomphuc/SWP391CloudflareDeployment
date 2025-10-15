@@ -24,11 +24,4 @@ public interface VehicleService {
     // Xóa vehicle với user validation
     void deleteVehicleByUser(Long id, Long userId);
 
-    // Thêm các method mới để xử lý tìm kiếm qua CarModel
-    List<VehicleDTO> searchVehiclesByCarModelBrand(String brand);
-    List<VehicleDTO> searchVehiclesByCarModelName(String modelName);
-    List<VehicleDTO> searchVehiclesByCarModelYear(int year);
-    List<VehicleDTO> searchVehiclesByCarModelCapacity(double capacity);
-
-    public List<VehicleDTO> searchVehiclesByCarModelCapacityRange(double minCapacity, double maxCapacity);
 }

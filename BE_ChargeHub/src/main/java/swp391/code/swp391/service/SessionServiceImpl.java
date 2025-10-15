@@ -2,7 +2,6 @@ package swp391.code.swp391.service;
 
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import swp391.code.swp391.dto.SessionProgressDTO;
 import swp391.code.swp391.entity.*;
@@ -10,8 +9,6 @@ import swp391.code.swp391.repository.*;
 
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
-import java.util.List;
-import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -29,11 +26,12 @@ public class SessionServiceImpl implements SessionService {
     @Override
     public boolean isValidTime(Long orderId, int maxStartDelayMinutes) {
         maxStartDelayMinutes = 15; // Giới hạn thời gian bắt đầu sạc sau khi tạo order
-        var order = orderService.getOrderById(orderId);
+        var order = orderRepository.findByOrderId(orderId);
         LocalDateTime now = LocalDateTime.now();
         return now.isAfter(order.getStartTime()) && now.isBefore(order.getStartTime().plusMinutes(maxStartDelayMinutes));
     }
 
+    // US10: Bắt đầu phiên sạc
     @Transactional
     @Override
     public Long startSession(Long userId, Long orderId, Long vehicleId, LocalDateTime startTime) {

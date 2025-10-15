@@ -82,15 +82,15 @@ public class SecurityConfig {
     }
 
 
-    @Bean
-    @Profile("test")
-    public SecurityFilterChain testFilterChain(HttpSecurity http) throws Exception {
-        http
-                .csrf(httpSecurityCsrfConfigurer -> httpSecurityCsrfConfigurer.disable())
-                .cors(cors -> cors.disable())
-                .authorizeHttpRequests(auth -> auth
-                        .anyRequest().permitAll()
-                );
-        return http.build();
-    }
+//    @Bean
+//    @Profile("test")
+//    public SecurityFilterChain testFilterChain(HttpSecurity http) throws Exception {
+//        http
+//                .csrf(httpSecurityCsrfConfigurer -> httpSecurityCsrfConfigurer.disable())
+//                .cors(cors -> cors.disable())
+//                .authorizeHttpRequests(auth -> auth
+//                        .anyRequest().permitAll()
+//                );
+//        return http.build();
+//    }
 }
