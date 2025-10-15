@@ -5,6 +5,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import swp391.code.swp391.entity.User;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -19,6 +20,7 @@ public class UserDTO {
     private String email;
     private String phoneNumber;
     private String address;
+    private LocalDate dateOfBirth;
     private User.UserRole role;
     private User.UserStatus status;
 
@@ -34,6 +36,7 @@ public class UserDTO {
         this.phoneNumber = user.getPhone();
         this.address = user.getAddress();
         this.role = user.getRole();
+        this.dateOfBirth = user.getDateOfBirth();
         this.status = user.getStatus();
 
     }
