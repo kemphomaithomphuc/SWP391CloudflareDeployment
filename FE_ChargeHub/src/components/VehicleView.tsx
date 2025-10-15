@@ -67,7 +67,7 @@ export default function VehicleView({ onBack }: VehicleViewProps) {
                 } else {
                     setError(t("Failed to load Vehicle") + ": " + (err.response?.data?.message || err.message));
                 }
-                setVehicles([]);  // Fallback empty list
+                setVehicles([]);  // Fallbackempty list
             } finally {
                 setLoading(false);
             }
