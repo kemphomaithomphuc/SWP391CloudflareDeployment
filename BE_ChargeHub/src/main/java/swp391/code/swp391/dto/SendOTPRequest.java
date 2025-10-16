@@ -13,4 +13,10 @@ public class SendOTPRequest {
     @NotBlank(message = "Email không được để trống")
     @Email(message = "Email không hợp lệ")
     private String email;
+
+    public enum OtpPurpose {
+        REGISTER,
+        FORGOT_PASSWORD,
+        CHANGE_EMAIL
+    }
 }

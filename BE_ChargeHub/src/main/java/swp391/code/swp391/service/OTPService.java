@@ -6,6 +6,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import swp391.code.swp391.dto.SendOTPRequest;
 import swp391.code.swp391.service.EmailService;
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
@@ -20,6 +21,7 @@ public class OTPService {
     private final EmailService emailService;
     private static final int OTP_EXPIRY_MINUTES = 5;
     private static final SecureRandom random = new SecureRandom();
+    SendOTPRequest.OtpPurpose purpose;
 
     private final Map<String, OTPData> registrationOtpStore = new ConcurrentHashMap<>();
     private final Map<String, OTPData> emailChangeOtpStore = new ConcurrentHashMap<>();
@@ -44,9 +46,10 @@ public class OTPService {
     public void generateAndSendOTPForRegistration(String email) {
         String otpCode = generateOTPCode();
         LocalDateTime expiresAt = LocalDateTime.now().plusMinutes(OTP_EXPIRY_MINUTES);
+        purpose = SendOTPRequest.OtpPurpose.FORGOT_PASSWORD;
 
         registrationOtpStore.put(email, new OTPData(otpCode, expiresAt));
-        emailService.sendOTPEmail(email, otpCode, OTP_EXPIRY_MINUTES);
+        emailService.sendOTPEmail(email, otpCode, OTP_EXPIRY_MINUTES, purpose);
 
         //log.info("OTP đăng ký đã gửi đến: {}", email);
     }
@@ -54,10 +57,11 @@ public class OTPService {
     public void generateAndSendOTPForEmailChange(String newEmail, Long userId) {
         String otpCode = generateOTPCode();
         LocalDateTime expiresAt = LocalDateTime.now().plusMinutes(OTP_EXPIRY_MINUTES);
+        purpose = SendOTPRequest.OtpPurpose.CHANGE_EMAIL;
 
         String key = userId + ":" + newEmail;
         emailChangeOtpStore.put(key, new OTPData(otpCode, expiresAt, userId));
-        emailService.sendOTPEmail(newEmail, otpCode, OTP_EXPIRY_MINUTES);
+        emailService.sendOTPEmail(newEmail, otpCode, OTP_EXPIRY_MINUTES, purpose);
 
         log.info("OTP đổi email đã gửi đến: {} cho user: {}", newEmail, userId);
     }

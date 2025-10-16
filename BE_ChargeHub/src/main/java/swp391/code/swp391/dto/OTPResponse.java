@@ -11,4 +11,6 @@ public class OTPResponse {
     private boolean success;
     private String message;
     private String email;
+
+
 }

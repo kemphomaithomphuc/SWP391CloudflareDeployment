@@ -156,6 +156,7 @@ public class OTPController {
         public ResponseEntity<OTPResponse> sendOTPForForgotPassword(
                 @Valid @RequestBody SendOTPRequest request) {
             try {
+
                 otpService.generateAndSendOTPForRegistration(request.getEmail());
                 return ResponseEntity.ok(new OTPResponse(
                         true,
