@@ -33,9 +33,6 @@ public class AuthenticationService {
     private final JwtService jwtService;
     private final UserServiceImpl userServiceImpl;
 
-//    @Value("${app.jwt.secret}")
-//    private String secretKey;
-
     @Value("${spring.security.oauth2.client.registration.google.client-id}")
     private String googleClientId;
 
@@ -125,7 +122,6 @@ public class AuthenticationService {
     public Map<String, Object> authenticateAndFetchProfile(String code, String loginType) throws IOException {
         // Xác thực với nhà cung cấp xã hội và lấy thông tin hồ sơ người dùng
         RestTemplate restTemplate = new RestTemplate(); // Tạo RestTemplate để thực hiện các yêu cầu HTTP
-//        restTemplate.setRequestFactory(new HttpComponentsClientHttpRequestFactory()); // Sử dụng HttpComponentsClientHttpRequestFactory để hỗ trợ phương thức POST với form data
 
         String accessToken;
 
@@ -150,7 +146,6 @@ public class AuthenticationService {
                 return new ObjectMapper().readValue(
                         restTemplate.getForEntity(googleUserInfoUri, String.class).getBody(),
                         new TypeReference<>() {}); // Chuyển đổi JSON response thành Map
-//                break; // Unreachable code
 
             case "facebook":
                 String urlGetAccessToken = UriComponentsBuilder
@@ -261,6 +256,7 @@ public class AuthenticationService {
         }
 
         // Nếu không có email hoặc không tìm thấy, fallback sang số điện thoại
+        //Thực tế không làm được vì không trả về phone
         if (existingUser == null && user.getPhone() != null && !user.getPhone().isEmpty()) {
             existingUser = userServiceImpl.getUserByPhone(user.getPhone());
         }
@@ -272,7 +268,7 @@ public class AuthenticationService {
             } else if ("facebook".equalsIgnoreCase(loginType)) {
                 existingUser.setFacebookId(user.getFacebookId());
             }
-            return userServiceImpl.addUser(existingUser);
+            return userServiceImpl.addUser(existingUser); //khong nen add ma nen update
         }
 
         // Nếu không có user nào trùng → tạo mới

@@ -6,7 +6,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import swp391.code.swp391.dto.VehicleDTO;
-import swp391.code.swp391.entity.Vehicle;
 import swp391.code.swp391.service.VehicleService;
 
 import java.util.List;
@@ -76,33 +75,5 @@ public class VehicleController {
         } catch (Exception e) {
             return new ResponseEntity<>(e.getMessage(), HttpStatus.NOT_FOUND);
         }
-    }
-
-    // Tìm kiếm vehicles theo brand
-    @GetMapping("/search/brand")
-    public ResponseEntity<List<VehicleDTO>> searchVehiclesByBrand(@RequestParam String brand) {
-        List<VehicleDTO> vehicles = vehicleService.searchVehiclesByBrand(brand);
-        return new ResponseEntity<>(vehicles, HttpStatus.OK);
-    }
-
-    // Tìm kiếm vehicles theo model
-    @GetMapping("/search/model")
-    public ResponseEntity<List<VehicleDTO>> searchVehiclesByModel(@RequestParam String model) {
-        List<VehicleDTO> vehicles = vehicleService.searchVehiclesByModel(model);
-        return new ResponseEntity<>(vehicles, HttpStatus.OK);
-    }
-
-    // Tìm kiếm vehicles theo năm sản xuất
-    @GetMapping("/search/year")
-    public ResponseEntity<List<VehicleDTO>> searchVehiclesByProductYear(@RequestParam int year) {
-        List<VehicleDTO> vehicles = vehicleService.searchVehiclesByProductYear(year);
-        return new ResponseEntity<>(vehicles, HttpStatus.OK);
-    }
-
-    // Tìm kiếm vehicles theo connector type
-    @GetMapping("/search/connector-type")
-    public ResponseEntity<List<VehicleDTO>> searchVehiclesByConnectorType(@RequestParam Long connectorTypeId) {
-        List<VehicleDTO> vehicles = vehicleService.searchVehiclesByConnectorType(connectorTypeId);
-        return new ResponseEntity<>(vehicles, HttpStatus.OK);
     }
 }

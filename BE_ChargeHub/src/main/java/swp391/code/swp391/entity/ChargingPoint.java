@@ -31,13 +31,11 @@ public class ChargingPoint {
     @Column(name = "status", nullable = false)
     private ChargingPointStatus status = ChargingPointStatus.AVAILABLE;
 
-    @OneToMany(mappedBy = "chargingPoint", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    private List<Booking> bookings;
-
     public enum ChargingPointStatus {
         AVAILABLE,
         OCCUPIED,
         OUT_OF_SERVICE,
-        MAINTENANCE
+        MAINTENANCE,
+        RESERVED
     }
 }

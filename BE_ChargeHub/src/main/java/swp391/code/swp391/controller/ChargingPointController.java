@@ -5,8 +5,11 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
+import swp391.code.swp391.dto.APIResponse;
 import swp391.code.swp391.dto.ChargingPointDTO;
+import swp391.code.swp391.dto.SessionDTO;
 import swp391.code.swp391.entity.ChargingPoint.ChargingPointStatus;
+import swp391.code.swp391.entity.Session;
 import swp391.code.swp391.service.ChargingPointService;
 
 import java.util.List;

@@ -1,0 +1,21 @@
+-- Insert into issue_report (5 records)
+-- Columns: station_id, staff_id, description, status, reported_time (issue_report_id is IDENTITY)
+-- staff_id: use user_id 4 (STAFF) and 3 (ADMIN) for variety
+INSERT INTO [dbo].[issue_report] ([station_id], [staff_id], [description], [status], [reported_time]) VALUES (1, 4, 'Broken charger', 'INBOX', '2025-10-12 09:00:00');
+INSERT INTO [dbo].[issue_report] ([station_id], [staff_id], [description], [status], [reported_time]) VALUES (2, 4, 'Power outage', 'IN_PROGRESS', '2025-10-12 10:00:00');
+INSERT INTO [dbo].[issue_report] ([station_id], [staff_id], [description], [status], [reported_time]) VALUES (3, 3, 'Vandalism', 'RESOLVED', '2025-10-12 11:00:00');
+INSERT INTO [dbo].[issue_report] ([station_id], [staff_id], [description], [status], [reported_time]) VALUES (4, 4, 'Software glitch', 'INBOX', '2025-10-12 12:00:00');
+INSERT INTO [dbo].[issue_report] ([station_id], [staff_id], [description], [status], [reported_time]) VALUES (5, 3, 'Maintenance needed', 'IN_PROGRESS', '2025-10-12 13:00:00');
+
+-- Additional 45 inserts for issue_report (station_id 6-50, staff_id cycling from existing staff/admins, e.g. 4,3,9,14,... but to simplify cycle 3-50 where appropriate)
+-- Assuming more staff now, use 3,4,8,9,13,14,... cycling
+INSERT INTO [dbo].[issue_report] ([station_id], [staff_id], [description], [status], [reported_time]) VALUES
+(6, 3, 'Cable damaged', 'INBOX', '2025-10-13 09:00:00'), (7, 4, 'No power', 'IN_PROGRESS', '2025-10-13 10:00:00'), (8, 8, 'Screen broken', 'RESOLVED', '2025-10-13 11:00:00'), (9, 9, 'Connection error', 'INBOX', '2025-10-13 12:00:00'), (10, 3, 'Overheating', 'IN_PROGRESS', '2025-10-13 13:00:00'),
+(11, 4, 'Cable damaged', 'INBOX', '2025-10-13 14:00:00'), (12, 8, 'No power', 'IN_PROGRESS', '2025-10-13 15:00:00'), (13, 9, 'Screen broken', 'RESOLVED', '2025-10-13 16:00:00'), (14, 3, 'Connection error', 'INBOX', '2025-10-13 17:00:00'), (15, 4, 'Overheating', 'IN_PROGRESS', '2025-10-13 18:00:00'),
+(16, 8, 'Cable damaged', 'INBOX', '2025-10-13 19:00:00'), (17, 9, 'No power', 'IN_PROGRESS', '2025-10-13 20:00:00'), (18, 3, 'Screen broken', 'RESOLVED', '2025-10-13 21:00:00'), (19, 4, 'Connection error', 'INBOX', '2025-10-13 22:00:00'), (20, 8, 'Overheating', 'IN_PROGRESS', '2025-10-13 23:00:00'),
+(21, 9, 'Cable damaged', 'INBOX', '2025-10-14 00:00:00'), (22, 3, 'No power', 'IN_PROGRESS', '2025-10-14 01:00:00'), (23, 4, 'Screen broken', 'RESOLVED', '2025-10-14 02:00:00'), (24, 8, 'Connection error', 'INBOX', '2025-10-14 03:00:00'), (25, 9, 'Overheating', 'IN_PROGRESS', '2025-10-14 04:00:00'),
+(26, 3, 'Cable damaged', 'INBOX', '2025-10-14 05:00:00'), (27, 4, 'No power', 'IN_PROGRESS', '2025-10-14 06:00:00'), (28, 8, 'Screen broken', 'RESOLVED', '2025-10-14 07:00:00'), (29, 9, 'Connection error', 'INBOX', '2025-10-14 08:00:00'), (30, 3, 'Overheating', 'IN_PROGRESS', '2025-10-14 09:00:00'),
+(31, 4, 'Cable damaged', 'INBOX', '2025-10-14 10:00:00'), (32, 8, 'No power', 'IN_PROGRESS', '2025-10-14 11:00:00'), (33, 9, 'Screen broken', 'RESOLVED', '2025-10-14 12:00:00'), (34, 3, 'Connection error', 'INBOX', '2025-10-14 13:00:00'), (35, 4, 'Overheating', 'IN_PROGRESS', '2025-10-14 14:00:00'),
+(36, 8, 'Cable damaged', 'INBOX', '2025-10-14 15:00:00'), (37, 9, 'No power', 'IN_PROGRESS', '2025-10-14 16:00:00'), (38, 3, 'Screen broken', 'RESOLVED', '2025-10-14 17:00:00'), (39, 4, 'Connection error', 'INBOX', '2025-10-14 18:00:00'), (40, 8, 'Overheating', 'IN_PROGRESS', '2025-10-14 19:00:00'),
+(41, 9, 'Cable damaged', 'INBOX', '2025-10-14 20:00:00'), (42, 3, 'No power', 'IN_PROGRESS', '2025-10-14 21:00:00'), (43, 4, 'Screen broken', 'RESOLVED', '2025-10-14 22:00:00'), (44, 8, 'Connection error', 'INBOX', '2025-10-14 23:00:00'), (45, 9, 'Overheating', 'IN_PROGRESS', '2025-10-15 00:00:00'),
+(46, 3, 'Cable damaged', 'INBOX', '2025-10-15 01:00:00'), (47, 4, 'No power', 'IN_PROGRESS', '2025-10-15 02:00:00'), (48, 8, 'Screen broken', 'RESOLVED', '2025-10-15 03:00:00'), (49, 9, 'Connection error', 'INBOX', '2025-10-15 04:00:00'), (50, 3, 'Overheating', 'IN_PROGRESS', '2025-10-15 05:00:00');

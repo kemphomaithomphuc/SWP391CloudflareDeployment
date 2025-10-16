@@ -1,0 +1,21 @@
+-- Insert into transaction (5 records)
+-- Columns: session_id, user_id, amount, payment_method, status (transaction_id is IDENTITY)
+-- Use session_id 1-5, user_id from orders (1 or 2)
+INSERT INTO [dbo].[transaction] ([session_id], [user_id], [amount], [payment_method], [status]) VALUES (1, 1, 10.0, 'VNPAY', 'PENDING');
+INSERT INTO [dbo].[transaction] ([session_id], [user_id], [amount], [payment_method], [status]) VALUES (2, 2, 15.0, 'CASH', 'SUCCESS');
+INSERT INTO [dbo].[transaction] ([session_id], [user_id], [amount], [payment_method], [status]) VALUES (3, 1, 5.0, 'QR', 'FAILED');
+INSERT INTO [dbo].[transaction] ([session_id], [user_id], [amount], [payment_method], [status]) VALUES (4, 2, 7.5, 'VNPAY', 'SUCCESS');
+INSERT INTO [dbo].[transaction] ([session_id], [user_id], [amount], [payment_method], [status]) VALUES (5, 1, 20.0, 'CASH', 'PENDING');
+
+-- Additional 45 inserts for transaction (session_id 6-50, user_id from corresponding order's user)
+-- Assuming session_id 6-50 correspond to order_id 6-50, user_id as above
+INSERT INTO [dbo].[transaction] ([session_id], [user_id], [amount], [payment_method], [status]) VALUES
+(6, 6, 15.0, 'VNPAY', 'PENDING'), (7, 7, 20.0, 'CASH', 'SUCCESS'), (8, 11, 10.0, 'QR', 'FAILED'), (9, 12, 12.5, 'VNPAY', 'SUCCESS'), (10, 16, 25.0, 'CASH', 'PENDING'),
+(11, 17, 15.0, 'VNPAY', 'PENDING'), (12, 21, 20.0, 'CASH', 'SUCCESS'), (13, 22, 10.0, 'QR', 'FAILED'), (14, 26, 12.5, 'VNPAY', 'SUCCESS'), (15, 27, 25.0, 'CASH', 'PENDING'),
+(16, 31, 15.0, 'VNPAY', 'PENDING'), (17, 32, 20.0, 'CASH', 'SUCCESS'), (18, 36, 10.0, 'QR', 'FAILED'), (19, 37, 12.5, 'VNPAY', 'SUCCESS'), (20, 41, 25.0, 'CASH', 'PENDING'),
+(21, 42, 15.0, 'VNPAY', 'PENDING'), (22, 46, 20.0, 'CASH', 'SUCCESS'), (23, 47, 10.0, 'QR', 'FAILED'), (24, 1, 12.5, 'VNPAY', 'SUCCESS'), (25, 2, 25.0, 'CASH', 'PENDING'),
+(26, 6, 15.0, 'VNPAY', 'PENDING'), (27, 7, 20.0, 'CASH', 'SUCCESS'), (28, 11, 10.0, 'QR', 'FAILED'), (29, 12, 12.5, 'VNPAY', 'SUCCESS'), (30, 16, 25.0, 'CASH', 'PENDING'),
+(31, 17, 15.0, 'VNPAY', 'PENDING'), (32, 21, 20.0, 'CASH', 'SUCCESS'), (33, 22, 10.0, 'QR', 'FAILED'), (34, 26, 12.5, 'VNPAY', 'SUCCESS'), (35, 27, 25.0, 'CASH', 'PENDING'),
+(36, 31, 15.0, 'VNPAY', 'PENDING'), (37, 32, 20.0, 'CASH', 'SUCCESS'), (38, 36, 10.0, 'QR', 'FAILED'), (39, 37, 12.5, 'VNPAY', 'SUCCESS'), (40, 41, 25.0, 'CASH', 'PENDING'),
+(41, 42, 15.0, 'VNPAY', 'PENDING'), (42, 46, 20.0, 'CASH', 'SUCCESS'), (43, 47, 10.0, 'QR', 'FAILED'), (44, 1, 12.5, 'VNPAY', 'SUCCESS'), (45, 2, 25.0, 'CASH', 'PENDING'),
+(46, 6, 15.0, 'VNPAY', 'PENDING'), (47, 7, 20.0, 'CASH', 'SUCCESS'), (48, 11, 10.0, 'QR', 'FAILED'), (49, 12, 12.5, 'VNPAY', 'SUCCESS'), (50, 16, 25.0, 'CASH', 'PENDING');

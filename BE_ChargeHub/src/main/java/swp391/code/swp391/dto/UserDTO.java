@@ -5,7 +5,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import swp391.code.swp391.entity.User;
 
-import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -14,11 +14,13 @@ import java.util.stream.Collectors;
 @AllArgsConstructor
 public class UserDTO {
     private Long userId;
+    private String avatarUrl;
     private String username;
     private String fullName;
     private String email;
     private String phoneNumber;
     private String address;
+    private LocalDate dateOfBirth;
     private User.UserRole role;
     private User.UserStatus status;
 
@@ -34,8 +36,9 @@ public class UserDTO {
         this.phoneNumber = user.getPhone();
         this.address = user.getAddress();
         this.role = user.getRole();
+        this.dateOfBirth = user.getDateOfBirth();
         this.status = user.getStatus();
-
+        this.avatarUrl = user.getAvatar();
     }
     // Constructor từ User entity (có bao gồm vehicles)
     public UserDTO(User user, boolean includeVehicles) {

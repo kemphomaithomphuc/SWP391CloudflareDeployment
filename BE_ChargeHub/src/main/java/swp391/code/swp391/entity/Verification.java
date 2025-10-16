@@ -7,7 +7,6 @@ import lombok.NoArgsConstructor;
 import static jakarta.persistence.GenerationType.IDENTITY;
 
 import java.time.LocalDateTime;
-import java.util.Date;
 
 @Entity
 @Data

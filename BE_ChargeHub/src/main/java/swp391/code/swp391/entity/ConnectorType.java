@@ -26,7 +26,7 @@ public class ConnectorType {
     private double powerOutput; // in kW
 
     @Column(name = "price_per_kwh", nullable = false)
-    private double pricePerKWh; // in currency VND per kWh//
+    private double pricePerKWh; // basePrice per kWh(VND)
 
     @ManyToMany(mappedBy = "connectorTypes", fetch =  FetchType.LAZY)
     @JsonBackReference

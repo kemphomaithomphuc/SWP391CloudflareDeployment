@@ -66,14 +66,10 @@ public class User {
     // Enums for UserStatus and UserRole
 
     public enum UserStatus {
-        ACTIVE,
-        INACTIVE,
-        BANNED
+        ACTIVE, INACTIVE, BANNED
     }
 
     public enum UserRole {
-        DRIVER,
-        ADMIN,
-        STAFF
+        DRIVER, ADMIN, STAFF
     }
 }

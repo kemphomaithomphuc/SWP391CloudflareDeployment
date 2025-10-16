@@ -5,9 +5,9 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.ToString;
 
 import java.time.LocalDateTime;
-import java.util.Date;
 
 @Entity
 @Table(name = "orders")
@@ -18,19 +18,23 @@ import java.util.Date;
 public class Order {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "order_id")
     private Long orderId;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
+    @ToString.Exclude
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
     @ManyToOne
-    @JoinColumn(name = "vehicle_id", nullable = false)
-    private Vehicle vehicle;
+    @JoinColumn(name = "charging_point_id", nullable = false)
+    @ToString.Exclude
+    private ChargingPoint chargingPoint;
 
     @ManyToOne
-    @JoinColumn(name = "charging_point_id", nullable = false)
-    private ChargingPoint chargingPoint;
+    @JoinColumn(name = "vehicle_id", nullable = false)
+    @ToString.Exclude
+    private Vehicle vehicle;
 
     @Column(name ="start_time", nullable = false)
     private LocalDateTime startTime;
@@ -46,16 +50,12 @@ public class Order {
     @Column(nullable = false)
     private Status status = Status.BOOKED;
 
-    // Chi phí
-    @Column(name = "price_per_kwh")
-    private Double pricePerKwh; // Giá tại thời điểm đặt
-
     public enum Status {
-        BOOKED, CANCELED
+        BOOKED, CANCELED, COMPLETED,CHARGING
     }
+    LocalDateTime createdAt = LocalDateTime.now();
+
     public boolean isActive() {
         return status == Status.BOOKED;
     }
-
-    LocalDateTime createdAt = LocalDateTime.now();
 }
