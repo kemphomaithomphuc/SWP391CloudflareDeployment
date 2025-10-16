@@ -182,7 +182,7 @@ public class OTPController {
                 return ResponseEntity.ok(new OTPResponse(
                         true,
                         "Xác thực OTP thành công",
-                        resetToken
+                        resetToken // Trả về resetToken thay vì email
                 ));
             } else {
                 return ResponseEntity.badRequest().body(new OTPResponse(

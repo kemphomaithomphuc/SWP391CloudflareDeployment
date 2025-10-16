@@ -59,11 +59,15 @@ public class VehicleServiceImpl implements VehicleService {
     }
 
     @Override
-    public VehicleDTO updateVehicle(Long id, VehicleDTO vehicleDTO) {
-        Vehicle existingVehicle = vehicleRepository.findById(id)
+    public VehicleDTO updateVehicle(String plateNumber, VehicleDTO vehicleDTO, Long userId) {
+        Vehicle existingVehicle = vehicleRepository.findByPlateNumber(plateNumber)
                 .orElseThrow(() -> new RuntimeException("Vehicle not found"));
+        // Kiểm tra vehicle có thuộc về user không
+        if (existingVehicle.getUser() == null || !existingVehicle.getUser().getUserId().equals(userId.getUserId())) {
+            throw new RuntimeException("You don't have permission to update this vehicle");
+        }
+        else existingVehicle.setPlateNumber(vehicleDTO.getPlateNumber());
 
-        existingVehicle.setPlateNumber(vehicleDTO.getPlateNumber());
 
         // Cập nhật carModel nếu có
         if (vehicleDTO.getCarModel() != null) {
@@ -82,15 +86,15 @@ public class VehicleServiceImpl implements VehicleService {
     }
 
     @Override
-    public void deleteVehicleByUser(Long id, Long userId) {
-        Vehicle vehicle = vehicleRepository.findById(id)
+    public void deleteVehicleByUser(String plateNumber, Long userId) {
+        Vehicle vehicle = vehicleRepository.findByPlateNumber(plateNumber)
                 .orElseThrow(() -> new RuntimeException("Vehicle not found"));
 
         // Kiểm tra vehicle có thuộc về user không
         if (vehicle.getUser() == null || !vehicle.getUser().getUserId().equals(userId)) {
             throw new RuntimeException("You don't have permission to delete this vehicle");
         }
-        vehicleRepository.deleteById(id);
+        vehicleRepository.deleteByPlateNumber(plateNumber);
     }
 
 

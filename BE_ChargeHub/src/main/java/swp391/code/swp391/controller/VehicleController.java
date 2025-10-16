@@ -55,11 +55,12 @@ public class VehicleController {
     }
 
     // Cập nhật vehicle
-    @PutMapping("/{id}")
-    public ResponseEntity<?> updateVehicle(@PathVariable Long id,
+    @PutMapping("/{plateNumber}/user/{userId}")
+    public ResponseEntity<?> updateVehicle(@PathVariable String plateNumber,
+                                             @PathVariable Long userId,
                                            @RequestBody @Validated VehicleDTO vehicleDTO) {
         try {
-            VehicleDTO updatedVehicle = vehicleService.updateVehicle(id, vehicleDTO);
+            VehicleDTO updatedVehicle = vehicleService.updateVehicle(plateNumber, vehicleDTO, userId);
             return new ResponseEntity<>(updatedVehicle, HttpStatus.OK);
         } catch (Exception e) {
             return new ResponseEntity<>(e.getMessage(), HttpStatus.BAD_REQUEST);
@@ -67,10 +68,10 @@ public class VehicleController {
     }
 
     // Xóa vehicle
-    @DeleteMapping("/user/{userId}/vehicle/{id}")
-    public ResponseEntity<?> deleteVehicleByUser(@PathVariable Long userId, @PathVariable Long id) {
+    @DeleteMapping("/user/{userId}/vehicle/{plateNumber}")
+    public ResponseEntity<?> deleteVehicleByUser(@PathVariable Long userId, @PathVariable String plateNumber) {
         try {
-            vehicleService.deleteVehicleByUser(id, userId);
+            vehicleService.deleteVehicleByUser(plateNumber, userId);
             return new ResponseEntity<>("Vehicle deleted successfully", HttpStatus.OK);
         } catch (Exception e) {
             return new ResponseEntity<>(e.getMessage(), HttpStatus.NOT_FOUND);

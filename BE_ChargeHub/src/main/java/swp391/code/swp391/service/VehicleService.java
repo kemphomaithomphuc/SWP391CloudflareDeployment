@@ -1,6 +1,7 @@
 package swp391.code.swp391.service;
 
 import swp391.code.swp391.dto.VehicleDTO;
+import swp391.code.swp391.entity.User;
 
 import java.util.List;
 
@@ -19,9 +20,9 @@ public interface VehicleService {
     List<VehicleDTO> getVehiclesByUserId(Long userId);
 
     // Cập nhật vehicle
-    VehicleDTO updateVehicle(Long id, VehicleDTO vehicleDTO);
+    VehicleDTO updateVehicle(String plateNumber, VehicleDTO vehicleDTO, Long userId);
 
     // Xóa vehicle với user validation
-    void deleteVehicleByUser(Long id, Long userId);
+    void deleteVehicleByUser(String plateNumber, Long userId);
 
 }
