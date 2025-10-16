@@ -14,6 +14,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import swp391.code.swp391.service.PasswordResetTokenService;
 import swp391.code.swp391.service.UserServiceImpl;
 
 import java.util.Optional;
@@ -25,7 +26,8 @@ import java.util.Optional;
 public class OTPController {
 
     private final OTPService otpService;
-    private UserServiceImpl userServiceImpl;
+    private final UserServiceImpl userServiceImpl;
+    private final PasswordResetTokenService passwordResetTokenService;
 
     @PostMapping("/send/registration")
     @Operation(summary = "Gửi OTP đăng ký")
@@ -148,4 +150,69 @@ public class OTPController {
             return user.map(User::getUserId)
                     .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng với email: " + email));
         }
+
+        @PostMapping("/send/forgot-password")
+        @Operation(summary = "Gửi OTP quên mật khẩu")
+        public ResponseEntity<OTPResponse> sendOTPForForgotPassword(
+                @Valid @RequestBody SendOTPRequest request) {
+            try {
+                otpService.generateAndSendOTPForRegistration(request.getEmail());
+                return ResponseEntity.ok(new OTPResponse(
+                        true,
+                        "Mã OTP đã được gửi đến email của bạn",
+                        request.getEmail()
+                ));
+            } catch (Exception e) {
+                return ResponseEntity.badRequest().body(new OTPResponse(
+                        false,
+                        "Không thể gửi OTP: " + e.getMessage(),
+                        request.getEmail()
+                ));
+            }
+        }
+        @PostMapping("/verify/forgot-password")
+        @Operation(summary = "Xác thực OTP quên mật khẩu")
+        public ResponseEntity<OTPResponse> verifyOTPForForgotPassword(
+                @Valid @RequestBody VerifyOTPRequest request) {
+            boolean isValid = otpService.verifyOTPForRegistration(request.getEmail(), request.getOtpCode());
+
+            if (isValid) {
+                String resetToken = passwordResetTokenService.createToken(request.getEmail());
+                return ResponseEntity.ok(new OTPResponse(
+                        true,
+                        "Xác thực OTP thành công",
+                        resetToken
+                ));
+            } else {
+                return ResponseEntity.badRequest().body(new OTPResponse(
+                        false,
+                        "Mã OTP không đúng hoặc đã hết hạn",
+                        request.getEmail()
+                ));
+            }
+        }
+        @PostMapping("/reset-password")
+        @Operation(summary = "Đặt lại mật khẩu")
+        public ResponseEntity<OTPResponse> resetPassword(
+                @Valid @RequestBody ResetPasswordRequest request) {
+            try {
+                String email = passwordResetTokenService.validateTokenAndGetEmail(request.getResetToken());
+                userServiceImpl.resetPassword(email, request.getNewPassword());
+                // Sau khi đổi mật khẩu thành công, vô hiệu hóa token
+                passwordResetTokenService.deleteToken(request.getResetToken());
+
+                return ResponseEntity.ok(new OTPResponse(
+                        true,
+                        "Đặt lại mật khẩu thành công",
+                        email
+                ));
+            } catch (ResponseStatusException e) {
+                return ResponseEntity.status(e.getStatusCode())
+                        .body(new OTPResponse(false, e.getReason(), null));
+            } catch (Exception e) {
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                        .body(new OTPResponse(false, "Lỗi hệ thống: " + e.getMessage(), null));
+            }
+        }
     }
+

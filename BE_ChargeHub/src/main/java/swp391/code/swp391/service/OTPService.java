@@ -48,7 +48,7 @@ public class OTPService {
         registrationOtpStore.put(email, new OTPData(otpCode, expiresAt));
         emailService.sendOTPEmail(email, otpCode, OTP_EXPIRY_MINUTES);
 
-        log.info("OTP đăng ký đã gửi đến: {}", email);
+        //log.info("OTP đăng ký đã gửi đến: {}", email);
     }
 
     public void generateAndSendOTPForEmailChange(String newEmail, Long userId) {

@@ -101,6 +101,8 @@ public interface UserService {
      */
     User banUser(Long id);
 
+    void resetPassword(String email, String newPassword);
 
+    void unbanUser(Long id);
 
 }

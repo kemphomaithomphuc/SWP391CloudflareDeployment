@@ -320,7 +320,8 @@ public class UserServiceImpl implements UserService {
     @Override
     public void deleteUser(Long userId) {
             User user = getUserById(userId);
-            userRepository.delete(user);
+            user.setStatus(User.UserStatus.INACTIVE);
+            userRepository.save(user);
     }
 
     @Override
@@ -409,7 +410,23 @@ public class UserServiceImpl implements UserService {
             return LocalDateTime.now().isAfter(expiryTime);
         }
     }
+    /**
+     * 6. Forgot password
+     */
+    public void resetPassword(String email, String newPassword) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy user với email: " + email));
 
+        user.setPassword(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
+    }
 
+    @Override
+    public void unbanUser(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy user với ID: " + userId));
+        user.setStatus(User.UserStatus.ACTIVE);
+        userRepository.save(user);
+    }
 
 }
