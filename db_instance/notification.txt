@@ -1,0 +1,20 @@
+-- Insert into notification (5 records)
+-- Columns: user_id, content, type, sent_time (notification_id is IDENTITY)
+-- Types: BOOKING, PAYMENT, ISSUE, GENERAL
+INSERT INTO [dbo].[notification] ([user_id], [content], [type], [sent_time]) VALUES (1, 'Your booking is confirmed.', 'BOOKING', '2025-10-12 14:00:00');
+INSERT INTO [dbo].[notification] ([user_id], [content], [type], [sent_time]) VALUES (2, 'Payment successful.', 'PAYMENT', '2025-10-12 15:00:00');
+INSERT INTO [dbo].[notification] ([user_id], [content], [type], [sent_time]) VALUES (3, 'Issue reported.', 'ISSUE', '2025-10-12 16:00:00');
+INSERT INTO [dbo].[notification] ([user_id], [content], [type], [sent_time]) VALUES (4, 'General update.', 'GENERAL', '2025-10-12 17:00:00');
+INSERT INTO [dbo].[notification] ([user_id], [content], [type], [sent_time]) VALUES (5, 'Booking canceled.', 'BOOKING', '2025-10-12 18:00:00');
+
+-- Additional 45 inserts for notification (user_id 6-50, type varying)
+INSERT INTO [dbo].[notification] ([user_id], [content], [type], [sent_time]) VALUES
+(6, 'Booking confirmed.', 'BOOKING', '2025-10-13 14:00:00'), (7, 'Payment received.', 'PAYMENT', '2025-10-13 15:00:00'), (8, 'Issue resolved.', 'ISSUE', '2025-10-13 16:00:00'), (9, 'System update.', 'GENERAL', '2025-10-13 17:00:00'), (10, 'Booking canceled.', 'BOOKING', '2025-10-13 18:00:00'),
+(11, 'Payment failed.', 'PAYMENT', '2025-10-13 19:00:00'), (12, 'New issue reported.', 'ISSUE', '2025-10-13 20:00:00'), (13, 'Promotion alert.', 'GENERAL', '2025-10-13 21:00:00'), (14, 'Booking updated.', 'BOOKING', '2025-10-13 22:00:00'), (15, 'Refund processed.', 'PAYMENT', '2025-10-13 23:00:00'),
+(16, 'Maintenance notice.', 'ISSUE', '2025-10-14 00:00:00'), (17, 'Account verified.', 'GENERAL', '2025-10-14 01:00:00'), (18, 'Booking reminder.', 'BOOKING', '2025-10-14 02:00:00'), (19, 'Payment due.', 'PAYMENT', '2025-10-14 03:00:00'), (20, 'Issue update.', 'ISSUE', '2025-10-14 04:00:00'),
+(21, 'Newsletter.', 'GENERAL', '2025-10-14 05:00:00'), (22, 'Booking complete.', 'BOOKING', '2025-10-14 06:00:00'), (23, 'Charge successful.', 'PAYMENT', '2025-10-14 07:00:00'), (24, 'Report submitted.', 'ISSUE', '2025-10-14 08:00:00'), (25, 'Welcome message.', 'GENERAL', '2025-10-14 09:00:00'),
+(26, 'Cancellation notice.', 'BOOKING', '2025-10-14 10:00:00'), (27, 'Invoice sent.', 'PAYMENT', '2025-10-14 11:00:00'), (28, 'Problem fixed.', 'ISSUE', '2025-10-14 12:00:00'), (29, 'Event invite.', 'GENERAL', '2025-10-14 13:00:00'), (30, 'Reservation made.', 'BOOKING', '2025-10-14 14:00:00'),
+(31, 'Transaction complete.', 'PAYMENT', '2025-10-14 15:00:00'), (32, 'Alert: issue.', 'ISSUE', '2025-10-14 16:00:00'), (33, 'Tips and tricks.', 'GENERAL', '2025-10-14 17:00:00'), (34, 'Booking alert.', 'BOOKING', '2025-10-14 18:00:00'), (35, 'Payment reminder.', 'PAYMENT', '2025-10-14 19:00:00'),
+(36, 'Service disruption.', 'ISSUE', '2025-10-14 20:00:00'), (37, 'Feedback request.', 'GENERAL', '2025-10-14 21:00:00'), (38, 'Appointment set.', 'BOOKING', '2025-10-14 22:00:00'), (39, 'Bill paid.', 'PAYMENT', '2025-10-14 23:00:00'), (40, 'Error reported.', 'ISSUE', '2025-10-15 00:00:00'),
+(41, 'Update available.', 'GENERAL', '2025-10-15 01:00:00'), (42, 'Slot booked.', 'BOOKING', '2025-10-15 02:00:00'), (43, 'Funds added.', 'PAYMENT', '2025-10-15 03:00:00'), (44, 'Bug fixed.', 'ISSUE', '2025-10-15 04:00:00'), (45, 'News alert.', 'GENERAL', '2025-10-15 05:00:00'),
+(46, 'Reservation canceled.', 'BOOKING', '2025-10-15 06:00:00'), (47, 'Charge refunded.', 'PAYMENT', '2025-10-15 07:00:00'), (48, 'Maintenance complete.', 'ISSUE', '2025-10-15 08:00:00'), (49, 'Survey invite.', 'GENERAL', '2025-10-15 09:00:00'), (50, 'Booking rescheduled.', 'BOOKING', '2025-10-15 10:00:00');

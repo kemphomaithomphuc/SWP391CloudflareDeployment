@@ -36,7 +36,7 @@ public class AvailableSlotsResponseDTO {
     @AllArgsConstructor
     @Builder
     public static class VehicleInfo {
-        private Integer vehicleId;
+        private Long vehicleId;
         private String brand;
         private String model;
         private Double batteryCapacity; // kWh

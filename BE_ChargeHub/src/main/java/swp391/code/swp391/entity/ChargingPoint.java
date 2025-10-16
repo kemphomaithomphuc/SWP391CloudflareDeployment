@@ -35,6 +35,7 @@ public class ChargingPoint {
         AVAILABLE,
         OCCUPIED,
         OUT_OF_SERVICE,
-        MAINTENANCE
+        MAINTENANCE,
+        RESERVED
     }
 }

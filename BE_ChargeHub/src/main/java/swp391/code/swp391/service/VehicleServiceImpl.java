@@ -8,6 +8,7 @@ import swp391.code.swp391.entity.User;
 import swp391.code.swp391.entity.Vehicle;
 import swp391.code.swp391.repository.UserRepository;
 import swp391.code.swp391.repository.VehicleRepository;
+import swp391.code.swp391.repository.CarModelRepository;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -19,6 +20,7 @@ public class VehicleServiceImpl implements VehicleService {
 
     private final VehicleRepository vehicleRepository;
     private final UserRepository userRepository;
+    private final CarModelRepository carModelRepository;
 
     @Override
     public VehicleDTO createVehicle(VehicleDTO vehicleDTO) {
@@ -61,8 +63,12 @@ public class VehicleServiceImpl implements VehicleService {
         Vehicle existingVehicle = vehicleRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Vehicle not found"));
 
-        // Cập nhật thông tin
         existingVehicle.setPlateNumber(vehicleDTO.getPlateNumber());
+
+        // Cập nhật carModel nếu có
+        if (vehicleDTO.getCarModel() != null) {
+            existingVehicle.setCarModel(vehicleDTO.getCarModel());
+        }
 
         // Cập nhật user nếu có
         if (vehicleDTO.getUserId() != null) {
@@ -88,11 +94,15 @@ public class VehicleServiceImpl implements VehicleService {
     }
 
 
-
     // Helper methods
     private Vehicle convertToEntity(VehicleDTO vehicleDTO) {
         Vehicle vehicle = new Vehicle();
         vehicle.setPlateNumber(vehicleDTO.getPlateNumber());
+
+        // Set carModel
+        if (vehicleDTO.getCarModel() != null) {
+            vehicle.setCarModel(vehicleDTO.getCarModel());
+        }
 
         // Set user
         if (vehicleDTO.getUserId() != null) {

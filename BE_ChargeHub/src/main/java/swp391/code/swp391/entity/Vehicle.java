@@ -5,7 +5,9 @@ import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.ToString;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Entity
@@ -18,16 +20,19 @@ public class Vehicle {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "vehicle_id")
-    private int id;
+    private Long id;
+
     @Column(name = "plate_number", nullable = false, unique = true)
     private String plateNumber;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "car_model_id")
+    @ToString.Exclude
     private CarModel carModel;
 
     @ManyToOne
     @JsonBackReference(value = "user-vehicle")
+    @ToString.Exclude
     private User user;
 
 }

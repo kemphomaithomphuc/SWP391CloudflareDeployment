@@ -99,8 +99,6 @@ import {
 
   MapIcon,
 
-  X,
-
   Satellite,
 
   ZoomIn,
@@ -108,6 +106,8 @@ import {
   ZoomOut,
 
   Settings,
+
+  X,
 
   Pause,
 
@@ -629,8 +629,8 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
     // Check if station is ACTIVE
     if (station.status !== "ACTIVE") {
       toast.warning(
-        language === 'vi' 
-          ? 'Trạm này không hoạt động, không thể đặt lịch sạc' 
+        language === 'vi'
+          ? 'Trạm này không hoạt động, không thể đặt lịch sạc'
           : 'This station is not active, cannot book charging'
       );
       return;
@@ -642,8 +642,8 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
       const hasAvailablePoints = Object.values(stationPoints).some(stats => stats.available > 0);
       if (!hasAvailablePoints) {
         toast.warning(
-          language === 'vi' 
-            ? 'Trạm này không còn trụ sạc trống, không thể đặt lịch' 
+          language === 'vi'
+            ? 'Trạm này không còn trụ sạc trống, không thể đặt lịch'
             : 'This station has no available charging points, cannot book'
         );
         return;
@@ -651,8 +651,8 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
     } else {
       // If we don't have charging points data yet, show warning but still allow booking
       toast.info(
-        language === 'vi' 
-          ? 'Đang kiểm tra trạng thái trụ sạc...' 
+        language === 'vi'
+          ? 'Đang kiểm tra trạng thái trụ sạc...'
           : 'Checking charging points status...'
       );
     }
@@ -666,8 +666,8 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
     // Check if station is ACTIVE
     if (station.status !== "ACTIVE") {
       toast.warning(
-        language === 'vi' 
-          ? 'Trạm này không hoạt động, không thể đặt lịch sạc' 
+        language === 'vi'
+          ? 'Trạm này không hoạt động, không thể đặt lịch sạc'
           : 'This station is not active, cannot book charging'
       );
       return;
@@ -679,8 +679,8 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
       const hasAvailablePoints = Object.values(stationPoints).some(stats => stats.available > 0);
       if (!hasAvailablePoints) {
         toast.warning(
-          language === 'vi' 
-            ? 'Trạm này không còn trụ sạc trống, không thể đặt lịch' 
+          language === 'vi'
+            ? 'Trạm này không còn trụ sạc trống, không thể đặt lịch'
             : 'This station has no available charging points, cannot book'
         );
         return;
@@ -688,8 +688,8 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
     } else {
       // If we don't have charging points data yet, show warning but still allow booking
       toast.info(
-        language === 'vi' 
-          ? 'Đang kiểm tra trạng thái trụ sạc...' 
+        language === 'vi'
+          ? 'Đang kiểm tra trạng thái trụ sạc...'
           : 'Checking charging points status...'
       );
     }
@@ -2634,13 +2634,13 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                     <div className="relative w-80">
                       <div className="relative">
                         <Search
-                          className="absolute left-3 top-1/2 transform -translate-y-1/2 
-                              w-4 h-4 
-                              text-white/90 
-                              bg-black/80 backdrop-blur-md 
-                              p-1.5 rounded-full 
-                              shadow-[0_0_8px_rgba(0,0,0,0.8)] 
-                              ring-1 ring-white/10 hover:ring-blue-400/40 
+                          className="absolute left-3 top-1/2 transform -translate-y-1/2
+                              w-4 h-4
+                              text-white/90
+                              bg-black/80 backdrop-blur-md
+                              p-1.5 rounded-full
+                              shadow-[0_0_8px_rgba(0,0,0,0.8)]
+                              ring-1 ring-white/10 hover:ring-blue-400/40
                               transition-all duration-300"
                         />
                         <Input
@@ -2823,7 +2823,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
             <div className="space-y-4">
 
               <div className="flex items-center justify-between">
-               {/* Tổng quan về danh sách trạm */} 
+               {/* Tổng quan về danh sách trạm */}
 
                 <h2 className="text-foreground">{t('find_charging_stations')}</h2>
 
@@ -4417,7 +4417,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                       +
                     </button>
                   </div>
-                  
+
                   {/* Battery Level Visual Bar */}
                   <div className="relative w-full h-4 bg-muted rounded-full overflow-hidden">
                     <div
@@ -4428,7 +4428,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                       style={{ width: `${initialBatteryLevel}%` }}
                     />
                   </div>
-                  
+
                   <div className="flex justify-between text-xs text-muted-foreground">
                     <span>0%</span>
                     <span>50%</span>
@@ -4470,7 +4470,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                       +
                     </button>
                   </div>
-                  
+
                   <Slider
                     value={[targetBatteryLevelConfig]}
                     onValueChange={(value: number[]) => setTargetBatteryLevelConfig(value[0] || 80)}
@@ -4518,7 +4518,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                   <Calendar className="w-4 h-4 mr-2" />
                   {language === 'vi' ? 'Xác nhận đặt lịch' : 'Confirm Booking'}
                 </Button>
-                
+
                 <Button
                   variant="outline"
                   onClick={() => setIsChargingConfigOpen(false)}

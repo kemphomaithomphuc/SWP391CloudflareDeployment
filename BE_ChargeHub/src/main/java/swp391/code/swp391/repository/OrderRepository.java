@@ -12,6 +12,7 @@ import java.util.List;
 @Repository
 public interface OrderRepository extends JpaRepository<Order, Long> {
 
+    Order findByOrderId(Long orderId);
     /**
      * Tìm các orders trùng lặp thời gian với khoảng time slot cần kiểm tra
      *
@@ -31,7 +32,9 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
             @Param("startTime") LocalDateTime startTime,
             @Param("endTime") LocalDateTime endTime
     );
+    Order findByOrderIdAndUser_UserId(Long orderId, Long userId);
 
+    // Add a method to find active orders by user
     /**
      * Tìm tất cả orders của một user
      */
@@ -41,6 +44,7 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
      * Tìm orders của user theo status
      */
     List<Order> findByUser_UserIdAndStatus(Long userId, Order.Status status);
+
 
     /**
      * Tìm orders của một trạm trong khoảng thời gian

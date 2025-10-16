@@ -4,9 +4,9 @@ import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.ToString;
 
 import java.time.LocalDateTime;
-import java.util.Date;
 
 @Data
 @Entity
@@ -20,6 +20,7 @@ public class Session {
 
     @ManyToOne
     @JoinColumn(name = "order_id", nullable = false)
+    @ToString.Exclude
     private Order order;
 
     @Column(nullable = false)
@@ -35,6 +36,7 @@ public class Session {
 
     @ManyToOne
     @JoinColumn(name = "fee_id")
+    @ToString.Exclude
     private Fee fee; //Phí phát sinh (nếu có)
 
     @Enumerated(EnumType.STRING)

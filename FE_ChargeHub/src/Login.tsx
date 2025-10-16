@@ -7,7 +7,7 @@ import { Label } from "./components/ui/label";
 import { Separator } from "./components/ui/separator";
 import { Zap } from "lucide-react";
 import { useLanguage } from "./contexts/LanguageContext";
-
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "./components/ui/dialog";
 
 interface LoginProps {
     onSwitchToRegister: () => void;
@@ -22,6 +22,13 @@ export default function Login({ onSwitchToRegister, onLogin, onStaffLogin, onAdm
     const [password, setPassword] = useState("");
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+
+    // 🆕 Forgot password popup state
+    const [showForgotPopup, setShowForgotPopup] = useState(false);
+    const [resetEmail, setResetEmail] = useState("");
+    const [otpSent, setOtpSent] = useState(false);
+    const [otpCode, setOtpCode] = useState("");
+    const [resetMessage, setResetMessage] = useState("");
 
     useEffect(() => {
         const url = new URL(window.location.href);
@@ -113,6 +120,17 @@ export default function Login({ onSwitchToRegister, onLogin, onStaffLogin, onAdm
 
                 if (!accessToken) throw new Error("Response Content Length Mismatch Error");
 
+
+                const meRes = await axios.post(
+                    "http://localhost:8080/api/auth/me",
+                    null,
+                    { headers: { Authorization: `Bearer ${accessToken}` } }
+                );
+
+                if (meRes.data?.success && meRes.data?.data) {
+                    localStorage.setItem("userId", String(meRes.data.data));
+                }
+
                 localStorage.setItem("token", accessToken);
                 localStorage.setItem("refreshToken", refreshToken || "");
 
@@ -190,6 +208,43 @@ export default function Login({ onSwitchToRegister, onLogin, onStaffLogin, onAdm
         } catch (err) {
             console.error("Facebook login error:", err);
             setError("Kết nối tới Facebook thất bại");
+        }
+    };
+
+    // 🆕 handle send OTP for reset password
+    const handleSendResetOTP = async () => {
+        if (!resetEmail.trim()) {
+            setResetMessage("Please enter your registered email");
+            return;
+        }
+        try {
+            setResetMessage("Sending OTP...");
+            const res = await axios.post("http://localhost:8080/api/otp/send/forgot-password", { email: resetEmail });
+            if (res.data?.success) {
+                setOtpSent(true);
+                setResetMessage("OTP sent to your email");
+            } else {
+                setResetMessage(res.data?.message || "Failed to send OTP");
+            }
+        } catch (err: any) {
+            setResetMessage("Error sending OTP: " + (err.response?.data?.message || err.message));
+        }
+    };
+
+    const handleVerifyResetOTP = async () => {
+        try {
+            const res = await axios.post("http://localhost:8080/api/otp/verify/forgot-password", {
+                email: resetEmail,
+                otpCode,
+            });
+            if (res.data?.success) {
+                setResetMessage("OTP verified! You can now log in.");
+                setShowForgotPopup(false);
+            } else {
+                setResetMessage("Invalid or expired OTP.");
+            }
+        } catch (err: any) {
+            setResetMessage("Verification failed.");
         }
     };
 
@@ -312,22 +367,32 @@ export default function Login({ onSwitchToRegister, onLogin, onStaffLogin, onAdm
                         </Button>
                     </div>
 
-                    <div className="text-center pt-2 space-y-2">
-                        <p className="text-muted-foreground/70">
-                            {t("no_account")}{" "}
+                    <div className="text-center space-y-4">
+                        <div className="flex items-center justify-center space-x-6">
+                            {/* Create account*/}
                             <button
                                 onClick={onSwitchToRegister}
                                 className="text-primary hover:text-primary/80 font-medium transition-colors duration-200 hover:underline underline-offset-4"
                             >
-                                {t("Create account")}
+                                Create account
                             </button>
-                        </p>
-                        <div className="relative">
+
+                            {/* Forgot password*/}
+                            <button
+                                onClick={() => setShowForgotPopup(true)}
+                                className="text-primary hover:text-primary/80 font-medium transition-colors duration-200 hover:underline underline-offset-4"
+                            >
+                                Forgot password
+                            </button>
+                        </div>
+
+                        <div className="relative mt-3">
                             <Separator className="bg-border/20" />
                             <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-card px-3">
                                 <span className="text-muted-foreground/50 text-xs">{t("or")}</span>
                             </div>
                         </div>
+
                         <div className="space-y-2">
                             <Button
                                 variant="outline"
@@ -346,6 +411,61 @@ export default function Login({ onSwitchToRegister, onLogin, onStaffLogin, onAdm
                         </div>
                     </div>
                 </div>
+
+                {/* 🆕 Forgot Password Dialog */}
+                <Dialog open={showForgotPopup} onOpenChange={setShowForgotPopup}>
+                    <DialogContent className="sm:max-w-lg">
+                        <DialogHeader>
+                            <DialogTitle className="text-2xl font-bold">{t("Reset Password")}</DialogTitle>
+                        </DialogHeader>
+                        <div className="space-y-4">
+                            {!otpSent ? (
+                                <>
+                                    <p className="text-sm text-muted-foreground">
+                                        {t("Enter your email")}
+                                    </p>
+                                    <Input
+                                        type="email"
+                                        value={resetEmail}
+                                        onChange={(e) => setResetEmail(e.target.value)}
+                                        placeholder="Email"
+                                        className="w-full bg-input-background/50 border-border/60 rounded-xl focus:border-primary/50 focus:ring-primary/20 transition-all duration-200 placeholder:text-muted-foreground/60"
+                                    />
+                                </>
+                            ) : (
+                                <>
+                                    <p className="text-sm text-muted-foreground">
+                                        {t("Enter OTP code")}
+                                    </p>
+                                    <Input
+                                        type="text"
+                                        value={otpCode}
+                                        onChange={(e) => setOtpCode(e.target.value)}
+                                        placeholder="OTP Code"
+                                        className="w-full bg-input-background/50 border-border/60 rounded-xl focus:border-primary/50 focus:ring-primary/20 transition-all duration-200 placeholder:text-muted-foreground/60"
+                                    />
+                                </>
+                            )}
+                            {resetMessage && (
+                                <p className="text-sm text-red-600">{resetMessage}</p>
+                            )}
+                        </div>
+                        <DialogFooter className="space-x-2">
+                            {!otpSent ? (
+                                <Button onClick={handleSendResetOTP} className="bg-primary text-primary-foreground hover:bg-primary/90">
+                                    {t("Send OTP")}
+                                </Button>
+                            ) : (
+                                <Button onClick={handleVerifyResetOTP} className="bg-primary text-primary-foreground hover:bg-primary/90">
+                                    {t("Verify OTP")}
+                                </Button>
+                            )}
+                            <Button variant="outline" onClick={() => setShowForgotPopup(false)}>
+                                {t("Cancel")}
+                            </Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
 
                 <div className="text-center mt-8">
                     <p className="text-muted-foreground/50 text-sm">

@@ -1,7 +1,6 @@
 package swp391.code.swp391.service;
 
 import swp391.code.swp391.dto.VehicleDTO;
-import swp391.code.swp391.entity.Vehicle;
 
 import java.util.List;
 
@@ -24,4 +23,5 @@ public interface VehicleService {
 
     // Xóa vehicle với user validation
     void deleteVehicleByUser(Long id, Long userId);
+
 }

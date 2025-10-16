@@ -5,6 +5,7 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDateTime;
 import java.util.Date;
 
 @Data
@@ -24,13 +25,13 @@ public class Notification {
     @Column(nullable = false)
     private String content;
 
-    private Date sentTime;
+    private LocalDateTime sentTime;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private Type type;
 
     public enum Type {
-        BOOKING, PAYMENT, ISSUE, GENERAL
+        BOOKING, PAYMENT, ISSUE, GENERAL, PENALTY
     }
 }

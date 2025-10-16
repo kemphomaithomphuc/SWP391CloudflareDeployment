@@ -6,7 +6,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import swp391.code.swp391.dto.VehicleDTO;
-import swp391.code.swp391.entity.Vehicle;
 import swp391.code.swp391.service.VehicleService;
 
 import java.util.List;
@@ -77,5 +76,4 @@ public class VehicleController {
             return new ResponseEntity<>(e.getMessage(), HttpStatus.NOT_FOUND);
         }
     }
-
 }

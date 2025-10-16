@@ -1,0 +1,20 @@
+-- Insert into charging_points (5 records)
+-- Columns: connector_type_id, station_station_id, status (charging_point_id is IDENTITY)
+-- Use existing connector_type_id 1-5 and station_id 1-5
+INSERT INTO [dbo].[charging_points] ([connector_type_id], [station_station_id], [status]) VALUES (1, 1, 'AVAILABLE');
+INSERT INTO [dbo].[charging_points] ([connector_type_id], [station_station_id], [status]) VALUES (2, 2, 'OCCUPIED');
+INSERT INTO [dbo].[charging_points] ([connector_type_id], [station_station_id], [status]) VALUES (3, 3, 'MAINTENANCE');
+INSERT INTO [dbo].[charging_points] ([connector_type_id], [station_station_id], [status]) VALUES (4, 4, 'OUT_OF_SERVICE');
+INSERT INTO [dbo].[charging_points] ([connector_type_id], [station_station_id], [status]) VALUES (5, 5, 'AVAILABLE');
+
+-- Additional 45 inserts for charging_points (connector_type_id cycling 6-50, station_station_id 6-50, status varying)
+INSERT INTO [dbo].[charging_points] ([connector_type_id], [station_station_id], [status]) VALUES
+(6, 6, 'AVAILABLE'), (7, 7, 'OCCUPIED'), (8, 8, 'MAINTENANCE'), (9, 9, 'OUT_OF_SERVICE'), (10, 10, 'AVAILABLE'),
+(11, 11, 'OCCUPIED'), (12, 12, 'MAINTENANCE'), (13, 13, 'OUT_OF_SERVICE'), (14, 14, 'AVAILABLE'), (15, 15, 'OCCUPIED'),
+(16, 16, 'MAINTENANCE'), (17, 17, 'OUT_OF_SERVICE'), (18, 18, 'AVAILABLE'), (19, 19, 'OCCUPIED'), (20, 20, 'MAINTENANCE'),
+(21, 21, 'OUT_OF_SERVICE'), (22, 22, 'AVAILABLE'), (23, 23, 'OCCUPIED'), (24, 24, 'MAINTENANCE'), (25, 25, 'OUT_OF_SERVICE'),
+(26, 26, 'AVAILABLE'), (27, 27, 'OCCUPIED'), (28, 28, 'MAINTENANCE'), (29, 29, 'OUT_OF_SERVICE'), (30, 30, 'AVAILABLE'),
+(31, 31, 'OCCUPIED'), (32, 32, 'MAINTENANCE'), (33, 33, 'OUT_OF_SERVICE'), (34, 34, 'AVAILABLE'), (35, 35, 'OCCUPIED'),
+(36, 36, 'MAINTENANCE'), (37, 37, 'OUT_OF_SERVICE'), (38, 38, 'AVAILABLE'), (39, 39, 'OCCUPIED'), (40, 40, 'MAINTENANCE'),
+(41, 41, 'OUT_OF_SERVICE'), (42, 42, 'AVAILABLE'), (43, 43, 'OCCUPIED'), (44, 44, 'MAINTENANCE'), (45, 45, 'OUT_OF_SERVICE'),
+(46, 46, 'AVAILABLE'), (47, 47, 'OCCUPIED'), (48, 48, 'MAINTENANCE'), (49, 49, 'OUT_OF_SERVICE'), (50, 50, 'AVAILABLE');
