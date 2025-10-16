@@ -63,7 +63,7 @@ public class VehicleServiceImpl implements VehicleService {
         Vehicle existingVehicle = vehicleRepository.findByPlateNumber(plateNumber)
                 .orElseThrow(() -> new RuntimeException("Vehicle not found"));
         // Kiểm tra vehicle có thuộc về user không
-        if (existingVehicle.getUser() == null || !existingVehicle.getUser().getUserId().equals(userId.getUserId())) {
+        if (existingVehicle.getUser() == null || !existingVehicle.getUser().getUserId().equals(userId)) {
             throw new RuntimeException("You don't have permission to update this vehicle");
         }
         else existingVehicle.setPlateNumber(vehicleDTO.getPlateNumber());
