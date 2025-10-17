@@ -24,7 +24,7 @@ public class User {
     private String fullName;
     @Column(name = "email", unique = true) //Nullable true để đăng ký bằng phone (fb)
     private String email;
-    @Column(name = "password",nullable = true)
+    @Column(name = "password")
     private String password;
     @Column(name = "phone", unique = true) //Nullable true để đăng ký bằng email (gg)
     private String phone;

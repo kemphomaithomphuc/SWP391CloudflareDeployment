@@ -9,7 +9,6 @@ import org.springframework.web.bind.annotation.*;
 import swp391.code.swp391.dto.APIResponse;
 import swp391.code.swp391.dto.SessionProgressDTO;
 import swp391.code.swp391.dto.StartSessionRequestDTO;
-import swp391.code.swp391.entity.Session;
 import swp391.code.swp391.service.JwtService;
 import swp391.code.swp391.service.SessionService;
 
@@ -30,14 +29,12 @@ public class SessionController {
                                              HttpServletRequest httpServletRequest) {
         String header = httpServletRequest.getHeader("Authorization");
         String token = jwtService.getTokenFromHeader(header);
-        Long sessionId = null;
-        Long userId = null;
+        Long sessionId;
+        Long userId;
         try {
             userId = jwtService.getUserIdByTokenDecode(token);
             sessionId = sessionService.startSession(userId, request.getOrderId(), request.getVehicleId());
-        } catch (ParseException e) {
-            throw new RuntimeException(e);
-        } catch (JOSEException e) {
+        } catch (ParseException | JOSEException e) {
             throw new RuntimeException(e);
         } catch (RuntimeException e){
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(APIResponse.error(e.getMessage()));
@@ -53,16 +50,14 @@ public class SessionController {
                                                              HttpServletRequest httpServletRequest) {
         String header = httpServletRequest.getHeader("Authorization");
         String token = jwtService.getTokenFromHeader(header);
-        Long userId = null;
-        SessionProgressDTO progress = null;
+        Long userId;
+        SessionProgressDTO progress;
         try {
             userId = jwtService.getUserIdByTokenDecode(token);
             progress = sessionService.monitorSession(sessionId, userId);
-        } catch (ParseException e) {
+        } catch (ParseException | JOSEException e) {
             throw new RuntimeException(e);
-        } catch (JOSEException e) {
-            throw new RuntimeException(e);
-        }catch (RuntimeException e){
+        } catch (RuntimeException e){
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(APIResponse.error(e.getMessage()));
         }catch (Exception e){
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(APIResponse.error(e.getMessage()));

@@ -45,28 +45,11 @@ public class Session {
         CHARGING, COMPLETED, OVERTIME
     }
 
-    // Tính tổng chi phí bao gồm cả phí phát sinh
-    public Double getTotalCost() {
-        double totalFees = fees != null ?
-            fees.stream()
-                .mapToDouble(Fee::getAmount)
-                .sum() : 0.0;
-        return baseCost + totalFees;
-    }
-
     // Kiểm tra xem session có overtime không
     public boolean isOvertime() {
         if (endTime == null || order == null || order.getEndTime() == null) {
             return false;
         }
         return endTime.isAfter(order.getEndTime());
-    }
-
-    // Tính số phút overtime
-    public long getOvertimeMinutes() {
-        if (!isOvertime()) {
-            return 0;
-        }
-        return java.time.Duration.between(order.getEndTime(), endTime).toMinutes();
     }
 }

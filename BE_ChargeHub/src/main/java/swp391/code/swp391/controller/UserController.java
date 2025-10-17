@@ -2,7 +2,6 @@ package swp391.code.swp391.controller;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Autowired;
 import swp391.code.swp391.dto.*;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;

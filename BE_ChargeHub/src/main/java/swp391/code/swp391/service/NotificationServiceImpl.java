@@ -6,7 +6,6 @@ import org.springframework.stereotype.Service;
 import swp391.code.swp391.entity.*;
 import swp391.code.swp391.repository.NotificationRepository;
 import swp391.code.swp391.repository.OrderRepository;
-import swp391.code.swp391.repository.SessionRepository;
 import swp391.code.swp391.repository.UserRepository;
 
 import java.time.LocalDateTime;
@@ -19,7 +18,6 @@ public class NotificationServiceImpl implements NotificationService {
 
     private final NotificationRepository notificationRepository;
     private final OrderRepository orderRepository;
-    private final SessionRepository sessionRepository;
     private final UserRepository userRepository;
 
     // Giả sử integrate với email service

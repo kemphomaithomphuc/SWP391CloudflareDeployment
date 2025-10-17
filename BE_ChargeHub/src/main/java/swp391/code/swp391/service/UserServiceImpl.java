@@ -10,10 +10,8 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.stereotype.Service;
 import swp391.code.swp391.dto.UpdateUserDTO;
 import org.springframework.web.server.ResponseStatusException;
-import swp391.code.swp391.dto.LoginRequestDTO;
 import swp391.code.swp391.dto.RegisterRequestDTO;
 import swp391.code.swp391.dto.UserDTO;
-import swp391.code.swp391.entity.CustomUserDetails;
 import swp391.code.swp391.entity.User;
 import swp391.code.swp391.repository.UserRepository;
 
