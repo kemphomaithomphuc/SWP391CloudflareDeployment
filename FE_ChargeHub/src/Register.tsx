@@ -94,6 +94,8 @@ export default function Register({
       if (res.status === 200 || res.status === 201) {
         const successMsg = res.data?.message || "Registered successfully";
         toast.success(successMsg);
+        const userId = res.data?.data;
+        localStorage.setItem("registeredUserId", userId);
         onSwitchToRoleSelection();
         return;
       }

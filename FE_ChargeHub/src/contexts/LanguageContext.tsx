@@ -859,6 +859,16 @@ const translations: Translations = {
   'address': { en: 'Address', vi: 'Địa chỉ' },
   'street_address_placeholder': { en: 'Street Name, Alley, Add No.', vi: 'Tên đường, hẻm, số nhà' },
   'upload_image': { en: 'Upload Image', vi: 'Tải ảnh lên' },
+  'change_image': { en: 'Change Image', vi: 'Đổi ảnh' },
+  'select_image_from_computer': { en: 'Select Image from Computer', vi: 'Chọn ảnh từ máy tính' },
+  'please_select_image_file': { en: 'Please select an image file', vi: 'Vui lòng chọn file ảnh' },
+  'image_too_large': { en: 'Image file is too large. Please select a file smaller than 5MB', vi: 'File ảnh quá lớn. Vui lòng chọn file nhỏ hơn 5MB' },
+  'supported_formats': { en: 'Supported: JPG, PNG, GIF', vi: 'Hỗ trợ: JPG, PNG, GIF' },
+  'max_size': { en: 'Max: 5MB', vi: 'Tối đa: 5MB' },
+  'error_submitting_profile': { en: 'Error submitting profile. Please try again.', vi: 'Lỗi khi gửi hồ sơ. Vui lòng thử lại.' },
+  'submitting_profile': { en: 'Submitting profile...', vi: 'Đang gửi hồ sơ...' },
+  'profile_submitted_successfully': { en: 'Profile submitted successfully!', vi: 'Gửi hồ sơ thành công!' },
+  'please_fill_all_fields': { en: 'Please fill in all required fields', vi: 'Vui lòng điền đầy đủ các trường bắt buộc' },
   'next': { en: 'Next', vi: 'Tiếp theo' },
   
   // VehicleSetup translations  

@@ -2,28 +2,88 @@ import { useState } from "react";
 import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
 import { Label } from "./components/ui/label";
-import { ArrowLeft, Upload, User } from "lucide-react";
+import { ArrowLeft, Upload, User, X } from "lucide-react";
 import DatePicker from "./components/DatePicker";
 import { countries, getProvincesByCountry, Province } from "./data/locationData";
 import { useLanguage } from "./contexts/LanguageContext";
+import axios, { AxiosError } from "axios";
+
 
 interface ProfileSetupProps {
   onNext: () => void;
   onBack: () => void;
 }
+interface RegisterUser {
+  userId: string;
+  dateOfBirth: string;
+  phone: string;
+  country: string;
+  province: string;
+  address: string;
+}
 
 export default function ProfileSetup({ onNext, onBack }: ProfileSetupProps) {
   const { t } = useLanguage();
   const [formData, setFormData] = useState({
-    identification: "",
     dateOfBirth: "",
     phone: "",
     country: "",
     province: "",
     address: ""
   });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const [availableProvinces, setAvailableProvinces] = useState<Province[]>([]);
+  const [profileImage, setProfileImage] = useState<string | null>(null);
+
+  const callApiForProfileSetup = async (data: RegisterUser) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const userId = localStorage.getItem("registeredUserId") || "";
+      console.log("Submitting profile for userId:", userId);
+      const res = await axios.put(`http://localhost:8080/api/user/profile/${userId}`, {
+        userId: parseInt(userId),
+        phoneNumber: data.phone,
+        address: data.address + (data.province ? `, ${data.province}` : '') + (data.country ? `, ${data.country}` : ''),
+        dateOfBirth: data.dateOfBirth
+      });
+      console.log("Profile submission response:", res);
+      if (res.status === 200 || res.status === 201) {
+        console.log("Profile submitted successfully");
+        setLoading(false);
+        onNext();
+      } else {
+        setError(t('error_submitting_profile'));
+        setLoading(false);
+      }
+    } catch (err) {
+      console.error('Profile submission error:', err);
+      setError(t('error_submitting_profile'));
+      setLoading(false);
+    }
+  };
+
+  const handleSubmit = () => {
+    // Validate required fields
+    if (!formData.dateOfBirth || !formData.phone || !formData.country || !formData.province || !formData.address) {
+      setError(t('please_fill_all_fields'));
+      return;
+    }
+
+    // Prepare data for API
+    const profileData: RegisterUser = {
+      userId: localStorage.getItem("registeredUserId") || "",
+      dateOfBirth: formData.dateOfBirth,
+      phone: formData.phone,
+      country: formData.country,
+      province: formData.province,
+      address: formData.address
+    };
+
+    callApiForProfileSetup(profileData);
+  };
 
   const handleCountryChange = (countryCode: string) => {
     setFormData({
@@ -44,6 +104,34 @@ export default function ProfileSetup({ onNext, onBack }: ProfileSetupProps) {
     });
   };
 
+  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      // Validate file type - chỉ cho phép ảnh
+      if (!file.type.startsWith('image/')) {
+        alert(t('please_select_image_file'));
+        return;
+      }
+      
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        alert(t('image_too_large'));
+        return;
+      }
+
+      // Đọc file và chuyển thành base64 để hiển thị
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setProfileImage(e.target?.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleRemoveImage = () => {
+    setProfileImage(null);
+  };
+
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-6">
       <div className="w-full max-w-4xl">
@@ -55,24 +143,16 @@ export default function ProfileSetup({ onNext, onBack }: ProfileSetupProps) {
               <div className="space-y-1">
                 <h1 className="text-2xl font-semibold text-foreground">{t('profile_setup')}</h1>
                 <p className="text-muted-foreground">{t('complete_profile_to_start')}</p>
+                
+                {/* Error Display */}
+                {error && (
+                  <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+                    {error}
+                  </div>
+                )}
               </div>
 
               <div className="space-y-5">
-                {/* Identification */}
-                <div className="space-y-2">
-                  <Label htmlFor="identification" className="text-sm font-medium text-foreground">
-                    {t('identification')}
-                  </Label>
-                  <Input
-                    id="identification"
-                    type="text"
-                    value={formData.identification}
-                    onChange={(e) => setFormData({ ...formData, identification: e.target.value })}
-                    placeholder={t('enter_id_number')}
-                    className="h-11 border-border rounded-lg focus:border-primary focus:ring-1 focus:ring-primary bg-input-background"
-                  />
-                </div>
-
                 {/* Date of Birth */}
                 <div className="space-y-2">
                   <Label htmlFor="dateOfBirth" className="text-sm font-medium text-foreground">
@@ -81,6 +161,8 @@ export default function ProfileSetup({ onNext, onBack }: ProfileSetupProps) {
                   <DatePicker
                     placeholder={t('select_date_of_birth')}
                     className="w-full"
+                    value={formData.dateOfBirth}
+                    onChange={(date) => setFormData({ ...formData, dateOfBirth: date })}
                   />
                 </div>
 
@@ -163,24 +245,58 @@ export default function ProfileSetup({ onNext, onBack }: ProfileSetupProps) {
 
             {/* Right Side - Avatar Upload */}
             <div className="flex flex-col items-center justify-start space-y-4 pt-12">
-              {/* Avatar Placeholder */}
+              {/* Avatar Display */}
               <div className="relative">
-                <div className="w-32 h-32 bg-muted rounded-full border-2 border-border flex items-center justify-center">
-                  <User className="w-12 h-12 text-muted-foreground" />
+                <div className="w-32 h-32 bg-muted rounded-full border-2 border-border flex items-center justify-center overflow-hidden">
+                  {profileImage ? (
+                    <img 
+                      src={profileImage} 
+                      alt="Profile" 
+                      className="w-full h-full object-cover rounded-full"
+                    />
+                  ) : (
+                    <User className="w-12 h-12 text-muted-foreground" />
+                  )}
                 </div>
-                {/* Upload indicator */}
-                <div className="absolute -bottom-2 -right-2 w-8 h-8 bg-primary rounded-full flex items-center justify-center shadow-lg">
-                  <Upload className="w-4 h-4 text-primary-foreground" />
-                </div>
+                
+                {/* Upload indicator or Remove button */}
+                {profileImage ? (
+                  <button
+                    onClick={handleRemoveImage}
+                    className="absolute -top-2 -right-2 w-8 h-8 bg-red-500 hover:bg-red-600 rounded-full flex items-center justify-center shadow-lg transition-colors"
+                  >
+                    <X className="w-4 h-4 text-white" />
+                  </button>
+                ) : (
+                  <div className="absolute -bottom-2 -right-2 w-8 h-8 bg-primary rounded-full flex items-center justify-center shadow-lg">
+                    <Upload className="w-4 h-4 text-primary-foreground" />
+                  </div>
+                )}
               </div>
+
+              {/* Hidden file input */}
+              <input
+                type="file"
+                id="profile-image-upload"
+                accept="image/*"
+                onChange={handleImageUpload}
+                className="hidden"
+              />
 
               {/* Upload Button */}
               <Button
                 variant="outline"
+                onClick={() => document.getElementById('profile-image-upload')?.click()}
                 className="px-6 py-2 border-border text-foreground hover:bg-accent rounded-lg"
               >
-                {t('upload_image')}
+                {profileImage ? t('change_image') : t('select_image_from_computer')}
               </Button>
+              
+              {/* File info */}
+              <p className="text-xs text-muted-foreground text-center max-w-32">
+                {t('supported_formats')}<br/>
+                {t('max_size')}
+              </p>
             </div>
           </div>
 
@@ -198,10 +314,11 @@ export default function ProfileSetup({ onNext, onBack }: ProfileSetupProps) {
 
             {/* Next Button */}
             <Button
-              onClick={onNext}
-              className="px-8 py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg"
+              onClick={handleSubmit}
+              disabled={loading}
+              className="px-8 py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg disabled:opacity-50"
             >
-              {t('next')}
+              {loading ? t('submitting_profile') : t('next')}
             </Button>
           </div>
         </div>
