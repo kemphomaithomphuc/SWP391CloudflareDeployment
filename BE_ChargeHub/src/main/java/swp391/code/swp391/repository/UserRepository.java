@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 import swp391.code.swp391.entity.User;
 
+import java.util.List;
 import java.util.Optional;
 
 @Repository
@@ -44,4 +45,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
     User getUserByPhone(String phone);
 
     User getUserByEmail(String email);
+
+    // Tìm users theo role
+    List<User> findByRole(User.UserRole role);
 }

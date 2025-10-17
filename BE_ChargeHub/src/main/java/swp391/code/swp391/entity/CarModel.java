@@ -37,5 +37,4 @@ public class CarModel {
     )
     @ToString.Exclude
     private List<ConnectorType> connectorTypes;
-
 }

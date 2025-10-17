@@ -14,7 +14,7 @@ public interface SessionService {
 
     boolean isValidTime(Long orderId,int maxStartDelayMinutes);
 
-    public Long startSession(Long userId, Long orderId, Long vehicleId, LocalDateTime startTime);
+    public Long startSession(Long userId, Long orderId, Long vehicleId);
 
     SessionProgressDTO monitorSession(Long sessionId, Long userId);
 

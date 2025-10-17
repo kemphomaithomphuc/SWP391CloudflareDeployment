@@ -35,8 +35,6 @@ public class UserServiceImpl implements UserService {
     /** Pattern for validating Vietnamese phone numbers */
     private static final String VIETNAM_PHONE_REGEX = "^(0|\\+84)([35789])[0-9]{8}$";
 
-    // Dependencies
-
     private final PasswordEncoder passwordEncoder;
     private final UserRepository userRepository;
 

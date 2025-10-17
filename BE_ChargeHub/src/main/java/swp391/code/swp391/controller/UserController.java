@@ -1,6 +1,7 @@
 package swp391.code.swp391.controller;
 
 import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import swp391.code.swp391.dto.*;
 import org.springframework.http.HttpStatus;
@@ -15,16 +16,12 @@ import swp391.code.swp391.service.VehicleServiceImpl;
 import java.util.List;
 
 @RestController
+@RequiredArgsConstructor
 @RequestMapping("/api/user")
 public class UserController {
-    @Autowired
-    private final UserServiceImpl userServiceImpl;
-    @Autowired
-    private VehicleServiceImpl vehicleServiceImpl;
 
-    public UserController(UserServiceImpl userServiceImpl) {
-        this.userServiceImpl = userServiceImpl;
-    }
+    private final UserServiceImpl userServiceImpl;
+    private final VehicleServiceImpl vehicleServiceImpl;
 
     /**
      * 1. XEM THÔNG TIN USER

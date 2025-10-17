@@ -6,7 +6,6 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.sql.Date;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -54,6 +53,9 @@ public class User {
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private List<Verification> verifications;
 
+    @ManyToMany(mappedBy = "stationStaff")
+    private List<ChargingStation> assignedStations;
+
     public User(String fullName, String email, String password, String phone, LocalDate dateOfBirth, String address) {
         this.fullName = fullName;
         this.email = email;
@@ -62,9 +64,8 @@ public class User {
         this.dateOfBirth = dateOfBirth;
         this.address = address;
     }
-
+    
     // Enums for UserStatus and UserRole
-
     public enum UserStatus {
         ACTIVE, INACTIVE, BANNED
     }

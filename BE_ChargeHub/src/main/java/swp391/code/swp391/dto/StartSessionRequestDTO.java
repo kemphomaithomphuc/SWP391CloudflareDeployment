@@ -8,5 +8,4 @@ import java.time.LocalDateTime;
 public class StartSessionRequestDTO {
         private Long orderId;
         private Long vehicleId;
-        private LocalDateTime startTime;
 }

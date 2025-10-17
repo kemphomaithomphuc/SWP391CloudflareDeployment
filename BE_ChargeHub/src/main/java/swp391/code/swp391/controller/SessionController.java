@@ -34,7 +34,7 @@ public class SessionController {
         Long userId = null;
         try {
             userId = jwtService.getUserIdByTokenDecode(token);
-            sessionId = sessionService.startSession(userId, request.getOrderId(), request.getVehicleId(), request.getStartTime());
+            sessionId = sessionService.startSession(userId, request.getOrderId(), request.getVehicleId());
         } catch (ParseException e) {
             throw new RuntimeException(e);
         } catch (JOSEException e) {

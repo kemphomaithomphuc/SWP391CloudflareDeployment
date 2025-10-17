@@ -32,6 +32,14 @@ public class ChargingStation {
     @JsonManagedReference
     private List<ChargingPoint> chargingPoint;
 
+    @ManyToMany
+    @JoinTable(
+        name = "station_staff",
+        joinColumns = @JoinColumn(name = "station_id"),
+        inverseJoinColumns = @JoinColumn(name = "user_id")
+    )
+    private List<User> stationStaff;
+
     public enum ChargingStationStatus {
         ACTIVE,
         INACTIVE,
