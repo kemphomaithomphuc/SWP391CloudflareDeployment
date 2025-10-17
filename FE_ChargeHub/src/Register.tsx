@@ -4,10 +4,9 @@ import { Label } from "./components/ui/label";
 import { Checkbox } from "./components/ui/checkbox";
 import { Zap, ArrowLeft, Eye, EyeOff } from "lucide-react";
 import { useLanguage } from "./contexts/LanguageContext";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 import axios from "axios";
-import { jwtDecode } from "jwt-decode";
 
 interface RegisterProps {
   onSwitchToLogin: () => void;
@@ -37,11 +36,13 @@ export default function Register({
   const callApiForGoogleRegister = async (): Promise<void> => {
     try {
       const res = await axios.get(
-        "http://localhost:8080/api/auth/social/login?loginType=Google"
+        "http://localhost:8080/api/auth/social/login?loginType=google"
       );
       const oauthUrl = res?.data?.data as string | undefined;
       if (res.status === 200 && oauthUrl) {
-        window.location.href = oauthUrl;
+        // Thêm source parameter để phân biệt nguồn gốc
+        const urlWithSource = oauthUrl + (oauthUrl.includes('?') ? '&' : '?') + 'source=register';
+        window.location.href = urlWithSource;
         return;
       }
       throw new Error("Missing OAuth URL from backend");
@@ -55,11 +56,13 @@ export default function Register({
   const callApiForFacebookRegister = async (): Promise<void> => {
     try {
       const res = await axios.get(
-        "http://localhost:8080/api/auth/social/login?loginType=Facebook"
+        "http://localhost:8080/api/auth/social/login?loginType=facebook"
       );
       const oauthUrl = res?.data?.data as string | undefined;
       if (res.status === 200 && oauthUrl) {
-        window.location.href = oauthUrl;
+        // Thêm source parameter để phân biệt nguồn gốc
+        const urlWithSource = oauthUrl + (oauthUrl.includes('?') ? '&' : '?') + 'source=register';
+        window.location.href = urlWithSource;
         return;
       }
       throw new Error("Missing OAuth URL from backend");
@@ -69,113 +72,7 @@ export default function Register({
     }
   };
 
-  // Xử lý redirect về FE: /social?code=...&state=google hoặc /social?accessToken=...
-  useEffect(() => {
-    const url = new URL(window.location.href);
-    const urlParams = url.searchParams;
-
-    const code = urlParams.get("code");
-    const state = urlParams.get("state");
-    const accessToken = urlParams.get("accessToken");
-    const refreshToken = urlParams.get("refreshToken");
-
-    // Hàm helper để làm sạch URL ngay lập tức
-    const cleanUrl = () => {
-      const cleanUrl = url.origin + url.pathname;
-      window.history.replaceState({}, document.title, cleanUrl);
-    };
-
-    // CASE 1: Có sẵn accessToken trên URL (BE đã tự xử lý xong OAuth)
-    if (accessToken) {
-      // Làm sạch URL ngay lập tức để tránh leak thông tin
-      cleanUrl();
-      
-      (async () => {
-        try {
-          setLoading(true);
-          localStorage.setItem("token", accessToken);
-          if (refreshToken) localStorage.setItem("refreshToken", refreshToken);
-
-          // Lấy userId
-          const meRes = await axios.post(
-            "http://localhost:8080/api/auth/me",
-            null,
-            { headers: { Authorization: `Bearer ${accessToken}` } }
-          );
-          if (meRes.data?.success && meRes.data?.data) {
-            const userId = meRes.data.data;
-            localStorage.setItem("userId", String(userId));
-          }
-
-          // Lưu email từ JWT
-          const decoded: any = jwtDecode(accessToken);
-          localStorage.setItem("email", decoded?.sub || "");
-
-          onSwitchToRoleSelection();
-        } catch (err: any) {
-          console.error("Error processing OAuth redirect:", err);
-          const errorMsg = err?.response?.data?.message || err?.message || "Failed to process social login";
-          setError(errorMsg);
-          toast.error(errorMsg);
-        } finally {
-          setLoading(false);
-        }
-      })();
-
-      return; // tránh chạy tiếp xuống dưới
-    }
-
-    // CASE 2: Nhận code + state từ Google/Facebook → gọi callback để đổi token
-    if (code && (state === "google" || state === "facebook")) {
-      // Làm sạch URL ngay lập tức để tránh leak thông tin
-      cleanUrl();
-      
-      (async () => {
-        try {
-          setLoading(true);
-          const res = await axios.get(
-            `http://localhost:8080/api/auth/social/callback?code=${encodeURIComponent(
-              code
-            )}&state=${encodeURIComponent(state)}`
-          );
-
-          if (res.data?.success && res.data?.data?.accessToken) {
-            const at = res.data.data.accessToken as string;
-            const rt = res.data.data.refreshToken as string | undefined;
-
-            localStorage.setItem("token", at);
-            if (rt) localStorage.setItem("refreshToken", rt);
-
-            // Lấy userId
-            const meRes = await axios.post(
-              "http://localhost:8080/api/auth/me",
-              null,
-              { headers: { Authorization: `Bearer ${at}` } }
-            );
-            if (meRes.data?.success && meRes.data?.data) {
-              const userId = meRes.data.data;
-              localStorage.setItem("userId", String(userId));
-            }
-
-            // Lưu email
-            const decoded: any = jwtDecode(at);
-            localStorage.setItem("email", decoded?.sub || "");
-
-            onSwitchToRoleSelection();
-          } else {
-            setError("Social login failed: invalid response");
-          }
-        } catch (err: any) {
-          console.error("Social login callback error:", err);
-          const errorMsg = err?.response?.data?.message || err?.message || "Failed to process social login callback";
-          setError(errorMsg);
-          toast.error(errorMsg);
-        } finally {
-          setLoading(false);
-        }
-      })();
-    }
-  }, [onSwitchToRoleSelection]);
+  // OAuth redirect logic đã được chuyển sang App.tsx để xử lý tập trung
 
   const callApiForRegister = async (): Promise<void> => {
     setLoading(true);
@@ -484,6 +381,7 @@ export default function Register({
               <span>Processing social login...</span>
             </div>
           )}
+
 
           {error && (
             <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-3 text-destructive text-sm">

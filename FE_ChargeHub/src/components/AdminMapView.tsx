@@ -127,23 +127,40 @@ function sanitizeStation(raw: any): ChargingStation {
 
     // Process charging points if available
     const safeChargingPoints: ChargingPoint[] = Array.isArray(raw.chargingPoints)
-        ? raw.chargingPoints.map((point: any) => ({
-            chargingPointId: Number(point.chargingPointId ?? 0),
-            typeName: String(point.typeName ?? "Unknown"),
-            status: String(point.status ?? "OUT_OF_SERVICE"),
-            powerOutput: Number(point.powerOutput ?? 0),
-            pricePerKwh: Number(point.pricePerKwh ?? 0),
-            station: point.station ? {
-                stationId: Number(point.station.stationId ?? 0),
-                stationName: String(point.station.stationName ?? ""),
-                address: String(point.station.address ?? ""),
-                status: String(point.station.status ?? "INACTIVE"),
-                latitude: Number(point.station.latitude ?? 0),
-                longitude: Number(point.station.longitude ?? 0),
-                chargingPoint: point.station.chargingPoint,
-                chargingPointNumber: Number(point.station.chargingPointNumber ?? 0)
-            } : undefined
-        }))
+        ? raw.chargingPoints.map((point: any, index: number) => {
+            console.log(`Processing charging point ${index}:`, point);
+            
+            // Ưu tiên lấy từ connectorType trước
+            const connectorType = point.connectorType || {};
+            const typeName = connectorType.typeName || point.typeName || "Unknown";
+            const powerOutput = connectorType.powerOutput || point.powerOutput || 0;
+            const pricePerKwh = connectorType.pricePerKWh || point.pricePerKwh || 0;
+            
+            console.log(`Point ${index} extracted from connectorType:`, {
+                typeName,
+                powerOutput,
+                pricePerKwh,
+                status: point.status
+            });
+            
+            return {
+                chargingPointId: Number(point.chargingPointId ?? 0),
+                typeName: String(typeName),
+                status: String(point.status ?? "OUT_OF_SERVICE"),
+                powerOutput: Number(powerOutput),
+                pricePerKwh: Number(pricePerKwh),
+                station: point.station ? {
+                    stationId: Number(point.station.stationId ?? 0),
+                    stationName: String(point.station.stationName ?? ""),
+                    address: String(point.station.address ?? ""),
+                    status: String(point.station.status ?? "INACTIVE"),
+                    latitude: Number(point.station.latitude ?? 0),
+                    longitude: Number(point.station.longitude ?? 0),
+                    chargingPoint: point.station.chargingPoint,
+                    chargingPointNumber: Number(point.station.chargingPointNumber ?? 0)
+                } : undefined
+            };
+        })
         : [];
 
     const totalPoints = Number(raw.numberOfPort ?? raw.totalPoints ?? raw.chargingPointNumber ?? 0);
@@ -200,7 +217,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
     const [longitude, setLongitude] = useState<number | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    
+
     // Charging posts management
     const [chargingPosts, setChargingPosts] = useState<Array<{
         id: string;
@@ -212,7 +229,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
     const [poiList, setPoiList] = useState<Array<{ id: string; name: string; address: string; longitude: number; latitude: number }>>([]);
     const poiListRef = useRef<Array<{ id: string; name: string; address: string; longitude: number; latitude: number }>>([]);
     useEffect(() => { poiListRef.current = poiList; }, [poiList]);
-    
+
     // Debug address state changes
     useEffect(() => {
         console.log("Address state changed:", address);
@@ -223,7 +240,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
     const [isAllChargingPointsDialogOpen, setIsAllChargingPointsDialogOpen] = useState(false);
     const [selectedStationForAllPoints, setSelectedStationForAllPoints] = useState<ChargingStation | null>(null);
 
-    
+
     // Search state
     const [searchResults, setSearchResults] = useState<Array<{ id: string; name: string; address: string; longitude: number; latitude: number }>>([]);
     const [showSearchResults, setShowSearchResults] = useState(false);
@@ -236,7 +253,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
     const [isAddressFieldTouched, setIsAddressFieldTouched] = useState(false);
     const [selectedPOI, setSelectedPOI] = useState<{ id: string; name: string; address: string; longitude: number; latitude: number } | null>(null);
     const [tempMarker, setTempMarker] = useState<maptilersdk.Marker | null>(null);
-    
+
     // Charging port types management
     const [showPortTypesPopup, setShowPortTypesPopup] = useState(false);
     const [showAddPortTypePopup, setShowAddPortTypePopup] = useState(false);
@@ -245,7 +262,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
         power: "",
         price: ""
     });
-    
+
     const [portTypes, setPortTypes] = useState<PortType[]>([]);
 
     // Map to track markers by station ID
@@ -347,51 +364,51 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
         }
     };
     const handleGetStationList = async () => {
-            try {
-                const list = await fetchChargingStations();
-                if (list) {
-                    // Fetch connector type details for each station
-                    const stationsWithConnectorDetails = await Promise.all(
-                        list.map(async (station) => {
-                            if (station.connectorTypes && station.connectorTypes.length > 0) {
-                                const updatedConnectorTypes = await Promise.all(
-                                    station.connectorTypes.map(async (connector) => {
-                                        // Assuming connector has a connectorTypeId field
-                                        if (connector.connectorTypeId) {
-                                            const connectorDetails = await fetchConnectorTypeById(connector.connectorTypeId);
-                                            if (connectorDetails) {
-                                                return {
-                                                    ...connector,
-                                                    typeName: connectorDetails.typeName,
-                                                    powerOutput: connectorDetails.powerOutput,
-                                                    pricePerKwh: connectorDetails.pricePerKwh,
-                                                    vehicles: connectorDetails.vehicles
-                                                };
-                                            }
+        try {
+            const list = await fetchChargingStations();
+            if (list) {
+                // Fetch connector type details for each station
+                const stationsWithConnectorDetails = await Promise.all(
+                    list.map(async (station) => {
+                        if (station.connectorTypes && station.connectorTypes.length > 0) {
+                            const updatedConnectorTypes = await Promise.all(
+                                station.connectorTypes.map(async (connector) => {
+                                    // Assuming connector has a connectorTypeId field
+                                    if (connector.connectorTypeId) {
+                                        const connectorDetails = await fetchConnectorTypeById(connector.connectorTypeId);
+                                        if (connectorDetails) {
+                                            return {
+                                                ...connector,
+                                                typeName: connectorDetails.typeName,
+                                                powerOutput: connectorDetails.powerOutput,
+                                                pricePerKwh: connectorDetails.pricePerKwh,
+                                                vehicles: connectorDetails.vehicles
+                                            };
                                         }
-                                        return connector;
-                                    })
-                                );
-                                return {
-                                    ...station,
-                                    connectorTypes: updatedConnectorTypes
-                                };
-                            }
-                            return station;
-                        })
-                    );
-                    
-                    setStations(stationsWithConnectorDetails);
-                    console.log("Station List with Connector Details: ", stationsWithConnectorDetails);
-                } else {
-                    console.warn("Can not receive the station list");
-                }
-            } catch (err) {
-                console.error("Error for calling API: ", err);
-            }
-        };
+                                    }
+                                    return connector;
+                                })
+                            );
+                            return {
+                                ...station,
+                                connectorTypes: updatedConnectorTypes
+                            };
+                        }
+                        return station;
+                    })
+                );
 
-    const fetchConnectorTypes = async(): Promise<newPortType[] | null> => {
+                setStations(stationsWithConnectorDetails);
+                console.log("Station List with Connector Details: ", stationsWithConnectorDetails);
+            } else {
+                console.warn("Can not receive the station list");
+            }
+        } catch (err) {
+            console.error("Error for calling API: ", err);
+        }
+    };
+
+    const fetchConnectorTypes = async (): Promise<newPortType[] | null> => {
         try {
             const res = await axios.get("http://localhost:8080/api/connector-types");
 
@@ -441,25 +458,25 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
         }
     };
     const handleGetConnectorList = async () => {
-            try {
-                const list = await fetchConnectorTypes();
-                if (list) {
-                    setPortTypes(list.map(connector => ({
-                        connectorId: connector.connectorId,
-                        name: connector.name,
-                        power: connector.power.toString(),
-                        price: connector.price.toString()
-                    })));
-                    console.log("Connector type List: ", list);
-                } else {
-                    console.warn("Can not receive the connector type list");
-                }
-            } catch (err) {
-                console.error("Error for calling API: ", err);
+        try {
+            const list = await fetchConnectorTypes();
+            if (list) {
+                setPortTypes(list.map(connector => ({
+                    connectorId: connector.connectorId,
+                    name: connector.name,
+                    power: connector.power.toString(),
+                    price: connector.price.toString()
+                })));
+                console.log("Connector type List: ", list);
+            } else {
+                console.warn("Can not receive the connector type list");
             }
-        };
+        } catch (err) {
+            console.error("Error for calling API: ", err);
+        }
+    };
 
-    
+
     // Fetch stations on component mount
     useEffect(() => {
         handleGetStationList();
@@ -474,7 +491,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
             setTimeout(() => {
                 const geocoderElement = document.querySelector('.maplibregl-ctrl-geocoder') as HTMLElement;
                 const customSearchElement = document.querySelector('.custom-search-control') as HTMLElement;
-                
+
                 if (geocoderElement) {
                     geocoderElement.style.display = 'block';
                     geocoderElement.style.visibility = 'visible';
@@ -602,7 +619,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
         }
     };
 
-    const callApiForConnectorAdding = async(): Promise<newPortType | null> => {
+    const callApiForConnectorAdding = async (): Promise<newPortType | null> => {
         setLoading(true);
         setError(null);
         try {
@@ -649,34 +666,34 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
         }
 
         const searchTerm = query.toLowerCase().trim();
-        
+
         // Tìm kiếm thông minh với scoring
         const results = poiList
             .map(poi => {
                 const name = poi.name.toLowerCase();
                 const address = poi.address.toLowerCase();
                 let score = 0;
-                
+
                 // Exact match trong tên (score cao nhất)
                 if (name === searchTerm) score += 100;
                 else if (name.startsWith(searchTerm)) score += 80;
                 else if (name.includes(searchTerm)) score += 60;
-                
+
                 // Exact match trong địa chỉ
                 if (address === searchTerm) score += 50;
                 else if (address.startsWith(searchTerm)) score += 40;
                 else if (address.includes(searchTerm)) score += 30;
-                
+
                 // Tìm kiếm từng từ riêng lẻ
                 const searchWords = searchTerm.split(' ').filter(word => word.length > 0);
                 const nameWords = name.split(' ');
                 const addressWords = address.split(' ');
-                
+
                 searchWords.forEach(word => {
                     if (nameWords.some(nw => nw.startsWith(word))) score += 20;
                     if (addressWords.some(aw => aw.startsWith(word))) score += 15;
                 });
-                
+
                 return { ...poi, score };
             })
             .filter(poi => poi.score > 0)
@@ -689,7 +706,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
     const handleSelectPOI = async (poi: { id: string; name: string; address: string; longitude: number; latitude: number }) => {
         console.log("🎯 Zoom to POI:", poi.name, "at", poi.longitude, poi.latitude);
-        
+
         // Xóa marker tạm cũ nếu có
         if (tempMarker) {
             tempMarker.remove();
@@ -723,13 +740,13 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
             setTempMarker(newTempMarker);
         }
-        
+
         // Thử lấy địa chỉ chi tiết từ bản đồ cho POI được chọn
         let enhancedPOI = { ...poi };
         try {
             console.log("🔍 Đang lấy địa chỉ chi tiết cho POI:", poi.name);
             const detailedAddress = await getDetailedAddress(poi.longitude, poi.latitude, { name: poi.name });
-            
+
             if (detailedAddress && detailedAddress.length > poi.address.length) {
                 enhancedPOI = { ...poi, address: detailedAddress };
                 console.log("✅ Địa chỉ đã được cải thiện:", detailedAddress);
@@ -739,16 +756,16 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
         } catch (error) {
             console.warn("⚠️ Không thể lấy địa chỉ chi tiết:", error);
         }
-        
+
         // Lưu POI được chọn (có thể đã được cải thiện địa chỉ)
         setSelectedPOI(enhancedPOI);
-        
+
         // Đóng kết quả tìm kiếm với animation
         setTimeout(() => {
             setShowSearchResults(false);
             setSearchInput("");
         }, 200);
-        
+
         // Toast notification với thông tin chi tiết
         toast.success("Đã tìm thấy vị trí", {
             description: `${enhancedPOI.name}`,
@@ -762,17 +779,17 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
     const handleSearchInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const value = e.target.value;
         setSearchInput(value);
-        
+
         // Clear timeout cũ
         if (searchTimeout) {
             clearTimeout(searchTimeout);
         }
-        
+
         // Debounce search với 300ms
         const newTimeout = setTimeout(() => {
             handleSearchPOI(value);
         }, 300);
-        
+
         setSearchTimeout(newTimeout);
     };
 
@@ -825,7 +842,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
     }, [showAddressSearchResults, showPortTypesPopup, showAddPortTypePopup]);
 
     // ========= STATION STATUS UPDATE FUNCTION =========
-    
+
     const updateStationStatus = async (stationId: string, status: "ACTIVE" | "INACTIVE"): Promise<boolean> => {
         setLoading(true);
         setError(null);
@@ -834,7 +851,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
             const res = await axios.patch(
                 `http://localhost:8080/api/charging-stations/${stationId}/status`,
                 status,
-                { 
+                {
                     headers: {
                         'Content-Type': 'application/json'
                     }
@@ -862,7 +879,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
     };
 
     // ========= CHARGING POSTS MANAGEMENT FUNCTIONS =========
-    
+
     const addChargingPost = () => {
         const newPost = {
             id: `post_${Date.now()}`,
@@ -873,25 +890,25 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
         };
         setChargingPosts(prev => [...prev, newPost]);
     };
-    
+
     const removeChargingPost = (id: string) => {
         setChargingPosts(prev => prev.filter(post => post.id !== id));
     };
-    
+
     const updateChargingPost = (id: string, field: string, value: string) => {
-        setChargingPosts(prev => prev.map(post => 
+        setChargingPosts(prev => prev.map(post =>
             post.id === id ? { ...post, [field]: value } : post
         ));
     };
 
     // ========= PORT TYPE MANAGEMENT FUNCTIONS =========
-    
+
     const handleAddPortType = async () => {
         if (!newPortType.name.trim() || !newPortType.power.trim() || !newPortType.price.trim()) {
             toast.error("Vui lòng điền đầy đủ thông tin");
             return;
         }
-        
+
         try {
             const result = await callApiForConnectorAdding();
             if (result) {
@@ -900,7 +917,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                     power: result.power.toString(),
                     price: result.price.toString()
                 };
-                
+
                 setPortTypes(prev => [...prev, newPortTypeData]);
                 setNewPortType({ name: "", power: "", price: "" });
                 setShowAddPortTypePopup(false);
@@ -916,29 +933,29 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
     };
 
     // ========= ADDRESS SEARCH FUNCTIONS FOR EDIT FORM =========
-    
+
     const handleAddressSearchInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const value = e.target.value;
         setAddressSearchInput(value);
         setIsAddressFieldTouched(true); // Đánh dấu đã tương tác với field
-        
+
         // Clear timeout if exists
         if (addressSearchTimeout) {
             clearTimeout(addressSearchTimeout);
         }
-        
+
         // Set new timeout
         const timeout = setTimeout(async () => {
             if (value.trim().length > 0) {
                 handleAddressSearchPOI(value.trim());
-                
+
                 // Auto-geocode the address and update coordinates
                 const coordinates = await geocodeAddress(value.trim());
                 if (coordinates) {
                     setLatitude(coordinates.lat);
                     setLongitude(coordinates.lng);
                     setAddress(value.trim());
-                    
+
                     // Update marker position in real-time with new coordinates
                     if (selectedStation) {
                         const updatedStation = {
@@ -956,27 +973,27 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                 setShowAddressSearchResults(false);
             }
         }, 500); // Increased timeout for geocoding
-        
+
         setAddressSearchTimeout(timeout);
     };
-    
+
     const [addressSearchTimeout, setAddressSearchTimeout] = useState<NodeJS.Timeout | null>(null);
-    
+
     const handleAddressSearchPOI = async (query: string) => {
         try {
             console.log("🔍 Searching addresses for:", query);
-            
+
             // Tìm kiếm trong POI list hiện có
             const results = poiList
-                .filter(poi => 
+                .filter(poi =>
                     poi.name.toLowerCase().includes(query.toLowerCase()) ||
                     poi.address.toLowerCase().includes(query.toLowerCase())
                 )
                 .slice(0, 8); // Giới hạn 8 kết quả
-            
+
             setAddressSearchResults(results);
             setShowAddressSearchResults(true);
-            
+
             console.log(`✅ Found ${results.length} address results`);
         } catch (error) {
             console.error("❌ Address search error:", error);
@@ -984,19 +1001,19 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
             setShowAddressSearchResults(false);
         }
     };
-    
+
     const handleSelectAddressPOI = async (poi: { id: string; name: string; address: string; longitude: number; latitude: number }) => {
         console.log("🎯 Selected address POI:", poi);
-        
+
         // Cập nhật địa chỉ và tọa độ
         setAddress(poi.address);
         setLatitude(poi.latitude);
         setLongitude(poi.longitude);
-        
+
         // Đóng dropdown
         setShowAddressSearchResults(false);
         setAddressSearchInput(poi.address);
-        
+
         // Update marker position in real-time
         if (selectedStation) {
             const updatedStation = {
@@ -1008,7 +1025,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
             console.log("Updating marker with selected POI coordinates:", poi.latitude, poi.longitude);
             updateStationMarker(updatedStation);
         }
-        
+
         // Toast notification
         toast.success("Đã cập nhật địa chỉ và tọa độ", {
             description: `${poi.name}`,
@@ -1041,13 +1058,13 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
             const response = await axios.get(
                 `https://api.maptiler.com/geocoding/reverse/${lng},${lat}.json?key=${apiKey}&language=vi&limit=5&types=street,locality,district,region`
             );
-            
+
             const features = response.data?.features || [];
             if (features.length > 0) {
                 // Tìm feature có thông tin đường phố chi tiết nhất
                 const streetFeature = features.find((f: any) => f.properties?.street) || (features[0] as any);
                 const context = streetFeature.context || {};
-                
+
                 // Lấy thông tin chi tiết từ context
                 const street = streetFeature.properties?.street || "";
                 const housenumber = streetFeature.properties?.housenumber || "";
@@ -1055,10 +1072,10 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                 const district = context.district?.[0] || context.county?.[0] || "";
                 const city = context.region?.[0] || context.city?.[0] || "";
                 const country = context.country?.[0] || "";
-                
+
                 // Tạo địa chỉ chi tiết theo format Việt Nam
                 let detailedAddress = "";
-                
+
                 // Phần 1: Số nhà + Tên đường
                 if (housenumber && street) {
                     detailedAddress = `${housenumber} ${street}`;
@@ -1067,27 +1084,27 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                 } else {
                     detailedAddress = streetFeature.properties?.name || streetFeature.properties?.label || "";
                 }
-                
+
                 // Phường/Xã
                 if (locality) {
                     detailedAddress += `, ${locality}`;
                 }
-                
+
                 // Quận/Huyện
                 if (district) {
                     detailedAddress += `, ${district}`;
                 }
-                
+
                 // Thành phố/Tỉnh
                 if (city) {
                     detailedAddress += `, ${city}`;
                 }
-                
+
                 // Quốc gia (nếu cần)
                 if (country && country !== "Việt Nam") {
                     detailedAddress += `, ${country}`;
                 }
-                
+
                 console.log("Reverse geocoding result:", {
                     original: props.name,
                     street,
@@ -1097,7 +1114,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                     city,
                     result: detailedAddress.trim()
                 });
-                
+
                 return detailedAddress.trim();
             }
         } catch (error) {
@@ -1131,12 +1148,12 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
             const candidates = features
                 .filter((f: any) => {
                     // Hỗ trợ cả Point và Polygon
-                    return (f?.geometry?.type === "Point" || f?.geometry?.type === "Polygon") && 
-                           Array.isArray(f?.geometry?.coordinates);
+                    return (f?.geometry?.type === "Point" || f?.geometry?.type === "Polygon") &&
+                        Array.isArray(f?.geometry?.coordinates);
                 })
                 .map((f: any, idx: number) => {
                     let lng, lat;
-                    
+
                     if (f.geometry.type === "Point") {
                         [lng, lat] = f.geometry.coordinates as [number, number];
                     } else if (f.geometry.type === "Polygon" && f.geometry.coordinates[0] && f.geometry.coordinates[0][0]) {
@@ -1168,17 +1185,17 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                     }
 
                     const props = f?.properties ?? {};
-                    
+
                     // Tạo địa chỉ chi tiết từ nhiều nguồn dữ liệu
                     let address = "";
-                    
+
                     // Phương pháp 1: Sử dụng các trường addr: chi tiết
                     if (props["addr:street"] && props["addr:housenumber"]) {
                         address = `${props["addr:housenumber"]} ${props["addr:street"]}`;
                         if (props["addr:subdistrict"]) address += `, ${props["addr:subdistrict"]}`;
                         if (props["addr:district"]) address += `, ${props["addr:district"]}`;
                         if (props["addr:city"]) address += `, ${props["addr:city"]}`;
-                    } 
+                    }
                     // Phương pháp 2: Chỉ có tên đường
                     else if (props["addr:street"]) {
                         address = props["addr:street"];
@@ -1199,7 +1216,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                         if (props["addr:district"]) additionalInfo.push(props["addr:district"]);
                         if (props.brand) additionalInfo.push(props.brand);
                         if (props.operator) additionalInfo.push(props.operator);
-                        
+
                         address = props.name;
                         if (additionalInfo.length > 0) {
                             address += ` (${additionalInfo.join(", ")})`;
@@ -1209,13 +1226,13 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                     else {
                         address = props.description || "Địa chỉ chưa xác định";
                     }
-                    
+
                     // Làm sạch địa chỉ
                     address = address.trim().replace(/,\s*,/g, ',').replace(/,\s*$/, '');
-                    
+
                     // Đánh dấu POI cần reverse geocoding
                     const needsReverseGeocoding = address === "Địa chỉ chưa xác định" || address.length < 10;
-                    
+
                     return {
                         id: String(props.id ?? props.stationId ?? props._id ?? `poi-${idx}`),
                         name: String(props.name ?? props.title ?? "POI (chưa có trạm)"),
@@ -1249,13 +1266,13 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
             // Xử lý reverse geocoding để lấy địa chỉ chi tiết từ bản đồ
             const improveAddresses = async () => {
                 console.log("Bắt đầu cải thiện địa chỉ cho", candidates.length, "POI...");
-                
+
                 const improvedCandidates = await Promise.all(
                     candidates.map(async (poi, index) => {
                         try {
                             // Luôn thử reverse geocoding để lấy địa chỉ chi tiết từ bản đồ
                             const detailedAddress = await getDetailedAddress(poi.longitude, poi.latitude, { name: poi.name });
-                            
+
                             if (detailedAddress && detailedAddress.length > poi.address.length) {
                                 console.log(`POI ${index + 1}: "${poi.name}" - Địa chỉ mới: "${detailedAddress}"`);
                                 return { ...poi, address: detailedAddress };
@@ -1269,7 +1286,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                         }
                     })
                 );
-                
+
                 setPoiList(improvedCandidates);
                 console.log("✅ Đã hoàn thành cải thiện địa chỉ cho tất cả POI");
             };
@@ -1284,7 +1301,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
         } catch (err) {
             console.error("Lỗi khi fetch POI từ MapTiler:", err);
             toast.error("Không thể lấy POI từ MapTiler API");
-            
+
             // Fallback to mock data on error
             const mockPOI = [
                 { id: "poi-1", name: "Siêu Thị Bình Hòa", address: "123 Nguyễn Huệ, Quận 1, TP.HCM", longitude: 106.6981, latitude: 10.8163 },
@@ -1476,7 +1493,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
             // Check if station has charging points with this connector type
             return station.chargingPoints?.some(point => {
                 // Check if the point uses this connector type
-                return point.typeName && newPortTypes.some(type => 
+                return point.typeName && newPortTypes.some(type =>
                     type.name === point.typeName && type.connectorId === connectorId
                 );
             });
@@ -1494,11 +1511,11 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
     // Get detailed information about which stations are using this connector type
     const getConnectorUsageDetails = (connectorId: string): string[] => {
         const usageDetails: string[] = [];
-        
+
         // Check in all stations from API data
         stations.forEach(station => {
             station.chargingPoints?.forEach(point => {
-                const connectorType = newPortTypes.find(type => 
+                const connectorType = newPortTypes.find(type =>
                     type.name === point.typeName && type.connectorId === connectorId
                 );
                 if (connectorType) {
@@ -1604,16 +1621,16 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
             setLatitude(selectedStation.latitude);
             setLongitude(selectedStation.longitude);
             setStatus(selectedStation.status);
-            
+
             // Load existing charging points from API
             try {
                 const points = await fetchChargingPoints();
                 if (points) {
                     // Filter charging points for this specific station
-                    const stationPoints = points.filter(point => 
+                    const stationPoints = points.filter(point =>
                         point.station?.stationId === Number(selectedStation.id)
                     );
-                    
+
                     if (stationPoints.length > 0) {
                         const existingPosts = stationPoints.map((point) => ({
                             id: `post-${point.chargingPointId}`,
@@ -1633,7 +1650,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                 console.error("Error loading charging points:", err);
                 setChargingPosts([]);
             }
-            
+
             // Load port types for connector selection
             try {
                 const types = await fetchConnectorTypes();
@@ -1643,7 +1660,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
             } catch (err) {
                 console.error("Error loading connector types:", err);
             }
-            
+
             // Reset address field state
             setAddressSearchInput("");
             setIsAddressFieldTouched(false);
@@ -1677,43 +1694,165 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
     };
 
     const handleViewAllChargingPoints = async (station: ChargingStation) => {
-        setSelectedStationForAllPoints(station);
-        try {
-            const points = await fetchChargingPoints();
-            if (points) {
-                // Filter charging points for this specific station
-                const stationPoints = points.filter(point => 
-                    point.station?.stationId === Number(station.id)
-                );
-                
-                // Fetch connector type details for each charging point
-                const pointsWithConnectorDetails = await Promise.all(
-                    stationPoints.map(async (point) => {
-                        // Try to get connector type details from the point's connector type
-                        if (point.station?.chargingPoint?.[0]?.connectorType?.connectorTypeId) {
-                            const connectorTypeId = point.station.chargingPoint[0].connectorType.connectorTypeId;
-                            const connectorDetails = await fetchConnectorTypeById(connectorTypeId);
-                            if (connectorDetails) {
-                                return {
-                                    ...point,
-                                    typeName: connectorDetails.typeName,
-                                    powerOutput: connectorDetails.powerOutput,
-                                    pricePerKwh: connectorDetails.pricePerKwh
-                                };
-                            }
-                        }
-                        return point;
-                    })
-                );
-                
-                setAllChargingPoints(pointsWithConnectorDetails);
-                setIsAllChargingPointsDialogOpen(true);
-            }
-        } catch (err) {
-            console.error("Error fetching charging points:", err);
-            toast.error("Lỗi khi tải danh sách trụ sạc");
-        }
+  setSelectedStationForAllPoints(station);
+
+  try {
+    const points = await fetchChargingPoints();
+    if (!points) {
+      setAllChargingPoints([]);
+      setIsAllChargingPointsDialogOpen(true);
+      return;
+    }
+
+    const stationIdNum = Number(station.id);
+
+    // Lọc trụ thuộc đúng station
+    const stationPointsFromAll = points.filter((p: any) => {
+      const sid = p.stationId ?? p.station?.stationId ?? p.station_id;
+      return Number(sid) === stationIdNum;
+    });
+
+    // Ưu tiên dùng station.chargingPoints nếu có id hợp lệ, ngược lại dùng danh sách đã lọc
+    const sourcePoints: any[] =
+      Array.isArray(station.chargingPoints) &&
+      station.chargingPoints.some((p: any) => p?.chargingPointId ?? p?.id)
+        ? station.chargingPoints
+        : stationPointsFromAll;
+
+    if (sourcePoints.length === 0) {
+      console.log("No charging points found for this station");
+      setAllChargingPoints([]);
+      setIsAllChargingPointsDialogOpen(true);
+      return;
+    }
+
+    // Các hàm tiện ích NỘI BỘ (đều khai báo trong chính hàm này):
+    const getConnectorTypeId = (p: any): number | undefined => {
+      return (
+        p.connectorTypeId ??
+        p.connector_type_id ??
+        p.connectorType?.connectorTypeId ??
+        p.station?.chargingPoint?.[0]?.connectorType?.connectorTypeId
+      );
     };
+
+     const extractConnectorDetail = (p: any) => {
+       // 1) Ưu tiên lấy từ connectorType trực tiếp trên point (theo cấu trúc API mới)
+       if (p.connectorType && (p.connectorType.typeName || p.connectorType.powerOutput)) {
+         console.log("Using direct connectorType:", p.connectorType);
+         return p.connectorType;
+       }
+       // 2) Fallback: Tìm trong station.chargingPoint khớp chargingPointId
+       const cpId = p.chargingPointId ?? p.id;
+       const nest = p.station?.chargingPoint;
+       if (Array.isArray(nest)) {
+         const found = nest.find((x: any) => (x.chargingPointId ?? x.id) === cpId);
+         if (found?.connectorType) {
+           console.log("Using nested connectorType:", found.connectorType);
+           return found.connectorType;
+         }
+       }
+       return undefined;
+     };
+
+    const pickPrice = (obj: any): number | null => {
+      if (!obj) return null;
+      if (typeof obj.pricePerKWh === "number") return obj.pricePerKWh; // dạng chuẩn trong mẫu JSON
+      if (typeof obj.pricePerKwh === "number") return obj.pricePerKwh; // một số API trả khác hoa/thường
+      return null;
+    };
+
+    const pickStatus = (p: any): string => {
+      if (p.status) return p.status; // ưu tiên ngay trên point
+      const cpId = p.chargingPointId ?? p.id;
+      const found = p.station?.chargingPoint?.find((x: any) => (x.chargingPointId ?? x.id) === cpId);
+      if (found?.status) return found.status;
+      return "UNKNOWN";
+    };
+
+    // Cache fetch connectorType theo id để tránh gọi trùng
+    const connectorTypeCache = new Map<number, any>();
+    const uniqueConnectorTypeIds = Array.from(
+      new Set(
+        sourcePoints
+          .map(getConnectorTypeId)
+          .filter((id): id is number => typeof id === "number")
+      )
+    );
+
+    await Promise.all(
+      uniqueConnectorTypeIds.map(async (id) => {
+        if (connectorTypeCache.has(id)) return;
+        try {
+          const det = await fetchConnectorTypeById(id);
+          if (det) connectorTypeCache.set(id, det);
+        } catch (e) {
+          console.warn("fetchConnectorTypeById failed for id=", id, e);
+        }
+      })
+    );
+
+    // Chuẩn hoá từng trụ: lấy đúng powerOutput, pricePerKWh/pricePerKwh và status
+    const enriched = await Promise.all(
+      sourcePoints.map(async (p: any) => {
+        const chargingPointId = p.chargingPointId ?? p.id;
+        const status = pickStatus(p);
+
+        const inlineConn = extractConnectorDetail(p);
+        const connectorTypeId =
+          getConnectorTypeId(p) ??
+          inlineConn?.connectorTypeId ??
+          inlineConn?.id;
+
+        const fetchedConn =
+          typeof connectorTypeId === "number"
+            ? connectorTypeCache.get(connectorTypeId)
+            : undefined;
+
+        const typeName =
+          p.typeName ??
+          inlineConn?.typeName ??
+          fetchedConn?.typeName ??
+          "N/A";
+
+         // Ưu tiên lấy từ connectorType trước, sau đó mới đến point level
+         const powerOutput =
+           (typeof inlineConn?.powerOutput === "number" ? inlineConn.powerOutput : null) ??
+           (typeof fetchedConn?.powerOutput === "number" ? fetchedConn.powerOutput : null) ??
+           (typeof p.powerOutput === "number" && p.powerOutput > 0 ? p.powerOutput : null) ??
+           null;
+
+         const pricePerKwh =
+           pickPrice(inlineConn) ??
+           pickPrice(fetchedConn) ??
+           (typeof p.pricePerKwh === "number" ? p.pricePerKwh : null) ??
+           null;
+
+        return {
+          ...p,
+          chargingPointId,
+          connectorTypeId,
+          typeName,
+          powerOutput,
+          pricePerKwh,
+          status,
+        };
+      })
+    );
+
+    // Sắp xếp cho dễ đọc
+    enriched.sort((a, b) => (Number(a.chargingPointId) || 0) - (Number(b.chargingPointId) || 0));
+
+    console.log("Enriched station points:", enriched);
+    setAllChargingPoints(enriched);
+    setIsAllChargingPointsDialogOpen(true);
+  } catch (err) {
+    console.error("Error fetching charging points:", err);
+    toast.error("Lỗi khi tải danh sách trụ sạc");
+  }
+};
+
+
 
     const updateStationMarker = (station: ChargingStation) => {
         const map = __mapRef.current;
@@ -1728,7 +1867,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
             // Find existing marker for this station
             const existingMarker = markerMapRef.current.get(station.id);
             console.log("Found existing marker:", !!existingMarker);
-            
+
             if (existingMarker) {
                 // Update existing marker position
                 existingMarker.setLngLat([station.longitude, station.latitude]);
@@ -1762,7 +1901,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                 `https://api.maptiler.com/geocoding/${address}.json?key=${import.meta.env.VITE_MAPTILER_API_KEY || 'YOUR_API_KEY'}`
             );
             const data = await response.json();
-            
+
             if (data.features && data.features.length > 0) {
                 const [lng, lat] = data.features[0].geometry.coordinates;
                 return { lat, lng };
@@ -1883,7 +2022,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                 setMapZoom(Number(z.toFixed(0)));
                 const c = map.getCenter();
                 setMapCenter({ lat: c.lat, lng: c.lng });
-                
+
                 // Không cập nhật POI markers nữa - đã tắt hoàn toàn
                 // Chỉ xóa POI markers nếu có
                 if (poiMarkersRef.current.length > 0) {
@@ -1996,18 +2135,18 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                                 <RefreshCw className="w-4 h-4" />
                                 <span className="hidden sm:inline">Làm mới</span>
                             </Button>
-                            
+
                             {/* Charging Port Types Management Button */}
                             <div className="relative port-types-popup-container">
-                                <Button 
-                                    variant="outline" 
+                                <Button
+                                    variant="outline"
                                     onClick={() => setShowPortTypesPopup(!showPortTypesPopup)}
                                     className="flex items-center space-x-2 bg-green-600 hover:bg-green-700 text-white border-green-600 hover:border-green-700"
                                 >
                                     <Plug className="w-4 h-4" />
                                     <span className="hidden sm:inline">Loại cổng sạc</span>
                                 </Button>
-                                
+
                                 {/* Port Types Popup */}
                                 {showPortTypesPopup && (
                                     <div className="absolute top-full right-0 mt-2 w-96 bg-black border border-gray-600 rounded-xl shadow-2xl z-50">
@@ -2026,7 +2165,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                                                 </button>
                                             </div>
                                         </div>
-                                        
+
                                         {/* Port Types List */}
                                         <div className="max-h-80 overflow-y-auto">
                                             {portTypes.map((portType, index) => (
@@ -2064,10 +2203,10 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                                                 </div>
                                             ))}
                                         </div>
-                                        
+
                                         {/* Add New Port Type Button */}
                                         <div className="p-4 border-t border-gray-700">
-                                            <Button 
+                                            <Button
                                                 className="w-full bg-green-600 hover:bg-green-700 text-white"
                                                 onClick={() => setShowAddPortTypePopup(true)}
                                             >
@@ -2078,7 +2217,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                                     </div>
                                 )}
                             </div>
-                            
+
                             {/* Add New Port Type Popup */}
                             {showAddPortTypePopup && (
                                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 add-port-type-popup-container">
@@ -2098,7 +2237,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                                                 </button>
                                             </div>
                                         </div>
-                                        
+
                                         {/* Form */}
                                         <div className="p-6 space-y-4">
                                             {/* Tên cổng sạc */}
@@ -2112,7 +2251,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                                                     className="w-full h-12 bg-gray-900 border border-gray-600 rounded-xl px-4 text-white placeholder-gray-400 focus:border-green-500 focus:ring-2 focus:ring-green-500/20 transition-all duration-200"
                                                 />
                                             </div>
-                                            
+
                                             {/* Công suất */}
                                             <div className="space-y-2">
                                                 <label className="text-sm font-medium text-white">Công suất (kWh)</label>
@@ -2124,7 +2263,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                                                     className="w-full h-12 bg-gray-900 border border-gray-600 rounded-xl px-4 text-white placeholder-gray-400 focus:border-green-500 focus:ring-2 focus:ring-green-500/20 transition-all duration-200"
                                                 />
                                             </div>
-                                            
+
                                             {/* Giá tiền */}
                                             <div className="space-y-2">
                                                 <label className="text-sm font-medium text-white">Giá tiền trên mỗi kWh (₫)</label>
@@ -2138,7 +2277,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                                                 />
                                             </div>
                                         </div>
-                                        
+
                                         {/* Actions */}
                                         <div className="p-6 border-t border-gray-700 flex space-x-3">
                                             <Button
@@ -2158,7 +2297,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                                     </div>
                                 </div>
                             )}
-                            
+
                             <Dialog
                                 open={isAddDialogOpen}
                                 onOpenChange={(open: boolean) => {
@@ -2183,20 +2322,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                                 }}
                             >
                                 <DialogTrigger asChild>
-                                    <Button
-                                        className="flex items-center space-x-2"
-                                        onClick={() => {
-                                            const c = __mapRef.current?.getCenter();
-                                            if (c) {
-                                                setLatitude(c.lat);
-                                                setLongitude(c.lng);
-                                            }
-                                            setIsAddDialogOpen(true);
-                                        }}
-                                    >
-                                        <Plus className="w-4 h-4" />
-                                        <span className="hidden sm:inline">Thêm trạm</span>
-                                    </Button>
+
                                 </DialogTrigger>
                                 <DialogContent className="max-w-4xl max-h-[30vh] overflow-y-auto">
                                     <DialogHeader className="pb-4">
@@ -2206,166 +2332,166 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
                                     <form onSubmit={handleAddingStation} className="space-y-4">
                                         <ScrollArea className="max-h-[calc(90vh-200px)] pr-2">
-                                        {error &&
-                                            <div className="text-red-600 text-sm p-2 bg-red-50 rounded">{error}</div>}
-                                        <div>
-                                            <Label htmlFor="name">Tên trạm sạc</Label>
-                                            <Input
-                                                id="name"
-                                                placeholder="ChargeHub Premium - Q1"
-                                                value={stationName}
-                                                onChange={(e) => setStationName(e.target.value)}
-                                                disabled={loading}
-                                            />
-                                        </div>
-
-                                        <div>
-                                            <Label htmlFor="address">Địa chỉ</Label>
-                                            <Textarea
-                                                id="address"
-                                                placeholder="123 Nguyễn Huệ, Quận 1, TP.HCM"
-                                                value={address}
-                                                onChange={(e) => {
-                                                    console.log("Address input changed:", e.target.value);
-                                                    setAddress(e.target.value);
-                                                }}
-                                                disabled={loading}
-                                            />
-                                        </div>
-
-                                        <div>
-                                            <Label htmlFor="status">Trạng thái</Label>
-                                            <Select value={status} onValueChange={(v: string) => setStatus(v as StationStatus)}
-                                                disabled={loading}>
-                                                <SelectTrigger id="status">
-                                                    <SelectValue placeholder="Chọn trạng thái" />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="ACTIVE">ACTIVE</SelectItem>
-                                                    <SelectItem value="INACTIVE">INACTIVE</SelectItem>
-                                                    <SelectItem value="MAINTENANCE">MAINTENANCE</SelectItem>
-                                                </SelectContent>
-                                            </Select>
-                                        </div>
-
-                                        <div className="grid grid-cols-2 gap-4">
+                                            {error &&
+                                                <div className="text-red-600 text-sm p-2 bg-red-50 rounded">{error}</div>}
                                             <div>
-                                                <Label htmlFor="latitude">Vĩ độ</Label>
+                                                <Label htmlFor="name">Tên trạm sạc</Label>
                                                 <Input
-                                                    id="latitude"
-                                                    type="number"
-                                                    step="any"
-                                                    placeholder="10.7769"
-                                                    value={latitude ?? ""}
-                                                    onChange={(e) => {
-                                                        const val = e.target.value;
-                                                        setLatitude(val === "" ? null : parseFloat(val));
-                                                    }}
-                                                    disabled={true}
-                                                    className="bg-gray-100 cursor-not-allowed"
+                                                    id="name"
+                                                    placeholder="ChargeHub Premium - Q1"
+                                                    value={stationName}
+                                                    onChange={(e) => setStationName(e.target.value)}
+                                                    disabled={loading}
                                                 />
                                             </div>
+
                                             <div>
-                                                <Label htmlFor="longitude">Kinh độ</Label>
-                                                <Input
-                                                    id="longitude"
-                                                    type="number"
-                                                    step="any"
-                                                    placeholder="106.7009"
-                                                    value={longitude ?? ""}
+                                                <Label htmlFor="address">Địa chỉ</Label>
+                                                <Textarea
+                                                    id="address"
+                                                    placeholder="123 Nguyễn Huệ, Quận 1, TP.HCM"
+                                                    value={address}
                                                     onChange={(e) => {
-                                                        const val = e.target.value;
-                                                        setLongitude(val === "" ? null : parseFloat(val));
+                                                        console.log("Address input changed:", e.target.value);
+                                                        setAddress(e.target.value);
                                                     }}
-                                                    disabled={true}
-                                                    className="bg-gray-100 cursor-not-allowed"
+                                                    disabled={loading}
                                                 />
                                             </div>
-                                        </div>
 
-                                        {/* Charging Posts Management */}
-                                        <div className="space-y-3">
-                                            <div className="flex items-center justify-between">
-                                                <Label className="text-foreground/90 font-medium">Trụ sạc ({chargingPosts.length})</Label>
-                                                <Button
-                                                    type="button"
-                                                    onClick={addChargingPost}
-                                                    className="h-8 w-8 p-0 bg-green-600 hover:bg-green-700 text-white rounded-full"
-                                                >
-                                                    <Plus className="w-4 h-4" />
-                                                </Button>
+                                            <div>
+                                                <Label htmlFor="status">Trạng thái</Label>
+                                                <Select value={status} onValueChange={(v: string) => setStatus(v as StationStatus)}
+                                                    disabled={loading}>
+                                                    <SelectTrigger id="status">
+                                                        <SelectValue placeholder="Chọn trạng thái" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="ACTIVE">ACTIVE</SelectItem>
+                                                        <SelectItem value="INACTIVE">INACTIVE</SelectItem>
+                                                        <SelectItem value="MAINTENANCE">MAINTENANCE</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
                                             </div>
-                                            
-                                            {chargingPosts.length === 0 && (
-                                                <div className="text-center py-6 text-muted-foreground">
-                                                    <Plug className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                                                    <p className="text-sm">Chưa có trụ sạc nào</p>
-                                                    <p className="text-xs">Nhấn nút + để thêm trụ sạc</p>
+
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div>
+                                                    <Label htmlFor="latitude">Vĩ độ</Label>
+                                                    <Input
+                                                        id="latitude"
+                                                        type="number"
+                                                        step="any"
+                                                        placeholder="10.7769"
+                                                        value={latitude ?? ""}
+                                                        onChange={(e) => {
+                                                            const val = e.target.value;
+                                                            setLatitude(val === "" ? null : parseFloat(val));
+                                                        }}
+                                                        disabled={true}
+                                                        className="bg-gray-100 cursor-not-allowed"
+                                                    />
                                                 </div>
-                                            )}
-                                            
-                                            {chargingPosts.length > 0 && (
-                                                <div className="max-h-8 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-500 scrollbar-track-gray-800">
-                                                    <div className="space-y-2">
-                                                        {chargingPosts.map((post, index) => (
-                                                            <div key={post.id} className="p-3 border border-gray-600 rounded-lg bg-gray-900/30">
-                                                                <div className="flex items-center justify-between mb-2">
-                                                                    <h4 className="text-sm font-medium text-white">#{index + 1}</h4>
-                                                                    <Button
-                                                                        type="button"
-                                                                        onClick={() => removeChargingPost(post.id)}
-                                                                        className="h-5 w-5 p-0 text-red-400 hover:text-red-300 hover:bg-red-400/10"
-                                                                    >
-                                                                        <XCircle className="w-3 h-3" />
-                                                                    </Button>
-                                                                </div>
-                                                                
-                                                                <div className="space-y-3">
-                                                                    <div>
-                                                                        <label className="text-xs text-gray-400 mb-1 block">Loại cổng sạc</label>
-                                                                        <select
-                                                                            value={post.connectorType}
-                                                                            onChange={(e) => {
-                                                                                const selectedType = portTypes.find(type => type.name === e.target.value);
-                                                                                updateChargingPost(post.id, 'connectorType', e.target.value);
-                                                                                if (selectedType) {
-                                                                                    updateChargingPost(post.id, 'power', selectedType.power);
-                                                                                    updateChargingPost(post.id, 'price', selectedType.price);
-                                                                                }
-                                                                            }}
-                                                                            className="w-full h-8 text-sm bg-black border border-gray-600 rounded-lg px-3 text-white focus:border-green-500 focus:ring-1 focus:ring-green-500/20 transition-colors"
-                                                                        >
-                                                                            <option value="">Chọn loại cổng sạc</option>
-                                                                            {portTypes.map((type, idx) => (
-                                                                                <option key={idx} value={type.name}>
-                                                                                    {type.name} ({type.power} kWh - ₫{type.price}/kWh)
-                                                                                </option>
-                                                                            ))}
-                                                                        </select>
-                                                                    </div>
-                                                                    
-                                                                    <div>
-                                                                        <label className="text-xs text-gray-400 mb-1 block">Trạng thái</label>
-                                                                        <select
-                                                                            value={post.status}
-                                                                            onChange={(e) => updateChargingPost(post.id, 'status', e.target.value)}
-                                                                            className="w-full h-8 text-sm bg-black border border-gray-600 rounded-lg px-3 text-white focus:border-green-500 focus:ring-1 focus:ring-green-500/20 transition-colors"
-                                                                        >
-                                                                            <option value="AVAILABLE">🟢 Có sẵn</option>
-                                                                            <option value="OCCUPIED">🔴 Đang sử dụng</option>
-                                                                            <option value="OUT_OF_SERVICE">⚫ Ngừng hoạt động</option>
-                                                                            <option value="MAINTENANCE">🔧 Bảo trì</option>
-                                                                        </select>
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                        ))}
+                                                <div>
+                                                    <Label htmlFor="longitude">Kinh độ</Label>
+                                                    <Input
+                                                        id="longitude"
+                                                        type="number"
+                                                        step="any"
+                                                        placeholder="106.7009"
+                                                        value={longitude ?? ""}
+                                                        onChange={(e) => {
+                                                            const val = e.target.value;
+                                                            setLongitude(val === "" ? null : parseFloat(val));
+                                                        }}
+                                                        disabled={true}
+                                                        className="bg-gray-100 cursor-not-allowed"
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            {/* Charging Posts Management */}
+                                            <div className="space-y-3">
+                                                <div className="flex items-center justify-between">
+                                                    <Label className="text-foreground/90 font-medium">Trụ sạc ({chargingPosts.length})</Label>
+                                                    <Button
+                                                        type="button"
+                                                        onClick={addChargingPost}
+                                                        className="h-8 w-8 p-0 bg-green-600 hover:bg-green-700 text-white rounded-full"
+                                                    >
+                                                        <Plus className="w-4 h-4" />
+                                                    </Button>
+                                                </div>
+
+                                                {chargingPosts.length === 0 && (
+                                                    <div className="text-center py-6 text-muted-foreground">
+                                                        <Plug className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                                                        <p className="text-sm">Chưa có trụ sạc nào</p>
+                                                        <p className="text-xs">Nhấn nút + để thêm trụ sạc</p>
                                                     </div>
-                                                </div>
-                                            )}
-                                        </div>
+                                                )}
+
+                                                {chargingPosts.length > 0 && (
+                                                    <div className="max-h-8 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-500 scrollbar-track-gray-800">
+                                                        <div className="space-y-2">
+                                                            {chargingPosts.map((post, index) => (
+                                                                <div key={post.id} className="p-3 border border-gray-600 rounded-lg bg-gray-900/30">
+                                                                    <div className="flex items-center justify-between mb-2">
+                                                                        <h4 className="text-sm font-medium text-white">#{index + 1}</h4>
+                                                                        <Button
+                                                                            type="button"
+                                                                            onClick={() => removeChargingPost(post.id)}
+                                                                            className="h-5 w-5 p-0 text-red-400 hover:text-red-300 hover:bg-red-400/10"
+                                                                        >
+                                                                            <XCircle className="w-3 h-3" />
+                                                                        </Button>
+                                                                    </div>
+
+                                                                    <div className="space-y-3">
+                                                                        <div>
+                                                                            <label className="text-xs text-gray-400 mb-1 block">Loại cổng sạc</label>
+                                                                            <select
+                                                                                value={post.connectorType}
+                                                                                onChange={(e) => {
+                                                                                    const selectedType = portTypes.find(type => type.name === e.target.value);
+                                                                                    updateChargingPost(post.id, 'connectorType', e.target.value);
+                                                                                    if (selectedType) {
+                                                                                        updateChargingPost(post.id, 'power', selectedType.power);
+                                                                                        updateChargingPost(post.id, 'price', selectedType.price);
+                                                                                    }
+                                                                                }}
+                                                                                className="w-full h-8 text-sm bg-black border border-gray-600 rounded-lg px-3 text-white focus:border-green-500 focus:ring-1 focus:ring-green-500/20 transition-colors"
+                                                                            >
+                                                                                <option value="">Chọn loại cổng sạc</option>
+                                                                                {portTypes.map((type, idx) => (
+                                                                                    <option key={idx} value={type.name}>
+                                                                                        {type.name} ({type.power} kWh - ₫{type.price}/kWh)
+                                                                                    </option>
+                                                                                ))}
+                                                                            </select>
+                                                                        </div>
+
+                                                                        <div>
+                                                                            <label className="text-xs text-gray-400 mb-1 block">Trạng thái</label>
+                                                                            <select
+                                                                                value={post.status}
+                                                                                onChange={(e) => updateChargingPost(post.id, 'status', e.target.value)}
+                                                                                className="w-full h-8 text-sm bg-black border border-gray-600 rounded-lg px-3 text-white focus:border-green-500 focus:ring-1 focus:ring-green-500/20 transition-colors"
+                                                                            >
+                                                                                <option value="AVAILABLE">🟢 Có sẵn</option>
+                                                                                <option value="OCCUPIED">🔴 Đang sử dụng</option>
+                                                                                <option value="OUT_OF_SERVICE">⚫ Ngừng hoạt động</option>
+                                                                                <option value="MAINTENANCE">🔧 Bảo trì</option>
+                                                                            </select>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
                                         </ScrollArea>
-                                        
+
                                         <div className="pt-4 border-t border-gray-700">
                                             <Button type="submit" disabled={loading} className="w-full">
                                                 {loading ? "Đang tạo..." : "Thêm trạm sạc"}
@@ -2407,7 +2533,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                                                         </button>
                                                     )}
                                                 </div>
-                                                
+
                                                 {/* Dropdown kết quả tìm kiếm với animation */}
                                                 {showSearchResults && (
                                                     <div className="absolute top-full left-0 right-0 mt-3 bg-black border border-gray-600 rounded-2xl shadow-2xl z-50 max-h-96 overflow-hidden animate-in slide-in-from-top-3 duration-300">
@@ -2429,7 +2555,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                                                                         </div>
                                                                     </div>
                                                                 </div>
-                                                                
+
                                                                 {/* Results list với scroll */}
                                                                 <div className="max-h-80 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800">
                                                                     {searchResults.map((poi, index) => (
@@ -2528,7 +2654,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                                             </svg>
                                         </div>
                                     </div>
-                                    
+
                                     {/* Thêm CSS cho search control */}
                                     <style dangerouslySetInnerHTML={{
                                         __html: `
@@ -2677,7 +2803,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                                                     <XCircle className="w-4 h-4" />
                                                 </Button>
                                             </div>
-                                            
+
                                             <div className="mb-3">
                                                 <div className="text-xs text-gray-400 mb-1">Địa chỉ:</div>
                                                 <div className="text-xs text-gray-300 bg-gray-900 border border-gray-700 px-2 py-1 rounded mb-2">
@@ -2693,7 +2819,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                                             {(() => {
                                                 const nearbyStation = stations.find(station => {
                                                     const distance = Math.sqrt(
-                                                        Math.pow(station.latitude - selectedPOI.latitude, 2) + 
+                                                        Math.pow(station.latitude - selectedPOI.latitude, 2) +
                                                         Math.pow(station.longitude - selectedPOI.longitude, 2)
                                                     );
                                                     return distance < 0.001; // Khoảng 100m
@@ -2803,10 +2929,10 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
                                                             <div className="relative">
                                                                 <Label htmlFor="editAddress">Địa chỉ</Label>
-                                                                            <div className="relative">
-                                                                                <Input
-                                                                    id="editAddress"
-                                                                    name="address"
+                                                                <div className="relative">
+                                                                    <Input
+                                                                        id="editAddress"
+                                                                        name="address"
                                                                         value={isAddressFieldTouched ? addressSearchInput : (addressSearchInput || address)}
                                                                         onChange={handleAddressSearchInputChange}
                                                                         onFocus={() => {
@@ -2817,46 +2943,46 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                                                                             }
                                                                         }}
                                                                         placeholder="Tìm kiếm địa điểm..."
-                                                                    disabled={loading}
+                                                                        disabled={loading}
                                                                         className="w-full"
                                                                     />
-                                                                    
+
                                                                     {/* Address search results dropdown */}
                                                                     {showAddressSearchResults && (
                                                                         <div className="address-search-results-container absolute top-full left-0 right-0 mt-1 bg-black border border-gray-600 rounded-lg shadow-xl z-50 max-h-60 overflow-y-auto">
                                                                             <div className="p-3 border-b border-gray-700">
-                                                                                            <div className="flex items-center space-x-2">
+                                                                                <div className="flex items-center space-x-2">
                                                                                     <MapPin className="w-4 h-4 text-blue-400" />
-                                                                <div>
-                                                                                                    <span className="text-sm font-semibold text-white">
+                                                                                    <div>
+                                                                                        <span className="text-sm font-semibold text-white">
                                                                                             {addressSearchResults.length} kết quả tìm thấy
-                                                                                                    </span>
-                                                                                                    <div className="text-xs text-gray-300 mt-0.5">
+                                                                                        </span>
+                                                                                        <div className="text-xs text-gray-300 mt-0.5">
                                                                                             Chọn để cập nhật địa chỉ và tọa độ
-                                                                                                    </div>
-                                                                                                </div>
-                                                                                            </div>
                                                                                         </div>
-                                                                                        
+                                                                                    </div>
+                                                                                </div>
+                                                                            </div>
+
                                                                             <div className="max-h-60 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800">
                                                                                 {addressSearchResults.length > 0 ? (
                                                                                     addressSearchResults.map((poi, index) => (
-                                                                                                <div
-                                                                                                    key={poi.id}
+                                                                                        <div
+                                                                                            key={poi.id}
                                                                                             className="group/item px-4 py-3 hover:bg-gray-900 cursor-pointer border-b border-gray-800 last:border-b-0 transition-all duration-200 hover:shadow-sm"
                                                                                             onClick={() => handleSelectAddressPOI(poi)}
                                                                                         >
                                                                                             <div className="flex items-start space-x-3">
                                                                                                 <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-gradient-to-br from-gray-700 to-gray-600 flex items-center justify-center group-hover/item:from-gray-600 group-hover/item:to-gray-500 transition-all duration-200">
                                                                                                     <MapPin className="w-5 h-5 text-blue-400" />
-                                                                                                        </div>
-                                                                                                        <div className="flex-1 min-w-0">
+                                                                                                </div>
+                                                                                                <div className="flex-1 min-w-0">
                                                                                                     <div className="font-semibold text-sm text-white group-hover/item:text-blue-300 transition-colors line-clamp-1 mb-1">
-                                                                                                                {poi.name}
-                                                                                                            </div>
+                                                                                                        {poi.name}
+                                                                                                    </div>
                                                                                                     <div className="text-xs text-gray-400 mb-2 line-clamp-1">
-                                                                                                                📍 {poi.address}
-                                                                                                            </div>
+                                                                                                        📍 {poi.address}
+                                                                                                    </div>
                                                                                                     <div className="flex items-center space-x-2">
                                                                                                         <div className="inline-flex items-center px-2 py-1 rounded-md text-xs font-mono text-gray-300 bg-gray-900 border border-gray-700">
                                                                                                             <span className="text-gray-500 mr-1">📍</span>
@@ -2865,8 +2991,8 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                                                                                                         <div className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-emerald-900/30 text-emerald-300 border border-emerald-700/50">
                                                                                                             <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full mr-1.5"></div>
                                                                                                             POI Dataset
+                                                                                                        </div>
                                                                                                     </div>
-                                                                                                </div>
                                                                                                 </div>
                                                                                             </div>
                                                                                         </div>
@@ -2878,11 +3004,11 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                                                                                         <p className="text-xs mt-1">Thử từ khóa khác</p>
                                                                                     </div>
                                                                                 ) : null}
-                                                                                        </div>
-                                                                                    </div>
-                                                                                )}
                                                                             </div>
                                                                         </div>
+                                                                    )}
+                                                                </div>
+                                                            </div>
 
                                                             <div className="grid grid-cols-2 gap-4">
                                                                 <div>
@@ -2897,7 +3023,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                                                                             const val = e.target.value;
                                                                             setLatitude(val === "" ? null : parseFloat(val));
                                                                         }}
-                                                                                            disabled={true}
+                                                                        disabled={true}
                                                                         className="bg-gray-100 cursor-not-allowed"
                                                                     />
                                                                 </div>
@@ -2913,7 +3039,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                                                                             const val = e.target.value;
                                                                             setLongitude(val === "" ? null : parseFloat(val));
                                                                         }}
-                                                                                            disabled={true}
+                                                                        disabled={true}
                                                                         className="bg-gray-100 cursor-not-allowed"
                                                                     />
                                                                 </div>
@@ -2924,14 +3050,14 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                                                                 <div className="flex items-center justify-between">
                                                                     <Label className="text-foreground/90 font-medium">Trụ sạc ({chargingPosts.length})</Label>
                                                                 </div>
-                                                                
+
                                                                 {chargingPosts.length === 0 && (
                                                                     <div className="text-center py-6 text-muted-foreground">
                                                                         <Plug className="w-8 h-8 mx-auto mb-2 opacity-50" />
                                                                         <p className="text-sm">Chưa có trụ sạc nào</p>
                                                                     </div>
                                                                 )}
-                                                                
+
                                                                 {chargingPosts.length > 0 && (
                                                                     <div className="max-h-8 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-500 scrollbar-track-gray-800">
                                                                         <div className="space-y-2 pr-2">
@@ -2949,7 +3075,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                                                                                             <XCircle className="w-3 h-3" />
                                                                                         </Button>
                                                                                     </div>
-                                                                                    
+
                                                                                     <div className="space-y-2">
                                                                                         <div>
                                                                                             <label className="text-xs text-gray-400 mb-1 block">Loại cổng sạc</label>
@@ -2964,7 +3090,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                                                                                                     }
                                                                                                 }}
                                                                                                 className="w-full h-8 text-sm bg-black border border-gray-600 rounded-lg px-3 text-white focus:border-green-500 focus:ring-1 focus:ring-green-500/20 transition-colors"
-                                                            >
+                                                                                            >
                                                                                                 <option value="">Chọn loại cổng sạc</option>
                                                                                                 {newPortTypes.map((type, idx) => (
                                                                                                     <option key={idx} value={type.name}>
@@ -2973,7 +3099,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                                                                                                 ))}
                                                                                             </select>
                                                                                         </div>
-                                                                                        
+
                                                                                         <div>
                                                                                             <label className="text-xs text-gray-400 mb-1 block">Trạng thái</label>
                                                                                             <select
@@ -3107,7 +3233,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                                                             Danh sách tất cả trụ sạc tại trạm này
                                                         </DialogDescription>
                                                     </DialogHeader>
-                                                    
+
                                                     {selectedStationForAllPoints && (
                                                         <div className="space-y-4 flex flex-col h-full">
                                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-gray-900/30 rounded-lg">
@@ -3129,7 +3255,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                                                                     <ScrollArea className="h-96 w-full">
                                                                         <div className="space-y-2 pr-4">
                                                                             {allChargingPoints.map((point, index) => (
-                                                                                <Card key={point.chargingPointId} className="bg-gray-900/50 border border-gray-600">
+                                                                                <Card key={`${point.chargingPointId}-${index}-${selectedStationForAllPoints?.id}`} className="bg-gray-900/50 border border-gray-600">
                                                                                     <CardContent className="p-4">
                                                                                         <div className="flex items-start justify-between mb-2">
                                                                                             <div className="flex items-center space-x-2">
@@ -3137,35 +3263,34 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                                                                                                 <h6 className="font-medium text-white">Trụ #{point.chargingPointId}</h6>
                                                                                             </div>
                                                                                             <div className="flex items-center space-x-2">
-                                                                                                <div className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                                                                                    point.status === 'AVAILABLE' ? 'bg-green-600/20 text-green-400' :
-                                                                                                    point.status === 'OCCUPIED' ? 'bg-red-600/20 text-red-400' :
-                                                                                                    point.status === 'OUT_OF_SERVICE' ? 'bg-gray-600/20 text-gray-400' :
-                                                                                                    'bg-yellow-600/20 text-yellow-400'
-                                                                                                }`}>
+                                                                                                <div className={`px-2 py-1 rounded-full text-xs font-medium ${point.status === 'AVAILABLE' ? 'bg-green-600/20 text-green-400' :
+                                                                                                        point.status === 'OCCUPIED' ? 'bg-red-600/20 text-red-400' :
+                                                                                                            point.status === 'OUT_OF_SERVICE' ? 'bg-gray-600/20 text-gray-400' :
+                                                                                                                'bg-yellow-600/20 text-yellow-400'
+                                                                                                    }`}>
                                                                                                     {point.status === 'AVAILABLE' ? '🟢 Có sẵn' :
-                                                                                                     point.status === 'OCCUPIED' ? '🔴 Đang sử dụng' :
-                                                                                                     point.status === 'OUT_OF_SERVICE' ? '⚫ Ngừng hoạt động' :
-                                                                                                     '🔧 Bảo trì'}
+                                                                                                        point.status === 'OCCUPIED' ? '🔴 Đang sử dụng' :
+                                                                                                            point.status === 'OUT_OF_SERVICE' ? '⚫ Ngừng hoạt động' :
+                                                                                                                '🔧 Bảo trì'}
                                                                                                 </div>
                                                                                                 <Button
-                                                                    size="sm"
-                                                                    variant="outline"
-                                                                    onClick={() => {
-                                                                        // TODO: Add delete functionality
-                                                                        console.log("Delete charging point:", point.chargingPointId);
-                                                                    }}
-                                                                    className="h-6 px-2 text-red-400 border-red-400 hover:bg-red-400/10"
-                                                                >
-                                                                    <Trash2 className="w-3 h-3" />
-                                                                </Button>
-                                                            </div>
+                                                                                                    size="sm"
+                                                                                                    variant="outline"
+                                                                                                    onClick={() => {
+                                                                                                        // TODO: Add delete functionality
+                                                                                                        console.log("Delete charging point:", point.chargingPointId);
+                                                                                                    }}
+                                                                                                    className="h-6 px-2 text-red-400 border-red-400 hover:bg-red-400/10"
+                                                                                                >
+                                                                                                    <Trash2 className="w-3 h-3" />
+                                                                                                </Button>
+                                                                                            </div>
                                                                                         </div>
-                                                                                        
+
                                                                                         <div className="grid grid-cols-2 gap-4 text-sm">
                                                                                             <div>
                                                                                                 <span className="text-muted-foreground">Trạng thái:</span>
-                                                                                                <p className="font-medium text-white">{point.status}</p>
+                                                                                                <p className="font-medium text-white">{point.status || "Unknown"}</p>
                                                                                             </div>
                                                                                             <div>
                                                                                                 <span className="text-muted-foreground">Loại:</span>
@@ -3183,6 +3308,10 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                                                                                                 <span className="text-muted-foreground">ID:</span>
                                                                                                 <p className="font-medium text-white">#{point.chargingPointId}</p>
                                                                                             </div>
+                                                                                            <div>
+                                                                                                <span className="text-muted-foreground">Trạm:</span>
+                                                                                                <p className="font-medium text-white">{selectedStationForAllPoints?.name || "Unknown Station"}</p>
+                                                                                            </div>
                                                                                         </div>
                                                                                     </CardContent>
                                                                                 </Card>
@@ -3199,10 +3328,10 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                                                             </div>
                                                         </div>
                                                     )}
-                                                    
+
                                                     <div className="flex justify-end pt-4 border-t border-gray-600">
-                                                        <Button 
-                                                            variant="outline" 
+                                                        <Button
+                                                            variant="outline"
                                                             onClick={() => setIsAllChargingPointsDialogOpen(false)}
                                                             className="bg-gray-800 hover:bg-gray-700 text-white border-gray-600"
                                                         >

@@ -160,11 +160,13 @@ interface BookingMapProps {
 
   setCurrentBatteryLevel?: (level: number) => void;
 
+  onStartCharging?: (bookingId: string) => void;
+
 }
 
 
 
-export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurrentBatteryLevel }: BookingMapProps) {
+export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurrentBatteryLevel, onStartCharging }: BookingMapProps) {
 
   const { theme } = useTheme();
 
@@ -251,6 +253,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
   const [targetBatteryLevelConfig, setTargetBatteryLevelConfig] = useState(80);
   const [chargingStartTimeInput, setChargingStartTimeInput] = useState("");
   const [chargingEndTime, setChargingEndTime] = useState("");
+  const [bookingMode, setBookingMode] = useState<"now" | "scheduled">("now");
 
 
   //Charging Station states
@@ -288,6 +291,12 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
 
   // Available charging points by type for each station
   const [stationChargingPoints, setStationChargingPoints] = useState<{ [stationId: string]: { [typeName: string]: { total: number, available: number } } }>({});
+  
+  // Total charging points count for each station
+  const [stationTotalPoints, setStationTotalPoints] = useState<{ [stationId: string]: number }>({});
+
+  //View page
+
 
   // Calculate available charging points by type for a station
   const calculateStationChargingPoints = async (stationId: string) => {
@@ -310,6 +319,12 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
         setStationChargingPoints(prev => ({
           ...prev,
           [stationId]: typeStats
+        }));
+
+        // Update total charging points count
+        setStationTotalPoints(prev => ({
+          ...prev,
+          [stationId]: points.length
         }));
       }
     } catch (error) {
@@ -625,7 +640,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
 
   // Handler for opening station details
 
-  const handleViewDetails = (station: ChargingStation) => {
+  const handleViewDetails = async (station: ChargingStation) => {
     // Check if station is ACTIVE
     if (station.status !== "ACTIVE") {
       toast.warning(
@@ -634,6 +649,11 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
           : 'This station is not active, cannot book charging'
       );
       return;
+    }
+
+    // Load charging points data if not already loaded
+    if (!stationTotalPoints[station.stationId?.toString() || '']) {
+      await calculateStationChargingPoints(station.stationId?.toString() || '');
     }
 
     // Check if station has available charging points
@@ -662,7 +682,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
   };
 
   // Handler for opening charging configuration
-  const handleOpenChargingConfig = (station: ChargingStation) => {
+  const handleOpenChargingConfig = async (station: ChargingStation) => {
     // Check if station is ACTIVE
     if (station.status !== "ACTIVE") {
       toast.warning(
@@ -671,6 +691,11 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
           : 'This station is not active, cannot book charging'
       );
       return;
+    }
+
+    // Load charging points data if not already loaded
+    if (!stationTotalPoints[station.stationId?.toString() || '']) {
+      await calculateStationChargingPoints(station.stationId?.toString() || '');
     }
 
     // Check if station has available charging points
@@ -1147,7 +1172,6 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
 
     // Create booking data
 
-    const timeSlotData = formatSelectedTimeSlot(selectedTimeSlot);
 
     const costInfo = calculateEstimatedCost();
 
@@ -1226,6 +1250,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
         bookingTime = '09:00';
 
       }
+      
 
     }
 
@@ -1262,6 +1287,12 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
     if (isImmediateBooking) {
 
       setBookingStep("qr");
+
+      // Generate a booking ID for immediate charging session
+      const bookingId = `booking_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      
+      // Call the callback to navigate to charging session
+      onStartCharging?.(bookingId);
 
     } else {
 
@@ -2710,7 +2741,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                                               (language === 'vi' ? 'Không xác định' : 'Unknown')}
                                       </Badge>
                                       <span className="text-xs text-white/60">
-                                        {station.chargingPointNumber || 0} {language === 'vi' ? 'trụ sạc' : 'charging points'}
+                                        {stationTotalPoints[station.stationId?.toString() || ''] || station.chargingPointNumber || 0} {language === 'vi' ? 'trụ sạc' : 'charging points'}
                                       </span>
                         </div>
                       </div>
@@ -3997,141 +4028,6 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
 
 
 
-            {/* Selected Station Quick Info */}
-
-            {selectedStation && (
-
-              <Card>
-
-                <CardHeader className="pb-3">
-
-                  <CardTitle className="text-sm flex items-center space-x-2">
-
-                    <Target className="w-4 h-4" />
-
-                    <span>Selected Station</span>
-
-                  </CardTitle>
-
-                </CardHeader>
-
-                <CardContent>
-
-                  <div className="space-y-2">
-
-                    <h4 className="font-medium">{selectedStation.stationName}</h4>
-                    <p className="text-sm text-muted-foreground">{selectedStation.address}</p>
-
-                    <div className="flex items-center justify-between text-sm">
-
-                      <span>Charging Points:</span>
-                      <div className="flex items-center space-x-2">
-
-                        <span className="font-medium">{selectedStation.chargingPointNumber}</span>
-                        {routeDetails && showRoute && (
-
-                          <Badge variant="secondary" className="text-xs">
-
-                            {routeDetails.duration}
-
-                          </Badge>
-
-                        )}
-
-                      </div>
-
-                    </div>
-
-                    <div className="flex items-center justify-between text-sm">
-
-                      <span>Coordinates:</span>
-                      <span className="font-medium">{selectedStation?.latitude?.toFixed(4) || '0.0000'}, {selectedStation?.longitude?.toFixed(4) || '0.0000'}</span>
-                    </div>
-
-                    <div className="flex items-center justify-between text-sm">
-
-                      <span>Status:</span>
-                      <span className="font-medium text-primary">{selectedStation.status}</span>
-                    </div>
-
-
-
-                    {/* Quick Route Actions */}
-
-                    <Separator className="my-3" />
-
-                    <div className="flex items-center space-x-2">
-
-                      <Button
-
-                        variant={showRoute ? "default" : "outline"}
-
-                        size="sm"
-
-                        onClick={() => {
-
-                          const newShowRoute = !showRoute;
-
-                          setShowRoute(newShowRoute);
-
-                          if (newShowRoute) {
-
-                            setMapType("road");
-
-                            setIsLoadingRoute(true);
-
-                            const details = calculateRouteDetails(selectedStation);
-
-                            setRouteDetails(details);
-
-                            setTimeout(() => setIsLoadingRoute(false), 1500);
-
-                          } else {
-
-                            setRouteDetails(null);
-
-                          }
-
-                        }}
-
-                        className="flex-1"
-
-                      >
-
-                        <Route className="w-4 h-4 mr-1" />
-
-                        {showRoute ? "Hide Route" : "Show Route"}
-
-                      </Button>
-
-                      <Button
-
-                        variant="outline"
-
-                        size="sm"
-
-                        onClick={() => {
-
-                          // Navigate to station (mock action)
-
-                          alert(`Opening navigation to ${selectedStation.stationName}`);
-                        }}
-
-                      >
-
-                        <Navigation className="w-4 h-4" />
-
-                      </Button>
-
-                    </div>
-
-                  </div>
-
-                </CardContent>
-
-              </Card>
-
-            )}
 
           </div>
 
@@ -4263,7 +4159,10 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
 
                     </div>
 
-                    <p className="text-lg font-semibold">{detailsStation.chargingPointNumber} charging points</p>
+                    <p className="text-lg font-semibold">
+                      {stationTotalPoints[detailsStation.stationId?.toString() || ''] || detailsStation.chargingPointNumber || 0} 
+                      {language === 'vi' ? ' trụ sạc' : ' charging points'}
+                    </p>
                   </div>
 
                   <div className="bg-muted/30 rounded-lg p-3">
@@ -4368,11 +4267,39 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                 <div className="flex items-center justify-center space-x-4 mt-2 text-sm">
                   <span className="flex items-center space-x-1">
                     <Zap className="w-4 h-4 text-primary" />
-                    <span>{configStation.chargingPointNumber} {language === 'vi' ? 'trụ sạc' : 'charging points'}</span>
+                    <span>{stationTotalPoints[configStation.stationId?.toString() || ''] || configStation.chargingPointNumber || 0} {language === 'vi' ? 'trụ sạc' : 'charging points'}</span>
                   </span>
                   <Badge variant="outline" className="bg-green-100 text-green-800">
                     {language === 'vi' ? 'Hoạt động' : 'Active'}
                   </Badge>
+                </div>
+              </div>
+
+              {/* Booking Mode Selection */}
+              <div className="space-y-3">
+                <h4 className="font-medium flex items-center justify-center space-x-2 text-sm">
+                  <Clock className="w-4 h-4 text-primary" />
+                  <span>{language === 'vi' ? 'Chọn thời gian đặt lịch' : 'Select Booking Time'}</span>
+                </h4>
+                
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    variant={bookingMode === "now" ? "default" : "outline"}
+                    onClick={() => setBookingMode("now")}
+                    className="flex items-center space-x-2"
+                  >
+                    <Zap className="w-4 h-4" />
+                    <span>{language === 'vi' ? 'Sạc ngay' : 'Book Now'}</span>
+                  </Button>
+                  
+                  <Button
+                    variant={bookingMode === "scheduled" ? "default" : "outline"}
+                    onClick={() => setBookingMode("scheduled")}
+                    className="flex items-center space-x-2"
+                  >
+                    <Calendar className="w-4 h-4" />
+                    <span>{language === 'vi' ? 'Đặt lịch' : 'Schedule'}</span>
+                  </Button>
                 </div>
               </div>
 
@@ -4482,38 +4409,85 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                 </div>
               </div>
 
-              {/* Time Configuration */}
-              <div className="space-y-2">
-                <h4 className="font-medium flex items-center justify-center space-x-2 text-sm">
-                  <Clock className="w-4 h-4 text-primary" />
-                  <span>{language === 'vi' ? 'Thời gian sạc' : 'Charging Time'}</span>
-                </h4>
+              {/* Time Configuration - Only show for scheduled booking */}
+              {bookingMode === "scheduled" && (
+                <div className="space-y-2">
+                  <h4 className="font-medium flex items-center justify-center space-x-2 text-sm">
+                    <Clock className="w-4 h-4 text-primary" />
+                    <span>{language === 'vi' ? 'Thời gian sạc' : 'Charging Time'}</span>
+                  </h4>
 
-                <div className="flex flex-col items-center space-y-2">
-                  <label className="text-sm font-medium text-center">
-                    {language === 'vi' ? 'Giờ bắt đầu sạc' : 'Start Charging Time'}
-                  </label>
-                  <Input
-                    type="time"
-                    value={chargingStartTimeInput}
-                    onChange={(e) => setChargingStartTimeInput(e.target.value)}
-                    className="w-32 h-10 text-center text-lg font-medium border-2 border-primary rounded-lg focus:ring-2 focus:ring-primary/20"
-                    placeholder="HH:MM"
-                  />
+                  <div className="flex flex-col items-center space-y-2">
+                    <label className="text-sm font-medium text-center">
+                      {language === 'vi' ? 'Giờ bắt đầu sạc' : 'Start Charging Time'}
+                    </label>
+                    <Input
+                      type="time"
+                      value={chargingStartTimeInput}
+                      onChange={(e) => setChargingStartTimeInput(e.target.value)}
+                      className="w-32 h-10 text-center text-lg font-medium border-2 border-primary rounded-lg focus:ring-2 focus:ring-primary/20"
+                      placeholder="HH:MM"
+                    />
+                    {chargingStartTimeInput && (
+                      <div className="text-xs text-muted-foreground text-center">
+                        {language === 'vi' ? 'Thời gian phải ít nhất 2 tiếng sau hiện tại' : 'Time must be at least 2 hours from now'}
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
+              )}
 
 
               {/* Action Buttons */}
               <div className="flex space-x-2 pt-2 border-t">
                 <Button
                   onClick={() => {
+                    // Validate time for scheduled booking
+                    if (bookingMode === "scheduled") {
+                      if (!chargingStartTimeInput) {
+                        toast.error(language === 'vi' ? 'Vui lòng chọn thời gian sạc' : 'Please select charging time');
+                        return;
+                      }
+                      
+                      // Check if time is at least 2 hours from now
+                      const now = new Date();
+                      const selectedTime = new Date();
+                      const [hours, minutes] = chargingStartTimeInput.split(':').map(Number);
+                      if (hours !== undefined && minutes !== undefined) {
+                        selectedTime.setHours(hours, minutes, 0, 0);
+                      } else {
+                        toast.error(language === 'vi' ? 'Thời gian không hợp lệ' : 'Invalid time format');
+                        return;
+                      }
+                      
+                      // If selected time is today, check if it's at least 2 hours from now
+                      if (selectedTime.getDate() === now.getDate()) {
+                        const timeDiff = selectedTime.getTime() - now.getTime();
+                        const hoursDiff = timeDiff / (1000 * 60 * 60);
+                        
+                        if (hoursDiff < 2) {
+                          toast.error(language === 'vi' ? 'Thời gian phải ít nhất 2 tiếng sau hiện tại' : 'Time must be at least 2 hours from now');
+                          return;
+                        }
+                      }
+                    }
+                    
                     // Handle booking logic here
                     toast.success(language === 'vi' ? 'Đặt lịch thành công!' : 'Booking successful!');
                     setIsChargingConfigOpen(false);
+                    
+                    // Only navigate to charging session for "Book Now"
+                    if (bookingMode === "now") {
+                      // Generate a booking ID for charging session
+                      const bookingId = `booking_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+                      
+                      // Call the callback to navigate to charging session
+                      onStartCharging?.(bookingId);
+                    }
+                    // For scheduled booking, just show success message and close dialog
                   }}
                   className="flex-1"
-                  disabled={!chargingStartTimeInput || targetBatteryLevelConfig <= initialBatteryLevel}
+                  disabled={bookingMode === "scheduled" && (!chargingStartTimeInput || targetBatteryLevelConfig <= initialBatteryLevel)}
                 >
                   <Calendar className="w-4 h-4 mr-2" />
                   {language === 'vi' ? 'Xác nhận đặt lịch' : 'Confirm Booking'}

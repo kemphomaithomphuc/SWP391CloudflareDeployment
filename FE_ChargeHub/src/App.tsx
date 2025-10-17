@@ -1,10 +1,14 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { LanguageProvider } from "./contexts/LanguageContext";
 import { BookingProvider } from "./contexts/BookingContext";
 import { StationProvider } from "./contexts/StationContext";
 import { Toaster } from "./components/ui/sonner";
 import AppLayout from "./components/AppLayout";
+import { Routes, Route } from 'react-router-dom'
+import axios from "axios";
+import { jwtDecode } from "jwt-decode";
+
 
 // Import components individually to catch any import errors
 import Login from "./Login";
@@ -40,6 +44,7 @@ import MyBookingView from "./components/MyBookingView";
 import ChargingSessionView from "./components/ChargingSessionView";
 import StationManagementView from "./components/StationManagementView";
 import PremiumSubscriptionView from "./components/PremiumSubscriptionView";
+import { access } from "fs";
 
 type ViewType = "login" | "register" | "roleSelection" | "profileSetup" | "vehicleSetup" | "staffProfileSetup" | "educationSetup" | "dashboard" | "staffLogin" | "staffDashboard" | "staffHome" | "adminLogin" | "adminDashboard" | "systemConfig" | "adminMap" | "revenue" | "staffManagement" | "usageAnalytics" | "booking" | "history" | "analysis" | "reportIssue" | "wallet" | "notifications" | "staffNotifications" | "postActivating" | "adminChargerPostActivating" | "myBookings" | "chargingSession" | "stationManagement" | "premiumSubscription";
 
@@ -50,7 +55,10 @@ function AppContent() {
 
   const switchToLogin = () => setCurrentView("login");
   const switchToRegister = () => setCurrentView("register");
-  const switchToRoleSelection = () => setCurrentView("roleSelection");
+  const switchToRoleSelection = () => {
+    console.log("Switching to roleSelection view");
+    setCurrentView("roleSelection");
+  };
   const switchToProfileSetup = () => setCurrentView("profileSetup");
   const switchToVehicleSetup = () => setCurrentView("vehicleSetup");
   const switchToStaffProfileSetup = () => setCurrentView("staffProfileSetup");
@@ -122,6 +130,79 @@ function AppContent() {
       switchToStaffProfileSetup();
     }
   };
+  //Phần này Minh thêm, chạy không được thì comment block hoặc xóa
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    const params = url.searchParams;
+
+    const code = params.get("code");
+    const state = params.get("state");
+
+    const source = params.get("source"); // Thêm source parameter
+    console.log("OAuth URL params:", { code, state, source});
+
+
+    // Chạy OAuth flow nếu có token/code trên URL
+    // CASE 2: Có code + state từ Google/Facebook → gọi callback đổi token
+    if (code && (state === "google" || state === "facebook")) {
+      (async () => {
+        try {
+
+          const r = await axios.get(
+            `http://localhost:8080/api/auth/social/callback?code=${code}&state=${state}`
+          );
+
+          const at = r?.data?.data?.accessToken as string | undefined;
+          const rt = r?.data?.data?.refreshToken as string | undefined;
+          console.log(at, rt);
+          if (!at) throw new Error("Missing accessToken from callback");
+          const decoded: any = jwtDecode(at);
+
+          localStorage.setItem("token", at);
+          if (rt) localStorage.setItem("refreshToken", rt);
+
+          // /me
+          try {
+            const meRes = await axios.post(
+              "http://localhost:8080/api/auth/me",
+              null,
+              { headers: { Authorization: `Bearer ${at}` } }
+            );
+            const userId = meRes?.data?.data;
+            if (userId != null) localStorage.setItem("userId", String(userId));
+          } catch (e) {
+            console.warn("Cannot fetch /me:", e);
+          }
+          // Điều hướng vào RoleSelection hoặc dashboard tùy theo source
+          if (source === "register") {
+            console.log("OAuth success with code/state from register, navigating to roleSelection");
+            setCurrentView("roleSelection")
+          } else {
+            // Từ login, kiểm tra role để điều hướng đúng
+            try {
+              const decoded: any = jwtDecode(at);
+              if (decoded) {
+                setCurrentView("dashboard");
+              } else {
+                setCurrentView("roleSelection");
+              }
+            } catch (e) {
+              console.error("JWT decode failed:", e);
+              setCurrentView("login");
+            }
+          }
+        } catch (e) {
+          console.error("OAuth callback exchange failed:", e);
+          setCurrentView("login");
+        }
+      })();
+    }
+
+  
+    // deps rỗng để chỉ chạy 1 lần khi app mount
+  }, []);
+  //Phần này Minh thêm, chạy không được thì comment block hoặc xóa
+
 
   // Render current view based on state
   const renderContent = () => {
@@ -130,7 +211,7 @@ function AppContent() {
         return <MainDashboard onLogout={switchToLogin} onBooking={switchToBooking} onHistory={switchToHistory} onAnalysis={switchToAnalysis} onReportIssue={switchToReportIssue} onWallet={switchToWallet} onNotifications={switchToNotifications} onMyBookings={switchToMyBookings} onPremiumSubscription={switchToPremiumSubscription} vehicleBatteryLevel={vehicleBatteryLevel} setVehicleBatteryLevel={setVehicleBatteryLevel} />;
 
       case "booking":
-        return <BookingMap onBack={() => setCurrentView("dashboard")} currentBatteryLevel={vehicleBatteryLevel} setCurrentBatteryLevel={setVehicleBatteryLevel} />;
+        return <BookingMap onBack={() => setCurrentView("dashboard")} currentBatteryLevel={vehicleBatteryLevel} setCurrentBatteryLevel={setVehicleBatteryLevel} onStartCharging={switchToChargingSession} />;
 
       case "history":
         return <HistoryView onBack={() => setCurrentView("dashboard")} />;
@@ -275,7 +356,7 @@ function AppContent() {
 
   return (
     <AppLayout
-      userType={userType}
+      userType={userType || "driver"}
       currentView={currentView}
       onNavigate={handleNavigation}
       onLogout={switchToLogin}
