@@ -74,15 +74,11 @@ export default function Login({ onSwitchToRegister, onLogin, onStaffLogin, onAdm
                         //Decode JWT
                         const decoded: any = jwtDecode(accessToken);
                         const role = decoded.role?.toLowerCase() || "driver";
-                        const userId = decoded.userId || decoded.id;
+                        const userId = meRes.data?.data;
                         localStorage.setItem("role", role);
                         localStorage.setItem("email", decoded.sub || "");
 
-                        // Điều hướng theo vai trò
-                        if (role === "driver") onLogin?.();
-                        else if (role === "staff") onStaffLogin?.();
-                        else if (role === "admin") onAdminLogin?.();
-                        else onLogin?.();
+                        await getUserProfileToContinue(userId);
 
                         // 🧹 Xóa query để URL sạch
                         window.history.replaceState({}, document.title, "/login");
@@ -205,7 +201,7 @@ export default function Login({ onSwitchToRegister, onLogin, onStaffLogin, onAdm
                 }
                 else if (!userProfile.data.vehicles || userProfile.data.vehicles.length === 0) {
                     console.log("User needs vehicle setup");
-                    onSwitchToVehicleSetup?.();
+                    onLogin?.();
                     return;
                 }
                 
