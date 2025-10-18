@@ -41,8 +41,16 @@ export default function ProfileSetup({ onNext, onBack }: ProfileSetupProps) {
     setLoading(true);
     setError(null);
     try {
-      const userId = localStorage.getItem("registeredUserId") || "";
+      // Try to get userId from different sources
+      const userId = localStorage.getItem("registeredUserId") || localStorage.getItem("userId") || "";
       console.log("Submitting profile for userId:", userId);
+      
+      if (!userId) {
+        setError(t('user_id_not_found'));
+        setLoading(false);
+        return;
+      }
+      
       const res = await axios.put(`http://localhost:8080/api/user/profile/${userId}`, {
         userId: parseInt(userId),
         phoneNumber: data.phone,
@@ -142,7 +150,9 @@ export default function ProfileSetup({ onNext, onBack }: ProfileSetupProps) {
             <div className="lg:col-span-2 space-y-6">
               <div className="space-y-1">
                 <h1 className="text-2xl font-semibold text-foreground">{t('profile_setup')}</h1>
-                <p className="text-muted-foreground">{t('complete_profile_to_start')}</p>
+                <p className="text-muted-foreground">
+                  {localStorage.getItem("token") ? t('complete_profile_to_continue') : t('complete_profile_to_start')}
+                </p>
                 
                 {/* Error Display */}
                 {error && (

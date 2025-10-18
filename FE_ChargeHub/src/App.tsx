@@ -92,6 +92,36 @@ function AppContent() {
   const switchToStationManagement = () => setCurrentView("stationManagement");
   const switchToPremiumSubscription = () => setCurrentView("premiumSubscription");
 
+  // Check if user needs vehicle setup after profile completion
+  const handleProfileCompletion = async () => {
+    const token = localStorage.getItem("token");
+    if (token) {
+      try {
+        // Check if user has vehicles
+        const userId = localStorage.getItem("userId") || localStorage.getItem("registeredUserId");
+        if (userId) {
+          const res = await axios.get(`http://localhost:8080/api/user/profile/${userId}`);
+          if (res.data && res.data.vehicles && res.data.vehicles.length > 0) {
+            // User has vehicles, go to dashboard
+            setCurrentView("dashboard");
+          } else {
+            // User needs vehicle setup
+            setCurrentView("vehicleSetup");
+          }
+        } else {
+          // Fallback to vehicle setup
+          setCurrentView("vehicleSetup");
+        }
+      } catch (err) {
+        console.error("Error checking user vehicles:", err);
+        // Fallback to vehicle setup
+        setCurrentView("vehicleSetup");
+      }
+    } else {
+      // For new users, go to vehicle setup
+      switchToVehicleSetup();
+    }
+  };
 
   // Generic navigation handler for layout
   const handleNavigation = (view: string) => {
@@ -302,7 +332,7 @@ function AppContent() {
       case "profileSetup":
         return (
           <ProfileSetup 
-            onNext={switchToVehicleSetup}
+            onNext={handleProfileCompletion}
             onBack={() => setCurrentView("roleSelection")}
           />
         );

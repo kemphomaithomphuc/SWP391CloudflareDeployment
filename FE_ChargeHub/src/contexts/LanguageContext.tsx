@@ -845,6 +845,13 @@ const translations: Translations = {
   // ProfileSetup translations
   'profile_setup': { en: 'Profile Setup', vi: 'Thiết lập hồ sơ' },
   'complete_profile_to_start': { en: 'Complete your profile to get started', vi: 'Hoàn thành hồ sơ để bắt đầu' },
+  'complete_profile_to_continue': { en: 'Complete your profile to continue', vi: 'Hoàn thành hồ sơ để tiếp tục' },
+  'complete_your_profile': { en: 'Complete Your Profile', vi: 'Hoàn thành hồ sơ của bạn' },
+  'complete_profile_description': { en: 'Please complete your profile information to continue using the service', vi: 'Vui lòng hoàn thành thông tin hồ sơ để tiếp tục sử dụng dịch vụ' },
+  'complete_profile': { en: 'Complete Profile', vi: 'Hoàn thành hồ sơ' },
+  'back_to_login': { en: 'Back to Login', vi: 'Quay lại đăng nhập' },
+  'profile_completion_note': { en: 'You can change your role later in settings', vi: 'Bạn có thể thay đổi vai trò sau trong cài đặt' },
+  'user_id_not_found': { en: 'User ID not found. Please try logging in again.', vi: 'Không tìm thấy ID người dùng. Vui lòng thử đăng nhập lại.' },
   'identification': { en: 'Identification', vi: 'Giấy tờ tùy thân' },
   'enter_id_number': { en: 'Enter your ID number', vi: 'Nhập số CCCD/CMND' },
   'date_of_birth': { en: 'Date of Birth', vi: 'Ngày sinh' },
