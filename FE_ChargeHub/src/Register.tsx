@@ -173,7 +173,11 @@ export default function Register({
         <div className="bg-card/80 backdrop-blur-sm border border-border/50 rounded-2xl shadow-2xl shadow-primary/5 p-8 space-y-8">
           <div className="flex justify-start -mt-2">
             <button
-              onClick={onSwitchToLogin}
+              onClick={() => {
+                // Clear all localStorage when going back
+                localStorage.clear();
+                onSwitchToLogin();
+              }}
               className="flex items-center space-x-1.5 text-muted-foreground/60 hover:text-muted-foreground transition-colors duration-300 p-1 -ml-1 text-sm opacity-75 hover:opacity-100"
             >
               <ArrowLeft className="w-3.5 h-3.5" />

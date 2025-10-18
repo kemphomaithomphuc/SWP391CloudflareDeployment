@@ -327,7 +327,7 @@ function AppContent() {
         return (
           <RoleSelection 
             onSelectRole={handleRoleSelection}
-            onBack={() => setCurrentView("register")}
+            onBack={() => setCurrentView("login")}
           />
         );
 
@@ -347,6 +347,8 @@ function AppContent() {
               onLogin={() => setCurrentView("dashboard")}
               onStaffLogin={switchToStaffLogin}
               onAdminLogin={switchToAdminLogin}
+              onSwitchToRoleSelection={switchToRoleSelection}
+              onSwitchToVehicleSetup={switchToVehicleSetup}
             />
             <LanguageThemeControls />
           </>

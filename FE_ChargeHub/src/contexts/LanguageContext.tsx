@@ -1026,7 +1026,13 @@ const translations: Translations = {
   'select_payment_card': { en: 'Select Payment Card', vi: 'Chọn Thẻ Thanh Toán' },
   'pay_now': { en: 'Pay Now', vi: 'Thanh Toán Ngay' },
   'full_payment': { en: 'Full Payment', vi: 'Thanh Toán Đầy Đủ' },
-  'partial_payment': { en: 'Partial Payment', vi: 'Thanh Toán Một Phần' }
+  'partial_payment': { en: 'Partial Payment', vi: 'Thanh Toán Một Phần' },
+  
+  // Exit confirmation popup
+  'exit_confirmation_title': { en: 'Exit Role Selection?', vi: 'Thoát khỏi chọn vai trò?' },
+  'exit_confirmation_message': { en: 'If you exit now, you will need to re-enter all your information when you log in again. Are you sure you want to leave?', vi: 'Nếu bạn thoát bây giờ, bạn sẽ cần nhập lại tất cả thông tin khi đăng nhập lại. Bạn có chắc chắn muốn thoát?' },
+  'stay_and_continue': { en: 'Stay and Continue', vi: 'Ở lại và tiếp tục' },
+  'exit_anyway': { en: 'Exit Anyway', vi: 'Thoát dù sao' }
 };
 
 interface LanguageContextType {

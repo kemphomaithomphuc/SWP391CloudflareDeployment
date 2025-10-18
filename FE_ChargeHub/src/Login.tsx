@@ -14,9 +14,11 @@ interface LoginProps {
     onLogin?: () => void;
     onStaffLogin?: () => void;
     onAdminLogin?: () => void;
+    onSwitchToRoleSelection? : () => void;
+    onSwitchToVehicleSetup?: () => void;
 }
 
-export default function Login({ onSwitchToRegister, onLogin, onStaffLogin, onAdminLogin }: LoginProps) {
+export default function Login({ onSwitchToRegister, onLogin, onStaffLogin, onAdminLogin, onSwitchToRoleSelection, onSwitchToVehicleSetup }: LoginProps) {
     const { t } = useLanguage();
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
@@ -29,7 +31,9 @@ export default function Login({ onSwitchToRegister, onLogin, onStaffLogin, onAdm
     const [otpSent, setOtpSent] = useState(false);
     const [otpCode, setOtpCode] = useState("");
     const [resetMessage, setResetMessage] = useState("");
+    
 
+    //handle Google
     useEffect(() => {
         const url = new URL(window.location.href);
         const code = url.searchParams.get("code");
@@ -69,6 +73,7 @@ export default function Login({ onSwitchToRegister, onLogin, onStaffLogin, onAdm
                         //Decode JWT
                         const decoded: any = jwtDecode(accessToken);
                         const role = decoded.role?.toLowerCase() || "driver";
+                        const userId = decoded.userId || decoded.id;
                         localStorage.setItem("role", role);
                         localStorage.setItem("email", decoded.sub || "");
 
@@ -149,17 +154,17 @@ export default function Login({ onSwitchToRegister, onLogin, onStaffLogin, onAdm
                     if (userId) localStorage.setItem("userId", userId.toString());
                     localStorage.setItem("role", effectiveRole.toLowerCase());
                     localStorage.setItem("email", decoded.sub);
+                    
+                    // Check user profile to determine next step
+                    await getUserProfileToContinue(localStorage.getItem("userId") || "");
                 } catch (decodeErr: any) {
                     console.error("JWT decode failed:", decodeErr);
                     localStorage.setItem("role", "driver");
                     localStorage.setItem("userId", "0");
+                    
+                    // Fallback to default login flow
+                    onLogin?.();
                 }
-
-                const roleLower = effectiveRole.toLowerCase();
-                if (roleLower === "driver") onLogin?.();
-                else if (roleLower === "staff") onStaffLogin?.();
-                else if (roleLower === "admin") onAdminLogin?.();
-                else onLogin?.();
             } else {
                 setError("Login Failed - Invalid response structure");
             }
@@ -180,6 +185,78 @@ export default function Login({ onSwitchToRegister, onLogin, onStaffLogin, onAdm
             setLoading(false);
         }
     };
+
+    const getUserProfileToContinue = async (userId: string) => {
+        console.log("Getting user profile to continue setup for userId:", userId);
+        setLoading(true);
+        setError(null);
+        
+        try {
+            const res = await axios.get(`http://localhost:8080/api/user/profile/${userId}`);
+            console.log("User profile response:", res.data);
+            
+            if (res.status === 200 && res.data) {
+                const userProfile = res.data;
+                
+                // Check if user needs to complete profile setup
+                
+                if (!userProfile.dateOfBirth) {
+                    console.log("User needs profile completion");
+                    onSwitchToRoleSelection?.();
+                    return;
+                }
+                else if (!userProfile.vehicles || userProfile.vehicles.length === 0) {
+                    console.log("User needs vehicle setup");
+                    onSwitchToVehicleSetup?.();
+                    return;
+                }
+                
+                // User profile is complete, proceed with normal login flow
+                console.log("User profile is complete, proceeding with login");
+                const role = localStorage.getItem("role")?.toLowerCase() || "driver";
+                
+                if (role === "driver") {
+                    onLogin?.();
+                } else if (role === "staff") {
+                    onStaffLogin?.();
+                } else if (role === "admin") {
+                    onAdminLogin?.();
+                } else {
+                    onLogin?.();
+                }
+            } else {
+                console.log("Invalid profile response, proceeding with default login");
+                // Fallback to default login flow
+                const role = localStorage.getItem("role")?.toLowerCase() || "driver";
+                if (role === "driver") {
+                    onLogin?.();
+                } else if (role === "staff") {
+                    onStaffLogin?.();
+                } else if (role === "admin") {
+                    onAdminLogin?.();
+                } else {
+                    onLogin?.();
+                }
+            }
+        } catch (err: any) {
+            console.error("Error getting user profile:", err);
+            console.log("Profile check failed, proceeding with default login");
+            
+            // Fallback to default login flow when profile check fails
+            const role = localStorage.getItem("role")?.toLowerCase() || "driver";
+            if (role === "driver") {
+                onLogin?.();
+            } else if (role === "staff") {
+                onStaffLogin?.();
+            } else if (role === "admin") {
+                onAdminLogin?.();
+            } else {
+                onLogin?.();
+            }
+        } finally {
+            setLoading(false);
+        }
+    }
 
     // GOOGLE LOGIN (redirect)
     const handleGoogleLogin = async () => {
