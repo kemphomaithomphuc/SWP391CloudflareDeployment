@@ -1,28 +1,33 @@
 import { useState, useEffect } from "react";
-import { ArrowLeft, Bell, Clock, Mail, Zap, AlertTriangle, CheckCircle, XCircle, Car, CreditCard } from "lucide-react";
+import { ArrowLeft, Bell, Clock, Mail, Zap, AlertTriangle, CheckCircle, XCircle, Car, CreditCard, Calendar, Gift, DollarSign, Wrench, Eye } from "lucide-react";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Separator } from "./ui/separator";
-import { toast } from "sonner@2.0.3";
+import { toast } from "sonner";
 import { Toaster } from "./ui/sonner";
 import { useLanguage } from "../contexts/LanguageContext";
 import { useBooking } from "../contexts/BookingContext";
+import { getNotifications, markNotificationAsRead, markAllNotificationsAsRead, Notification as APINotification } from "../services/api";
+import NotificationDetailPopup from "./NotificationDetailPopup";
 
 interface Notification {
   id: string;
-  type: "invoice" | "late_arrival" | "charging_complete" | "overstay_warning" | "report_success";
+  type: "booking" | "payment" | "issue" | "penalty" | "general" | "invoice" | "late_arrival" | "charging_complete" | "overstay_warning" | "report_success" | "booking_confirmed";
   title: string;
   message: string;
   timestamp: string;
   isRead: boolean;
   requiresAction?: boolean;
   actionData?: {
-    sessionId: string;
+    sessionId?: string;
+    orderId?: string;
+    amount?: number;
+    location?: string;
     minutesLate?: number;
     penaltyAmount?: number;
-    location?: string;
-  };
+    errorCode?: string;
+  } | undefined;
 }
 
 interface NotificationViewProps {
@@ -32,159 +37,439 @@ interface NotificationViewProps {
 export default function NotificationView({ onBack }: NotificationViewProps) {
   const { t, language } = useLanguage();
   const { notifications, markNotificationAsRead } = useBooking();
+  const [apiNotifications, setApiNotifications] = useState<APINotification[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedNotification, setSelectedNotification] = useState<Notification | null>(null);
+  const [showPopup, setShowPopup] = useState(false);
+  const [notificationCounts, setNotificationCounts] = useState({
+    total: 0,
+    unread: 0,
+    actionRequired: 0
+  });
   
-  // Generate localized notification data
+  // Update notification counts
+  const updateNotificationCounts = (notifications: any[]) => {
+    const total = notifications.length;
+    const unread = notifications.filter(n => !n.isRead).length;
+    const actionRequired = notifications.filter(n => n.requiresAction && !n.isRead).length;
+    
+    setNotificationCounts({
+      total,
+      unread,
+      actionRequired
+    });
+  };
+  
+  // Load notifications from API
+  useEffect(() => {
+    const loadNotifications = async () => {
+      try {
+        setLoading(true);
+        const notifications = await getNotifications();
+        setApiNotifications(notifications);
+        updateNotificationCounts(notifications);
+      } catch (error) {
+        console.error("Error loading notifications:", error);
+        toast.error("Failed to load notifications");
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    loadNotifications();
+  }, []);
+
+  // Handle mark as read
+  const handleMarkAsRead = async (notificationId: string | number) => {
+    try {
+      await markNotificationAsRead(Number(notificationId));
+      setApiNotifications(prev => {
+        const updated = prev.map(notif => 
+          notif.notificationId === Number(notificationId) ? { ...notif, isRead: true } : notif
+        );
+        updateNotificationCounts(updated);
+        return updated;
+      });
+      toast.success("Notification marked as read");
+    } catch (error) {
+      console.error("Error marking notification as read:", error);
+      toast.error("Failed to mark notification as read");
+    }
+  };
+
+  // Handle mark all as read
+  const handleMarkAllAsRead = async () => {
+    try {
+      await markAllNotificationsAsRead();
+      setApiNotifications(prev => {
+        const updated = prev.map(notif => ({ ...notif, isRead: true }));
+        updateNotificationCounts(updated);
+        return updated;
+      });
+      toast.success("All notifications marked as read");
+    } catch (error) {
+      console.error("Error marking all notifications as read:", error);
+      toast.error("Failed to mark all notifications as read");
+    }
+  };
+  
+  // Generate localized notification data (fallback) - 5 notification tasks
   const getLocalizedNotifications = (): Notification[] => [
+    // BOOKING Notifications
     {
-      id: "1",
-      type: "late_arrival",
-      title: t('late_arrival_title'),
-      message: t('late_arrival_message')
-        .replace('{minutes}', '10')
-        .replace('{location}', language === 'vi' ? 'Trạm Sạc Premium - Q1' : 'Premium Charging Station - Q1')
-        .replace('{amount}', '5,000'),
-      timestamp: language === 'vi' ? '2 phút trước' : '2 minutes ago',
+      id: "booking-1",
+      type: "booking",
+      title: language === 'vi' ? 'Đặt chỗ thành công' : 'Booking Confirmed',
+      message: language === 'vi' 
+        ? 'Đặt chỗ sạc xe tại Trạm Sạc Premium - Q1 đã được xác nhận. Thời gian: 14:00 - 16:00'
+        : 'Your charging slot at Premium Station - Q1 has been reserved. Time: 2:00 PM - 4:00 PM',
+      timestamp: language === 'vi' ? '5 phút trước' : '5 minutes ago',
       isRead: false,
       requiresAction: true,
       actionData: {
         sessionId: "CS001",
-        minutesLate: 10,
-        penaltyAmount: 5000,
-        location: language === 'vi' ? 'Trạm Sạc Premium - Q1' : 'Premium Charging Station - Q1'
+        orderId: "ORD001",
+        location: language === 'vi' ? 'Trạm Sạc Premium - Q1' : 'Premium Station - Q1'
       }
     },
     {
-      id: "2", 
-      type: "overstay_warning",
-      title: t('overstay_warning_title'),
-      message: t('overstay_warning_message')
-        .replace('{location}', language === 'vi' ? 'Premium Station - Q3' : 'Premium Station - Q3')
-        .replace('{minutes}', '15')
-        .replace('{amount}', '15,000'),
-      timestamp: language === 'vi' ? '5 phút trước' : '5 minutes ago',
+      id: "booking-2",
+      type: "booking",
+      title: language === 'vi' ? 'Phiên sạc bắt đầu' : 'Charging Session Started',
+      message: language === 'vi'
+        ? 'Phiên sạc tại Trạm Sạc EcoCharge đã bắt đầu. Vui lòng cắm xe vào trạm sạc.'
+        : 'Your charging session at EcoCharge Station has started. Please plug in your vehicle.',
+      timestamp: language === 'vi' ? '2 phút trước' : '2 minutes ago',
       isRead: false,
-      requiresAction: false,
+      requiresAction: true,
       actionData: {
         sessionId: "CS002",
-        penaltyAmount: 15000,
-        location: language === 'vi' ? 'Premium Station - Q3' : 'Premium Station - Q3'
+        location: language === 'vi' ? 'Trạm Sạc EcoCharge - Q7' : 'EcoCharge Station - Q7'
       }
     },
     {
-      id: "3",
-      type: "charging_complete", 
-      title: t('charging_complete_title'),
-      message: t('charging_complete_message')
-        .replace('{vehicle}', 'Tesla Model 3')
-        .replace('{location}', language === 'vi' ? 'Trạm Sạc EcoCharge' : 'EcoCharge Station')
-        .replace('{percentage}', '95'),
+      id: "booking-3",
+      type: "booking",
+      title: language === 'vi' ? 'Phiên sạc hoàn thành' : 'Charging Session Completed',
+      message: language === 'vi'
+        ? 'Phiên sạc Tesla Model 3 tại Trạm Sạc EcoCharge đã hoàn thành. Pin đã sạc 95%.'
+        : 'Your Tesla Model 3 charging session at EcoCharge Station is complete. Battery charged to 95%.',
       timestamp: language === 'vi' ? '10 phút trước' : '10 minutes ago',
-      isRead: false,
+      isRead: true,
       requiresAction: false,
       actionData: {
         sessionId: "CS003",
         location: language === 'vi' ? 'Trạm Sạc EcoCharge - Q7' : 'EcoCharge Station - Q7'
       }
     },
+
+    // PAYMENT Notifications
     {
-      id: "4",
-      type: "invoice",
-      title: t('invoice_sent_title'),
-      message: t('invoice_sent_message')
-        .replace('{date}', '16/09/2025')
-        .replace('{email}', 'cuongdeptrai@gmail.com')
-        .replace('{amount}', '75,000'),
-      timestamp: language === 'vi' ? '1 giờ trước' : '1 hour ago',
-      isRead: true,
+      id: "payment-1",
+      type: "payment",
+      title: language === 'vi' ? 'Thanh toán thành công' : 'Payment Successful',
+      message: language === 'vi'
+        ? 'Thanh toán 75,000 VND cho phiên sạc đã thành công. Ví của bạn đã được cập nhật.'
+        : 'Payment of 75,000 VND for charging session was successful. Your wallet has been updated.',
+      timestamp: language === 'vi' ? '3 phút trước' : '3 minutes ago',
+      isRead: false,
       requiresAction: false,
       actionData: {
+        amount: 75000,
         sessionId: "CS004"
       }
     },
     {
-      id: "5",
-      type: "report_success",
-      title: t('report_success_title'),
-      message: t('report_success_message')
-        .replace('{title}', language === 'vi' ? 'Trạm sạc không hoạt động' : 'Charging station malfunction')
-        .replace('{location}', language === 'vi' ? 'EcoCharge Q7' : 'EcoCharge Q7'),
+      id: "payment-2",
+      type: "payment",
+      title: language === 'vi' ? 'Nạp tiền thành công' : 'Wallet Top-up Successful',
+      message: language === 'vi'
+        ? 'Đã nạp 500,000 VND vào ví thành công. Số dư hiện tại: 1,250,000 VND'
+        : 'Successfully topped up 500,000 VND to your wallet. Current balance: 1,250,000 VND',
+      timestamp: language === 'vi' ? '1 giờ trước' : '1 hour ago',
+      isRead: true,
+      requiresAction: false,
+      actionData: {
+        amount: 500000
+      }
+    },
+    {
+      id: "payment-3",
+      type: "payment",
+      title: language === 'vi' ? 'Thanh toán thất bại' : 'Payment Failed',
+      message: language === 'vi'
+        ? 'Thanh toán 45,000 VND thất bại do số dư không đủ. Vui lòng nạp thêm tiền vào ví.'
+        : 'Payment of 45,000 VND failed due to insufficient balance. Please top up your wallet.',
+      timestamp: language === 'vi' ? '30 phút trước' : '30 minutes ago',
+      isRead: false,
+      requiresAction: true,
+      actionData: {
+        amount: 45000
+      }
+    },
+
+    // ISSUE Notifications
+    {
+      id: "issue-1",
+      type: "issue",
+      title: language === 'vi' ? 'Lỗi sạc xe' : 'Charging Error',
+      message: language === 'vi'
+        ? 'Đã xảy ra lỗi tại Trạm Sạc Premium - Q1. Nhân viên đã được thông báo và đang xử lý.'
+        : 'A charging error occurred at Premium Station - Q1. Staff has been notified and is handling the issue.',
+      timestamp: language === 'vi' ? '15 phút trước' : '15 minutes ago',
+      isRead: false,
+      requiresAction: true,
+      actionData: {
+        sessionId: "CS005",
+        location: language === 'vi' ? 'Trạm Sạc Premium - Q1' : 'Premium Station - Q1',
+        errorCode: "ERR_001"
+      }
+    },
+    {
+      id: "issue-2",
+      type: "issue",
+      title: language === 'vi' ? 'Trạng thái lỗi' : 'Error Status',
+      message: language === 'vi'
+        ? 'Trạm sạc tại EcoCharge Q7 đang gặp sự cố. Vui lòng chờ trong khi chúng tôi khắc phục.'
+        : 'Charging station at EcoCharge Q7 is experiencing issues. Please wait while we resolve the problem.',
+      timestamp: language === 'vi' ? '1 giờ trước' : '1 hour ago',
+      isRead: true,
+      requiresAction: false,
+      actionData: {
+        location: language === 'vi' ? 'EcoCharge Q7' : 'EcoCharge Q7',
+        errorCode: "ERR_002"
+      }
+    },
+
+    // PENALTY Notifications
+    {
+      id: "penalty-1",
+      type: "penalty",
+      title: language === 'vi' ? 'Phạt không đến đúng giờ' : 'No-Show Penalty',
+      message: language === 'vi'
+        ? 'Bạn đã không đến đúng giờ đặt chỗ tại Trạm Sạc Premium - Q1. Phí phạt: 25,000 VND'
+        : 'You did not arrive on time for your booking at Premium Station - Q1. Penalty fee: 25,000 VND',
+      timestamp: language === 'vi' ? '1 giờ trước' : '1 hour ago',
+      isRead: false,
+      requiresAction: true,
+      actionData: {
+        sessionId: "CS006",
+        location: language === 'vi' ? 'Trạm Sạc Premium - Q1' : 'Premium Station - Q1',
+        penaltyAmount: 25000
+      }
+    },
+    {
+      id: "penalty-2",
+      type: "penalty",
+      title: language === 'vi' ? 'Phạt hủy đặt chỗ' : 'Cancellation Penalty',
+      message: language === 'vi'
+        ? 'Bạn đã hủy đặt chỗ trong vòng 2 giờ trước giờ sạc. Phí phạt: 15,000 VND'
+        : 'You cancelled your booking within 2 hours of charging time. Penalty fee: 15,000 VND',
       timestamp: language === 'vi' ? '2 giờ trước' : '2 hours ago',
       isRead: true,
       requiresAction: false,
       actionData: {
-        sessionId: "RPT001",
-        location: "EcoCharge Q7"
+        penaltyAmount: 15000
       }
+    },
+
+    // GENERAL Notifications
+    {
+      id: "general-1",
+      type: "general",
+      title: language === 'vi' ? 'Khuyến mãi đặc biệt' : 'Special Promotion',
+      message: language === 'vi'
+        ? 'Giảm 20% cho tất cả phiên sạc vào cuối tuần này! Áp dụng từ 6/1 - 7/1/2025'
+        : '20% off all charging sessions this weekend! Valid from Jan 6-7, 2025',
+      timestamp: language === 'vi' ? '1 ngày trước' : '1 day ago',
+      isRead: false,
+      requiresAction: false
+    },
+    {
+      id: "general-2",
+      type: "general",
+      title: language === 'vi' ? 'Bảo trì hệ thống' : 'System Maintenance',
+      message: language === 'vi'
+        ? 'Hệ thống sẽ bảo trì từ 2:00 - 4:00 AM ngày 8/1/2025. Một số tính năng có thể tạm thời không khả dụng.'
+        : 'System maintenance scheduled from 2:00 - 4:00 AM on Jan 8, 2025. Some features may be temporarily unavailable.',
+      timestamp: language === 'vi' ? '2 ngày trước' : '2 days ago',
+      isRead: true,
+      requiresAction: false
     }
   ];
 
-  // Use notifications from context, fallback to local ones if empty
-  const contextNotifications = notifications.length > 0 ? notifications : getLocalizedNotifications();
+  // Use API notifications, fallback to context or local ones
+  const displayNotifications = apiNotifications.length > 0 ? apiNotifications.map(notif => ({
+    id: notif.notificationId.toString(),
+    type: notif.type.toLowerCase() as any,
+    title: notif.title,
+    message: notif.content,
+    timestamp: notif.sentTime,
+    isRead: notif.isRead,
+    requiresAction: false,
+    actionData: undefined
+  })) : (notifications.length > 0 ? notifications : getLocalizedNotifications());
 
   const getNotificationIcon = (type: string) => {
     switch (type) {
+      case "booking": return <Calendar className="w-5 h-5 text-blue-600" />;
+      case "payment": return <CreditCard className="w-5 h-5 text-green-600" />;
+      case "issue": return <AlertTriangle className="w-5 h-5 text-red-600" />;
+      case "penalty": return <XCircle className="w-5 h-5 text-orange-600" />;
+      case "general": return <Gift className="w-5 h-5 text-purple-600" />;
       case "invoice": return <CreditCard className="w-5 h-5 text-green-600" />;
       case "late_arrival": return <Clock className="w-5 h-5 text-orange-600" />;
       case "charging_complete": return <Zap className="w-5 h-5 text-blue-600" />;
       case "overstay_warning": return <AlertTriangle className="w-5 h-5 text-red-600" />;
       case "report_success": return <CheckCircle className="w-5 h-5 text-green-600" />;
-      case "booking_confirmed": return <CheckCircle className="w-5 h-5 text-green-600" />;
       default: return <Bell className="w-5 h-5 text-gray-600" />;
     }
   };
 
   const getNotificationBadge = (type: string) => {
     switch (type) {
+      case "booking": return <Badge variant="secondary" className="bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-200">{language === 'vi' ? 'Đặt chỗ' : 'Booking'}</Badge>;
+      case "payment": return <Badge variant="secondary" className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200">{language === 'vi' ? 'Thanh toán' : 'Payment'}</Badge>;
+      case "issue": return <Badge variant="secondary" className="bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200">{language === 'vi' ? 'Sự cố' : 'Issue'}</Badge>;
+      case "penalty": return <Badge variant="secondary" className="bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-200">{language === 'vi' ? 'Phạt' : 'Penalty'}</Badge>;
+      case "general": return <Badge variant="secondary" className="bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-200">{language === 'vi' ? 'Chung' : 'General'}</Badge>;
       case "invoice": return <Badge variant="secondary" className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200">{t('invoice_badge')}</Badge>;
       case "late_arrival": return <Badge variant="secondary" className="bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-200">{t('late_arrival_badge')}</Badge>;
       case "charging_complete": return <Badge variant="secondary" className="bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-200">{t('charging_complete_badge')}</Badge>;
       case "overstay_warning": return <Badge variant="secondary" className="bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200">{t('overstay_warning_badge')}</Badge>;
       case "report_success": return <Badge variant="secondary" className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200">{t('report_success_badge')}</Badge>;
-      case "booking_confirmed": return <Badge variant="secondary" className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200">{language === 'vi' ? 'Đặt chỗ' : 'Booking'}</Badge>;
       default: return <Badge variant="outline">{t('notification_badge')}</Badge>;
     }
   };
 
-  const handleCancelSession = (notificationId: string, actionData: any) => {
-    toast.success(t('session_cancelled_successfully'), {
-      description: t('session_cancelled_description')
-        .replace('{sessionId}', actionData.sessionId)
-        .replace('{location}', actionData.location)
-    });
-    
-    // Mark notification as read
-    markNotificationAsRead(notificationId);
+  // Handle booking actions
+  const handleBookingAction = (notificationId: string, action: 'start' | 'complete' | 'cancel', actionData: any) => {
+    switch (action) {
+      case 'start':
+        toast.success(language === 'vi' ? 'Phiên sạc đã bắt đầu' : 'Charging session started', {
+          description: language === 'vi' ? 'Vui lòng cắm xe vào trạm sạc' : 'Please plug in your vehicle'
+        });
+        break;
+      case 'complete':
+        toast.success(language === 'vi' ? 'Phiên sạc hoàn thành' : 'Charging session completed', {
+          description: language === 'vi' ? 'Xe đã được sạc đầy' : 'Vehicle has been fully charged'
+        });
+        break;
+      case 'cancel':
+        toast.success(language === 'vi' ? 'Đã hủy phiên sạc' : 'Charging session cancelled', {
+          description: language === 'vi' ? 'Phiên sạc đã được hủy thành công' : 'Charging session cancelled successfully'
+        });
+        break;
+    }
+    handleMarkAsRead(notificationId);
+  };
 
-    // Simulate sending notification to staff
-    setTimeout(() => {
-      toast.info(t('notification_sent_to_staff'), {
-        description: t('staff_notified_cancellation')
-      });
-    }, 1000);
+  // Handle payment actions
+  const handlePaymentAction = (notificationId: string, action: 'retry' | 'topup', actionData: any) => {
+    switch (action) {
+      case 'retry':
+        toast.success(language === 'vi' ? 'Đang thử lại thanh toán' : 'Retrying payment', {
+          description: language === 'vi' ? 'Vui lòng chờ trong giây lát' : 'Please wait a moment'
+        });
+        break;
+      case 'topup':
+        toast.success(language === 'vi' ? 'Chuyển đến trang nạp tiền' : 'Redirecting to top-up page', {
+          description: language === 'vi' ? 'Đang chuyển hướng...' : 'Redirecting...'
+        });
+        break;
+    }
+    handleMarkAsRead(notificationId);
+  };
+
+  // Handle issue actions
+  const handleIssueAction = (notificationId: string, actionData: any) => {
+    toast.info(language === 'vi' ? 'Đã báo cáo sự cố' : 'Issue reported', {
+      description: language === 'vi' ? 'Nhân viên đã được thông báo' : 'Staff has been notified'
+    });
+    handleMarkAsRead(notificationId);
+  };
+
+  // Handle penalty actions
+  const handlePenaltyAction = (notificationId: string, action: 'pay' | 'dispute', actionData: any) => {
+    switch (action) {
+      case 'pay':
+        toast.success(language === 'vi' ? 'Đã thanh toán phí phạt' : 'Penalty fee paid', {
+          description: language === 'vi' ? `Đã thanh toán ${actionData.penaltyAmount?.toLocaleString()} VND` : `Paid ${actionData.penaltyAmount?.toLocaleString()} VND`
+        });
+        break;
+      case 'dispute':
+        toast.info(language === 'vi' ? 'Đã gửi khiếu nại' : 'Dispute submitted', {
+          description: language === 'vi' ? 'Khiếu nại đã được gửi, chúng tôi sẽ xem xét' : 'Dispute submitted, we will review it'
+        });
+        break;
+    }
+    handleMarkAsRead(notificationId);
+  };
+
+  // Legacy handlers for backward compatibility
+  const handleCancelSession = (notificationId: string, actionData: any) => {
+    handleBookingAction(notificationId, 'cancel', actionData);
   };
 
   const handleContinueSession = (notificationId: string, actionData: any) => {
-    toast.success(t('continue_charging_session'), {
-      description: t('late_fee_description')
-        .replace('{amount}', actionData.penaltyAmount?.toLocaleString())
-    });
-
-    // Mark notification as read
-    markNotificationAsRead(notificationId);
-
-    // Simulate sending notification to staff
-    setTimeout(() => {
-      toast.info(t('notification_sent_to_staff'), {
-        description: t('staff_notified_late_fee')
-      });
-    }, 1000);
+    handlePenaltyAction(notificationId, 'pay', actionData);
   };
 
   const markAsRead = (notificationId: string) => {
-    markNotificationAsRead(notificationId);
+    handleMarkAsRead(notificationId);
   };
 
-  const unreadCount = contextNotifications.filter(n => !n.isRead).length;
+  // Handle popup actions
+  const handleViewNotification = (notification: Notification) => {
+    setSelectedNotification(notification);
+    setShowPopup(true);
+  };
+
+  const handleClosePopup = () => {
+    setShowPopup(false);
+    setSelectedNotification(null);
+  };
+
+  const handlePopupMarkAsRead = async (notificationId: string) => {
+    await handleMarkAsRead(notificationId);
+    if (selectedNotification) {
+      setSelectedNotification({ ...selectedNotification, isRead: true });
+    }
+  };
+
+  const handlePopupAction = (action: string, data: any) => {
+    // Handle different actions based on notification type
+    switch (action) {
+      case 'start':
+        handleBookingAction(selectedNotification!.id, 'start', data);
+        break;
+      case 'complete':
+        handleBookingAction(selectedNotification!.id, 'complete', data);
+        break;
+      case 'cancel':
+        handleBookingAction(selectedNotification!.id, 'cancel', data);
+        break;
+      case 'retry':
+        handlePaymentAction(selectedNotification!.id, 'retry', data);
+        break;
+      case 'topup':
+        handlePaymentAction(selectedNotification!.id, 'topup', data);
+        break;
+      case 'report':
+        handleIssueAction(selectedNotification!.id, data);
+        break;
+      case 'pay':
+        handlePenaltyAction(selectedNotification!.id, 'pay', data);
+        break;
+      case 'dispute':
+        handlePenaltyAction(selectedNotification!.id, 'dispute', data);
+        break;
+    }
+    handleClosePopup();
+  };
+
+  // Use state-based unread count for consistency
+  const unreadCount = notificationCounts.unread;
 
   return (
     <>
@@ -211,19 +496,32 @@ export default function NotificationView({ onBack }: NotificationViewProps) {
               </div>
             </div>
 
-            <div className="flex items-center space-x-2">
-              <Bell className="w-6 h-6 text-primary" />
+            <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-2">
+                <Bell className="w-6 h-6 text-primary" />
+                {unreadCount > 0 && (
+                  <Badge variant="destructive" className="rounded-full px-2 py-1">
+                    {unreadCount}
+                  </Badge>
+                )}
+              </div>
               {unreadCount > 0 && (
-                <Badge variant="destructive" className="rounded-full px-2 py-1">
-                  {unreadCount}
-                </Badge>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleMarkAllAsRead}
+                  className="flex items-center space-x-2"
+                >
+                  <CheckCircle className="w-4 h-4" />
+                  <span>{t('mark_all_read')}</span>
+                </Button>
               )}
             </div>
           </div>
 
           {/* Notifications List */}
           <div className="space-y-4">
-            {contextNotifications.map((notification) => (
+            {displayNotifications.map((notification) => (
               <Card 
                 key={notification.id}
                 className={`transition-all hover:shadow-lg ${
@@ -260,17 +558,106 @@ export default function NotificationView({ onBack }: NotificationViewProps) {
                         {notification.message}
                       </p>
 
-                      {/* Action Buttons for Late Arrival */}
-                      {notification.requiresAction && notification.type === "late_arrival" && (
+                      {/* Action Buttons for different notification types */}
+                      {notification.requiresAction && !notification.isRead && (
                         <div className="bg-orange-50 dark:bg-orange-950/20 rounded-lg p-4 border border-orange-200 dark:border-orange-800/30">
                           <div className="flex items-center justify-between mb-3">
                             <span className="font-medium text-orange-900 dark:text-orange-100">
-                              {t('what_would_you_like_to_do')}
+                              {language === 'vi' ? 'Bạn muốn làm gì?' : 'What would you like to do?'}
                             </span>
+                            {notification.actionData?.penaltyAmount && (
                             <Badge variant="outline" className="text-orange-700 border-orange-300 dark:text-orange-300 dark:border-orange-700">
-                              {t('fee')}: {notification.actionData?.penaltyAmount?.toLocaleString()} VND
+                                {language === 'vi' ? 'Phí' : 'Fee'}: {notification.actionData.penaltyAmount.toLocaleString()} VND
                             </Badge>
+                            )}
                           </div>
+                          
+                          {/* Booking Actions */}
+                          {notification.type === 'booking' && (
+                            <div className="flex flex-col sm:flex-row gap-3">
+                              <Button
+                                variant="outline"
+                                onClick={() => handleBookingAction(notification.id, 'start', notification.actionData)}
+                                className="flex-1 border-blue-300 text-blue-700 hover:bg-blue-100 dark:border-blue-700 dark:text-blue-300 dark:hover:bg-blue-900/30"
+                              >
+                                <Zap className="w-4 h-4 mr-2" />
+                                {language === 'vi' ? 'Bắt đầu sạc' : 'Start Charging'}
+                              </Button>
+                              <Button
+                                onClick={() => handleBookingAction(notification.id, 'complete', notification.actionData)}
+                                className="flex-1 bg-green-600 hover:bg-green-700 text-white"
+                              >
+                                <CheckCircle className="w-4 h-4 mr-2" />
+                                {language === 'vi' ? 'Hoàn thành' : 'Complete'}
+                              </Button>
+                              <Button
+                                variant="outline"
+                                onClick={() => handleBookingAction(notification.id, 'cancel', notification.actionData)}
+                                className="flex-1 border-red-300 text-red-700 hover:bg-red-100 dark:border-red-700 dark:text-red-300 dark:hover:bg-red-900/30"
+                              >
+                                <XCircle className="w-4 h-4 mr-2" />
+                                {language === 'vi' ? 'Hủy' : 'Cancel'}
+                              </Button>
+                            </div>
+                          )}
+
+                          {/* Payment Actions */}
+                          {notification.type === 'payment' && (
+                            <div className="flex flex-col sm:flex-row gap-3">
+                              <Button
+                                onClick={() => handlePaymentAction(notification.id, 'retry', notification.actionData)}
+                                className="flex-1 bg-green-600 hover:bg-green-700 text-white"
+                              >
+                                <CreditCard className="w-4 h-4 mr-2" />
+                                {language === 'vi' ? 'Thử lại' : 'Retry Payment'}
+                              </Button>
+                              <Button
+                                variant="outline"
+                                onClick={() => handlePaymentAction(notification.id, 'topup', notification.actionData)}
+                                className="flex-1 border-blue-300 text-blue-700 hover:bg-blue-100 dark:border-blue-700 dark:text-blue-300 dark:hover:bg-blue-900/30"
+                              >
+                                <DollarSign className="w-4 h-4 mr-2" />
+                                {language === 'vi' ? 'Nạp tiền' : 'Top Up'}
+                              </Button>
+                            </div>
+                          )}
+
+                          {/* Issue Actions */}
+                          {notification.type === 'issue' && (
+                            <div className="flex flex-col sm:flex-row gap-3">
+                              <Button
+                                onClick={() => handleIssueAction(notification.id, notification.actionData)}
+                                className="flex-1 bg-red-600 hover:bg-red-700 text-white"
+                              >
+                                <AlertTriangle className="w-4 h-4 mr-2" />
+                                {language === 'vi' ? 'Báo cáo sự cố' : 'Report Issue'}
+                              </Button>
+                            </div>
+                          )}
+
+                          {/* Penalty Actions */}
+                          {notification.type === 'penalty' && (
+                            <div className="flex flex-col sm:flex-row gap-3">
+                              <Button
+                                onClick={() => handlePenaltyAction(notification.id, 'pay', notification.actionData)}
+                                className="flex-1 bg-orange-600 hover:bg-orange-700 text-white"
+                              >
+                                <CreditCard className="w-4 h-4 mr-2" />
+                                {language === 'vi' ? 'Thanh toán phạt' : 'Pay Penalty'}
+                              </Button>
+                              <Button
+                                variant="outline"
+                                onClick={() => handlePenaltyAction(notification.id, 'dispute', notification.actionData)}
+                                className="flex-1 border-orange-300 text-orange-700 hover:bg-orange-100 dark:border-orange-700 dark:text-orange-300 dark:hover:bg-orange-900/30"
+                              >
+                                <AlertTriangle className="w-4 h-4 mr-2" />
+                                {language === 'vi' ? 'Khiếu nại' : 'Dispute'}
+                              </Button>
+                            </div>
+                          )}
+
+                          {/* Legacy Late Arrival Actions */}
+                          {notification.type === 'late_arrival' && (
                           <div className="flex flex-col sm:flex-row gap-3">
                             <Button
                               variant="outline"
@@ -288,21 +675,34 @@ export default function NotificationView({ onBack }: NotificationViewProps) {
                               {t('continue_and_pay_fee')}
                             </Button>
                           </div>
+                          )}
                         </div>
                       )}
 
-                      {/* Mark as Read Button */}
-                      {!notification.isRead && !notification.requiresAction && (
+                      {/* Action Buttons */}
+                      <div className="flex flex-wrap gap-2 mt-4">
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => markAsRead(notification.id)}
-                          className="mt-2"
+                          onClick={() => handleViewNotification(notification)}
+                          className="flex items-center space-x-2"
                         >
-                          <CheckCircle className="w-4 h-4 mr-2" />
-                          {t('mark_as_read')}
+                          <Eye className="w-4 h-4" />
+                          <span>{language === 'vi' ? 'Xem chi tiết' : 'View Details'}</span>
+                        </Button>
+                        
+                        {!notification.isRead && !notification.requiresAction && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleMarkAsRead(notification.id)}
+                            className="flex items-center space-x-2"
+                          >
+                            <CheckCircle className="w-4 h-4" />
+                            <span>{t('mark_as_read')}</span>
                         </Button>
                       )}
+                      </div>
                     </div>
                   </div>
                 </CardContent>
@@ -330,17 +730,15 @@ export default function NotificationView({ onBack }: NotificationViewProps) {
             <CardContent className="p-6">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="text-center">
-                  <div className="text-2xl font-semibold text-foreground">{contextNotifications.length}</div>
+                  <div className="text-2xl font-semibold text-foreground">{notificationCounts.total}</div>
                   <div className="text-sm text-muted-foreground">{t('total_notifications')}</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-2xl font-semibold text-orange-600">{unreadCount}</div>
+                  <div className="text-2xl font-semibold text-orange-600">{notificationCounts.unread}</div>
                   <div className="text-sm text-muted-foreground">{t('unread')}</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-2xl font-semibold text-green-600">
-                    {contextNotifications.filter(n => n.requiresAction).length}
-                  </div>
+                  <div className="text-2xl font-semibold text-green-600">{notificationCounts.actionRequired}</div>
                   <div className="text-sm text-muted-foreground">{t('action_required')}</div>
                 </div>
               </div>
@@ -348,6 +746,17 @@ export default function NotificationView({ onBack }: NotificationViewProps) {
           </Card>
         </div>
       </div>
+      
+      {/* Notification Detail Popup */}
+      {showPopup && selectedNotification && (
+        <NotificationDetailPopup
+          notification={selectedNotification}
+          onClose={handleClosePopup}
+          onMarkAsRead={handlePopupMarkAsRead}
+          onAction={handlePopupAction}
+        />
+      )}
+      
       <Toaster />
     </>
   );

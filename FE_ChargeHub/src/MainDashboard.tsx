@@ -91,17 +91,24 @@ export default function MainDashboard({ onLogout, onBooking, onHistory, onAnalys
       console.log("Before clear - userId:", localStorage.getItem("userId"));
       console.log("Before clear - fullName:", localStorage.getItem("fullName"));
       console.log("Before clear - email:", localStorage.getItem("email"));
+      console.log("Before clear - role:", localStorage.getItem("role"));
+      console.log("Before clear - registeredUserId:", localStorage.getItem("registeredUserId"));
       
       // Clear local storage
       localStorage.removeItem("token");
       localStorage.removeItem("userId");
       localStorage.removeItem("fullName");
       localStorage.removeItem("email");
+      localStorage.removeItem("role");
+      localStorage.removeItem("registeredUserId");
+      localStorage.removeItem("refreshToken");
       
       console.log("After clear - token:", localStorage.getItem("token"));
       console.log("After clear - userId:", localStorage.getItem("userId"));
       console.log("After clear - fullName:", localStorage.getItem("fullName"));
       console.log("After clear - email:", localStorage.getItem("email"));
+      console.log("After clear - role:", localStorage.getItem("role"));
+      console.log("After clear - registeredUserId:", localStorage.getItem("registeredUserId"));
       
       console.log("Showing success toast...");
       toast.success(t("Logout successful"));
