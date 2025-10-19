@@ -7,6 +7,7 @@ import lombok.NoArgsConstructor;
 import lombok.ToString;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Data
 @Entity
@@ -18,9 +19,7 @@ public class Session {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long sessionId;
 
-    @ManyToOne
-    @JoinColumn(name = "order_id", nullable = false)
-    @ToString.Exclude
+    @OneToOne(cascade = CascadeType.ALL)
     private Order order;
 
     @Column(nullable = false)
@@ -32,18 +31,25 @@ public class Session {
     private Double powerConsumed; //Số kwh đã sạc
 
     @Column(nullable = false)
-    private Double cost; //tiền phải trả cho phiên sạc
+    private Double baseCost; //tiền phải trả cho phiên sạc (chưa tính phí phát sinh)
 
-    @ManyToOne
-    @JoinColumn(name = "fee_id")
+    @OneToMany(mappedBy = "session", cascade = CascadeType.ALL)
     @ToString.Exclude
-    private Fee fee; //Phí phát sinh (nếu có)
+    private List<Fee> fees; //Các phí phát sinh
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private SessionStatus status = SessionStatus.CHARGING;
 
     public enum SessionStatus {
-        CHARGING, COMPLETED
+        CHARGING, COMPLETED, OVERTIME
+    }
+
+    // Kiểm tra xem session có overtime không
+    public boolean isOvertime() {
+        if (endTime == null || order == null || order.getEndTime() == null) {
+            return false;
+        }
+        return endTime.isAfter(order.getEndTime());
     }
 }

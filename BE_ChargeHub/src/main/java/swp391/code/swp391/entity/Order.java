@@ -8,6 +8,7 @@ import lombok.NoArgsConstructor;
 import lombok.ToString;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Entity
 @Table(name = "orders")
@@ -51,9 +52,16 @@ public class Order {
     private Status status = Status.BOOKED;
 
     public enum Status {
-        BOOKED, CANCELED, COMPLETED,CHARGING
+        BOOKED,     // When initially created
+        CHARGING,     // When charging has started
+        COMPLETED,  // When charging is done
+        CANCELED,   // When user cancels
+        NO_SHOW     // When user doesn't show up
     }
     LocalDateTime createdAt = LocalDateTime.now();
+
+    @OneToMany(mappedBy = "order", cascade = CascadeType.ALL)
+    private List<Fee> fees;
 
     public boolean isActive() {
         return status == Status.BOOKED;
