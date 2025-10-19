@@ -32,22 +32,16 @@ public class ChargingStation {
     @JsonManagedReference
     private List<ChargingPoint> chargingPoint;
 
-    @ManyToMany
-    @JoinTable(
-        name = "station_staff",
-        joinColumns = @JoinColumn(name = "station_id"),
-        inverseJoinColumns = @JoinColumn(name = "user_id")
-    )
-    private List<User> stationStaff;
-
     public enum ChargingStationStatus {
         ACTIVE,
         INACTIVE,
         MAINTENANCE
     }
+
     @Column(name = "charging_point_number", nullable = false)
     private int chargingPointNumber;
 
-    @Column(name = "staff_id", nullable = false)
-    private Long staffId;
+    @OneToMany(mappedBy = "station")
+    private List<User> staff_id;
 }
+

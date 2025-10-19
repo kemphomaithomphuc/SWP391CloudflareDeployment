@@ -9,6 +9,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import swp391.code.swp391.entity.ChargingPoint;
 import swp391.code.swp391.entity.ChargingStation.ChargingStationStatus;
+import swp391.code.swp391.entity.User;
 
 import java.util.List;
 
@@ -43,4 +44,6 @@ public class ChargingStationDTO {
 
     // Cho output: list charging points
     private List<ChargingPoint> chargingPoint;
+
+    private List<User> staff_id;
 }

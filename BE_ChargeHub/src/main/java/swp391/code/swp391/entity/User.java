@@ -53,8 +53,10 @@ public class User {
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private List<Verification> verifications;
 
-    @ManyToMany(mappedBy = "stationStaff")
-    private List<ChargingStation> assignedStations;
+    @ManyToOne
+    @JoinColumn(name = "station_id")
+    private ChargingStation station;
+
 
     public User(String fullName, String email, String password, String phone, LocalDate dateOfBirth, String address) {
         this.fullName = fullName;
