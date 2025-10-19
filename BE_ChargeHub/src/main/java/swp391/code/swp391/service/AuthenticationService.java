@@ -32,6 +32,7 @@ public class AuthenticationService {
     private final AuthenticationManager authenticationManager;
     private final JwtService jwtService;
     private final UserServiceImpl userServiceImpl;
+    private final JwtBlacklistService jwtBlacklistService;
 
     @Value("${spring.security.oauth2.client.registration.google.client-id}")
     private String googleClientId;
@@ -87,14 +88,12 @@ public class AuthenticationService {
         }
     }
 
-//    public void logout(String token) {
-//        if (token == null || token.isEmpty()) {
-//            throw new IllegalArgumentException("Invalid token");
-//        }
-//        // Lưu token vào Redis với key là token và TTL bằng thời gian hết hạn của token
-//        // Giả sử token hết hạn sau 1 giờ (3600 giây)
-//        redisTemplate.opsForValue().set("blacklist:" + token, "invalid", 3600, TimeUnit.SECONDS);
-//    }
+    public void logout(String token) {
+        if (token == null || token.isEmpty()) {
+            throw new IllegalArgumentException("Invalid token");
+        }
+        jwtBlacklistService.blacklistToken(token);
+    }
 
     public String getSocialLoginUrl(String loginType) {
         // Trả về URL đăng nhập xã hội dựa trên loại đăng nhập
