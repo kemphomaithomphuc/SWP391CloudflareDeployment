@@ -201,8 +201,11 @@ export default function Login({ onSwitchToRegister, onLogin, onStaffLogin, onAdm
                 }
                 else if (!userProfile.data.vehicles || userProfile.data.vehicles.length === 0) {
                     console.log("User needs vehicle setup");
-                    onLogin?.();
+                    onSwitchToVehicleSetup?.(); //Muốn sang dashboard thì chỉnh thành onLogin
                     return;
+                } 
+                else {
+
                 }
                 
                 // User profile is complete, proceed with normal login flow
