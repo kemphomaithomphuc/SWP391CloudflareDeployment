@@ -9,6 +9,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { useLanguage } from "../contexts/LanguageContext";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "./ui/dialog";
 import { Mail } from "lucide-react";
+import toast from "react-hot-toast";  // 🆕 Dùng react-hot-toast
+import { api } from "../services/api";
 
 interface ProfileViewProps {
     onBack: () => void;
@@ -62,6 +64,40 @@ export default function ProfileView({ onBack }: ProfileViewProps) {
     const [emailChangeLoading, setEmailChangeLoading] = useState(false);
     const [emailOtpSent, setEmailOtpSent] = useState(false);
 
+    // 🆕 Validation functions (tương tự login)
+    const validateEmail = (emailValue: string): boolean => {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        return emailRegex.test(emailValue);
+    };
+
+    const validatePhone = (phoneValue: string): boolean => {
+        // Accept phone numbers starting with 0 or +, 8-15 digits
+        const phoneRegex = /^(0|\+84)([35789])[0-9]{8}$/;
+        return phoneRegex.test(phoneValue.replace(/\s/g, ''));
+    };
+
+    const validatePassword = (passwordValue: string): boolean => {
+        return passwordValue.length >= 6;
+    };
+
+    const validateOTP = (otpValue: string): boolean => {
+        return /^\d{6}$/.test(otpValue);
+    };
+
+    const validateFullName = (nameValue: string): boolean => {
+        return nameValue.trim().length >= 2;
+    };
+
+    // 🆕 Validate dateOfBirth: chỉ quá khứ
+    const validateDateOfBirth = (dateString: string): boolean => {
+        if (!dateString) return true; // Optional, allow empty
+        const selectedDate = new Date(dateString);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0); // Reset time to compare dates only
+        selectedDate.setHours(0, 0, 0, 0);
+        return selectedDate < today;
+    };
+
     // Collect from localStorage
     const userId = localStorage.getItem("userId");  //từ login
     const token = localStorage.getItem("token");
@@ -78,8 +114,14 @@ export default function ProfileView({ onBack }: ProfileViewProps) {
     };
 
     const handleSendOTPForEmailChange = async () => {
-        if (!newEmailInput) {
-            setEmailChangeError("Please enter a valid email.");
+        if (!newEmailInput.trim()) {
+            setEmailChangeError("Please enter your new email");
+            toast.error(t("Please enter your new email"));
+            return;
+        }
+        if (!validateEmail(newEmailInput.trim())) {
+            setEmailChangeError("Invalid email format");
+            toast.error("Bạn nhập sai format email");
             return;
         }
         try {
@@ -93,19 +135,26 @@ export default function ProfileView({ onBack }: ProfileViewProps) {
             setEmailOtpSent(true);
             setEmailChangeStep("otp");
             setEmailChangeSuccess("OTP sent to " + newEmailInput);
+            toast.success("OTP sent to your email");
         } catch (err: any) {
             console.error("Send email OTP error:", err);
-            setEmailChangeError(
-                "Failed to send OTP: " + (err.response?.data?.message || err.message)
-            );
+            const errorMsg = "Failed to send OTP: " + (err.response?.data?.message || err.message);
+            setEmailChangeError(errorMsg);
+            toast.error(errorMsg);
         } finally {
             setEmailChangeLoading(false);
         }
     };
 
     const handleVerifyOTPAndChangeEmail = async () => {
-        if (!emailOtpCode) {
-            setEmailChangeError("Please enter the OTP code.");
+        if (!emailOtpCode.trim()) {
+            setEmailChangeError("Please enter OTP code");
+            toast.error("Please enter OTP code");
+            return;
+        }
+        if (!validateOTP(emailOtpCode.trim())) {
+            setEmailChangeError("Invalid OTP format (6 digits)");
+            toast.error("Invalid OTP format (6 digits)");
             return;
         }
         try {
@@ -119,12 +168,13 @@ export default function ProfileView({ onBack }: ProfileViewProps) {
             setProfileData((prev: any) => ({ ...prev, email: newEmailInput }));
             localStorage.setItem("email", newEmailInput);
             setEmailChangeSuccess("Email changed successfully to " + newEmailInput);
+            toast.success("Email changed successfully!");
             setTimeout(() => setIsEmailChangeDialogOpen(false), 1500);
         } catch (err: any) {
             console.error("Verify email OTP error:", err);
-            setEmailChangeError(
-                "Failed to verify OTP: " + (err.response?.data?.message || err.message)
-            );
+            const errorMsg = "Failed to verify OTP: " + (err.response?.data?.message || err.message);
+            setEmailChangeError(errorMsg);
+            toast.error(errorMsg);
         } finally {
             setEmailChangeLoading(false);
         }
@@ -143,17 +193,15 @@ export default function ProfileView({ onBack }: ProfileViewProps) {
     useEffect(() => {
         const fetchProfile = async () => {
             if (!userId || !token) {
-                setError("Missing userId or token from login");
+                const errMsg = "Missing userId or token from login";
+                setError(errMsg);
+                toast.error(errMsg);
                 return;
             }
             try {
                 setLoading(true);
                 setError(null);
-                const response = await axios.get(`http://localhost:8080/api/user/profile/${userId}`, {
-                    headers: {
-                        Authorization: `Bearer ${token}`,
-                    },
-                });
+                const response = await api.get(`/api/user/profile/${userId}`);
                 // Nested response.data.data hoặc data
                 const profile = response.data.data || response.data;
                 const normalizedData: UserProfile = {
@@ -162,22 +210,24 @@ export default function ProfileView({ onBack }: ProfileViewProps) {
                     email: profile.email,
                     phone: profile.phoneNumber || null,
                     dateOfBirth: profile.dateOfBirth || null,
-                    gender: profile.gender || null,
+                    gender:profile.gender || null,
                     role: profile.role,
                     address: profile.address || null,
                     status: profile.status,
                 };
                 setProfileData(normalizedData);
                 console.log("Profile fetched:", profile);
+                toast.success("Profile loaded successfully");
             } catch (err: any) {
                 console.error("Fetch profile error:", err);
+                let errMsg = t("Failed to load Profile") + ": " + (err.response?.data?.message || err.message);
                 if (err.response?.status === 405 || err.response?.status === 400) {
-                    setError("Endpoint mismatch (405/400). Fallback to local data.");
+                    errMsg = "Endpoint mismatch (405/400). Fallback to local data.";
                 } else if (err.response?.status === 404) {
-                    setError("Profile not found for ID " + userId + ". Check user ID.");
-                } else {
-                    setError(t("Failed to load Profile") + ": " + (err.response?.data?.message || err.message));
+                    errMsg = "Profile not found for ID " + userId + ". Check user ID.";
                 }
+                setError(errMsg);
+                toast.error(errMsg);
                 // Fallback UI data từ localStorage/email
                 setProfileData({
                     userId: parseInt(userId) || 0,
@@ -201,31 +251,97 @@ export default function ProfileView({ onBack }: ProfileViewProps) {
     const handleRetryFetch = () => {
         setError(null);
         window.location.reload();  // Simple retry
+        toast("Retrying fetch...", { duration: 2000 });
     };
 
     const handleSave = async () => {
+        console.log("=== handleSave START ===");
+        console.log("profileData.fullName:", profileData.fullName);
+        console.log("profileData.phone:", profileData.phone);
+        console.log("profileData.dateOfBirth:", profileData.dateOfBirth);
+        console.log("userId:", userId);
+        console.log("token:", token ? "Present" : "Missing");
+        
+        console.log("=== Validation Checks ===");
+        console.log("validateFullName result:", validateFullName(profileData.fullName));
+        if (!validateFullName(profileData.fullName)) {
+            const errMsg = "Full name must be at least 2 characters";
+            console.log("Full name validation failed:", errMsg);
+            setError(errMsg);
+            toast.error(errMsg);
+            return;
+        }
+        
+        console.log("validatePhone result:", profileData.phone ? validatePhone(profileData.phone) : "no phone");
+        if (profileData.phone && !validatePhone(profileData.phone)) {
+            const errMsg = "Invalid phone number format";
+            console.log("Phone validation failed:", errMsg);
+            setError(errMsg);
+            toast.error(errMsg);
+            return;
+        }
+        
+        console.log("validateDateOfBirth result:", profileData.dateOfBirth ? validateDateOfBirth(profileData.dateOfBirth) : "no date");
+        if (profileData.dateOfBirth && !validateDateOfBirth(profileData.dateOfBirth)) {
+            const errMsg = "Date of birth must be in the past";
+            console.log("Date validation failed:", errMsg);
+            setError(errMsg);
+            toast.error(errMsg);
+            return;
+        }
+        
+        console.log("userId and token check:", { userId: !!userId, token: !!token });
         if (!userId || !token) {
-            setError("Missing user ID or token");
+            const errMsg = "Missing user ID or token";
+            console.log("Auth validation failed:", errMsg);
+            setError(errMsg);
+            toast.error(errMsg);
             return;
         }
         try {
             setLoading(true);
             setError(null);
-            console.log("Saving with userId:", userId);  // Debug ID used
-            // Path param numeric userId cho PUT
-            const response = await axios.put(`http://localhost:8080/api/user/profile/${userId}`, profileData, {
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                },
-            });
+            console.log("=== Profile Save Debug ===");
+            console.log("userId:", userId);
+            console.log("token:", token ? "Present" : "Missing");
+            console.log("profileData:", profileData);
+            
+            // Chỉ gửi các trường cho phép chỉnh sửa để tránh BE từ chối payload
+            const payload = {
+                fullName: profileData.fullName,
+                phoneNumber: profileData.phone, // BE dùng phoneNumber khi fetch
+                dateOfBirth: profileData.dateOfBirth,
+                address: profileData.address,
+            };
+            
+            console.log("Payload to send:", payload);
+            
+            // Sử dụng API service thay vì axios trực tiếp
+            const response = await api.put(`/api/user/profile/${userId}`, payload);
+            
+            console.log("API Response:", response);
+            console.log("Response status:", response.status);
+            console.log("Response data:", response.data);
+            
             // Update localStorage
             localStorage.setItem("fullName", profileData.fullName);
             localStorage.setItem("phone", profileData.phone || "");
+            localStorage.setItem("dateOfBirth", profileData.dateOfBirth || "");
+            localStorage.setItem("address", profileData.address || "");
             setIsEditing(false);
             console.log("Save success:", response.data);
+            toast.success("Profile updated successfully!");
         } catch (err: any) {
-            console.error("Save error:", err);
-            setError(t("Failed to save Profile") + ": " + (err.response?.data?.message || err.message));
+            console.error("=== Save Error Details ===");
+            console.error("Error object:", err);
+            console.error("Error response:", err.response);
+            console.error("Error status:", err.response?.status);
+            console.error("Error data:", err.response?.data);
+            console.error("Error message:", err.message);
+            
+            const errMsg = t("Failed to save Profile") + ": " + (err.response?.data?.message || err.message);
+            setError(errMsg);
+            toast.error(errMsg);
         } finally {
             setLoading(false);
         }
@@ -240,16 +356,35 @@ export default function ProfileView({ onBack }: ProfileViewProps) {
 
     // Handle password change
     const handleChangePassword = async () => {
-        if (!userId || !token) {
-            setPasswordError("Missing user ID or token");
+        if (!oldPassword.trim()) {
+            setPasswordError("Please enter old password");
+            toast.error("Please enter old password");
+            return;
+        }
+        if (!newPassword.trim()) {
+            setPasswordError("Please enter new password");
+            toast.error("Please enter new password");
+            return;
+        }
+        if (!validatePassword(newPassword)) {
+            setPasswordError("Password must be at least 6 characters");
+            toast.error("Password must be at least 6 characters");
+            return;
+        }
+        if (!confirmPassword.trim()) {
+            setPasswordError("Please confirm new password");
+            toast.error("Please confirm new password");
             return;
         }
         if (newPassword !== confirmPassword) {
             setPasswordError("New password and confirm password do not match.");
+            toast.error("New password and confirm password do not match.");
             return;
         }
-        if (newPassword.length < 6) {
-            setPasswordError("Password must be at least 6 characters.");
+        if (!userId || !token) {
+            const errMsg = "Missing user ID or token";
+            setPasswordError(errMsg);
+            toast.error(errMsg);
             return;
         }
         try {
@@ -263,6 +398,7 @@ export default function ProfileView({ onBack }: ProfileViewProps) {
                 { headers: { Authorization: `Bearer ${token}` } }
             );
             setPasswordSuccess("Password changed successfully.");
+            toast.success("Password changed successfully!");
             setOldPassword("");
             setNewPassword("");
             setConfirmPassword("");
@@ -270,7 +406,11 @@ export default function ProfileView({ onBack }: ProfileViewProps) {
             console.log("Password change success:", response.data);
         } catch (err: any) {
             console.error("Password change error:", err);
-            setPasswordError("Failed to change password: " + (err.response?.data?.message || err.message));
+            const errMsg = "Failed to change password: " + (err.response?.data?.message || err.message);
+            setPasswordError(errMsg);
+            toast.error(errMsg);
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -314,7 +454,18 @@ export default function ProfileView({ onBack }: ProfileViewProps) {
                     </div>
                     <div className="flex items-center space-x-2">
                         <Button
-                            onClick={() => isEditing ? handleSave() : setIsEditing(true)}
+                            onClick={() => {
+                                console.log("=== Button Clicked ===");
+                                console.log("isEditing:", isEditing);
+                                console.log("loading:", loading);
+                                if (isEditing) {
+                                    console.log("Calling handleSave...");
+                                    handleSave();
+                                } else {
+                                    console.log("Setting editing to true...");
+                                    setIsEditing(true);
+                                }
+                            }}
                             disabled={loading}
                             className="flex items-center space-x-2"
                         >
@@ -414,6 +565,7 @@ export default function ProfileView({ onBack }: ProfileViewProps) {
                                             type="date"
                                             value={profileData.dateOfBirth || ''}
                                             onChange={(e) => handleInputChange('dateOfBirth', e.target.value)}
+                                            max={new Date().toISOString().split('T')[0]}  // 🆕 Prevent future dates in input
                                         />
                                     ) : (
                                         <p className="py-2 px-3 bg-muted rounded-md">{profileData.dateOfBirth || "Not set"}</p>

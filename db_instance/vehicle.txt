@@ -1,22 +1,19 @@
-
-
 -- Insert into vehicles (5 records)
--- Columns: brand, model, capacity, product_year, plate_number, car_model_id, user_user_id (vehicle_id is IDENTITY)
--- Use existing car_model_id 1-5 and user_id 1-5 (drivers/admin/staff)
-INSERT INTO [dbo].[vehicles] ([brand], [model], [capacity], [product_year], [plate_number], [car_model_id], [user_user_id]) VALUES ('Tesla', 'Model 3', 75.0, 2022, 'ABC123', 1, 1);
-INSERT INTO [dbo].[vehicles] ([brand], [model], [capacity], [product_year], [plate_number], [car_model_id], [user_user_id]) VALUES ('Nissan', 'Leaf', 40.0, 2021, 'DEF456', 2, 2);
-INSERT INTO [dbo].[vehicles] ([brand], [model], [capacity], [product_year], [plate_number], [car_model_id], [user_user_id]) VALUES ('Chevrolet', 'Bolt', 66.0, 2023, 'GHI789', 3, 1);
-INSERT INTO [dbo].[vehicles] ([brand], [model], [capacity], [product_year], [plate_number], [car_model_id], [user_user_id]) VALUES ('BMW', 'i3', 42.0, 2020, 'JKL012', 4, 2);
-INSERT INTO [dbo].[vehicles] ([brand], [model], [capacity], [product_year], [plate_number], [car_model_id], [user_user_id]) VALUES ('Audi', 'e-tron', 95.0, 2022, 'MNO345', 5, 5);  -- Banned user
+-- Columns: plate_number, car_model_id, user_user_id (vehicle_id is IDENTITY)
+INSERT INTO [dbo].[vehicles] ([plate_number], [car_model_id], [user_user_id]) VALUES ('ABC123', 1, 1);
+INSERT INTO [dbo].[vehicles] ([plate_number], [car_model_id], [user_user_id]) VALUES ('DEF456', 2, 2);
+INSERT INTO [dbo].[vehicles] ([plate_number], [car_model_id], [user_user_id]) VALUES ('GHI789', 3, 1);
+INSERT INTO [dbo].[vehicles] ([plate_number], [car_model_id], [user_user_id]) VALUES ('JKL012', 4, 2);
+INSERT INTO [dbo].[vehicles] ([plate_number], [car_model_id], [user_user_id]) VALUES ('MNO345', 5, 5);  -- Banned user
 
--- Additional 45 inserts for vehicles (brand/model/capacity/year from car_models pattern, plate_number unique, car_model_id 6-50, user_user_id 6-50)
-INSERT INTO [dbo].[vehicles] ([brand], [model], [capacity], [product_year], [plate_number], [car_model_id], [user_user_id]) VALUES
-('Tesla', 'Model Y', 80.0, 2023, 'PQR678', 6, 6), ('Hyundai', 'Ioniq', 58.0, 2022, 'STU901', 7, 7), ('Ford', 'Mustang Mach-E', 88.0, 2021, 'VWX234', 8, 8), ('Volkswagen', 'ID.4', 77.0, 2023, 'YZA567', 9, 9), ('Kia', 'EV6', 77.4, 2022, 'BCD890', 10, 10),
-('Tesla', 'Model 3', 75.0, 2022, 'EFG123', 11, 11), ('Nissan', 'Leaf', 40.0, 2021, 'HIJ456', 12, 12), ('Chevrolet', 'Bolt', 66.0, 2023, 'KLM789', 13, 13), ('BMW', 'i3', 42.0, 2020, 'NOP012', 14, 14), ('Audi', 'e-tron', 95.0, 2022, 'QRS345', 15, 15),
-('Tesla', 'Model Y', 80.0, 2023, 'TUV678', 16, 16), ('Hyundai', 'Ioniq', 58.0, 2022, 'WXY901', 17, 17), ('Ford', 'Mustang Mach-E', 88.0, 2021, 'ZAB234', 18, 18), ('Volkswagen', 'ID.4', 77.0, 2023, 'CDE567', 19, 19), ('Kia', 'EV6', 77.4, 2022, 'FGH890', 20, 20),
-('Tesla', 'Model 3', 75.0, 2022, 'IJK123', 21, 21), ('Nissan', 'Leaf', 40.0, 2021, 'LMN456', 22, 22), ('Chevrolet', 'Bolt', 66.0, 2023, 'OPQ789', 23, 23), ('BMW', 'i3', 42.0, 2020, 'RST012', 24, 24), ('Audi', 'e-tron', 95.0, 2022, 'UVW345', 25, 25),
-('Tesla', 'Model Y', 80.0, 2023, 'XYZ678', 26, 26), ('Hyundai', 'Ioniq', 58.0, 2022, 'ABC901', 27, 27), ('Ford', 'Mustang Mach-E', 88.0, 2021, 'DEF234', 28, 28), ('Volkswagen', 'ID.4', 77.0, 2023, 'GHI567', 29, 29), ('Kia', 'EV6', 77.4, 2022, 'JKL890', 30, 30),
-('Tesla', 'Model 3', 75.0, 2022, 'MNO123', 31, 31), ('Nissan', 'Leaf', 40.0, 2021, 'PQR456', 32, 32), ('Chevrolet', 'Bolt', 66.0, 2023, 'STU789', 33, 33), ('BMW', 'i3', 42.0, 2020, 'VWX012', 34, 34), ('Audi', 'e-tron', 95.0, 2022, 'YZA345', 35, 35),
-('Tesla', 'Model Y', 80.0, 2023, 'BCD678', 36, 36), ('Hyundai', 'Ioniq', 58.0, 2022, 'EFG901', 37, 37), ('Ford', 'Mustang Mach-E', 88.0, 2021, 'HIJ234', 38, 38), ('Volkswagen', 'ID.4', 77.0, 2023, 'KLM567', 39, 39), ('Kia', 'EV6', 77.4, 2022, 'NOP890', 40, 40),
-('Tesla', 'Model 3', 75.0, 2022, 'QRS123', 41, 41), ('Nissan', 'Leaf', 40.0, 2021, 'TUV456', 42, 42), ('Chevrolet', 'Bolt', 66.0, 2023, 'WXY789', 43, 43), ('BMW', 'i3', 42.0, 2020, 'ZAB012', 44, 44), ('Audi', 'e-tron', 95.0, 2022, 'CDE345', 45, 45),
-('Tesla', 'Model Y', 80.0, 2023, 'FGH678', 46, 46), ('Hyundai', 'Ioniq', 58.0, 2022, 'IJK901', 47, 47), ('Ford', 'Mustang Mach-E', 88.0, 2021, 'LMN234', 48, 48), ('Volkswagen', 'ID.4', 77.0, 2023, 'OPQ567', 49, 49), ('Kia', 'EV6', 77.4, 2022, 'RST890', 50, 50);
+-- Additional 45 inserts for vehicles (plate_number unique, car_model_id 6-50, user_user_id 6-50)
+INSERT INTO [dbo].[vehicles] ([plate_number], [car_model_id], [user_user_id]) VALUES
+('PQR678', 6, 6), ('STU901', 7, 7), ('VWX234', 8, 8), ('YZA567', 9, 9), ('BCD890', 10, 10),
+('EFG123', 11, 11), ('HIJ456', 12, 12), ('KLM789', 13, 13), ('NOP012', 14, 14), ('QRS345', 15, 15),
+('TUV678', 16, 16), ('WXY901', 17, 17), ('ZAB234', 18, 18), ('CDE567', 19, 19), ('FGH890', 20, 20),
+('IJK123', 21, 21), ('LMN456', 22, 22), ('OPQ789', 23, 23), ('RST012', 24, 24), ('UVW345', 25, 25),
+('XYZ678', 26, 26), ('ABC901', 27, 27), ('DEF234', 28, 28), ('GHI567', 29, 29), ('JKL890', 30, 30),
+('MNO123', 31, 31), ('PQR456', 32, 32), ('STU789', 33, 33), ('VWX012', 34, 34), ('YZA345', 35, 35),
+('BCD678', 36, 36), ('EFG901', 37, 37), ('HIJ234', 38, 38), ('KLM567', 39, 39), ('NOP890', 40, 40),
+('QRS123', 41, 41), ('TUV456', 42, 42), ('WXY789', 43, 43), ('ZAB012', 44, 44), ('CDE345', 45, 45),
+('FGH678', 46, 46), ('IJK901', 47, 47), ('LMN234', 48, 48), ('OPQ567', 49, 49), ('RST890', 50, 50);

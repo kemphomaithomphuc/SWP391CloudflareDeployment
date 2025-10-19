@@ -5,9 +5,14 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import swp391.code.swp391.dto.*;
+import swp391.code.swp391.entity.ChargingStation;
+import swp391.code.swp391.entity.CustomUserDetails;
 import swp391.code.swp391.entity.Order;
+import swp391.code.swp391.service.CarModelServiceImpl;
+import swp391.code.swp391.service.ChargingStationServiceImpl;
 import swp391.code.swp391.service.OrderServiceImpl;
 
 import java.util.List;
@@ -22,6 +27,8 @@ import org.springframework.web.bind.annotation.RestController;
 public class OrderController {
 
     private final OrderServiceImpl orderServiceImpl;
+    private final ChargingStationServiceImpl chargingStationServiceImpl;
+    private final CarModelServiceImpl carModelServiceImpl;
 
     /**
      * API 1: Find available slots - Tìm các khung giờ trống có đủ thời gian sạc
@@ -112,6 +119,39 @@ public class OrderController {
                         .build()
         );
     }
+
+    /**
+     * API 5: HỦY ĐƠN ĐẶT CHỖ
+     */
+    @PutMapping("/cancel")
+    public ResponseEntity<APIResponse<OrderResponseDTO>> cancelOrder(
+            @Valid @RequestBody CancelOrderDTO request) {
+
+        OrderResponseDTO canceledOrder = orderServiceImpl.cancelOrder(request);
+
+        return ResponseEntity.ok(
+                APIResponse.<OrderResponseDTO>builder()
+                        .success(true)
+                        .message("Đã hủy đơn đặt chỗ thành công")
+                        .data(canceledOrder)
+                        .build()
+        );
+    }
+
+    @GetMapping("/station/{stationId}")
+    @Operation(summary = "Lấy danh sách đơn đặt chỗ của một trạm sạc")
+    public ResponseEntity<APIResponse<List<OrderResponseDTO>>> getStationOrders(
+            @PathVariable Long stationId) {
+        List<OrderResponseDTO> orders = orderServiceImpl.getStationOrders(stationId);
+        return ResponseEntity.ok(
+                APIResponse.<List<OrderResponseDTO>>builder()
+                        .success(true)
+                        .message("Tìm thấy " + orders.size() + " đơn đặt chỗ")
+                        .data(orders)
+                        .build()
+        );
+    }
+
 
     // Helper method
     private String getBatteryStatus(double batteryLevel) {

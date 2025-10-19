@@ -20,6 +20,7 @@ public class CarModelServiceImpl implements CarModelService {
     private final CarModelRepository carModelRepository;
     private final ConnectorTypeRepository connectorTypeRepository;
 
+    //admin only
     @Override
     public CarModelDTO createCarModel(CarModelDTO carModelDTO) {
         // Kiểm tra trùng lặp
@@ -32,6 +33,7 @@ public class CarModelServiceImpl implements CarModelService {
         return convertToDTO(savedCarModel);
     }
 
+    // Admin only
     @Override
     public CarModelDTO updateCarModel(Long carModelId, CarModelDTO carModelDTO) {
         CarModel carModel = carModelRepository.findById(carModelId)
@@ -55,7 +57,7 @@ public class CarModelServiceImpl implements CarModelService {
     @Override
     public void deleteCarModel(Long carModelId) {
         if (!carModelRepository.existsById(carModelId)) {
-            throw new RuntimeException("CarModel not found with id: " + carModelId);
+            throw new RuntimeException("Không tìm thấy Car Model với id: " + carModelId);
         }
         carModelRepository.deleteById(carModelId);
     }
@@ -69,12 +71,12 @@ public class CarModelServiceImpl implements CarModelService {
     }
 
     @Override
-    @Transactional(readOnly = true)
     public List<CarModelDTO> findAllCarModels() {
         return carModelRepository.findAll().stream()
                 .map(this::convertToDTO)
                 .collect(Collectors.toList());
     }
+
 
     @Override
     @Transactional(readOnly = true)
@@ -108,6 +110,14 @@ public class CarModelServiceImpl implements CarModelService {
                 .collect(Collectors.toList());
     }
 
+    @Override
+    public CarModelDTO findByCarmodelId(Long car_model_id) {
+        CarModel carModel = carModelRepository.findById(car_model_id)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy car model với id: " + car_model_id));
+        return convertToDTO(carModel);
+    }
+
+
     // Helper methods
     private CarModel convertToEntity(CarModelDTO carModelDTO) {
         CarModel carModel = new CarModel();
@@ -120,6 +130,7 @@ public class CarModelServiceImpl implements CarModelService {
             List<ConnectorType> connectorTypes = connectorTypeRepository.findAllById(carModelDTO.getConnectorTypeIds());
             carModel.setConnectorTypes(connectorTypes);
         }
+        carModel.setImg_url(carModelDTO.getCarModelImage());
 
         return carModel;
     }
@@ -132,8 +143,13 @@ public class CarModelServiceImpl implements CarModelService {
         dto.setCapacity(carModel.getCapacity());
         dto.setProductYear(carModel.getProductYear());
         if (carModel.getConnectorTypes() != null) {
-            dto.setConnectorTypes(carModel.getConnectorTypes());
+            dto.setConnectorTypeIds(
+                    carModel.getConnectorTypes().stream()
+                            .map(ConnectorType::getConnectorTypeId) // lấy ID từ từng ConnectorType
+                            .collect(Collectors.toList())
+            );
         }
+        dto.setCarModelImage(carModel.getImg_url());
         return dto;
     }
 }

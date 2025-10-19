@@ -23,6 +23,7 @@ public class UserDTO {
     private LocalDate dateOfBirth;
     private User.UserRole role;
     private User.UserStatus status;
+    private int violations;
 
     // Danh sách xe của user
     private List<VehicleDTO> vehicles;
@@ -39,6 +40,7 @@ public class UserDTO {
         this.dateOfBirth = user.getDateOfBirth();
         this.status = user.getStatus();
         this.avatarUrl = user.getAvatar();
+        this.violations = user.getViolations();
     }
     // Constructor từ User entity (có bao gồm vehicles)
     public UserDTO(User user, boolean includeVehicles) {
@@ -49,5 +51,9 @@ public class UserDTO {
                     .map(VehicleDTO::new)
                     .collect(Collectors.toList());
         }
+    }
+
+    public boolean isBanned() {
+        return this.status == User.UserStatus.BANNED;
     }
 }

@@ -6,7 +6,6 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
-import java.util.Date;
 
 @Data
 @Entity
@@ -22,7 +21,10 @@ public class Notification {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "nvarchar(255)")
+    private String title;
+
+    @Column(nullable = false, columnDefinition = "nvarchar(255)")
     private String content;
 
     private LocalDateTime sentTime;
@@ -31,7 +33,11 @@ public class Notification {
     @Column(nullable = false)
     private Type type;
 
+    @Column(nullable = false)
+    private Boolean isRead = false;
+
     public enum Type {
         BOOKING, PAYMENT, ISSUE, GENERAL, PENALTY
+        //BOOKING: booking success/fail, PAYMENT: payment success/fail, ISSUE: report issue status update, GENERAL: general notification, PENALTY: penalty notification
     }
 }

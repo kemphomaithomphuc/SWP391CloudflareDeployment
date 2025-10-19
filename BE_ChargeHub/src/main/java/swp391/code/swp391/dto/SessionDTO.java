@@ -18,7 +18,7 @@ public class SessionDTO {
     private Long orderId;
     private Long vehicleId;
     private LocalDateTime startTime;
-    private LocalDateTime expectedEndTime;
+    private LocalDateTime endTime;
     private double currentBattery;
     private double expectedBattery;
     private Long connectorTypeId;

@@ -52,19 +52,19 @@ public class AuthenticationController {
         }
     }
 
-//    @PostMapping("/logout")
-//    public ResponseEntity<APIResponse<String>> logout(HttpServletRequest request) {
-//        try {
-//            String token = extractTokenFromHeader(request);
-//            if (token == null) {
-//                return ResponseEntity.badRequest().body(APIResponse.error("No token provided"));
-//            }
-//            authenticationService.logout(token);
-//            return ResponseEntity.ok(APIResponse.success("Logout successful", null));
-//        } catch (Exception e) {
-//            return ResponseEntity.badRequest().body(APIResponse.error("Logout failed: " + e.getMessage()));
-//        }
-//    }
+    @PostMapping("/logout")
+    public ResponseEntity<APIResponse<String>> logout(HttpServletRequest request) {
+        try {
+            String token = extractTokenFromHeader(request);
+            if (token == null) {
+                return ResponseEntity.badRequest().body(APIResponse.error("No token provided"));
+            }
+            authenticationService.logout(token);
+            return ResponseEntity.ok(APIResponse.success("Logout successful", null));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(APIResponse.error("Logout failed: " + e.getMessage()));
+        }
+    }
     /**
      * Social login endpoint
      * URL: /api/auth/social/login

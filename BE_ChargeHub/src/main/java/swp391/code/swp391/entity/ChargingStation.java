@@ -37,6 +37,11 @@ public class ChargingStation {
         INACTIVE,
         MAINTENANCE
     }
+
     @Column(name = "charging_point_number", nullable = false)
     private int chargingPointNumber;
+
+    @OneToMany(mappedBy = "station")
+    private List<User> staff_id;
 }
+

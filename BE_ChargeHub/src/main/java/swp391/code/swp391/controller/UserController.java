@@ -1,7 +1,7 @@
 package swp391.code.swp391.controller;
 
 import jakarta.validation.Valid;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import swp391.code.swp391.dto.*;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -15,16 +15,12 @@ import swp391.code.swp391.service.VehicleServiceImpl;
 import java.util.List;
 
 @RestController
+@RequiredArgsConstructor
 @RequestMapping("/api/user")
 public class UserController {
-    @Autowired
-    private final UserServiceImpl userServiceImpl;
-    @Autowired
-    private VehicleServiceImpl vehicleServiceImpl;
 
-    public UserController(UserServiceImpl userServiceImpl) {
-        this.userServiceImpl = userServiceImpl;
-    }
+    private final UserServiceImpl userServiceImpl;
+    private final VehicleServiceImpl vehicleServiceImpl;
 
     /**
      * 1. XEM THÔNG TIN USER
@@ -130,22 +126,27 @@ public class UserController {
     }
 
     /**
-     * 4. BAN USER
-     * PUT /api/user/{id}/ban
+     * 4. REPORT VIOLATION USER
+     * PUT /api/user/reportViolation
      */
-    @PutMapping("/{id}/ban")
-    public ResponseEntity<APIResponse<User>> banUser(@PathVariable Long id) {
+    @PostMapping("/reportViolation")
+    public ResponseEntity<APIResponse<UserDTO>> reportViolation(
+            @RequestParam Long userId,
+            @RequestParam String reason) {
         try {
-            User updatedUser = userServiceImpl.banUser(id);
+            UserDTO updatedUser = userServiceImpl.reportViolation(userId, reason);
+            String message = updatedUser.isBanned()
+                    ? "User đã bị ban do vượt quá số lần vi phạm"
+                    : "Đã ghi nhận vi phạm cho user";
             return ResponseEntity.ok(
-                    APIResponse.success("User đã bị ban thành công", updatedUser)
+                    APIResponse.success(message, updatedUser)
             );
         } catch (RuntimeException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
                     .body(APIResponse.error("Không tìm thấy user: " + e.getMessage()));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(APIResponse.error("Lỗi khi ban user: " + e.getMessage()));
+                    .body(APIResponse.error("Lỗi khi báo cáo vi phạm: " + e.getMessage()));
         }
     }
     /**

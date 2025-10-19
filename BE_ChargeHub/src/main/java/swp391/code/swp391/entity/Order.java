@@ -36,11 +36,11 @@ public class Order {
     @ToString.Exclude
     private Vehicle vehicle;
 
-    @Column(name ="start_time", nullable = false)
+    @Column(name = "start_time", nullable = false)
     private LocalDateTime startTime;
 
     @Column(name = "end_time", nullable = false)
-    private LocalDateTime endTime; // Thời gian dự kiến kết thúc
+    private LocalDateTime endTime;
 
     private Double startedBattery;
 
@@ -50,12 +50,45 @@ public class Order {
     @Column(nullable = false)
     private Status status = Status.BOOKED;
 
-    public enum Status {
-        BOOKED, CANCELED, COMPLETED,CHARGING
-    }
-    LocalDateTime createdAt = LocalDateTime.now();
+    @Column(name = "created_at")
+    private LocalDateTime createdAt = LocalDateTime.now();
 
+    // ===== THÊM CÁC FIELD CHO CANCELLATION =====
+
+    @Column(name = "canceled_at")
+    private LocalDateTime canceledAt; // Thời gian hủy
+
+    @Column(name = "cancellation_reason", columnDefinition = "TEXT")
+    private String cancellationReason; // Lý do hủy
+
+    public enum Status {
+        BOOKED,
+        CANCELED,
+        COMPLETED,
+        CHARGING
+    }
+
+    // ===== HELPER METHODS =====
+
+    /**
+     * Kiểm tra order có đang active không (chỉ BOOKED)
+     */
     public boolean isActive() {
         return status == Status.BOOKED;
+    }
+
+    /**
+     * Kiểm tra có thể hủy order không
+     */
+    public boolean canBeCancelled() {
+        return status == Status.BOOKED;
+    }
+
+    /**
+     * Kiểm tra có quá thời gian hủy không (1 giờ trước startTime)
+     */
+    public boolean isPastCancellationDeadline() {
+        LocalDateTime deadline = startTime.minusHours(1);
+        return LocalDateTime.now().isAfter(deadline);
     }
 }

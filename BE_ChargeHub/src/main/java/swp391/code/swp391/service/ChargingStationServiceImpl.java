@@ -232,7 +232,7 @@ public class ChargingStationServiceImpl implements ChargingStationService {
         // Thêm latitude và longitude
         chargingStation.setLatitude(chargingStationDTO.getLatitude());
         chargingStation.setLongitude(chargingStationDTO.getLongitude());
-
+        chargingStation.setStaff_id(chargingStation.getStaff_id());
         return chargingStation;
     }
 
@@ -246,7 +246,7 @@ public class ChargingStationServiceImpl implements ChargingStationService {
         // Thêm latitude và longitude
         dto.setLatitude(chargingStation.getLatitude());
         dto.setLongitude(chargingStation.getLongitude());
-
+        dto.setStaff_id(chargingStation.getStaff_id());
         return dto;
     }
 }

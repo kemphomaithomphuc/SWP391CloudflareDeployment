@@ -13,5 +13,6 @@ public class CarModelDTO {
     private double capacity;
     private int productYear;
     private List<Long> connectorTypeIds; // Để gửi danh sách ID của ConnectorType
-    private List<ConnectorType> connectorTypes; // Để trả về thông tin ConnectorType
+    private String carModelImage;
+//    private List<ConnectorType> connectorTypes; // Để trả về thông tin ConnectorType
 }

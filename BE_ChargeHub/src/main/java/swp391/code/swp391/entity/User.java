@@ -6,7 +6,6 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.sql.Date;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -25,7 +24,7 @@ public class User {
     private String fullName;
     @Column(name = "email", unique = true) //Nullable true để đăng ký bằng phone (fb)
     private String email;
-    @Column(name = "password",nullable = true)
+    @Column(name = "password")
     private String password;
     @Column(name = "phone", unique = true) //Nullable true để đăng ký bằng email (gg)
     private String phone;
@@ -54,6 +53,11 @@ public class User {
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private List<Verification> verifications;
 
+    @ManyToOne
+    @JoinColumn(name = "station_id")
+    private ChargingStation station;
+
+
     public User(String fullName, String email, String password, String phone, LocalDate dateOfBirth, String address) {
         this.fullName = fullName;
         this.email = email;
@@ -62,9 +66,8 @@ public class User {
         this.dateOfBirth = dateOfBirth;
         this.address = address;
     }
-
+    
     // Enums for UserStatus and UserRole
-
     public enum UserStatus {
         ACTIVE, INACTIVE, BANNED
     }
@@ -72,4 +75,10 @@ public class User {
     public enum UserRole {
         DRIVER, ADMIN, STAFF
     }
+
+    @Column(name = "violations", nullable = false)
+    private int violations;
+
+    @Column(name = "reason_report", columnDefinition = "NVARCHAR(700)")
+    private String reasonReport;
 }

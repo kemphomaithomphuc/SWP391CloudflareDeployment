@@ -34,7 +34,7 @@ public class UserServiceImpl implements UserService {
     private static final String EMAIL_REGEX = "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$";
     /** Pattern for validating Vietnamese phone numbers */
     private static final String VIETNAM_PHONE_REGEX = "^(0|\\+84)([35789])[0-9]{8}$";
-
+    private static int MAX_VIOLATIONS = 3;
     // Dependencies
 
     private final PasswordEncoder passwordEncoder;
@@ -327,12 +327,21 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public User banUser(Long id) {
-            User user =  getUserById(id);
+    public UserDTO reportViolation(Long userId, String reason) {
+        User user = userRepository.findById(userId)
+        .orElseThrow(() -> new RuntimeException("Không tìm thấy user với ID: " + userId));
+        int newViolationCount = user.getViolations() + 1;
+        user.setViolations(newViolationCount);
+        if (newViolationCount >= MAX_VIOLATIONS) {
             user.setStatus(User.UserStatus.BANNED);
-            return userRepository.save(user);
+            user.setReasonReport(reason);
+        }
+        return convertToDTO(userRepository.save(user));
     }
 
+    public static UserDTO convertToDTO(User user) {
+        return new UserDTO(user);
+    }
     // =============== HELPER METHODS ===============
 
     /**
