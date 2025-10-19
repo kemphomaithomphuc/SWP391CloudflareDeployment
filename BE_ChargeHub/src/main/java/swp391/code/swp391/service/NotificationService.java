@@ -1,14 +1,16 @@
 package swp391.code.swp391.service;
 
 import swp391.code.swp391.entity.Notification;
-import swp391.code.swp391.entity.User;
 
 import java.util.List;
 
 public interface NotificationService {
 
-    void sendNotification(User user, Notification.Type type, String content);
-
+    List<Notification> getAllNotificationsForUser(Long userId);
+    List<Notification> getUnreadNotificationsForUser(Long userId);
+    Long getUnreadCountForUser(Long userId);
+    void markAsRead(Long notificationId, Long userId);
+    void markAllAsRead(Long userId);
     // ==================== BOOKING NOTIFICATIONS ====================
     void createBookingOrderNotification(Long orderId, NotificationServiceImpl.NotificationEvent event, String additionalInfo);
 
