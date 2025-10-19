@@ -33,6 +33,9 @@ public class Notification {
     @Column(nullable = false)
     private Type type;
 
+    @Column(nullable = false)
+    private Boolean isRead = false;
+
     public enum Type {
         BOOKING, PAYMENT, ISSUE, GENERAL, PENALTY
         //BOOKING: booking success/fail, PAYMENT: payment success/fail, ISSUE: report issue status update, GENERAL: general notification, PENALTY: penalty notification

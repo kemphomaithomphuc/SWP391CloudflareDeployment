@@ -8,6 +8,7 @@ import swp391.code.swp391.repository.NotificationRepository;
 import swp391.code.swp391.repository.OrderRepository;
 import swp391.code.swp391.repository.UserRepository;
 
+import java.awt.print.Pageable;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -20,20 +21,45 @@ public class NotificationServiceImpl implements NotificationService {
     private final OrderRepository orderRepository;
     private final UserRepository userRepository;
 
-    // Giả sử integrate với email service
-    @Override //Tạm thời chỉ in ra console
-    public void sendNotification(User user, Notification.Type type, String content) {
-        Notification notification = new Notification();
-        notification.setUser(user);
-        notification.setType(type);
-        notification.setContent(content);
-        notification.setSentTime(LocalDateTime.now());
-        notificationRepository.save(notification);
-
-        // Send email/push (placeholder)
-        System.out.println("Sending notification to " + user.getEmail() + ": " + content);
+    @Override
+    public List<Notification> getAllNotificationsForUser(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        return notificationRepository.findByUserOrderBySentTimeDesc(user);
     }
 
+    @Override
+    public List<Notification> getUnreadNotificationsForUser(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        return notificationRepository.findUnreadByUser(user);
+    }
+
+    @Override
+    public Long getUnreadCountForUser(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        return notificationRepository.countUnreadByUser(user);
+    }
+
+    @Override
+    @Transactional
+    public void markAsRead(Long notificationId, Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        int updated = notificationRepository.markAsRead(notificationId, user);
+        if (updated == 0) {
+            throw new RuntimeException("Notification not found or not owned by user");
+        }
+    }
+
+    @Override
+    @Transactional
+    public void markAllAsRead(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        notificationRepository.markAllAsRead(user);
+    }
 
 //=====================BOOKING NOTIFICATION==========================
     public enum NotificationEvent {
