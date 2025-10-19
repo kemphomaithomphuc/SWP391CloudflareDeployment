@@ -154,9 +154,9 @@ public class UserController {
      * GET /api/users/{id}/vehicles
      */
     @GetMapping("/{id}/vehicles")
-    public ResponseEntity<APIResponse<List<VehicleDTO>>> getUserVehicles(@PathVariable Long id) {
+    public ResponseEntity<APIResponse<List<VehicleResponseDTO>>> getUserVehicles(@PathVariable Long id) {
         try {
-            List<VehicleDTO> vehicles = vehicleServiceImpl.getVehiclesByUserId(id);
+            List<VehicleResponseDTO> vehicles = vehicleServiceImpl.getVehiclesByUserId(id);
             return ResponseEntity.ok(
                     APIResponse.success("Lấy danh sách vehicle thành công", vehicles)
             );
