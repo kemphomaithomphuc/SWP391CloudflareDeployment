@@ -46,6 +46,5 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     User getUserByEmail(String email);
 
-    // Tìm users theo role
     List<User> findByRole(User.UserRole role);
 }

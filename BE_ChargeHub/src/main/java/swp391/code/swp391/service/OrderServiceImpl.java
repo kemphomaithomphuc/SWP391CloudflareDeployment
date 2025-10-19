@@ -299,4 +299,57 @@ public class OrderServiceImpl implements OrderService {
                 .build();
     }
 
+
+    /**
+     * Hủy đơn đặt chỗ
+     */
+    @Override
+    @Transactional
+    public OrderResponseDTO cancelOrder(CancelOrderDTO request) {
+
+        // 1. Validate order tồn tại
+        Order order = orderRepository.findById(request.getOrderId())
+                .orElseThrow(() -> new ApiRequestException("Không tìm thấy đơn đặt chỗ"));
+
+        // 2. Kiểm tra quyền sở hữu
+        if (!order.getUser().getUserId().equals(request.getUserId())) {
+            throw new ApiRequestException("Bạn không có quyền hủy đơn đặt chỗ này");
+        }
+
+        // 3. Kiểm tra trạng thái có thể hủy không
+        if (!order.canBeCancelled()) {
+            throw new ApiRequestException(
+                    "Không thể hủy đơn đặt chỗ với trạng thái: " + order.getStatus()
+            );
+        }
+
+        // 4. Kiểm tra thời gian hủy (phải hủy trước 1 giờ)
+        if (order.isPastCancellationDeadline()) {
+            throw new ApiRequestException(
+                    "Không thể hủy đơn đặt chỗ trong vòng 1 giờ trước khi bắt đầu sạc"
+            );
+        }
+
+        // 5. Cập nhật trạng thái
+        order.setStatus(Order.Status.CANCELED);
+        order.setCanceledAt(LocalDateTime.now());
+        order.setCancellationReason(
+                request.getReason() != null && !request.getReason().isBlank()
+                        ? request.getReason()
+                        : "Người dùng hủy"
+        );
+
+        order = orderRepository.save(order);
+        return convertToDTO(order);
+    }
+
+    public List<OrderResponseDTO> getStationOrders(Long stationId) {
+        List<Order> orders = orderRepository.findByChargingPoint_Station_StationId(stationId);
+
+        List<OrderResponseDTO> orderDTOs = orders.stream()
+                .map(this::convertToDTO)
+                .collect(Collectors.toList());
+
+        return orderDTOs.isEmpty() ? null : orderDTOs;
+    }
 }

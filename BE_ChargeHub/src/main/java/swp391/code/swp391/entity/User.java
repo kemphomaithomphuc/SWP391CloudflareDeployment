@@ -73,4 +73,10 @@ public class User {
     public enum UserRole {
         DRIVER, ADMIN, STAFF
     }
+
+    @Column(name = "violations", nullable = false)
+    private int violations;
+
+    @Column(name = "reason_report", columnDefinition = "NVARCHAR(700)")
+    private String reasonReport;
 }

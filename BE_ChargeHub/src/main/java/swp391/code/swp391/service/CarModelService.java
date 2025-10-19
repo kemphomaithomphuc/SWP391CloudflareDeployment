@@ -79,4 +79,13 @@ public interface CarModelService {
      * @return Danh sách CarModelDTO có liên kết với ConnectorType
      */
     List<CarModelDTO> findCarModelsByConnectorType(Long connectorTypeId);
+
+    /**
+     * Tìm một CarModel theo Id.
+     * @param carmodelId
+     * @return CarModelDTO của CarModel vừa tạo
+     * @throws RuntimeException nếu CarModel đã tồn tại (dựa trên brand và model)
+     */
+
+    CarModelDTO findByCarmodelId(Long carmodelId);
 }

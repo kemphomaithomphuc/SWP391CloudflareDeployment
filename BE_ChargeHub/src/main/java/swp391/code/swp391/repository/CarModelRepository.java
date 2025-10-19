@@ -26,4 +26,5 @@ public interface CarModelRepository extends JpaRepository<CarModel, Long> {
 
     // Kiểm tra xem CarModel có tồn tại theo brand và model
     boolean existsByBrandAndModel(String brand, String model);
+
 }

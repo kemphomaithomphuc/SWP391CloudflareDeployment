@@ -47,4 +47,7 @@ public class ChargingStation {
     }
     @Column(name = "charging_point_number", nullable = false)
     private int chargingPointNumber;
+
+    @Column(name = "staff_id", nullable = false)
+    private Long staffId;
 }

@@ -95,11 +95,11 @@ public interface UserService {
 
     /**
      * Ban user theo ID (cập nhật trạng thái thành BANNED).
-     * @param id ID của user
-     * @return User object đã được ban
+     * @param userId ID của user cần ban
+     * @param reason Lý do ban user
      * @throws RuntimeException nếu không tìm thấy user
      */
-    User banUser(Long id);
+    UserDTO  reportViolation(Long userId, String reason);
 
     void resetPassword(String email, String newPassword);
 
