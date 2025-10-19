@@ -1,28 +1,29 @@
-package swp391.code.swp391.service;
 
-import swp391.code.swp391.dto.VehicleDTO;
-import swp391.code.swp391.entity.User;
+    package swp391.code.swp391.service;
 
-import java.util.List;
+    import swp391.code.swp391.dto.VehicleRequestDTO;
+    import swp391.code.swp391.dto.VehicleResponseDTO;
 
-public interface VehicleService {
+    import java.util.List;
 
-    // Tạo vehicle mới
-    VehicleDTO createVehicle(VehicleDTO vehicleDTO);
+    public interface VehicleService {
 
-    // Lấy vehicle theo plate number
-    VehicleDTO getVehicleByPlateNumber(String plateNumber);
+        // Create a new vehicle (accept request DTO, return response DTO)
+        VehicleResponseDTO createVehicle(VehicleRequestDTO vehicleDTO);
 
-    // Lấy tất cả vehicles
-    List<VehicleDTO> getAllVehicles();
+        // Get vehicle by plate number
+        VehicleResponseDTO getVehicleByPlateNumber(String plateNumber);
 
-    // Lấy vehicles theo user ID
-    List<VehicleDTO> getVehiclesByUserId(Long userId);
+        // Get all vehicles
+        List<VehicleResponseDTO> getAllVehicles();
 
-    // Cập nhật vehicle
-    VehicleDTO updateVehicle(String plateNumber, VehicleDTO vehicleDTO, Long userId);
+        // Get vehicles by user ID
+        List<VehicleResponseDTO> getVehiclesByUserId(Long userId);
 
-    // Xóa vehicle với user validation
-    void deleteVehicleByUser(String plateNumber, Long userId);
+        // Update vehicle (accept request DTO, return response DTO)
+        VehicleResponseDTO updateVehicle(String plateNumber, VehicleRequestDTO vehicleDTO, Long userId);
 
-}
+        // Delete vehicle with user validation
+        void deleteVehicleByUser(String plateNumber, Long userId);
+
+    }
