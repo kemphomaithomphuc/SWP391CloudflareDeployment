@@ -35,6 +35,7 @@ public class SecurityConfig {
     };
     private final JwtDecoder jwtDecoder; // Tự động được Spring inject JwtDecoderConfig
     private final CustomUserDetailService userDetailsService;
+    private final JwtBlacklistFilter jwtBlacklistFilter;
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
@@ -45,6 +46,7 @@ public class SecurityConfig {
                         .requestMatchers(PUBLIC_URLS).permitAll()
                         .anyRequest().authenticated()
                 )
+                .addFilterBefore(jwtBlacklistFilter, org.springframework.security.oauth2.server.resource.web.BearerTokenAuthenticationFilter.class)
                 .oauth2ResourceServer((oauth2) -> oauth2
                         .jwt(jwtConfigurer -> jwtConfigurer.decoder(jwtDecoder))
                 );
