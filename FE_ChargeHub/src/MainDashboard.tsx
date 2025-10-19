@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { 
   User, 
   Car, 
@@ -23,6 +23,8 @@ import { useLanguage } from "./contexts/LanguageContext";
 import ProfileView from "./components/ProfileView";
 import VehicleView from "./components/VehicleView";
 import SubscriptionView from "./components/SubscriptionView";
+import { logoutUser, getUnreadNotificationCount } from "./services/api";
+import { toast } from "sonner";
 
 import Footer from "./components/Footer";
 
@@ -43,8 +45,86 @@ interface MainDashboardProps {
 export default function MainDashboard({ onLogout, onBooking, onHistory, onAnalysis, onReportIssue, onWallet, onNotifications, onMyBookings, onPremiumSubscription, vehicleBatteryLevel = 75, setVehicleBatteryLevel }: MainDashboardProps) {
   const [activeSection, setActiveSection] = useState("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
   const { theme, toggleTheme } = useTheme();
   const { language, setLanguage, t } = useLanguage();
+
+  // Load notification count on component mount
+  useEffect(() => {
+    const loadNotificationCount = async () => {
+      console.log("=== NOTIFICATION COUNT DEBUG ===");
+      console.log("Loading notification count...");
+      
+      try {
+        const count = await getUnreadNotificationCount();
+        console.log("Notification count loaded:", count);
+        setUnreadNotificationCount(count);
+        console.log("Set unreadNotificationCount to:", count);
+      } catch (error) {
+        console.error("=== NOTIFICATION COUNT ERROR ===");
+        console.error("Error loading notification count:", error);
+        console.error("Error type:", typeof error);
+        console.error("Error message:", error instanceof Error ? error.message : "Unknown error");
+      }
+    };
+    
+    loadNotificationCount();
+  }, []);
+
+  // Handle logout with API call
+  const handleLogout = async () => {
+    console.log("=== LOGOUT DEBUG START ===");
+    console.log("handleLogout called");
+    console.log("isLoggingOut:", isLoggingOut);
+    
+    try {
+      setIsLoggingOut(true);
+      console.log("Set isLoggingOut to true");
+      
+      console.log("Calling logoutUser API...");
+      const logoutResponse = await logoutUser();
+      console.log("Logout API response:", logoutResponse);
+      
+      console.log("Clearing localStorage...");
+      console.log("Before clear - token:", localStorage.getItem("token"));
+      console.log("Before clear - userId:", localStorage.getItem("userId"));
+      console.log("Before clear - fullName:", localStorage.getItem("fullName"));
+      console.log("Before clear - email:", localStorage.getItem("email"));
+      
+      // Clear local storage
+      localStorage.removeItem("token");
+      localStorage.removeItem("userId");
+      localStorage.removeItem("fullName");
+      localStorage.removeItem("email");
+      
+      console.log("After clear - token:", localStorage.getItem("token"));
+      console.log("After clear - userId:", localStorage.getItem("userId"));
+      console.log("After clear - fullName:", localStorage.getItem("fullName"));
+      console.log("After clear - email:", localStorage.getItem("email"));
+      
+      console.log("Showing success toast...");
+      toast.success(t("Logout successful"));
+      
+      console.log("Calling onLogout callback...");
+      onLogout();
+      console.log("onLogout callback completed");
+      
+    } catch (error) {
+      console.error("=== LOGOUT ERROR ===");
+      console.error("Logout error:", error);
+      console.error("Error type:", typeof error);
+      console.error("Error message:", error instanceof Error ? error.message : "Unknown error");
+      console.error("Error response:", error instanceof Error && 'response' in error ? (error as any).response : "No response");
+      console.error("Error status:", error instanceof Error && 'response' in error ? (error as any).response?.status : "No status");
+      
+      toast.error(t("Logout failed"));
+    } finally {
+      console.log("Setting isLoggingOut to false");
+      setIsLoggingOut(false);
+      console.log("=== LOGOUT DEBUG END ===");
+    }
+  };
 
   // Mock user vehicle data - in real app this would come from backend/context
   const userVehicle = {
@@ -166,10 +246,16 @@ export default function MainDashboard({ onLogout, onBooking, onHistory, onAnalys
         <div className="p-4 border-t border-sidebar-border">
           <button
             onClick={() => {
-              onLogout();
+              console.log("=== LOGOUT BUTTON CLICKED ===");
+              console.log("Logout button clicked");
+              console.log("isLoggingOut:", isLoggingOut);
+              console.log("Calling handleLogout...");
+              handleLogout();
+              console.log("Closing sidebar...");
               setSidebarOpen(false);
             }}
-            className="w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-left text-destructive hover:bg-destructive/10 transition-colors"
+            disabled={isLoggingOut}
+            className="w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-left text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-50"
           >
             <LogOut className="w-5 h-5" />
             <span>{t('logout')}</span>
@@ -209,8 +295,12 @@ export default function MainDashboard({ onLogout, onBooking, onHistory, onAnalys
                 className="p-2 rounded-lg bg-muted hover:bg-accent transition-colors relative"
               >
                 <Bell className="w-5 h-5 text-muted-foreground" />
-                {/* Notification badge - mock unread count */}
-                <div className="absolute -top-1 -right-1 w-3 h-3 bg-destructive rounded-full animate-pulse"></div>
+                {/* Notification badge - real unread count */}
+                {unreadNotificationCount > 0 && (
+                  <div className="absolute -top-1 -right-1 w-5 h-5 bg-destructive rounded-full flex items-center justify-center text-xs text-white font-medium">
+                    {unreadNotificationCount > 99 ? '99+' : unreadNotificationCount}
+                  </div>
+                )}
               </button>
               <span className="text-sm text-muted-foreground cursor-pointer hover:text-foreground transition-colors" onClick={onNotifications}>{t('notification')}</span>
               
@@ -276,7 +366,7 @@ export default function MainDashboard({ onLogout, onBooking, onHistory, onAnalys
                   <Button 
                     size="lg"
                     className="bg-primary hover:bg-primary/90 text-primary-foreground px-8"
-                    onClick={(e) => {
+                    onClick={(e: React.MouseEvent) => {
                       e.stopPropagation();
                       onBooking?.();
                     }}
