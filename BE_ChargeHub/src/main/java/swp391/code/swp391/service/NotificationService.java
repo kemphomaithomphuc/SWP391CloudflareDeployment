@@ -1,6 +1,5 @@
 package swp391.code.swp391.service;
 
-import org.springframework.data.domain.Pageable;
 import swp391.code.swp391.entity.Notification;
 
 import java.util.List;
