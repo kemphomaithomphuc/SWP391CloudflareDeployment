@@ -42,7 +42,7 @@ export default function Login({ onSwitchToRegister, onLogin, onStaffLogin, onAdm
     };
 
     const validatePhone = (phoneValue: string): boolean => {
-        const phoneRegex = /^\+?[1-9]\d{1,14}$/;
+        const phoneRegex = /^(0|\+84)([35789])[0-9]{8}$/;
         return phoneRegex.test(phoneValue.replace(/\s/g, ''));
     };
 
