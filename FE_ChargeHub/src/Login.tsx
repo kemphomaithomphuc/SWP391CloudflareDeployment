@@ -8,15 +8,18 @@ import { Separator } from "./components/ui/separator";
 import { Zap } from "lucide-react";
 import { useLanguage } from "./contexts/LanguageContext";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "./components/ui/dialog";
+import { c } from "vite/dist/node/moduleRunnerTransport.d-DJ_mE5sf";
 
 interface LoginProps {
     onSwitchToRegister: () => void;
     onLogin?: () => void;
     onStaffLogin?: () => void;
     onAdminLogin?: () => void;
+    onSwitchToRoleSelection? : () => void;
+    onSwitchToVehicleSetup?: () => void;
 }
 
-export default function Login({ onSwitchToRegister, onLogin, onStaffLogin, onAdminLogin }: LoginProps) {
+export default function Login({ onSwitchToRegister, onLogin, onStaffLogin, onAdminLogin, onSwitchToRoleSelection, onSwitchToVehicleSetup }: LoginProps) {
     const { t } = useLanguage();
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
@@ -29,7 +32,9 @@ export default function Login({ onSwitchToRegister, onLogin, onStaffLogin, onAdm
     const [otpSent, setOtpSent] = useState(false);
     const [otpCode, setOtpCode] = useState("");
     const [resetMessage, setResetMessage] = useState("");
+    
 
+    //handle Google
     useEffect(() => {
         const url = new URL(window.location.href);
         const code = url.searchParams.get("code");
@@ -69,14 +74,11 @@ export default function Login({ onSwitchToRegister, onLogin, onStaffLogin, onAdm
                         //Decode JWT
                         const decoded: any = jwtDecode(accessToken);
                         const role = decoded.role?.toLowerCase() || "driver";
+                        const userId = meRes.data?.data;
                         localStorage.setItem("role", role);
                         localStorage.setItem("email", decoded.sub || "");
 
-                        // Điều hướng theo vai trò
-                        if (role === "driver") onLogin?.();
-                        else if (role === "staff") onStaffLogin?.();
-                        else if (role === "admin") onAdminLogin?.();
-                        else onLogin?.();
+                        await getUserProfileToContinue(userId);
 
                         // 🧹 Xóa query để URL sạch
                         window.history.replaceState({}, document.title, "/login");
@@ -113,53 +115,51 @@ export default function Login({ onSwitchToRegister, onLogin, onStaffLogin, onAdm
                 password: password.trim(),
             });
 
-            console.log("Login response:", res.data);
 
             if (res.status === 200 && res.data?.success && res.data?.data) {
                 const { accessToken, refreshToken } = res.data.data;
 
                 if (!accessToken) throw new Error("Response Content Length Mismatch Error");
 
+                let userId = null;
 
                 const meRes = await axios.post(
                     "http://localhost:8080/api/auth/me",
                     null,
                     { headers: { Authorization: `Bearer ${accessToken}` } }
                 );
-
                 if (meRes.data?.success && meRes.data?.data) {
                     localStorage.setItem("userId", String(meRes.data.data));
                 }
 
+                userId = meRes.data?.data || null;
+                // Lưu token vào localStorage
                 localStorage.setItem("token", accessToken);
                 localStorage.setItem("refreshToken", refreshToken || "");
 
-                //console.log("Token (first 50 chars):", accessToken.substring(0, 50) + "...");
-
                 let effectiveRole = "driver";
-                let userId = null;
 
                 try {
-                    const decoded: any = jwtDecode(accessToken);
-                    console.log("Decoded JWT payload:", decoded);
 
-                    userId = decoded.userId || decoded.id;
-                    effectiveRole = decoded.role || "DRIVER";
+                    if (userId) {
+                        
+                        localStorage.setItem("userId", userId.toString())
 
-                    if (userId) localStorage.setItem("userId", userId.toString());
+                        localStorage.setItem("registeredUserId", userId.toString());
+                    };
                     localStorage.setItem("role", effectiveRole.toLowerCase());
-                    localStorage.setItem("email", decoded.sub);
+                    
+                    // Check user profile to determine next step
+                    console.log("Checking user profile for userId:", userId);
+                    await getUserProfileToContinue(userId);
                 } catch (decodeErr: any) {
                     console.error("JWT decode failed:", decodeErr);
                     localStorage.setItem("role", "driver");
                     localStorage.setItem("userId", "0");
+                    
+                    // Fallback to default login flow
+                    onLogin?.();
                 }
-
-                const roleLower = effectiveRole.toLowerCase();
-                if (roleLower === "driver") onLogin?.();
-                else if (roleLower === "staff") onStaffLogin?.();
-                else if (roleLower === "admin") onAdminLogin?.();
-                else onLogin?.();
             } else {
                 setError("Login Failed - Invalid response structure");
             }
@@ -180,6 +180,77 @@ export default function Login({ onSwitchToRegister, onLogin, onStaffLogin, onAdm
             setLoading(false);
         }
     };
+
+    const getUserProfileToContinue = async (userId: string) => {
+        setLoading(true);
+        setError(null);
+        localStorage.setItem("registeredUserId", userId);
+        try {
+            const res = await axios.get(`http://localhost:8080/api/user/profile/${userId}`);
+            console.log("User profile response:", res.data);
+            
+            if (res.status === 200 && res.data) {
+                const userProfile = res.data;
+                console.log("Fetched user profile:", userProfile);
+                // Check if user needs to complete profile setup
+                
+                if (!userProfile.data.dateOfBirth) {
+                    console.log("User needs profile completion");
+                    onSwitchToRoleSelection?.();
+                    return;
+                }
+                else if (!userProfile.data.vehicles || userProfile.data.vehicles.length === 0) {
+                    console.log("User needs vehicle setup");
+                    onLogin?.();
+                    return;
+                }
+                
+                // User profile is complete, proceed with normal login flow
+                console.log("User profile is complete, proceeding with login");
+                const role = localStorage.getItem("role")?.toLowerCase() || "driver";
+                
+                // if (role === "driver") {
+                //     onLogin?.();
+                // } else if (role === "staff") {
+                //     onStaffLogin?.();
+                // } else if (role === "admin") {
+                //     onAdminLogin?.();
+                // } else {
+                //     onLogin?.();
+                // }
+            } else {
+                console.log("Invalid profile response, proceeding with default login");
+                // Fallback to default login flow
+                const role = localStorage.getItem("role")?.toLowerCase() || "driver";
+                if (role === "driver") {
+                    onLogin?.();
+                } else if (role === "staff") {
+                    onStaffLogin?.();
+                } else if (role === "admin") {
+                    onAdminLogin?.();
+                } else {
+                    onLogin?.();
+                }
+            }
+        } catch (err: any) {
+            console.error("Error getting user profile:", err);
+            console.log("Profile check failed, proceeding with default login");
+            
+            // Fallback to default login flow when profile check fails
+            const role = localStorage.getItem("role")?.toLowerCase() || "driver";
+            if (role === "driver") {
+                onLogin?.();
+            } else if (role === "staff") {
+                onStaffLogin?.();
+            } else if (role === "admin") {
+                onAdminLogin?.();
+            } else {
+                onLogin?.();
+            }
+        } finally {
+            setLoading(false);
+        }
+    }
 
     // GOOGLE LOGIN (redirect)
     const handleGoogleLogin = async () => {
