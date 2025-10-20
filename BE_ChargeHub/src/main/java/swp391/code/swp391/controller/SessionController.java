@@ -66,4 +66,23 @@ public class SessionController {
         return ResponseEntity.ok(APIResponse.success("Session progress updated successfully", progress));
     }
 
+    // US11: End charging session
+    @PostMapping("/{sessionId}/end")
+    public ResponseEntity<APIResponse<Long>> endSession(@PathVariable Long sessionId,
+                                                      HttpServletRequest httpServletRequest) {
+        String header = httpServletRequest.getHeader("Authorization");
+        String token = jwtService.getTokenFromHeader(header);
+        Long userId;
+        try {
+            userId = jwtService.getUserIdByTokenDecode(token);
+            Long completedSessionId = sessionService.endSession(sessionId, userId);
+            return ResponseEntity.ok(APIResponse.success("Session ended successfully", completedSessionId));
+        } catch (ParseException | JOSEException e) {
+            throw new RuntimeException(e);
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(APIResponse.error(e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(APIResponse.error(e.getMessage()));
+        }
+    }
 }
