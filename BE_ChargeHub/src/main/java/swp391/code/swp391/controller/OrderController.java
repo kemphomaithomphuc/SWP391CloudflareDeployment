@@ -1,7 +1,5 @@
 package swp391.code.swp391.controller;
 
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -23,7 +21,6 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/orders")
 @RequiredArgsConstructor
-@Tag(name = "Order", description = "API quản lý đặt chỗ sạc xe")
 public class OrderController {
 
     private final OrderServiceImpl orderServiceImpl;
@@ -34,7 +31,6 @@ public class OrderController {
      * API 1: Find available slots - Tìm các khung giờ trống có đủ thời gian sạc
      */
     @PostMapping("/find-available-slots")
-    @Operation(summary = "Tìm các khoảng thời gian trống có đủ để sạc")
     public ResponseEntity<APIResponse<AvailableSlotsResponseDTO>> findAvailableSlots(
             @Valid @RequestBody OrderRequestDTO request) {
 
@@ -57,7 +53,6 @@ public class OrderController {
      * API 2: Confirm order - Xác nhận đặt chỗ
      */
     @PostMapping("/confirm")
-    @Operation(summary = "Xác nhận đặt chỗ")
     public ResponseEntity<APIResponse<OrderResponseDTO>> confirmBooking(
             @Valid @RequestBody ConfirmOrderDTO request) {
 
@@ -76,7 +71,6 @@ public class OrderController {
      * API 3: Get fake battery level - Giả lập lấy % pin hiện tại
      */
     @GetMapping("/fake-battery/{vehicleId}")
-    @Operation(summary = "Lấy % pin hiện tại của xe (Demo)")
     public ResponseEntity<APIResponse<BatteryLevelDTO>> getFakeBatteryLevel(
             @PathVariable Integer vehicleId) {
 
@@ -104,7 +98,6 @@ public class OrderController {
      * API 4: Get user's orders - Lấy danh sách đơn đặt chỗ của người dùng
      */
     @GetMapping("/my-orders")
-    @Operation(summary = "Lấy danh sách đơn đặt chỗ của tôi")
     public ResponseEntity<APIResponse<List<OrderResponseDTO>>> getMyOrders(
             @RequestParam Long userId,
             @RequestParam(required = false) Order.Status status) {
@@ -139,7 +132,6 @@ public class OrderController {
     }
 
     @GetMapping("/station/{stationId}")
-    @Operation(summary = "Lấy danh sách đơn đặt chỗ của một trạm sạc")
     public ResponseEntity<APIResponse<List<OrderResponseDTO>>> getStationOrders(
             @PathVariable Long stationId) {
         List<OrderResponseDTO> orders = orderServiceImpl.getStationOrders(stationId);
