@@ -1171,10 +1171,16 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
         markerMapRef.current.clear();
         markersRef.current = []; // Reset array ref nếu dùng
 
-        // Hiển thị tất cả stations với mọi trạng thái
-        const allStations = stations.filter(station =>
-            station.latitude && station.longitude && station.stationId
-        );
+        // Hiển thị stations theo bộ lọc (bao gồm lọc theo connector của xe đã chọn nếu có)
+        const requiredConnectorTypeName = (selectedVehicle || selectedVehicleRef.current)?.connectorTypeName;
+        const allStations = stations.filter(station => {
+            const baseValid = station.latitude && station.longitude && station.stationId;
+            if (!baseValid) return false;
+            if (!requiredConnectorTypeName) return true;
+            const stationIdKey = station.stationId?.toString() || '';
+            const typeStatsForStation = stationChargingPoints[stationIdKey];
+            return !!(typeStatsForStation && typeStatsForStation[requiredConnectorTypeName] && typeStatsForStation[requiredConnectorTypeName].total > 0);
+        });
         const activeCount = stations.filter(s => (s.status || '').toUpperCase().trim() === 'ACTIVE').length;
         setNumberOfActiveStation(activeCount);
 
@@ -1295,7 +1301,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
 
         console.log(`Added ${allStations.length} station markers with color coding`);
 
-    }, [stations]); // Theo dõi stations thay đổi (sau khi fetch hoặc refresh)
+    }, [stations, stationChargingPoints, selectedVehicle]); // Theo dõi stations & vehicle & chargingPoints thay đổi
 
 
     //hết useEffect
@@ -1307,7 +1313,10 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
     console.log("All stations:", stations);
     console.log("Stations length:", stations.length);
 
-    const filteredStations = stations.filter(station => {
+	// Determine required connector type name from selected vehicle, if any
+	const requiredConnectorTypeName = (selectedVehicle || selectedVehicleRef.current)?.connectorTypeName;
+
+	const filteredStations = stations.filter(station => {
         console.log("Filtering station:", station);
         const matchesSearch = station.stationName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
             station.address?.toLowerCase().includes(searchQuery.toLowerCase());
@@ -1316,16 +1325,26 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
         const matchesFastCharging = true;
         const matches24h = true;
 
+		// Filter by connector type of selected vehicle (if present)
+		let matchesConnector = true;
+		if (requiredConnectorTypeName) {
+			const stationIdKey = station.stationId?.toString() || '';
+			const typeStatsForStation = stationChargingPoints[stationIdKey];
+			matchesConnector = !!(typeStatsForStation && typeStatsForStation[requiredConnectorTypeName] && typeStatsForStation[requiredConnectorTypeName].total > 0);
+		}
+
         console.log("Station matches:", {
             stationName: station.stationName,
             status: station.status,
             matchesSearch,
             matchesAvailable,
             matchesFastCharging,
-            matches24h
+			matches24h,
+			requiredConnectorTypeName,
+			matchesConnector
         });
 
-        return matchesSearch && matchesAvailable && matchesFastCharging && matches24h;
+		return matchesSearch && matchesAvailable && matchesFastCharging && matches24h && matchesConnector;
 
     }).sort((a, b) => {
         if (sortByDistance && userLocation) {
