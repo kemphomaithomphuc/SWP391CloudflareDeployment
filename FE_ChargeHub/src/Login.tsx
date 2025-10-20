@@ -230,7 +230,7 @@ export default function Login({ onSwitchToRegister, onLogin, onStaffLogin, onAdm
         setError(null);
         localStorage.setItem("registeredUserId", userId);
         try {
-            const res = await axios.get(`http://localhost:8080/api/user/profile/${userId}`);
+            const res = await axios.get(`http://localhost:8080/api/user/profile/${userId}?include=vehicles`);
             console.log("User profile response:", res.data);
             
             if (res.status === 200 && res.data) {
@@ -245,7 +245,12 @@ export default function Login({ onSwitchToRegister, onLogin, onStaffLogin, onAdm
                 }
                 else if (!userProfile.data.vehicles || userProfile.data.vehicles.length === 0) {
                     console.log("User needs vehicle setup");
-                    onLogin?.();
+                    onSwitchToVehicleSetup?.(); //Muốn sang dashboard thì chỉnh thành onLogin
+                    return;
+                } 
+                else {
+                    console.log("User needs vehicle setup");
+                    onLogin?.(); //Muốn sang dashboard thì chỉnh thành onLogin
                     return;
                 }
                 

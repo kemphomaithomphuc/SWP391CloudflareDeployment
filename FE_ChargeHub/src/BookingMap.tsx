@@ -132,10 +132,11 @@ interface ChargingStation {
 
 }
 interface ConnectorType {
-    connectorTypeId?: number;
-    typeName: string;
-    powerOutput: number;
-    pricePerKWh: number;
+    ConnectorTypeId?: number;
+    TypeName: string;
+    PowerOutput: number;
+    PricePerKWh: number;
+    typeName?: string; // Add lowercase version for API compatibility
 }
 
 interface ChargingPoint {
@@ -147,11 +148,24 @@ interface ChargingPoint {
     powerOutput?: number;
     pricePerKwh?: number;
 }
-
-
-
-
-
+interface Vehicle {
+    plateNumber: string;
+    brand: string;
+    carModel?: CarModel;
+    capacity?: number;
+    productYear?: number;
+    connectorTypeName?: string;
+}
+interface CarModel {
+    carModelId: number;
+    brand: string;
+    model: string;
+    capacity: number;
+    productYear: number;
+    imageUrl?: string;
+    carModelImage?: string;
+    connectorTypeId?: string;
+}
 
 interface BookingMapProps {
 
@@ -309,19 +323,136 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
 
     // Total charging points count for each station
     const [stationTotalPoints, setStationTotalPoints] = useState<{ [stationId: string]: number }>({});
+    const userId = localStorage.getItem("userId");
 
     //View page
 
+
+    //Get Vehicle List Of User
+    const getVehicleOfDriver = async (userId: string): Promise<Vehicle[] | null> => {
+            setLoading(true);
+            setError(null);
+            try {
+                console.log("=== getVehicleOfDriver Debug ===");
+                console.log("userId:", userId);
+                const res = await api.get(`/api/user/${userId}/vehicles`);
+                console.log("API response:", res.data);
+                
+                if (res.data.success && res.data.data) {
+                    const vehiclesData = res.data.data;
+                    console.log("vehiclesData:", vehiclesData);
+                    
+                    // Fetch connector type names for each vehicle that has carModel
+                    const vehiclesWithConnectorTypes = await Promise.all(
+                        vehiclesData.map(async (vehicle: any) => {
+                            console.log("Processing vehicle:", vehicle);
+                            if (vehicle.carModel?.connectorTypeIds?.[0]) {
+                                console.log("=== Processing vehicle with connector type ===");
+                                console.log("Vehicle plateNumber:", vehicle.plateNumber);
+                                console.log("ConnectorTypeIds:", vehicle.carModel.connectorTypeIds);
+                                
+                                const connectorType = await fetchConnectorTypeById(vehicle.carModel.connectorTypeIds[0].toString());
+                                console.log("Fetched connector type:", connectorType);
+                                
+                                const result = {
+                                    plateNumber: vehicle.plateNumber,
+                                    brand: vehicle.carModel?.brand || "Unknown",
+                                    carModel: vehicle.carModel ? {
+                                        carModelId: vehicle.carModel.carModelId,
+                                        brand: vehicle.carModel.brand,
+                                        model: vehicle.carModel.model,
+                                        capacity: vehicle.carModel.capacity,
+                                        productYear: vehicle.carModel.productYear,
+                                        carModelImage: vehicle.carModel.carModelImage,
+                                        imageUrl: vehicle.carModel.carModelImage,
+                                        connectorTypeId: vehicle.carModel.connectorTypeIds[0].toString()
+                                    } : undefined,
+                                    capacity: vehicle.carModel?.capacity,
+                                    productYear: vehicle.carModel?.productYear,
+                                    connectorTypeName: connectorType?.TypeName || "Unknown"
+                                };
+                                
+                                console.log("Final vehicle result:", result);
+                                return result;
+                            }
+                            console.log("=== Processing vehicle without connector type ===");
+                            console.log("Vehicle plateNumber:", vehicle.plateNumber);
+                            console.log("No connectorTypeIds found");
+                            
+                            return {
+                                plateNumber: vehicle.plateNumber,
+                                brand: vehicle.carModel?.brand || "Unknown",
+                                carModel: vehicle.carModel ? {
+                                    carModelId: vehicle.carModel.carModelId,
+                                    brand: vehicle.carModel.brand,
+                                    model: vehicle.carModel.model,
+                                    capacity: vehicle.carModel.capacity,
+                                    productYear: vehicle.carModel.productYear,
+                                    carModelImage: vehicle.carModel.carModelImage,
+                                    imageUrl: vehicle.carModel.carModelImage,
+                                    connectorTypeId: vehicle.carModel.connectorTypeIds?.[0]?.toString()
+                                } : undefined,
+                                capacity: vehicle.carModel?.capacity,
+                                productYear: vehicle.carModel?.productYear,
+                                connectorTypeName: "Unknown"
+                            };
+                        })
+                    );
+                    
+                    console.log("vehiclesWithConnectorTypes:", vehiclesWithConnectorTypes);
+                    return vehiclesWithConnectorTypes;
+                } else {
+                    console.log("No vehicles found or API response format unexpected");
+                    return [];
+                }
+            } catch (err) {
+                console.error("Error fetching vehicles:", err);
+                setError("Failed to load vehicles.");
+                return null;
+            } finally {
+                setLoading(false);
+            }
+        }
+    const fetchConnectorTypeById = async (connectorTypeId: string): Promise<ConnectorType | null> => {
+        try {
+            const res = await axios.get(`http://localhost:8080/api/connector-types/${connectorTypeId}`);
+            if (res.status === 200) {
+                const connector = res.data;
+                console.log("=== fetchConnectorTypeById Debug ===");
+                console.log("ConnectorTypeId:", connectorTypeId);
+                console.log("API Response:", connector);
+                
+                return {
+                    TypeName: connector.typeName || connector.TypeName || "Unknown",
+                    ConnectorTypeId: connector.connectorTypeId || connector.ConnectorTypeId,
+                    PowerOutput: connector.powerOutput || connector.PowerOutput || 0,
+                    PricePerKWh: connector.pricePerKwh || connector.PricePerKWh || 0,
+                } as ConnectorType;
+            }
+        } catch (err) {
+            console.error("Error fetching connector type:", err);
+            return null;
+        }
+        return null;
+    }
 
     // Calculate available charging points by type for a station
     const calculateStationChargingPoints = async (stationId: string) => {
         try {
             const points = await callApiForGetPointsForEachStation(stationId);
+            console.log("=== calculateStationChargingPoints Debug ===");
+            console.log("Station ID:", stationId);
+            console.log("Points:", points);
+            
             if (points && points.length > 0) {
                 const typeStats: { [typeName: string]: { total: number, available: number } } = {};
 
                 points.forEach(point => {
-                    const typeName = point.connectorType.typeName;
+                    console.log("Processing point:", point);
+                    console.log("ConnectorType:", point.connectorType);
+                    const typeName = (point.connectorType as any)?.typeName || (point.connectorType as any)?.TypeName || 'Unknown';
+                    console.log("TypeName:", typeName);
+                    
                     if (!typeStats[typeName]) {
                         typeStats[typeName] = { total: 0, available: 0 };
                     }
@@ -330,6 +461,8 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                         typeStats[typeName].available++;
                     }
                 });
+                
+                console.log("Final typeStats:", typeStats);
 
                 setStationChargingPoints(prev => ({
                     ...prev,
@@ -489,17 +622,19 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
     const callApiForGetPointsForEachStation = async (stationId: string): Promise<ChargingPoint[] | null> => {
         try {
             const res = await axios.get(`http://localhost:8080/api/charging-points/station/${stationId}`);
+            
             if (res.status == 200 && Array.isArray(res.data)) {
+                console.log('Fetched charging points for station', stationId, ':', res.data);
                 return res.data.map((chargingPoint: any) => ({
                     chargingPointId: chargingPoint.chargingPointId,
                     status: chargingPoint.status,
                     connectorTypeId: chargingPoint.connectorTypeId,
                     stationId: chargingPoint.stationId,
                     connectorType: {
-                        connectorTypeId: chargingPoint.connectorType.connectorTypeId,
-                        typeName: chargingPoint.connectorType.typeName,
-                        powerOutput: chargingPoint.connectorType.powerOutput,
-                        pricePerKWh: chargingPoint.connectorType.pricePerKWh
+                        ConnectorTypeId: chargingPoint.connectorType.connectorTypeId,
+                        TypeName: chargingPoint.connectorType.typeName,
+                        PowerOutput: chargingPoint.connectorType.powerOutput,
+                        PricePerKWh: chargingPoint.connectorType.pricePerKWh
                     },
                     powerOutput: chargingPoint.powerOutput,
                     pricePerKwh: chargingPoint.pricePerKwh
@@ -512,48 +647,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
         return null;
     }
 
-    // API call to get vehicles list
-    const callApiForGetVehicles = async (): Promise<any[] | null> => {
-        try {
-            const userId = localStorage.getItem("userId");
-            if (!userId) {
-                console.error("No userId found");
-                return null;
-            }
-            const res = await api.get(`/api/vehicles/user/${userId}`);
-            if (res.status == 200) {
-                const vehicles = res.data?.data || res.data;
-                console.log("=== Vehicles from API ===");
-                console.log("Vehicles:", vehicles);
-                if (vehicles && vehicles.length > 0) {
-                    console.log("First vehicle structure:", vehicles[0]);
-                    console.log("First vehicle keys:", Object.keys(vehicles[0]));
-                }
-                return vehicles;
-            }
-            throw new Error(language === "vi" ? "Không lấy được danh sách xe" : "Unable to fetch vehicles list");
-        } catch (err: any) {
-            console.error("API Error:", err);
-            // For testing, return mock data if API fails
-            console.log("Using mock vehicle data for testing");
-            const mockVehicles = [
-                {
-                    vehicleId: 1,
-                    model: "Tesla Model 3",
-                    carModel: "Tesla Model 3",
-                    licensePlate: "64G-19075",
-                    licenseNumber: "64G-19075",
-                    plateNumber: "64G-19075",
-                    year: 2022,
-                    connectorType: "Type 2"
-                }
-            ];
-            console.log("=== Mock Vehicles ===");
-            console.log("Mock vehicles:", mockVehicles);
-            console.log("First mock vehicle keys:", Object.keys(mockVehicles[0]));
-            return mockVehicles;
-        }
-    }
+
 
     // API call to find available slots
     const callApiForFindAvailableSlots = async (stationId: string): Promise<any[] | null> => {
@@ -750,20 +844,27 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
         const loadVehicles = async () => {
             setLoadingVehicles(true);
             try {
-                const vehiclesList = await callApiForGetVehicles();
-                console.log("=== loadVehicles Debug ===");
-                console.log("vehiclesList:", vehiclesList);
-                console.log("vehiclesList.length:", vehiclesList?.length);
-                
-                if (vehiclesList && vehiclesList.length > 0) {
-                    setVehicles(vehiclesList);
-                    console.log("Set vehicles to:", vehiclesList);
+                if (userId) {
+                    const vehiclesList = await getVehicleOfDriver(userId);
+                    console.log("=== loadVehicles Debug ===");
+                    console.log("vehiclesList:", vehiclesList);
+                    console.log("vehiclesList.length:", vehiclesList?.length);
+                    
+                    if (vehiclesList && vehiclesList.length > 0) {
+                        setVehicles(vehiclesList);
+                        console.log("Set vehicles to:", vehiclesList);
+                    } else {
+                        console.log("No vehicles found or empty list");
+                    }
+                    // Only show popup if no vehicle is selected
+                    if (!selectedVehicle) {
+                        setIsVehicleSelectionOpen(true);
+                    }
                 } else {
-                    console.log("No vehicles found or empty list");
-                }
-                // Only show popup if no vehicle is selected
-                if (!selectedVehicle) {
-                    setIsVehicleSelectionOpen(true);
+                    console.error("No userId found");
+                    if (!selectedVehicle) {
+                        setIsVehicleSelectionOpen(true);
+                    }
                 }
             } catch (error) {
                 console.error("Error loading vehicles:", error);
@@ -777,7 +878,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
         };
 
         loadVehicles();
-    }, []); // Only run once on mount
+    }, [userId]); // Run when userId changes
 
     // Close popup when vehicle is selected
     useEffect(() => {
@@ -1070,10 +1171,16 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
         markerMapRef.current.clear();
         markersRef.current = []; // Reset array ref nếu dùng
 
-        // Hiển thị tất cả stations với mọi trạng thái
-        const allStations = stations.filter(station =>
-            station.latitude && station.longitude && station.stationId
-        );
+        // Hiển thị stations theo bộ lọc (bao gồm lọc theo connector của xe đã chọn nếu có)
+        const requiredConnectorTypeName = (selectedVehicle || selectedVehicleRef.current)?.connectorTypeName;
+        const allStations = stations.filter(station => {
+            const baseValid = station.latitude && station.longitude && station.stationId;
+            if (!baseValid) return false;
+            if (!requiredConnectorTypeName) return true;
+            const stationIdKey = station.stationId?.toString() || '';
+            const typeStatsForStation = stationChargingPoints[stationIdKey];
+            return !!(typeStatsForStation && typeStatsForStation[requiredConnectorTypeName] && typeStatsForStation[requiredConnectorTypeName].total > 0);
+        });
         const activeCount = stations.filter(s => (s.status || '').toUpperCase().trim() === 'ACTIVE').length;
         setNumberOfActiveStation(activeCount);
 
@@ -1194,7 +1301,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
 
         console.log(`Added ${allStations.length} station markers with color coding`);
 
-    }, [stations]); // Theo dõi stations thay đổi (sau khi fetch hoặc refresh)
+    }, [stations, stationChargingPoints, selectedVehicle]); // Theo dõi stations & vehicle & chargingPoints thay đổi
 
 
     //hết useEffect
@@ -1206,7 +1313,10 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
     console.log("All stations:", stations);
     console.log("Stations length:", stations.length);
 
-    const filteredStations = stations.filter(station => {
+	// Determine required connector type name from selected vehicle, if any
+	const requiredConnectorTypeName = (selectedVehicle || selectedVehicleRef.current)?.connectorTypeName;
+
+	const filteredStations = stations.filter(station => {
         console.log("Filtering station:", station);
         const matchesSearch = station.stationName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
             station.address?.toLowerCase().includes(searchQuery.toLowerCase());
@@ -1215,16 +1325,26 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
         const matchesFastCharging = true;
         const matches24h = true;
 
+		// Filter by connector type of selected vehicle (if present)
+		let matchesConnector = true;
+		if (requiredConnectorTypeName) {
+			const stationIdKey = station.stationId?.toString() || '';
+			const typeStatsForStation = stationChargingPoints[stationIdKey];
+			matchesConnector = !!(typeStatsForStation && typeStatsForStation[requiredConnectorTypeName] && typeStatsForStation[requiredConnectorTypeName].total > 0);
+		}
+
         console.log("Station matches:", {
             stationName: station.stationName,
             status: station.status,
             matchesSearch,
             matchesAvailable,
             matchesFastCharging,
-            matches24h
+			matches24h,
+			requiredConnectorTypeName,
+			matchesConnector
         });
 
-        return matchesSearch && matchesAvailable && matchesFastCharging && matches24h;
+		return matchesSearch && matchesAvailable && matchesFastCharging && matches24h && matchesConnector;
 
     }).sort((a, b) => {
         if (sortByDistance && userLocation) {
@@ -2865,7 +2985,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                                 >
                                     <Car className="w-4 h-4" />
                                     <span className="hidden sm:inline">
-                                        {(selectedVehicle || selectedVehicleRef.current)?.model || (selectedVehicle || selectedVehicleRef.current)?.carModel || 'Selected Vehicle'}
+                                        {(selectedVehicle || selectedVehicleRef.current)?.model || (selectedVehicle || selectedVehicleRef.current)?.carModel?.model || 'Selected Vehicle'}
                                     </span>
                                 </Button>
                             )}
@@ -3003,9 +3123,22 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                                                                                         station.status === 'MAINTENANCE' ? (language === 'vi' ? 'Bảo trì' : 'Maintenance') :
                                                                                             (language === 'vi' ? 'Không xác định' : 'Unknown')}
                                                                             </Badge>
-                                                                            <span className="text-xs text-white/60">
-                                        {stationTotalPoints[station.stationId?.toString() || ''] || station.chargingPointNumber || 0} {language === 'vi' ? 'trụ sạc' : 'charging points'}
-                                      </span>
+                                                                            <div className="flex flex-wrap gap-1">
+                                                                                {stationChargingPoints[station.stationId?.toString() || ''] ? (
+                                                                                    Object.entries(stationChargingPoints[station.stationId?.toString() || ''] || {}).map(([typeName, stats]) => (
+                                                                                        <div key={typeName} className="flex items-center space-x-1 bg-white/10 rounded px-2 py-1">
+                                                                                            <Zap className="w-3 h-3 text-white" />
+                                                                                            <span className="text-xs font-medium text-white">
+                                                                                                {typeName}: {stats.available}/{stats.total}
+                                                                                            </span>
+                                                                                        </div>
+                                                                                    ))
+                                                                                ) : (
+                                                                                    <span className="text-xs text-white/60">
+                                                                                        {stationTotalPoints[station.stationId?.toString() || ''] || station.chargingPointNumber || 0} {language === 'vi' ? 'trụ sạc' : 'charging points'}
+                                                                                    </span>
+                                                                                )}
+                                                                            </div>
                                                                         </div>
                                                                     </div>
                                                                 </div>
@@ -4422,10 +4555,23 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
 
                                         </div>
 
-                                        <p className="text-lg font-semibold">
-                                            {stationTotalPoints[detailsStation.stationId?.toString() || ''] || detailsStation.chargingPointNumber || 0}
-                                            {language === 'vi' ? ' trụ sạc' : ' charging points'}
-                                        </p>
+                                        <div className="space-y-2">
+                                            {stationChargingPoints[detailsStation.stationId?.toString() || ''] ? (
+                                                Object.entries(stationChargingPoints[detailsStation.stationId?.toString() || ''] || {}).map(([typeName, stats]) => (
+                                                    <div key={typeName} className="flex items-center justify-between">
+                                                        <span className="text-sm font-medium">{typeName}</span>
+                                                        <span className="text-sm text-muted-foreground">
+                                                            {stats.available}/{stats.total}
+                                                        </span>
+                                                    </div>
+                                                ))
+                                            ) : (
+                                                <p className="text-lg font-semibold">
+                                                    {stationTotalPoints[detailsStation.stationId?.toString() || ''] || detailsStation.chargingPointNumber || 0}
+                                                    {language === 'vi' ? ' trụ sạc' : ' charging points'}
+                                                </p>
+                                            )}
+                                        </div>
                                     </div>
 
                                     <div className="bg-muted/30 rounded-lg p-3">
@@ -4527,15 +4673,28 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                             <div className="bg-muted/50 rounded-lg p-4 text-center">
                                 <h4 className="font-medium mb-2">{configStation.stationName}</h4>
                                 <p className="text-sm text-muted-foreground">{configStation.address}</p>
-                                <div className="flex items-center justify-center space-x-4 mt-2 text-sm">
-                  <span className="flex items-center space-x-1">
-                    <Zap className="w-4 h-4 text-primary" />
-                    <span>{stationTotalPoints[configStation.stationId?.toString() || ''] || configStation.chargingPointNumber || 0} {language === 'vi' ? 'trụ sạc' : 'charging points'}</span>
-                  </span>
-                                    <Badge variant="outline" className="bg-green-100 text-green-800">
-                                        {language === 'vi' ? 'Hoạt động' : 'Active'}
-                                    </Badge>
+                                <div className="mt-2 text-sm">
+                                    {stationChargingPoints[configStation.stationId?.toString() || ''] ? (
+                                        <div className="flex flex-wrap gap-2 justify-center">
+                                            {Object.entries(stationChargingPoints[configStation.stationId?.toString() || ''] || {}).map(([typeName, stats]) => (
+                                                <div key={typeName} className="flex items-center space-x-1 bg-primary/10 rounded px-2 py-1">
+                                                    <Zap className="w-3 h-3 text-primary" />
+                                                    <span className="text-xs font-medium text-primary">
+                                                        {typeName}: {stats.available}/{stats.total}
+                                                    </span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <span className="flex items-center space-x-1 justify-center">
+                                            <Zap className="w-4 h-4 text-primary" />
+                                            <span>{stationTotalPoints[configStation.stationId?.toString() || ''] || configStation.chargingPointNumber || 0} {language === 'vi' ? 'trụ sạc' : 'charging points'}</span>
+                                        </span>
+                                    )}
                                 </div>
+                                <Badge variant="outline" className="bg-green-100 text-green-800 mt-2">
+                                    {language === 'vi' ? 'Hoạt động' : 'Active'}
+                                </Badge>
                             </div>
 
                             {/* Selected Vehicle Info */}
@@ -4550,7 +4709,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                                             <Car className="w-5 h-5 text-primary" />
                                         </div>
                                         <div className="flex-1">
-                                            <p className="font-medium">{(selectedVehicle || selectedVehicleRef.current)?.model || (selectedVehicle || selectedVehicleRef.current)?.carModel || 'Unknown Model'}</p>
+                                            <p className="font-medium">{(selectedVehicle || selectedVehicleRef.current)?.model || (selectedVehicle || selectedVehicleRef.current)?.carModel?.model || 'Unknown Model'}</p>
                                             <p className="text-sm text-muted-foreground">
                                                 {(selectedVehicle || selectedVehicleRef.current)?.licensePlate || (selectedVehicle || selectedVehicleRef.current)?.licenseNumber || (selectedVehicle || selectedVehicleRef.current)?.plateNumber || 'No License Plate'}
                                             </p>
@@ -4898,23 +5057,32 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                         </div>
                     ) : (
                         <div className="space-y-4">
-                            {vehicles.map((vehicle, index) => (
+                            {vehicles && vehicles.length > 0 ? vehicles.map((vehicle, index) => (
                                 <motion.div
-                                    key={vehicle.vehicleId || vehicle.id || index}
+                                    key={vehicle.plateNumber || index}
                                     initial={{ opacity: 0, y: 20 }}
                                     animate={{ opacity: 1, y: 0 }}
                                     transition={{ duration: 0.2, delay: index * 0.1 }}
                                     className={`p-4 border rounded-lg cursor-pointer transition-all duration-200 hover:shadow-md ${
-                                        selectedVehicle?.vehicleId === vehicle.vehicleId || 
-                                        selectedVehicle?.id === vehicle.id
+                                        selectedVehicle?.plateNumber === vehicle?.plateNumber
                                             ? 'border-primary bg-primary/10' 
                                             : 'border-border hover:border-primary/50'
                                     }`}
                                     onClick={() => {
-                                        console.log("=== Vehicle clicked ===");
-                                        console.log("Clicked vehicle:", vehicle);
-                                        setSelectedVehicle(vehicle);
-                                        console.log("setSelectedVehicle called with:", vehicle);
+                                        try {
+                                            console.log("=== Vehicle clicked ===");
+                                            console.log("Clicked vehicle:", vehicle);
+                                            if (vehicle && typeof vehicle === 'object') {
+                                                setSelectedVehicle(vehicle);
+                                                console.log("setSelectedVehicle called with:", vehicle);
+                                            } else {
+                                                console.error("Invalid vehicle object:", vehicle);
+                                                toast.error(language === 'vi' ? 'Dữ liệu xe không hợp lệ' : 'Invalid vehicle data');
+                                            }
+                                        } catch (error) {
+                                            console.error("Error selecting vehicle:", error);
+                                            toast.error(language === 'vi' ? 'Lỗi khi chọn xe' : 'Error selecting vehicle');
+                                        }
                                     }}
                                 >
                                     <div className="flex items-center space-x-3">
@@ -4922,46 +5090,59 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                                             <Car className="w-6 h-6 text-primary" />
                                         </div>
                                         <div className="flex-1">
-                                            <h4 className="font-medium">{vehicle.model || vehicle.carModel || 'Unknown Model'}</h4>
+                                            <h4 className="font-medium">
+                                                {vehicle?.carModel?.model || vehicle?.brand || 'Unknown Model'}
+                                            </h4>
                                             <p className="text-sm text-muted-foreground">
-                                                {vehicle.licensePlate || vehicle.licenseNumber || 'No License Plate'}
+                                                {vehicle?.plateNumber || 'No License Plate'}
                                             </p>
                                             <div className="flex items-center space-x-2 mt-1">
                                                 <Badge variant="outline" className="text-xs">
-                                                    {vehicle.year || 'N/A'}
+                                                    {vehicle?.productYear || vehicle?.carModel?.productYear || 'N/A'}
                                                 </Badge>
                                                 <Badge variant="outline" className="text-xs">
-                                                    {vehicle.connectorType || 'Standard'}
+                                                    {vehicle?.connectorTypeName || 'Standard'}
                                                 </Badge>
                                             </div>
                                         </div>
-                                        {selectedVehicle?.vehicleId === vehicle.vehicleId || 
-                                         selectedVehicle?.id === vehicle.id ? (
+                                        {selectedVehicle?.plateNumber === vehicle?.plateNumber ? (
                                             <CheckCircle className="w-5 h-5 text-primary" />
                                         ) : (
                                             <div className="w-5 h-5 border-2 border-muted-foreground rounded-full" />
                                         )}
                                     </div>
                                 </motion.div>
-                            ))}
+                            )) : (
+                                <div className="text-center py-8">
+                                    <Car className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                                    <p className="text-muted-foreground">
+                                        {language === 'vi' ? 'Không có xe nào được tìm thấy' : 'No vehicles found'}
+                                    </p>
+                                </div>
+                            )}
                         </div>
                     )}
 
                     <div className="flex space-x-2 pt-4 border-t">
                         <Button
                             onClick={() => {
-                                console.log("=== Confirm button clicked ===");
-                                console.log("selectedVehicle at confirm:", selectedVehicle);
-                                if (selectedVehicle) {
-                                    console.log("Vehicle confirmed, closing popup");
-                                    setIsVehicleSelectionOpen(false);
-                                } else {
-                                    console.log("No vehicle selected at confirm");
-                                    toast.warning(
-                                        language === 'vi' 
-                                            ? 'Vui lòng chọn một xe' 
-                                            : 'Please select a vehicle'
-                                    );
+                                try {
+                                    console.log("=== Confirm button clicked ===");
+                                    console.log("selectedVehicle at confirm:", selectedVehicle);
+                                    if (selectedVehicle && typeof selectedVehicle === 'object') {
+                                        console.log("Vehicle confirmed, closing popup");
+                                        setIsVehicleSelectionOpen(false);
+                                    } else {
+                                        console.log("No vehicle selected at confirm");
+                                        toast.warning(
+                                            language === 'vi' 
+                                                ? 'Vui lòng chọn một xe' 
+                                                : 'Please select a vehicle'
+                                        );
+                                    }
+                                } catch (error) {
+                                    console.error("Error confirming vehicle selection:", error);
+                                    toast.error(language === 'vi' ? 'Lỗi khi xác nhận xe' : 'Error confirming vehicle');
                                 }
                             }}
                             className="flex-1"
@@ -4970,16 +5151,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                             <CheckCircle className="w-4 h-4 mr-2" />
                             {language === 'vi' ? 'Xác nhận' : 'Confirm'}
                         </Button>
-                        <Button
-                            variant="outline"
-                            onClick={() => {
-                                // For now, just close the dialog
-                                // In a real app, this might navigate to vehicle management
-                                setIsVehicleSelectionOpen(false);
-                            }}
-                        >
-                            {language === 'vi' ? 'Thêm xe' : 'Add Vehicle'}
-                        </Button>
+
                     </div>
                 </DialogContent>
             </Dialog>

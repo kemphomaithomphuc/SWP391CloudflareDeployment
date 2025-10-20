@@ -20,7 +20,7 @@ public class User {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "user_id")
     private Long userId;
-    @Column(name = "full_name", nullable = false, columnDefinition = "NVARCHAR(100)")
+    @Column(name = "full_name", nullable = false, columnDefinition = "VARCHAR(100)")
     private String fullName;
     @Column(name = "email", unique = true) //Nullable true để đăng ký bằng phone (fb)
     private String email;
@@ -37,7 +37,7 @@ public class User {
     @Enumerated(EnumType.STRING)
     @Column(name = "role", nullable = false)
     private UserRole role = UserRole.DRIVER;
-    @Column(name ="address", columnDefinition = "NVARCHAR(255)")
+    @Column(name ="address", columnDefinition = "VARCHAR(255)")
     private String address;
 
     @Enumerated(EnumType.STRING)
@@ -79,6 +79,6 @@ public class User {
     @Column(name = "violations", nullable = false)
     private int violations;
 
-    @Column(name = "reason_report", columnDefinition = "NVARCHAR(700)")
+    @Column(name = "reason_report", columnDefinition = "TEXT")
     private String reasonReport;
 }

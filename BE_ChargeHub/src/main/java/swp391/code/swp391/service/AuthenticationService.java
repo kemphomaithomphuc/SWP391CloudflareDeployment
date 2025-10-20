@@ -183,7 +183,7 @@ public class AuthenticationService {
             String email; //null neu login FB tra ve phone
             String name;
             String avatarUrl;
-            String phone = ""; //null neu login GG tra ve email
+            String phone = null; //null neu login GG tra ve email
 
             if (loginType.trim().equalsIgnoreCase("google")) {
                 accountId = userInfo.get("sub").toString();
@@ -205,6 +205,7 @@ public class AuthenticationService {
                     .fullName(name)
                     .phone(phone)
                     .password(null)
+                    .avatar(avatarUrl)
                     .build();
             if (loginType.trim().equalsIgnoreCase("facebook")) {
                 user.setFacebookId(accountId);

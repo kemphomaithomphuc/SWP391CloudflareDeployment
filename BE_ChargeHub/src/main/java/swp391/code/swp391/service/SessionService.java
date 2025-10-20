@@ -11,6 +11,8 @@ public interface SessionService {
 
     Long startSession(Long userId, Long orderId, Long vehicleId);
 
+    Long endSession(Long sessionId, Long userId);
+
     SessionProgressDTO monitorSession(Long sessionId, Long userId);
 
     Double calculatePenaltyAmount(String type, Order order);

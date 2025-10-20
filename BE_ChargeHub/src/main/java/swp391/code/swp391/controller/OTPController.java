@@ -7,8 +7,6 @@ import swp391.code.swp391.dto.*;
 import swp391.code.swp391.entity.CustomUserDetails;
 import swp391.code.swp391.entity.User;
 import swp391.code.swp391.service.OTPService;
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -22,7 +20,6 @@ import java.util.Optional;
 @RestController
 @RequestMapping("/api/otp")
 @RequiredArgsConstructor
-@Tag(name = "OTP", description = "API xác thực OTP")
 public class OTPController {
 
     private final OTPService otpService;
@@ -30,7 +27,6 @@ public class OTPController {
     private final PasswordResetTokenService passwordResetTokenService;
 
     @PostMapping("/send/registration")
-    @Operation(summary = "Gửi OTP đăng ký")
     public ResponseEntity<OTPResponse> sendOTPForRegistration(@Valid @RequestBody SendOTPRequest request) {
         try {
             otpService.generateAndSendOTPForRegistration(request.getEmail());
@@ -49,7 +45,6 @@ public class OTPController {
     }
 
     @PostMapping("/verify/registration")
-    @Operation(summary = "Xác thực OTP đăng ký")
     public ResponseEntity<OTPResponse> verifyOTPForRegistration(@Valid @RequestBody VerifyOTPRequest request) {
         boolean isValid = otpService.verifyOTPForRegistration(request.getEmail(), request.getOtpCode());
 
@@ -69,7 +64,6 @@ public class OTPController {
     }
 
     @PostMapping("/send/email-change")
-    @Operation(summary = "Gửi OTP thay đổi email")
     public ResponseEntity<OTPResponse> sendOTPForEmailChange(
             @Valid @RequestBody SendOTPRequest request,
             Authentication authentication) {
@@ -91,7 +85,6 @@ public class OTPController {
     }
 
     @PostMapping("/verify/email-change")
-    @Operation(summary = "Xác thực OTP thay đổi email")
     public ResponseEntity<OTPResponse> verifyOTPForEmailChange(
             @Valid @RequestBody VerifyOTPRequest request,
             Authentication authentication) {
@@ -152,7 +145,6 @@ public class OTPController {
         }
 
         @PostMapping("/send/forgot-password")
-        @Operation(summary = "Gửi OTP quên mật khẩu")
         public ResponseEntity<OTPResponse> sendOTPForForgotPassword(
                 @Valid @RequestBody SendOTPRequest request) {
             try {
@@ -172,7 +164,6 @@ public class OTPController {
             }
         }
         @PostMapping("/verify/forgot-password")
-        @Operation(summary = "Xác thực OTP quên mật khẩu")
         public ResponseEntity<OTPResponse> verifyOTPForForgotPassword(
                 @Valid @RequestBody VerifyOTPRequest request) {
             boolean isValid = otpService.verifyOTPForRegistration(request.getEmail(), request.getOtpCode());
@@ -193,7 +184,6 @@ public class OTPController {
             }
         }
         @PostMapping("/reset-password")
-        @Operation(summary = "Đặt lại mật khẩu")
         public ResponseEntity<OTPResponse> resetPassword(
                 @Valid @RequestBody ResetPasswordRequest request) {
             try {

@@ -17,9 +17,9 @@ public class ChargingStation {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long stationId;
-    @Column(name = "station_name", nullable = false, columnDefinition = "nvarchar(255)")
+    @Column(name = "station_name", nullable = false, columnDefinition = "VARCHAR(255)")
     private String stationName;
-    @Column(name = "address", nullable = false, columnDefinition = "nvarchar(500)")
+    @Column(name = "address", nullable = false, columnDefinition = "VARCHAR(500)")
     private String address;
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)
@@ -44,4 +44,3 @@ public class ChargingStation {
     @OneToMany(mappedBy = "station")
     private List<User> staff_id;
 }
-
