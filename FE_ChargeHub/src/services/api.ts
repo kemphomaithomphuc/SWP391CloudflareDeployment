@@ -238,6 +238,16 @@ export const markAllNotificationsAsRead = async (): Promise<void> => {
   await api.put('/api/notifications/mark-all-read');
 };
 
+// Create a new notification
+export const createNotification = async (notificationData: {
+  title: string;
+  content: string;
+  type: 'booking' | 'payment' | 'issue' | 'penalty' | 'general' | 'invoice' | 'late_arrival' | 'charging_complete' | 'overstay_warning' | 'report_success' | 'booking_confirmed';
+}): Promise<Notification> => {
+  const response = await api.post<Notification>('/api/notifications', notificationData);
+  return response.data;
+};
+
 export default api;
 
 

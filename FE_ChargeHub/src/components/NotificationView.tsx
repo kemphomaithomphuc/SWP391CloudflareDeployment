@@ -72,7 +72,20 @@ export default function NotificationView({ onBack }: NotificationViewProps) {
 
   // Handle mark as read
   const handleMarkAsRead = async (notificationId: string | number) => {
-    await contextMarkAsRead(Number(notificationId));
+    console.log('handleMarkAsRead called with:', notificationId, 'type:', typeof notificationId);
+    
+    // Ensure we have a valid ID before making the API call
+    const id = typeof notificationId === 'string' ? notificationId : notificationId.toString();
+    console.log('Converted ID:', id);
+    
+    if (!id || id === 'undefined' || id === 'null' || isNaN(Number(id))) {
+      console.error('Invalid notification ID:', notificationId, 'converted to:', id);
+      toast.error(language === 'vi' ? 'ID thông báo không hợp lệ' : 'Invalid notification ID');
+      return;
+    }
+    
+    console.log('Calling contextMarkAsRead with:', Number(id));
+    await contextMarkAsRead(Number(id));
   };
 
   // Handle mark all as read
@@ -265,17 +278,23 @@ export default function NotificationView({ onBack }: NotificationViewProps) {
     }
   ];
 
-  // Use API notifications, fallback to local ones
-  const displayNotifications = apiNotifications.length > 0 ? apiNotifications.map(notif => ({
-    id: notif.notificationId.toString(),
-    type: notif.type.toLowerCase() as any,
-    title: notif.title,
-    message: notif.content,
-    timestamp: notif.sentTime,
-    isRead: notif.isRead,
-    requiresAction: false,
-    actionData: undefined
-  })) : getLocalizedNotifications();
+  // Use only API notifications (database-driven)
+  const displayNotifications = apiNotifications.map((notif, index) => {
+    console.log(`Processing notification ${index}:`, notif);
+    const id = notif.notificationId ? notif.notificationId.toString() : `temp-${Math.random()}`;
+    console.log(`Notification ${index} ID:`, id, 'original:', notif.notificationId);
+    
+    return {
+      id,
+      type: notif.type ? notif.type.toLowerCase() as any : 'general',
+      title: notif.title || 'No Title',
+      message: notif.content || 'No Content',
+      timestamp: notif.sentTime || new Date().toISOString(),
+      isRead: notif.isRead || false,
+      requiresAction: false,
+      actionData: undefined
+    };
+  });
 
   const getNotificationIcon = (type: string) => {
     switch (type) {
