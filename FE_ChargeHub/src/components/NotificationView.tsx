@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { ArrowLeft, Bell, Clock, Mail, Zap, AlertTriangle, CheckCircle, XCircle, Car, CreditCard, Calendar, Gift, DollarSign, Wrench, Eye } from "lucide-react";
+import { ArrowLeft, Bell, Clock, Mail, Zap, AlertTriangle, CheckCircle, XCircle, Car, CreditCard, Calendar, Gift, DollarSign, Wrench, Eye, RefreshCw } from "lucide-react";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
@@ -7,8 +7,7 @@ import { Separator } from "./ui/separator";
 import { toast } from "sonner";
 import { Toaster } from "./ui/sonner";
 import { useLanguage } from "../contexts/LanguageContext";
-import { useBooking } from "../contexts/BookingContext";
-import { getNotifications, markNotificationAsRead, markAllNotificationsAsRead, Notification as APINotification } from "../services/api";
+import { useNotifications } from "../contexts/NotificationContext";
 import NotificationDetailPopup from "./NotificationDetailPopup";
 
 interface Notification {
@@ -36,9 +35,15 @@ interface NotificationViewProps {
 
 export default function NotificationView({ onBack }: NotificationViewProps) {
   const { t, language } = useLanguage();
-  const { notifications, markNotificationAsRead } = useBooking();
-  const [apiNotifications, setApiNotifications] = useState<APINotification[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { 
+    notifications: apiNotifications, 
+    unreadCount: contextUnreadCount, 
+    loading, 
+    error,
+    refreshNotifications,
+    markAsRead: contextMarkAsRead,
+    markAllAsRead 
+  } = useNotifications();
   const [selectedNotification, setSelectedNotification] = useState<Notification | null>(null);
   const [showPopup, setShowPopup] = useState(false);
   const [notificationCounts, setNotificationCounts] = useState({
@@ -60,57 +65,19 @@ export default function NotificationView({ onBack }: NotificationViewProps) {
     });
   };
   
-  // Load notifications from API
+  // Update counts when notifications change
   useEffect(() => {
-    const loadNotifications = async () => {
-      try {
-        setLoading(true);
-        const notifications = await getNotifications();
-        setApiNotifications(notifications);
-        updateNotificationCounts(notifications);
-      } catch (error) {
-        console.error("Error loading notifications:", error);
-        toast.error("Failed to load notifications");
-      } finally {
-        setLoading(false);
-      }
-    };
-    
-    loadNotifications();
-  }, []);
+    updateNotificationCounts(apiNotifications);
+  }, [apiNotifications]);
 
   // Handle mark as read
   const handleMarkAsRead = async (notificationId: string | number) => {
-    try {
-      await markNotificationAsRead(Number(notificationId));
-      setApiNotifications(prev => {
-        const updated = prev.map(notif => 
-          notif.notificationId === Number(notificationId) ? { ...notif, isRead: true } : notif
-        );
-        updateNotificationCounts(updated);
-        return updated;
-      });
-      toast.success("Notification marked as read");
-    } catch (error) {
-      console.error("Error marking notification as read:", error);
-      toast.error("Failed to mark notification as read");
-    }
+    await contextMarkAsRead(Number(notificationId));
   };
 
   // Handle mark all as read
   const handleMarkAllAsRead = async () => {
-    try {
-      await markAllNotificationsAsRead();
-      setApiNotifications(prev => {
-        const updated = prev.map(notif => ({ ...notif, isRead: true }));
-        updateNotificationCounts(updated);
-        return updated;
-      });
-      toast.success("All notifications marked as read");
-    } catch (error) {
-      console.error("Error marking all notifications as read:", error);
-      toast.error("Failed to mark all notifications as read");
-    }
+    await markAllAsRead();
   };
   
   // Generate localized notification data (fallback) - 5 notification tasks
@@ -298,7 +265,7 @@ export default function NotificationView({ onBack }: NotificationViewProps) {
     }
   ];
 
-  // Use API notifications, fallback to context or local ones
+  // Use API notifications, fallback to local ones
   const displayNotifications = apiNotifications.length > 0 ? apiNotifications.map(notif => ({
     id: notif.notificationId.toString(),
     type: notif.type.toLowerCase() as any,
@@ -308,7 +275,7 @@ export default function NotificationView({ onBack }: NotificationViewProps) {
     isRead: notif.isRead,
     requiresAction: false,
     actionData: undefined
-  })) : (notifications.length > 0 ? notifications : getLocalizedNotifications());
+  })) : getLocalizedNotifications();
 
   const getNotificationIcon = (type: string) => {
     switch (type) {
@@ -415,7 +382,7 @@ export default function NotificationView({ onBack }: NotificationViewProps) {
     handlePenaltyAction(notificationId, 'pay', actionData);
   };
 
-  const markAsRead = (notificationId: string) => {
+  const markAsReadLocal = (notificationId: string) => {
     handleMarkAsRead(notificationId);
   };
 
@@ -469,7 +436,7 @@ export default function NotificationView({ onBack }: NotificationViewProps) {
   };
 
   // Use state-based unread count for consistency
-  const unreadCount = notificationCounts.unread;
+  const unreadCount = contextUnreadCount;
 
   return (
     <>
@@ -505,6 +472,16 @@ export default function NotificationView({ onBack }: NotificationViewProps) {
                   </Badge>
                 )}
               </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={refreshNotifications}
+                disabled={loading}
+                className="flex items-center space-x-2"
+              >
+                <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+                <span>{t('refresh')}</span>
+              </Button>
               {unreadCount > 0 && (
                 <Button
                   variant="outline"
@@ -513,7 +490,7 @@ export default function NotificationView({ onBack }: NotificationViewProps) {
                   className="flex items-center space-x-2"
                 >
                   <CheckCircle className="w-4 h-4" />
-                  <span>{t('mark_all_read')}</span>
+                  <span>{t('Mark all read')}</span>
                 </Button>
               )}
             </div>
@@ -710,7 +687,7 @@ export default function NotificationView({ onBack }: NotificationViewProps) {
             ))}
 
             {/* Empty State */}
-            {notifications.length === 0 && (
+            {displayNotifications.length === 0 && !loading && (
               <Card className="bg-card/80 backdrop-blur-xl border border-border/50">
                 <CardContent className="p-12 text-center">
                   <Bell className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
@@ -720,6 +697,40 @@ export default function NotificationView({ onBack }: NotificationViewProps) {
                   <p className="text-muted-foreground">
                     {t('all_notifications_appear_here')}
                   </p>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Loading State */}
+            {loading && (
+              <Card className="bg-card/80 backdrop-blur-xl border border-border/50">
+                <CardContent className="p-12 text-center">
+                  <RefreshCw className="w-12 h-12 text-muted-foreground mx-auto mb-4 animate-spin" />
+                  <h3 className="font-medium text-foreground mb-2">
+                    {t('loading_notifications')}
+                  </h3>
+                  <p className="text-muted-foreground">
+                    {t('please_wait')}
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Error State */}
+            {error && (
+              <Card className="bg-card/80 backdrop-blur-xl border border-red-200 dark:border-red-800">
+                <CardContent className="p-12 text-center">
+                  <AlertTriangle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+                  <h3 className="font-medium text-red-900 dark:text-red-100 mb-2">
+                    {t('error_loading_notifications')}
+                  </h3>
+                  <p className="text-red-700 dark:text-red-300 mb-4">
+                    {error}
+                  </p>
+                  <Button onClick={refreshNotifications} variant="outline">
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    {t('try_again')}
+                  </Button>
                 </CardContent>
               </Card>
             )}

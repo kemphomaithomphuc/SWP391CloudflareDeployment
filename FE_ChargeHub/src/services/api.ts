@@ -186,13 +186,12 @@ export const getCurrentUserId = async (): Promise<APIResponse<number>> => {
 // ===== NOTIFICATION API TYPES =====
 
 export interface Notification {
-  id: number;
+  notificationId: number;
   title: string;
-  message: string;
-  type: string;
+  content: string;
+  sentTime: string;
+  type: "BOOKING" | "PAYMENT" | "ISSUE" | "GENERAL" | "PENALTY";
   isRead: boolean;
-  createdAt: string;
-  updatedAt: string;
   userId: number;
 }
 

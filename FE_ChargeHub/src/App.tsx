@@ -3,6 +3,7 @@ import { ThemeProvider } from "./contexts/ThemeContext";
 import { LanguageProvider } from "./contexts/LanguageContext";
 import { BookingProvider } from "./contexts/BookingContext";
 import { StationProvider } from "./contexts/StationContext";
+import { NotificationProvider } from "./contexts/NotificationContext";
 import { Toaster } from "./components/ui/sonner";
 import AppLayout from "./components/AppLayout";
 import { Routes, Route } from 'react-router-dom'
@@ -199,7 +200,27 @@ function AppContent() {
               { headers: { Authorization: `Bearer ${at}` } }
             );
             const userId = meRes?.data?.data;
-            if (userId != null) localStorage.setItem("userId", String(userId));
+            if (userId != null) {
+              localStorage.setItem("userId", String(userId));
+              
+              // Fetch and store user profile data
+              try {
+                const profileRes = await axios.get(`http://localhost:8080/api/user/profile/${userId}`);
+                if (profileRes.status === 200 && profileRes.data?.data) {
+                  const userProfile = profileRes.data.data;
+                  if (userProfile.fullName) {
+                    localStorage.setItem("fullName", userProfile.fullName);
+                    console.log("OAuth: Stored fullName:", userProfile.fullName);
+                  }
+                  if (userProfile.email) {
+                    localStorage.setItem("email", userProfile.email);
+                    console.log("OAuth: Stored email:", userProfile.email);
+                  }
+                }
+              } catch (profileErr) {
+                console.warn("Cannot fetch user profile:", profileErr);
+              }
+            }
           } catch (e) {
             console.warn("Cannot fetch /me:", e);
           }
@@ -241,7 +262,7 @@ function AppContent() {
         return <MainDashboard onLogout={switchToLogin} onBooking={switchToBooking} onHistory={switchToHistory} onAnalysis={switchToAnalysis} onReportIssue={switchToReportIssue} onWallet={switchToWallet} onNotifications={switchToNotifications} onMyBookings={switchToMyBookings} onPremiumSubscription={switchToPremiumSubscription} vehicleBatteryLevel={vehicleBatteryLevel} setVehicleBatteryLevel={setVehicleBatteryLevel} />;
 
       case "booking":
-        return <BookingMap onBack={() => setCurrentView("dashboard")} currentBatteryLevel={vehicleBatteryLevel} setCurrentBatteryLevel={setVehicleBatteryLevel} onStartCharging={switchToChargingSession} />;
+        return <BookingMap onBack={() => setCurrentView("dashboard")} currentBatteryLevel={vehicleBatteryLevel} setCurrentBatteryLevel={setVehicleBatteryLevel} onStartCharging={switchToChargingSession} onNavigateToBookings={() => setCurrentView("myBookings")} />;
 
       case "history":
         return <HistoryView onBack={() => setCurrentView("dashboard")} />;
@@ -405,8 +426,10 @@ export default function App() {
       <LanguageProvider>
         <BookingProvider>
           <StationProvider>
-            <AppContent />
-            <Toaster />
+            <NotificationProvider>
+              <AppContent />
+              <Toaster />
+            </NotificationProvider>
           </StationProvider>
         </BookingProvider>
       </LanguageProvider>

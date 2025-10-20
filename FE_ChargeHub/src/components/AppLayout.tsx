@@ -1,9 +1,11 @@
 import { useState, ReactNode } from "react";
 import { useTheme } from "../contexts/ThemeContext";
 import { useLanguage } from "../contexts/LanguageContext";
+import { useNotifications } from "../contexts/NotificationContext";
 import { Button } from "./ui/button";
 import { Separator } from "./ui/separator";
 import { ScrollArea } from "./ui/scroll-area";
+import NotificationBadge from "./NotificationBadge";
 import { 
   Home,
   Users,
@@ -120,6 +122,14 @@ export default function AppLayout({
       labelVi: 'Gói premium',
       icon: CreditCard,
       onClick: () => onNavigate?.('premiumSubscription'),
+      userTypes: ['driver']
+    },
+    {
+      id: 'notifications',
+      label: 'Notifications',
+      labelVi: 'Thông báo',
+      icon: Bell,
+      onClick: () => onNavigate?.('notifications'),
       userTypes: ['driver']
     },
     {
@@ -325,7 +335,11 @@ export default function AppLayout({
                     ${sidebarCollapsed ? 'px-2' : 'px-3'}
                   `}
                 >
-                  <Icon className={`w-4 h-4 ${sidebarCollapsed ? '' : 'mr-3'} flex-shrink-0`} />
+                  {item.id === 'notifications' ? (
+                    <NotificationBadge className={`${sidebarCollapsed ? '' : 'mr-3'} flex-shrink-0`} />
+                  ) : (
+                    <Icon className={`w-4 h-4 ${sidebarCollapsed ? '' : 'mr-3'} flex-shrink-0`} />
+                  )}
                   {!sidebarCollapsed && (
                     <span className="truncate">
                       {language === 'vi' ? item.labelVi : item.label}
