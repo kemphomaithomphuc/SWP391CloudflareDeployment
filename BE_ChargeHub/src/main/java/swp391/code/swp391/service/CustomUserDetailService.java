@@ -7,13 +7,14 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import swp391.code.swp391.entity.CustomUserDetails;
 import swp391.code.swp391.entity.User;
 import swp391.code.swp391.repository.UserRepository;
 
 @Service
 @RequiredArgsConstructor
-
+@Transactional
 public class CustomUserDetailService implements UserDetailsService {
 
     private final UserRepository userRepository;
