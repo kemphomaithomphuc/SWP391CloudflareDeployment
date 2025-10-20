@@ -67,6 +67,9 @@ public class SessionServiceImpl implements SessionService {
         // Kiểm tra charging point
         ChargingPoint point = chargingPointRepository.findById(order.getChargingPoint().getChargingPointId())
                 .orElseThrow(() -> new RuntimeException("Charging point not found"));
+        if (point.getStatus() != ChargingPoint.ChargingPointStatus.AVAILABLE) {
+            throw new RuntimeException("Charging point not available");
+        }
 
         Vehicle vehicle = vehicleRepository.findById(vehicleId)
                 .orElseThrow(() -> new RuntimeException("Vehicle not found"));
@@ -128,7 +131,6 @@ public class SessionServiceImpl implements SessionService {
         LocalDateTime now = LocalDateTime.now();
         long minutesElapsed = ChronoUnit.MINUTES.between(session.getStartTime(), now);
         double powerConsumed = power * (minutesElapsed / 60.0); // Simplified
-        session.setPowerConsumed(powerConsumed);
 
         // Tính cost (dựa trên BR12 formula, nhưng đơn giản hóa)
         //TODO: Chèn method tính giá tiền (US12) vào đây thay vì tự tính
@@ -140,13 +142,13 @@ public class SessionServiceImpl implements SessionService {
         double discount = 0.0; // Giả sử không có subscription
 
         double cost = powerConsumed * basePrice * priceFactor * (1 - discount);
-        session.setBaseCost(cost);
         //===============================================================
+        session.setPowerConsumed(powerConsumed);
+        session.setBaseCost(cost);
 
         // Kiểm tra nếu đạt expectedBattery
         double currentBattery = calculateBatteryPercentage(vehicle, powerConsumed) + session.getOrder().getStartedBattery();
         if (currentBattery >= session.getOrder().getExpectedBattery()) {
-            // Kết thúc session
             if (currentBattery > 100) currentBattery = 100.0; // Chỉnh lại nếu vượt
             // Gui thong bao o day
 
@@ -162,26 +164,79 @@ public class SessionServiceImpl implements SessionService {
         return new SessionProgressDTO(currentBattery,powerConsumed,cost);
     }
 
-    public Long endSession(Long sessionId, Long userId){
-        Long endSessionId = null;
+    @Override
+    @Transactional
+    public Long endSession(Long sessionId, Long userId) {
         Session session = sessionRepository.findById(sessionId)
                 .orElseThrow(() -> new RuntimeException("Session not found"));
         // Kiểm tra ownership
         if (!session.getOrder().getUser().getUserId().equals(userId)) {
-            throw new RuntimeException("Not authorized to monitor this session");
+            throw new RuntimeException("Not authorized to end this session");
         }
 
+        if (session.getStatus() != Session.SessionStatus.CHARGING) {
+            throw new RuntimeException("Session not active");
+        }
 
-        return endSessionId;
+        ConnectorType connectorType = session.getOrder().getChargingPoint().getConnectorType();
+        Vehicle vehicle = vehicleRepository.findById(session.getOrder().getVehicle().getId())
+                .orElseThrow(() -> new RuntimeException("Vehicle not found for session"));
+
+        LocalDateTime now = LocalDateTime.now();
+        double power = connectorType.getPowerOutput();
+        long minutesElapsed = ChronoUnit.MINUTES.between(session.getStartTime(), now);
+        double powerConsumed = power * (minutesElapsed / 60.0);
+
+        // Calculate cost
+        double basePrice = connectorType.getPricePerKWh();
+        double priceFactor = 1.0;
+        double discount = 0.0;
+        double cost = powerConsumed * basePrice * priceFactor * (1 - discount);
+
+        // Update session
+        session.setBaseCost(cost);
+        session.setPowerConsumed(powerConsumed);
+        session.setEndTime(now);
+        session.setStatus(Session.SessionStatus.COMPLETED);
+
+        // Update order status
+        Order order = session.getOrder();
+        order.setStatus(Order.Status.COMPLETED);
+        orderRepository.save(order);
+
+        // Update charging point status
+        ChargingPoint chargingPoint = order.getChargingPoint();
+        chargingPoint.setStatus(ChargingPoint.ChargingPointStatus.AVAILABLE);
+        chargingPointRepository.save(chargingPoint);
+
+        // Calculate final battery percentage
+        double finalBattery = calculateBatteryPercentage(vehicle, powerConsumed) + session.getOrder().getStartedBattery();
+        if (finalBattery > 100) {
+            finalBattery = 100.0;
+        }
+
+        // Check for overtime penalty
+        if (minutesElapsed > expectedMinutes(vehicle, session.getOrder().getExpectedBattery())) {
+            applyPenalty(order, Fee.Type.CHARGING);
+        }
+
+        // Save session
+        session = sessionRepository.save(session);
+
+        // Send completion notification
+        notificationService.createBookingOrderNotification(order.getOrderId(),
+            NotificationServiceImpl.NotificationEvent.SESSION_COMPLETE, null);
+
+        return session.getSessionId();
     }
 
     private void applyPenalty(Order order, Fee.Type type) { //Áp dụng phạt
         Fee fee = new Fee();
-        fee.setOrder(order); // Set the order relationship
+        fee.setOrder(order);
         fee.setType(type);
-        fee.setAmount(calculatePenaltyAmount(type.toString(), order)); // Logic tính phí, e.g., 30% estimated cost for NO_SHOW
-        fee.setAmount(fee.getAmount()); // For penalties, calculated amount equals amount
-        fee.setIsPaid(false); // Penalty fees start as unpaid
+        fee.setAmount(calculatePenaltyAmount(type.toString(), order));
+        fee.setAmount(fee.getAmount());
+        fee.setIsPaid(false);
         fee.setCreatedAt(LocalDateTime.now());
         feeRepository.save(fee);
 

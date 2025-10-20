@@ -1,57 +1,252 @@
--- SQL Server script to insert 50 records into the users table
+-- 1. car_models (No foreign keys)
+-- Các hãng xe phổ biến tại Việt Nam (VinFast) và quốc tế
+INSERT INTO car_models (brand, capacity, img_url, model, product_year) VALUES
+                                                                           ('VinFast', 87.7, 'vinfast_vf8.jpg', 'VF 8', 2023),
+                                                                           ('VinFast', 59.6, 'vinfast_vf6.jpg', 'VF 6', 2024),
+                                                                           ('Tesla', 75.0, 'tesla_model_y.jpg', 'Model Y', 2023),
+                                                                           ('BYD', 60.5, 'byd_atto3.jpg', 'Atto 3', 2023),
+                                                                           ('Hyundai', 64.0, 'hyundai_ioniq5.jpg', 'Ioniq 5', 2022),
+                                                                           ('Kia', 77.4, 'kia_ev6.jpg', 'EV6', 2023),
+                                                                           ('Porsche', 93.4, 'porsche_taycan.jpg', 'Taycan', 2024),
+                                                                           ('Audi', 95.0, 'audi_etron.jpg', 'e-tron', 2023),
+                                                                           ('Nissan', 40.0, 'nissan_leaf.jpg', 'Leaf', 2022),
+                                                                           ('MG', 50.3, 'mg_zsev.jpg', 'ZS EV', 2023);
 
--- Insert into users (50 records)
--- Columns: full_name, email, phone, password, address, date_of_birth, avatar, facebook_id, google_id, role, status (user_id is IDENTITY)
--- Mix roles: ~35 DRIVER, ~10 STAFF, ~5 ADMIN, ~5 BANNED DRIVER
--- Updated: Vietnamese addresses, phone numbers, and cycle through 5 provided BCrypt passwords
-INSERT INTO [dbo].[users] ([full_name], [email], [phone], [password], [address], [date_of_birth], [avatar], [facebook_id], [google_id], [role], [status]) VALUES
-(N'Nguyễn Văn An', 'john@example.com', '0912345678', '$2a$10$Ac5wW7ayBWJ7jRl6ELhPJuJUEt04qoQ/DZUXaf6pDigLB5/tFbhRW', N'123 Lê Lợi, Quận 1, TP.HCM', '1990-01-01', 'avatar1.jpg', NULL, NULL, 'DRIVER', 'ACTIVE'),
-(N'Trần Thị Bình', 'jane@example.com', '0987654321', '$2a$10$bCHnDQYy0fDrdvTRFPNiYOnKYz2b00KmqeG3nO2gmoKgn8xe5noVe', N'45 Nguyễn Huệ, Quận 1, TP.HCM', '1985-05-15', 'avatar2.jpg', NULL, NULL, 'DRIVER', 'ACTIVE'),
-(N'Phạm Minh Châu', 'admin@example.com', '0931234567', '$2a$10$GlusoSkRsekaPKYa9uQZL.3X7AjPfGGYtkEJzl/i9JCBpkCbSoAVK', N'78 Trần Hưng Đạo, Quận 5, TP.HCM', '1980-10-10', 'admin.jpg', NULL, NULL, 'ADMIN', 'ACTIVE'),
-(N'Lê Văn Đức', 'staff@example.com', '0908765432', '$2a$10$SyHr7n8lCQL6TaNnOJGameuMo5UuHxVhiZSJQFkvx9Wk/DQYwmd2i', N'12 Lý Tự Trọng, Quận 3, TP.HCM', '1995-03-20', 'staff.jpg', NULL, NULL, 'STAFF', 'ACTIVE'),
-(N'Hoàng Thị E', 'banned@example.com', '0945678901', '$2a$10$9D6Q1zhCEVI0gikOGu6R8OgpFlYWOIRyVyBsQ1kF1zAzlMcp.4epe', N'56 Hai Bà Trưng, Quận Hoàn Kiếm, Hà Nội', '2000-07-07', 'banned.jpg', NULL, NULL, 'DRIVER', 'BANNED'),
-(N'Nguyễn Thành Nam', 'user6@example.com', '0912345679', '$2a$10$Ac5wW7ayBWJ7jRl6ELhPJuJUEt04qoQ/DZUXaf6pDigLB5/tFbhRW', N'89 Phạm Văn Đồng, Quận Cầu Giấy, Hà Nội', '1991-02-02', 'avatar6.jpg', NULL, NULL, 'DRIVER', 'ACTIVE'),
-(N'Trần Hương Giang', 'user7@example.com', '0987654322', '$2a$10$bCHnDQYy0fDrdvTRFPNiYOnKYz2b00KmqeG3nO2gmoKgn8xe5noVe', N'34 Nguyễn Trãi, Quận Thanh Xuân, Hà Nội', '1986-06-16', 'avatar7.jpg', NULL, NULL, 'DRIVER', 'INACTIVE'),
-(N'Vũ Minh Hoàng', 'user8@example.com', '0931234568', '$2a$10$GlusoSkRsekaPKYa9uQZL.3X7AjPfGGYtkEJzl/i9JCBpkCbSoAVK', N'101 Lê Đại Hành, Quận Hai Bà Trưng, Hà Nội', '1981-11-11', 'avatar8.jpg', NULL, NULL, 'ADMIN', 'ACTIVE'),
-(N'Đỗ Thị Hồng', 'user9@example.com', '0908765433', '$2a$10$SyHr7n8lCQL6TaNnOJGameuMo5UuHxVhiZSJQFkvx9Wk/DQYwmd2i', N'23 Nguyễn Văn Cừ, Quận Long Biên, Hà Nội', '1996-04-21', 'avatar9.jpg', NULL, NULL, 'STAFF', 'ACTIVE'),
-(N'Phan Văn Hùng', 'user10@example.com', '0945678902', '$2a$10$9D6Q1zhCEVI0gikOGu6R8OgpFlYWOIRyVyBsQ1kF1zAzlMcp.4epe', N'67 Bùi Thị Xuân, Quận Hải Châu, Đà Nẵng', '2001-08-08', 'avatar10.jpg', NULL, NULL, 'DRIVER', 'BANNED'),
-(N'Lê Thị Mai', 'user11@example.com', '0912345680', '$2a$10$Ac5wW7ayBWJ7jRl6ELhPJuJUEt04qoQ/DZUXaf6pDigLB5/tFbhRW', N'45 Trần Phú, Quận Hải Châu, Đà Nẵng', '1992-03-03', 'avatar11.jpg', NULL, NULL, 'DRIVER', 'ACTIVE'),
-(N'Ngô Văn Khang', 'user12@example.com', '0987654323', '$2a$10$bCHnDQYy0fDrdvTRFPNiYOnKYz2b00KmqeG3nO2gmoKgn8xe5noVe', N'12 Lê Duẩn, Quận Hải Châu, Đà Nẵng', '1987-07-17', 'avatar12.jpg', NULL, NULL, 'DRIVER', 'INACTIVE'),
-(N'Bùi Minh Long', 'user13@example.com', '0931234569', '$2a$10$GlusoSkRsekaPKYa9uQZL.3X7AjPfGGYtkEJzl/i9JCBpkCbSoAVK', N'78 Nguyễn Thị Minh Khai, Quận 3, TP.HCM', '1982-12-12', 'avatar13.jpg', NULL, NULL, 'ADMIN', 'ACTIVE'),
-(N'Trương Thị Ngọc', 'user14@example.com', '0908765434', '$2a$10$SyHr7n8lCQL6TaNnOJGameuMo5UuHxVhiZSJQFkvx9Wk/DQYwmd2i', N'56 Võ Văn Tần, Quận 3, TP.HCM', '1997-05-22', 'avatar14.jpg', NULL, NULL, 'STAFF', 'ACTIVE'),
-(N'Võ Văn Phúc', 'user15@example.com', '0945678903', '$2a$10$9D6Q1zhCEVI0gikOGu6R8OgpFlYWOIRyVyBsQ1kF1zAzlMcp.4epe', N'34 Nguyễn Đình Chiểu, Quận 1, TP.HCM', '2002-09-09', 'avatar15.jpg', NULL, NULL, 'DRIVER', 'BANNED'),
-(N'Nguyễn Thị Quỳnh', 'user16@example.com', '0912345681', '$2a$10$Ac5wW7ayBWJ7jRl6ELhPJuJUEt04qoQ/DZUXaf6pDigLB5/tFbhRW', N'89 Cách Mạng Tháng Tám, Quận Tân Bình, TP.HCM', '1993-04-04', 'avatar16.jpg', NULL, NULL, 'DRIVER', 'ACTIVE'),
-(N'Trần Văn Sang', 'user17@example.com', '0987654324', '$2a$10$bCHnDQYy0fDrdvTRFPNiYOnKYz2b00KmqeG3nO2gmoKgn8xe5noVe', N'23 Trường Chinh, Quận Tân Bình, TP.HCM', '1988-08-18', 'avatar17.jpg', NULL, NULL, 'DRIVER', 'INACTIVE'),
-(N'Phạm Minh Tâm', 'user18@example.com', '0931234570', '$2a$10$GlusoSkRsekaPKYa9uQZL.3X7AjPfGGYtkEJzl/i9JCBpkCbSoAVK', N'45 Nguyễn Thái Học, Quận Ba Đình, Hà Nội', '1983-01-13', 'avatar18.jpg', NULL, NULL, 'ADMIN', 'ACTIVE'),
-(N'Lê Thị Thanh', 'user19@example.com', '0908765435', '$2a$10$SyHr7n8lCQL6TaNnOJGameuMo5UuHxVhiZSJQFkvx9Wk/DQYwmd2i', N'12 Kim Mã, Quận Ba Đình, Hà Nội', '1998-06-23', 'avatar19.jpg', NULL, NULL, 'STAFF', 'ACTIVE'),
-(N'Hoàng Văn Tùng', 'user20@example.com', '0945678904', '$2a$10$9D6Q1zhCEVI0gikOGu6R8OgpFlYWOIRyVyBsQ1kF1zAzlMcp.4epe', N'67 Hùng Vương, Quận Hải Châu, Đà Nẵng', '2003-10-10', 'avatar20.jpg', NULL, NULL, 'DRIVER', 'BANNED'),
-(N'Nguyễn Thị Uyên', 'user21@example.com', '0912345682', '$2a$10$Ac5wW7ayBWJ7jRl6ELhPJuJUEt04qoQ/DZUXaf6pDigLB5/tFbhRW', N'34 Lê Văn Sỹ, Quận Phú Nhuận, TP.HCM', '1994-05-05', 'avatar21.jpg', NULL, NULL, 'DRIVER', 'ACTIVE'),
-(N'Trần Văn Vương', 'user22@example.com', '0987654325', '$2a$10$bCHnDQYy0fDrdvTRFPNiYOnKYz2b00KmqeG3nO2gmoKgn8xe5noVe', N'56 Nam Kỳ Khởi Nghĩa, Quận 1, TP.HCM', '1989-09-19', 'avatar22.jpg', NULL, NULL, 'DRIVER', 'INACTIVE'),
-(N'Vũ Thị Xuân', 'user23@example.com', '0931234571', '$2a$10$GlusoSkRsekaPKYa9uQZL.3X7AjPfGGYtkEJzl/i9JCBpkCbSoAVK', N'78 Lý Thường Kiệt, Quận Hoàn Kiếm, Hà Nội', '1984-02-14', 'avatar23.jpg', NULL, NULL, 'ADMIN', 'ACTIVE'),
-(N'Đỗ Văn Ý', 'user24@example.com', '0908765436', '$2a$10$SyHr7n8lCQL6TaNnOJGameuMo5UuHxVhiZSJQFkvx9Wk/DQYwmd2i', N'23 Cửa Nam, Quận Hoàn Kiếm, Hà Nội', '1999-07-24', 'avatar24.jpg', NULL, NULL, 'STAFF', 'ACTIVE'),
-(N'Phan Thị Ánh', 'user25@example.com', '0945678905', '$2a$10$9D6Q1zhCEVI0gikOGu6R8OgpFlYWOIRyVyBsQ1kF1zAzlMcp.4epe', N'45 Nguyễn Văn Trỗi, Quận Phú Nhuận, TP.HCM', '2004-11-11', 'avatar25.jpg', NULL, NULL, 'DRIVER', 'BANNED'),
-(N'Nguyễn Văn Bình', 'user26@example.com', '0912345683', '$2a$10$Ac5wW7ayBWJ7jRl6ELhPJuJUEt04qoQ/DZUXaf6pDigLB5/tFbhRW', N'89 Điện Biên Phủ, Quận Bình Thạnh, TP.HCM', '1995-06-06', 'avatar26.jpg', NULL, NULL, 'DRIVER', 'ACTIVE'),
-(N'Trần Thị Cẩm', 'user27@example.com', '0987654326', '$2a$10$bCHnDQYy0fDrdvTRFPNiYOnKYz2b00KmqeG3nO2gmoKgn8xe5noVe', N'12 Nguyễn Hữu Cảnh, Quận Bình Thạnh, TP.HCM', '1990-10-20', 'avatar27.jpg', NULL, NULL, 'DRIVER', 'INACTIVE'),
-(N'Phạm Văn Dũng', 'user28@example.com', '0931234572', '$2a$10$GlusoSkRsekaPKYa9uQZL.3X7AjPfGGYtkEJzl/i9JCBpkCbSoAVK', N'34 Hoàng Diệu, Quận Ba Đình, Hà Nội', '1985-03-15', 'avatar28.jpg', NULL, NULL, 'ADMIN', 'ACTIVE'),
-(N'Lê Thị Em', 'user29@example.com', '0908765437', '$2a$10$SyHr7n8lCQL6TaNnOJGameuMo5UuHxVhiZSJQFkvx9Wk/DQYwmd2i', N'56 Láng Hạ, Quận Đống Đa, Hà Nội', '2000-08-25', 'avatar29.jpg', NULL, NULL, 'STAFF', 'ACTIVE'),
-(N'Hoàng Văn Pháp', 'user30@example.com', '0945678906', '$2a$10$9D6Q1zhCEVI0gikOGu6R8OgpFlYWOIRyVyBsQ1kF1zAzlMcp.4epe', N'67 Lê Hồng Phong, Quận Hải Châu, Đà Nẵng', '2005-12-12', 'avatar30.jpg', NULL, NULL, 'DRIVER', 'BANNED'),
-(N'Nguyễn Thị Giang', 'user31@example.com', '0912345684', '$2a$10$Ac5wW7ayBWJ7jRl6ELhPJuJUEt04qoQ/DZUXaf6pDigLB5/tFbhRW', N'23 Tôn Đức Thắng, Quận 1, TP.HCM', '1996-07-07', 'avatar31.jpg', NULL, NULL, 'DRIVER', 'ACTIVE'),
-(N'Trần Văn Hòa', 'user32@example.com', '0987654327', '$2a$10$bCHnDQYy0fDrdvTRFPNiYOnKYz2b00KmqeG3nO2gmoKgn8xe5noVe', N'45 Pasteur, Quận 1, TP.HCM', '1991-11-21', 'avatar32.jpg', NULL, NULL, 'DRIVER', 'INACTIVE'),
-(N'Vũ Minh Kiên', 'user33@example.com', '0931234573', '$2a$10$GlusoSkRsekaPKYa9uQZL.3X7AjPfGGYtkEJzl/i9JCBpkCbSoAVK', N'78 Giảng Võ, Quận Ba Đình, Hà Nội', '1986-04-16', 'avatar33.jpg', NULL, NULL, 'ADMIN', 'ACTIVE'),
-(N'Đỗ Thị Lan', 'user34@example.com', '0908765438', '$2a$10$SyHr7n8lCQL6TaNnOJGameuMo5UuHxVhiZSJQFkvx9Wk/DQYwmd2i', N'12 Nguyễn Công Trứ, Quận Hai Bà Trưng, Hà Nội', '2001-09-26', 'avatar34.jpg', NULL, NULL, 'STAFF', 'ACTIVE'),
-(N'Phan Văn Minh', 'user35@example.com', '0945678907', '$2a$10$9D6Q1zhCEVI0gikOGu6R8OgpFlYWOIRyVyBsQ1kF1zAzlMcp.4epe', N'34 Quang Trung, Quận Hải Châu, Đà Nẵng', '2006-01-01', 'avatar35.jpg', NULL, NULL, 'DRIVER', 'BANNED'),
-(N'Nguyễn Thị Ngân', 'user36@example.com', '0912345685', '$2a$10$Ac5wW7ayBWJ7jRl6ELhPJuJUEt04qoQ/DZUXaf6pDigLB5/tFbhRW', N'56 Nguyễn Tri Phương, Quận 5, TP.HCM', '1997-08-08', 'avatar36.jpg', NULL, NULL, 'DRIVER', 'ACTIVE'),
-(N'Trần Văn Oanh', 'user37@example.com', '0987654328', '$2a$10$bCHnDQYy0fDrdvTRFPNiYOnKYz2b00KmqeG3nO2gmoKgn8xe5noVe', N'89 Lê Đại Hành, Quận 11, TP.HCM', '1992-12-22', 'avatar37.jpg', NULL, NULL, 'DRIVER', 'INACTIVE'),
-(N'Phạm Minh Phương', 'user38@example.com', '0931234574', '$2a$10$GlusoSkRsekaPKYa9uQZL.3X7AjPfGGYtkEJzl/i9JCBpkCbSoAVK', N'23 Tây Hồ, Quận Tây Hồ, Hà Nội', '1987-05-17', 'avatar38.jpg', NULL, NULL, 'ADMIN', 'ACTIVE'),
-(N'Lê Thị Quyên', 'user39@example.com', '0908765439', '$2a$10$SyHr7n8lCQL6TaNnOJGameuMo5UuHxVhiZSJQFkvx9Wk/DQYwmd2i', N'45 Liễu Giai, Quận Ba Đình, Hà Nội', '2002-10-27', 'avatar39.jpg', NULL, NULL, 'STAFF', 'ACTIVE'),
-(N'Hoàng Văn Sơn', 'user40@example.com', '0945678908', '$2a$10$9D6Q1zhCEVI0gikOGu6R8OgpFlYWOIRyVyBsQ1kF1zAzlMcp.4epe', N'67 Nguyễn Huệ, Quận Hải Châu, Đà Nẵng', '2007-02-02', 'avatar40.jpg', NULL, NULL, 'DRIVER', 'BANNED'),
-(N'Nguyễn Thị Tâm', 'user41@example.com', '0912345686', '$2a$10$Ac5wW7ayBWJ7jRl6ELhPJuJUEt04qoQ/DZUXaf6pDigLB5/tFbhRW', N'12 Lý Nam Đế, Quận Hoàn Kiếm, Hà Nội', '1998-09-09', 'avatar41.jpg', NULL, NULL, 'DRIVER', 'ACTIVE'),
-(N'Trần Văn Tín', 'user42@example.com', '0987654329', '$2a$10$bCHnDQYy0fDrdvTRFPNiYOnKYz2b00KmqeG3nO2gmoKgn8xe5noVe', N'34 Nguyễn Thái Bình, Quận 1, TP.HCM', '1993-01-23', 'avatar42.jpg', NULL, NULL, 'DRIVER', 'INACTIVE'),
-(N'Vũ Thị Uyên', 'user43@example.com', '0931234575', '$2a$10$GlusoSkRsekaPKYa9uQZL.3X7AjPfGGYtkEJzl/i9JCBpkCbSoAVK', N'56 Hàng Bông, Quận Hoàn Kiếm, Hà Nội', '1988-06-18', 'avatar43.jpg', NULL, NULL, 'ADMIN', 'ACTIVE'),
-(N'Đỗ Văn Vinh', 'user44@example.com', '0908765440', '$2a$10$SyHr7n8lCQL6TaNnOJGameuMo5UuHxVhiZSJQFkvx9Wk/DQYwmd2i', N'89 Nguyễn Văn Hưởng, Quận 2, TP.HCM', '2003-11-28', 'avatar44.jpg', NULL, NULL, 'STAFF', 'ACTIVE'),
-(N'Phan Thị Ý', 'user45@example.com', '0945678909', '$2a$10$9D6Q1zhCEVI0gikOGu6R8OgpFlYWOIRyVyBsQ1kF1zAzlMcp.4epe', N'23 Lê Lai, Quận Hải Châu, Đà Nẵng', '2008-03-03', 'avatar45.jpg', NULL, NULL, 'DRIVER', 'BANNED'),
-(N'Nguyễn Văn Ân', 'user46@example.com', '0912345687', '$2a$10$Ac5wW7ayBWJ7jRl6ELhPJuJUEt04qoQ/DZUXaf6pDigLB5/tFbhRW', N'45 Nguyễn Chí Thanh, Quận 5, TP.HCM', '1999-10-10', 'avatar46.jpg', NULL, NULL, 'DRIVER', 'ACTIVE'),
-(N'Trần Thị Bích', 'user47@example.com', '0987654330', '$2a$10$bCHnDQYy0fDrdvTRFPNiYOnKYz2b00KmqeG3nO2gmoKgn8xe5noVe', N'78 Nguyễn Thị Định, Quận 2, TP.HCM', '1994-02-24', 'avatar47.jpg', NULL, NULL, 'DRIVER', 'INACTIVE'),
-(N'Phạm Minh Cường', 'user48@example.com', '0931234576', '$2a$10$GlusoSkRsekaPKYa9uQZL.3X7AjPfGGYtkEJzl/i9JCBpkCbSoAVK', N'12 Hàng Bài, Quận Hoàn Kiếm, Hà Nội', '1989-07-19', 'avatar48.jpg', NULL, NULL, 'ADMIN', 'ACTIVE'),
-(N'Lê Thị Duyên', 'user49@example.com', '0908765441', '$2a$10$SyHr7n8lCQL6TaNnOJGameuMo5UuHxVhiZSJQFkvx9Wk/DQYwmd2i', N'34 Bùi Viện, Quận 1, TP.HCM', '2004-12-29', 'avatar49.jpg', NULL, NULL, 'STAFF', 'ACTIVE'),
-(N'Hoàng Văn Em', 'user50@example.com', '0945678910', '$2a$10$9D6Q1zhCEVI0gikOGu6R8OgpFlYWOIRyVyBsQ1kF1zAzlMcp.4epe', N'56 Nguyễn Tất Thành, Quận Hải Châu, Đà Nẵng', '2009-04-04', 'avatar50.jpg', NULL, NULL, 'DRIVER', 'BANNED');
+-- 2. connector_types (No foreign keys)
+-- Các loại đầu nối phổ biến, giá mỗi kWh dựa trên thị trường Việt Nam
+INSERT INTO connector_types (power_output, price_per_kwh, type_name) VALUES
+                                                                         (50.0, 4500.0, 'CCS1'),
+                                                                         (120.0, 6500.0, 'CCS2'),
+                                                                         (7.4, 3000.0, 'Type 2'),
+                                                                         (22.0, 4000.0, 'Type 2 Mennekes'),
+                                                                         (150.0, 8000.0, 'Tesla Supercharger'),
+                                                                         (3.7, 2500.0, 'Type 1'),
+                                                                         (350.0, 10000.0, 'CCS2 Ultra'),
+                                                                         (11.0, 3500.0, 'Type 2 AC'),
+                                                                         (200.0, 8500.0, 'CHAdeMO'),
+                                                                         (100.0, 6000.0, 'CCS Combo');
+
+-- 3. carmodel_connectortype (Depends on car_models, connector_types)
+INSERT INTO carmodel_connectortype (car_model_id, connector_type_id) VALUES
+                                                                         (1, 2), -- VinFast VF 8 with CCS2
+                                                                         (2, 2), -- VinFast VF 6 with CCS2
+                                                                         (3, 5), -- Tesla Model Y with Tesla Supercharger
+                                                                         (4, 2), -- BYD Atto 3 with CCS2
+                                                                         (5, 7), -- Hyundai Ioniq 5 with CCS2 Ultra
+                                                                         (6, 2), -- Kia EV6 with CCS2
+                                                                         (7, 2), -- Porsche Taycan with CCS2
+                                                                         (8, 2), -- Audi e-tron with CCS2
+                                                                         (9, 9), -- Nissan Leaf with CHAdeMO
+                                                                         (10, 2); -- MG ZS EV with CCS2
+
+-- 4. charging_stations (No foreign keys)
+-- Địa chỉ giả lập tại TP.HCM, tọa độ trong khu vực TP.HCM
+INSERT INTO charging_stations (address, charging_point_number, latitude, longitude, station_name, status) VALUES
+                                                                                                              ('123 Nguyễn Huệ, Quận 1, TP.HCM', 6, 10.7744, 106.7038, 'Quận 1 Central Station', 'ACTIVE'),
+                                                                                                              ('456 Lê Lợi, Quận 1, TP.HCM', 8, 10.7729, 106.6981, 'Bến Thành Station', 'ACTIVE'),
+                                                                                                              ('789 Nguyễn Thị Minh Khai, Quận 3, TP.HCM', 5, 10.7815, 106.6890, 'Quận 3 Hub', 'MAINTENANCE'),
+                                                                                                              ('101 Phạm Văn Đồng, Thủ Đức, TP.HCM', 7, 10.8501, 106.7719, 'Thủ Đức Station', 'ACTIVE'),
+                                                                                                              ('202 Nguyễn Văn Cừ, Quận 5, TP.HCM', 4, 10.7625, 106.6820, 'Chợ Lớn Station', 'INACTIVE'),
+                                                                                                              ('303 Nguyễn Trãi, Quận 7, TP.HCM', 6, 10.7296, 106.7114, 'Phú Mỹ Hưng Station', 'ACTIVE'),
+                                                                                                              ('404 Võ Văn Kiệt, Quận 1, TP.HCM', 5, 10.7678, 106.6942, 'Quận 1 Riverside', 'ACTIVE'),
+                                                                                                              ('505 Hàm Nghi, Quận 1, TP.HCM', 4, 10.7712, 106.7005, 'Hàm Nghi Station', 'ACTIVE'),
+                                                                                                              ('606 Lê Văn Sỹ, Quận Tân Bình, TP.HCM', 6, 10.8024, 106.6700, 'Tân Bình Station', 'MAINTENANCE'),
+                                                                                                              ('707 Đinh Bộ Lĩnh, Quận Bình Thạnh, TP.HCM', 3, 10.8103, 106.7087, 'Bình Thạnh Station', 'ACTIVE');
+
+-- 5. charging_points (Depends on charging_stations, connector_types)
+INSERT INTO charging_points (status, connector_type_id, station_station_id) VALUES
+                                                                                ('AVAILABLE', 2, 1),
+                                                                                ('OCCUPIED', 2, 1),
+                                                                                ('RESERVED', 5, 2),
+                                                                                ('MAINTENANCE', 3, 2),
+                                                                                ('AVAILABLE', 7, 3),
+                                                                                ('OUT_OF_SERVICE', 9, 4),
+                                                                                ('AVAILABLE', 2, 5),
+                                                                                ('OCCUPIED', 1, 6),
+                                                                                ('RESERVED', 4, 7),
+                                                                                ('AVAILABLE', 8, 8);
+
+-- 6. users (Depends on charging_stations for staff/admin)
+-- Tên và số điện thoại theo phong cách Việt Nam
+INSERT INTO users (address, avatar, date_of_birth, email, facebook_id, full_name, google_id, password, phone, reason_report, role, status, violations, station_id) VALUES
+                                                                                                                                                                       ('12 Nguyễn Huệ, Quận 1, TP.HCM', 'user1.jpg', '1990-01-15', 'nguyenvana@example.com', NULL, 'Nguyễn Văn An', NULL, '$2a$10$Ac5wW7ayBWJ7jRl6ELhPJuJUEt04qoQ/DZUXaf6pDigLB5/tFbhRW', '0901234567', NULL, 'DRIVER', 'ACTIVE', 0, NULL),
+                                                                                                                                                                       ('34 Lê Lợi, Quận 1, TP.HCM', 'user2.jpg', '1988-03-22', 'tranthib@example.com', NULL, 'Trần Thị Bình', NULL, '$2a$10$bCHnDQYy0fDrdvTRFPNiYOnKYz2b00KmqeG3nO2gmoKgn8xe5noVe', '0912345678', NULL, 'DRIVER', 'ACTIVE', 0, NULL),
+                                                                                                                                                                       ('56 Nguyễn Thị Minh Khai, Quận 3, TP.HCM', 'staff1.jpg', '1985-07-10', 'levanc@example.com', NULL, 'Lê Văn Cường', NULL, '$2a$10$GlusoSkRsekaPKYa9uQZL.3X7AjPfGGYtkEJzl/i9JCBpkCbSoAVK', '0934567890', NULL, 'STAFF', 'ACTIVE', 0, 1),
+                                                                                                                                                                       ('78 Phạm Văn Đồng, Thủ Đức, TP.HCM', 'admin1.jpg', '1975-11-30', 'phamminhd@example.com', NULL, 'Phạm Minh Đức', NULL, '$2a$10$SyHr7n8lCQL6TaNnOJGameuMo5UuHxVhiZSJQFkvx9Wk/DQYwmd2i', '0945678901', NULL, 'ADMIN', 'ACTIVE', 0, NULL),
+                                                                                                                                                                       ('90 Nguyễn Văn Cừ, Quận 5, TP.HCM', 'user3.jpg', '1995-05-05', 'hoangthie@example.com', NULL, 'Hoàng Thị Em', NULL, '$2a$10$9D6Q1zhCEVI0gikOGu6R8OgpFlYWOIRyVyBsQ1kF1zAzlMcp.4epe', '0956789012', 'Late return', 'DRIVER', 'BANNED', 2, NULL),
+                                                                                                                                                                       ('112 Nguyễn Trãi, Quận 7, TP.HCM', 'user4.jpg', '1992-09-12', 'vuvanf@example.com', NULL, 'Vũ Văn Phát', NULL, '$2a$10$Ac5wW7ayBWJ7jRl6ELhPJuJUEt04qoQ/DZUXaf6pDigLB5/tFbhRW', '0967890123', NULL, 'DRIVER', 'ACTIVE', 0, NULL),
+                                                                                                                                                                       ('134 Võ Văn Kiệt, Quận 1, TP.HCM', 'staff2.jpg', '1980-12-25', 'nguyenthig@example.com', NULL, 'Nguyễn Thị Giang', NULL, '$2a$10$bCHnDQYy0fDrdvTRFPNiYOnKYz2b00KmqeG3nO2gmoKgn8xe5noVe', '0978901234', NULL, 'STAFF', 'ACTIVE', 0, 2),
+                                                                                                                                                                       ('156 Hàm Nghi, Quận 1, TP.HCM', 'user5.jpg', '1998-02-18', 'tranvanh@example.com', NULL, 'Trần Văn Hùng', NULL, '$2a$10$GlusoSkRsekaPKYa9uQZL.3X7AjPfGGYtkEJzl/i9JCBpkCbSoAVK', '0989012345', NULL, 'DRIVER', 'INACTIVE', 0, NULL),
+                                                                                                                                                                       ('178 Lê Văn Sỹ, Quận Tân Bình, TP.HCM', 'user6.jpg', '1993-04-20', 'lethii@example.com', NULL, 'Lê Thị Ích', NULL, '$2a$10$SyHr7n8lCQL6TaNnOJGameuMo5UuHxVhiZSJQFkvx9Wk/DQYwmd2i', '0990123456', NULL, 'DRIVER', 'ACTIVE', 0, NULL),
+                                                                                                                                                                       ('200 Đinh Bộ Lĩnh, Quận Bình Thạnh, TP.HCM', 'admin2.jpg', '1970-06-15', 'phamvanj@example.com', NULL, 'Phạm Văn Nhật', NULL, '$2a$10$9D6Q1zhCEVI0gikOGu6R8OgpFlYWOIRyVyBsQ1kF1zAzlMcp.4epe', '0902345678', NULL, 'ADMIN', 'ACTIVE', 0, NULL);
+-- 7. vehicles (Depends on car_models, users)
+-- Biển số xe theo định dạng Việt Nam (e.g., 51A-12345)
+INSERT INTO vehicles (plate_number, car_model_id, user_user_id) VALUES
+                                                                    ('51A-12345', 1, 1), -- VinFast VF 8
+                                                                    ('51B-67890', 2, 2), -- VinFast VF 6
+                                                                    ('51C-11111', 3, 5), -- Tesla Model Y
+                                                                    ('51D-22222', 4, 6), -- BYD Atto 3
+                                                                    ('51E-33333', 5, 8), -- Hyundai Ioniq 5
+                                                                    ('51F-44444', 6, 9), -- Kia EV6
+                                                                    ('51G-55555', 7, 1), -- Porsche Taycan
+                                                                    ('51H-66666', 8, 2), -- Audi e-tron
+                                                                    ('51I-77777', 9, 5), -- Nissan Leaf
+                                                                    ('51J-88888', 10, 6); -- MG ZS EV
+
+-- 8. orders (Depends on charging_points, users, vehicles)
+INSERT INTO orders (canceled_at, cancellation_reason, created_at, end_time, expected_battery, start_time, started_battery, status, charging_point_id, user_id, vehicle_id) VALUES
+                                                                                                                                                                               (NULL, NULL, '2025-10-19 08:00:00', '2025-10-19 09:00:00', 80.0, '2025-10-19 08:00:00', 20.0, 'COMPLETED', 1, 1, 1),
+                                                                                                                                                                               (NULL, NULL, '2025-10-19 09:00:00', '2025-10-19 10:00:00', 90.0, '2025-10-19 09:00:00', 30.0, 'CHARGING', 2, 2, 2),
+                                                                                                                                                                               ('2025-10-19 10:30:00', 'Hủy bởi người dùng', '2025-10-19 10:00:00', '2025-10-19 11:00:00', NULL, '2025-10-19 10:00:00', NULL, 'CANCELED', 3, 5, 3),
+                                                                                                                                                                               (NULL, NULL, '2025-10-19 11:00:00', '2025-10-19 12:00:00', 85.0, '2025-10-19 11:00:00', 25.0, 'BOOKED', 4, 6, 4),
+                                                                                                                                                                               (NULL, NULL, '2025-10-19 12:00:00', '2025-10-19 13:00:00', 95.0, '2025-10-19 12:00:00', 35.0, 'COMPLETED', 5, 8, 5),
+                                                                                                                                                                               (NULL, NULL, '2025-10-19 13:00:00', '2025-10-19 14:00:00', 70.0, '2025-10-19 13:00:00', 15.0, 'CHARGING', 7, 9, 6),
+                                                                                                                                                                               (NULL, NULL, '2025-10-19 14:00:00', '2025-10-19 15:00:00', 88.0, '2025-10-19 14:00:00', 28.0, 'BOOKED', 8, 1, 7),
+                                                                                                                                                                               ('2025-10-19 15:30:00', 'Không đến', '2025-10-19 15:00:00', '2025-10-19 16:00:00', NULL, '2025-10-19 15:00:00', NULL, 'CANCELED', 9, 2, 8),
+                                                                                                                                                                               (NULL, NULL, '2025-10-19 16:00:00', '2025-10-19 17:00:00', 92.0, '2025-10-19 16:00:00', 32.0, 'COMPLETED', 10, 5, 9),
+                                                                                                                                                                               (NULL, NULL, '2025-10-19 17:00:00', '2025-10-19 18:00:00', 75.0, '2025-10-19 17:00:00', 20.0, 'CHARGING', 1, 6, 10);
+
+-- 9. session (Depends on orders)
+INSERT INTO session (base_cost, end_time, power_consumed, start_time, status, order_order_id) VALUES
+                                                                                                  (100000.0, '2025-10-19 09:00:00', 45.0, '2025-10-19 08:00:00', 'COMPLETED', 1),
+                                                                                                  (150000.0, NULL, 30.0, '2025-10-19 09:00:00', 'CHARGING', 2),
+                                                                                                  (80000.0, NULL, 0.0, '2025-10-19 10:00:00', 'CHARGING', 3),
+                                                                                                  (120000.0, NULL, 0.0, '2025-10-19 11:00:00', 'CHARGING', 4),
+                                                                                                  (200000.0, '2025-10-19 13:00:00', 50.0, '2025-10-19 12:00:00', 'COMPLETED', 5),
+                                                                                                  (180000.0, NULL, 25.0, '2025-10-19 13:00:00', 'CHARGING', 6),
+                                                                                                  (140000.0, NULL, 0.0, '2025-10-19 14:00:00', 'CHARGING', 7),
+                                                                                                  (90000.0, NULL, 0.0, '2025-10-19 15:00:00', 'CHARGING', 8),
+                                                                                                  (220000.0, '2025-10-19 17:00:00', 55.0, '2025-10-19 16:00:00', 'COMPLETED', 9),
+                                                                                                  (160000.0, NULL, 20.0, '2025-10-19 17:00:00', 'CHARGING', 10);
+
+-- 10. fee (Depends on orders, session)
+-- Chi phí tính bằng VND
+INSERT INTO fee (amount, created_at, description, is_paid, type, order_id, session_id) VALUES
+                                                                                           (100000.0, '2025-10-19 09:00:00', 'Phí sạc', 1, 'CHARGING', 1, 1),
+                                                                                           (150000.0, '2025-10-19 09:30:00', 'Phí sạc', 0, 'CHARGING', 2, 2),
+                                                                                           (200000.0, '2025-10-19 10:30:00', 'Phí hủy', 1, 'CANCEL', 3, NULL),
+                                                                                           (120000.0, '2025-10-19 11:00:00', 'Phí đặt chỗ', 0, 'CHARGING', 4, 4),
+                                                                                           (200000.0, '2025-10-19 13:00:00', 'Phí sạc', 1, 'CHARGING', 5, 5),
+                                                                                           (180000.0, '2025-10-19 13:30:00', 'Phí sạc', 0, 'CHARGING', 6, 6),
+                                                                                           (140000.0, '2025-10-19 14:00:00', 'Phí đặt chỗ', 0, 'CHARGING', 7, 7),
+                                                                                           (300000.0, '2025-10-19 15:30:00', 'Phí không đến', 1, 'NO_SHOW', 8, NULL),
+                                                                                           (220000.0, '2025-10-19 17:00:00', 'Phí sạc', 1, 'CHARGING', 9, 9),
+                                                                                           (160000.0, '2025-10-19 17:30:00', 'Phí sạc', 0, 'CHARGING', 10, 10);
+
+-- 11. transaction (Depends on session, users)
+INSERT INTO transaction (amount, payment_method, status, session_id, user_id) VALUES
+                                                                                  (100000.0, 'VNPAY', 'SUCCESS', 1, 1),
+                                                                                  (150000.0, 'QR', 'PENDING', 2, 2),
+                                                                                  (200000.0, 'CASH', 'SUCCESS', 3, 5),
+                                                                                  (120000.0, 'VNPAY', 'PENDING', 4, 6),
+                                                                                  (200000.0, 'QR', 'SUCCESS', 5, 8),
+                                                                                  (180000.0, 'VNPAY', 'PENDING', 6, 9),
+                                                                                  (140000.0, 'CASH', 'PENDING', 7, 1),
+                                                                                  (300000.0, 'VNPAY', 'SUCCESS', 8, 2),
+                                                                                  (220000.0, 'QR', 'SUCCESS', 9, 5),
+                                                                                  (160000.0, 'VNPAY', 'PENDING', 10, 6);
+
+-- 12. wallet (Depends on users)
+INSERT INTO wallet (balance, updated_at, user_id) VALUES
+                                                      (1000000.0, '2025-10-19 08:00:00', 1),
+                                                      (500000.0, '2025-10-19 09:00:00', 2),
+                                                      (2000000.0, '2025-10-19 10:00:00', 5),
+                                                      (750000.0, '2025-10-19 11:00:00', 6),
+                                                      (1500000.0, '2025-10-19 12:00:00', 8),
+                                                      (250000.0, '2025-10-19 13:00:00', 9),
+                                                      (3000000.0, '2025-10-19 14:00:00', 3),
+                                                      (800000.0, '2025-10-19 15:00:00', 4),
+                                                      (1200000.0, '2025-10-19 16:00:00', 7),
+                                                      (600000.0, '2025-10-19 17:00:00', 10);
+
+-- 13. wallet_transaction (Depends on wallet, transaction)
+INSERT INTO wallet_transaction (amount, created_at, type, transaction_id, wallet_id) VALUES
+                                                                                         (100000.0, '2025-10-19 09:00:00', 'PAYMENT', 1, 1),
+                                                                                         (150000.0, '2025-10-19 09:30:00', 'PAYMENT', 2, 2),
+                                                                                         (200000.0, '2025-10-19 10:30:00', 'PAYMENT', 3, 3),
+                                                                                         (120000.0, '2025-10-19 11:00:00', 'PAYMENT', 4, 4),
+                                                                                         (200000.0, '2025-10-19 13:00:00', 'PAYMENT', 5, 5),
+                                                                                         (180000.0, '2025-10-19 13:30:00', 'PAYMENT', 6, 6),
+                                                                                         (500000.0, '2025-10-19 14:00:00', 'DEPOSIT', NULL, 7),
+                                                                                         (300000.0, '2025-10-19 15:30:00', 'PAYMENT', 8, 8),
+                                                                                         (220000.0, '2025-10-19 17:00:00', 'PAYMENT', 9, 9),
+                                                                                         (160000.0, '2025-10-19 17:30:00', 'PAYMENT', 10, 10);
+
+-- 14. subscription (Depends on users)
+INSERT INTO subscription (end_date, start_date, type, user_id) VALUES
+                                                                   ('2025-11-19 00:00:00', '2025-10-19 00:00:00', 'PREMIUM', 1),
+                                                                   ('2025-11-19 00:00:00', '2025-10-19 00:00:00', 'BASIC', 2),
+                                                                   ('2025-12-19 00:00:00', '2025-10-19 00:00:00', 'PLUS', 5),
+                                                                   ('2025-11-19 00:00:00', '2025-10-19 00:00:00', 'BASIC', 6),
+                                                                   ('2025-11-19 00:00:00', '2025-10-19 00:00:00', 'PREMIUM', 8),
+                                                                   ('2025-12-19 00:00:00', '2025-10-19 00:00:00', 'PLUS', 9),
+                                                                   ('2025-11-19 00:00:00', '2025-10-19 00:00:00', 'BASIC', 3),
+                                                                   ('2025-11-19 00:00:00', '2025-10-19 00:00:00', 'PREMIUM', 4),
+                                                                   ('2025-12-19 00:00:00', '2025-10-19 00:00:00', 'PLUS', 7),
+                                                                   ('2025-11-19 00:00:00', '2025-10-19 00:00:00', 'BASIC', 10);
+
+-- 15. notification (Depends on users)
+INSERT INTO notification (content, is_read, sent_time, title, type, user_id) VALUES
+                                                                                 ('Đặt chỗ sạc thành công', 0, '2025-10-19 08:00:00', 'Xác nhận đặt chỗ', 'BOOKING', 1),
+                                                                                 ('Thanh toán thành công', 1, '2025-10-19 09:00:00', 'Thanh toán thành công', 'PAYMENT', 2),
+                                                                                 ('Báo cáo sự cố tại trạm', 0, '2025-10-19 10:00:00', 'Sự cố được báo cáo', 'ISSUE', 5),
+                                                                                 ('Đặt chỗ đã bị hủy', 1, '2025-10-19 10:30:00', 'Thông báo hủy', 'BOOKING', 6),
+                                                                                 ('Sạc hoàn tất', 0, '2025-10-19 13:00:00', 'Sạc hoàn tất', 'BOOKING', 8),
+                                                                                 ('Thanh toán đang chờ xử lý', 0, '2025-10-19 13:30:00', 'Nhắc nhở thanh toán', 'PAYMENT', 9),
+                                                                                 ('Trạm sạc mới được thêm', 1, '2025-10-19 14:00:00', 'Cập nhật trạm', 'GENERAL', 1),
+                                                                                 ('Phạt vì không đến', 1, '2025-10-19 15:30:00', 'Thông báo phạt', 'PENALTY', 2),
+                                                                                 ('Sạc hoàn tất', 0, '2025-10-19 17:00:00', 'Sạc hoàn tất', 'BOOKING', 5),
+                                                                                 ('Cập nhật trạng thái tài khoản', 1, '2025-10-19 17:30:00', 'Cập nhật tài khoản', 'GENERAL', 6);
+
+-- 16. issue_report (Depends on users, charging_stations)
+INSERT INTO issue_report (description, reported_time, status, staff_id, station_id) VALUES
+                                                                                        ('Đầu nối bị lỗi', '2025-10-19 08:00:00', 'INBOX', 3, 1),
+                                                                                        ('Màn hình hỏng', '2025-10-19 09:00:00', 'IN_PROGRESS', 7, 2),
+                                                                                        ('Mất điện', '2025-10-19 10:00:00', 'RESOLVED', 3, 3),
+                                                                                        ('Báo cáo phá hoại', '2025-10-19 11:00:00', 'INBOX', 7, 4),
+                                                                                        ('Sạc chậm', '2025-10-19 12:00:00', 'IN_PROGRESS', 3, 5),
+                                                                                        ('Cáp bị hỏng', '2025-10-19 13:00:00', 'INBOX', 7, 6),
+                                                                                        ('Lỗi phần mềm', '2025-10-19 14:00:00', 'RESOLVED', 3, 7),
+                                                                                        ('Quá nhiệt', '2025-10-19 15:00:00', 'IN_PROGRESS', 7, 8),
+                                                                                        ('Lỗi hệ thống thanh toán', '2025-10-19 16:00:00', 'INBOX', 3, 9),
+                                                                                        ('Trạm offline', '2025-10-19 17:00:00', 'RESOLVED', 7, 10);
+
+-- 17. price_factor (Depends on charging_stations)
+INSERT INTO price_factor (description, end_time, factor, start_time, station_id) VALUES
+                                                                                     ('Phụ phí giờ cao điểm', '2025-10-19 12:00:00', 1.2, '2025-10-19 08:00:00', 1),
+                                                                                     ('Giảm giá giờ thấp điểm', '2025-10-19 23:00:00', 0.8, '2025-10-19 18:00:00', 2),
+                                                                                     ('Giá cuối tuần', '2025-10-20 00:00:00', 1.1, '2025-10-19 00:00:00', 3),
+                                                                                     ('Phụ phí ngày lễ', '2025-10-19 23:59:00', 1.3, '2025-10-19 00:00:00', 4),
+                                                                                     ('Giá tiêu chuẩn', NULL, 1.0, '2025-10-19 00:00:00', 5),
+                                                                                     ('Giảm giá ban đêm', '2025-10-19 06:00:00', 0.7, '2025-10-18 22:00:00', 6),
+                                                                                     ('Phụ phí giờ cao điểm', '2025-10-19 14:00:00', 1.25, '2025-10-19 10:00:00', 7),
+                                                                                     ('Giảm giá giờ thấp điểm', '2025-10-19 20:00:00', 0.85, '2025-10-19 16:00:00', 8),
+                                                                                     ('Giá tiêu chuẩn', NULL, 1.0, '2025-10-19 00:00:00', 9),
+                                                                                     ('Giảm giá cuối tuần', '2025-10-20 00:00:00', 0.9, '2025-10-19 00:00:00', 10);
+
+-- 18. revenue (Depends on charging_stations)
+-- Doanh thu tính bằng VND
+INSERT INTO revenue (amount, period, station_id) VALUES
+                                                     (5000000.0, '2025-10-19 00:00:00', 1),
+                                                     (7500000.0, '2025-10-19 00:00:00', 2),
+                                                     (3000000.0, '2025-10-19 00:00:00', 3),
+                                                     (6000000.0, '2025-10-19 00:00:00', 4),
+                                                     (4000000.0, '2025-10-19 00:00:00', 5),
+                                                     (8000000.0, '2025-10-19 00:00:00', 6),
+                                                     (5500000.0, '2025-10-19 00:00:00', 7),
+                                                     (4500000.0, '2025-10-19 00:00:00', 8),
+                                                     (7000000.0, '2025-10-19 00:00:00', 9),
+                                                     (3500000.0, '2025-10-19 00:00:00', 10);
+
+-- 19. verification (Depends on users)
+INSERT INTO verification (created_at, expiration, verification_token, verification_type, user_id) VALUES
+                                                                                                      ('2025-10-19 08:00:00', '2025-10-19 09:00:00', 'token_vn1', 0, 1),
+                                                                                                      ('2025-10-19 09:00:00', '2025-10-19 10:00:00', 'token_vn2', 1, 2),
+                                                                                                      ('2025-10-19 10:00:00', '2025-10-19 11:00:00', 'token_vn3', 2, 5),
+                                                                                                      ('2025-10-19 11:00:00', '2025-10-19 12:00:00', 'token_vn4', 0, 6),
+                                                                                                      ('2025-10-19 12:00:00', '2025-10-19 13:00:00', 'token_vn5', 1, 8),
+                                                                                                      ('2025-10-19 13:00:00', '2025-10-19 14:00:00', 'token_vn6', 2, 9),
+                                                                                                      ('2025-10-19 14:00:00', '2025-10-19 15:00:00', 'token_vn7', 0, 3),
+                                                                                                      ('2025-10-19 15:00:00', '2025-10-19 16:00:00', 'token_vn8', 1, 4),
+                                                                                                      ('2025-10-19 16:00:00', '2025-10-19 17:00:00', 'token_vn9', 2, 7),
+                                                                                                      ('2025-10-19 17:00:00', '2025-10-19 18:00:00', 'token_vn10', 0, 10);

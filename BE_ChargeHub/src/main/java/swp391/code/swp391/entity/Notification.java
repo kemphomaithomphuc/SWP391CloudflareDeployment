@@ -21,10 +21,10 @@ public class Notification {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
-    @Column(nullable = false, columnDefinition = "nvarchar(255)")
+    @Column(nullable = false, columnDefinition = "VARCHAR(255)")
     private String title;
 
-    @Column(nullable = false, columnDefinition = "nvarchar(255)")
+    @Column(nullable = false, columnDefinition = "TEXT")
     private String content;
 
     private LocalDateTime sentTime;
