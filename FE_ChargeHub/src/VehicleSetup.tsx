@@ -16,12 +16,15 @@ interface VehicleSetupProps {
 interface ConnectorType {
   TypeName: string;
   ConnectorTypeId: string;
+  PowerOutput?: number;
+  PricePerKwh?: number;
 }
 
 interface UserVehicle {
   plateNumber: string;
   brand: string;
   model: string;
+  carModelId?: number;
 }
 interface CarModel {
   plateNumber: string;
@@ -49,6 +52,9 @@ export default function VehicleSetup({ onNext, onBack }: VehicleSetupProps) {
   const [selectedModel, setSelectedModel] = useState<string>("");
   const [selectedCarModel, setSelectedCarModel] = useState<CarModel | null>(null);
   const [selectedCarModelId, setSelectedCarModelId] = useState<number | null>(null);
+  const [connectorTypes, setConnectorTypes] = useState<ConnectorType[] | null>(null);
+  const [connectorTypeId, setConnectorTypeId] = useState("");
+  
 
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -116,6 +122,7 @@ export default function VehicleSetup({ onNext, onBack }: VehicleSetupProps) {
     }
     return null;
   }
+
   const filterCarModesByConnector = async(): Promise<CarModel[] | null> => {
     setLoading(true);
     setError(null);
@@ -170,6 +177,14 @@ export default function VehicleSetup({ onNext, onBack }: VehicleSetupProps) {
     return false;
   }
 
+  const getCarModeIdBaseOnModelAndBrand = (brand: string, model: string): number | null => {
+    if (!carModels) return null;
+    const carModel = carModels.find(car =>
+      car.brand === brand && car.model === model
+    );
+    return carModel?.carModelId || null;
+  };
+
   // Get unique brands from carModels
   const getUniqueBrands = (): string[] => {
     if (!carModels) return [];
@@ -209,6 +224,7 @@ export default function VehicleSetup({ onNext, onBack }: VehicleSetupProps) {
       );
       setSelectedCarModel(carModel || null);
       setSelectedCarModelId(carModel?.carModelId || null);
+      console.log("Selected Car Model ID:", carModel?.carModelId);
     }
   };
 
