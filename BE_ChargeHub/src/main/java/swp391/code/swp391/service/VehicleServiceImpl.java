@@ -3,7 +3,11 @@ package swp391.code.swp391.service;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import swp391.code.swp391.dto.VehicleDTO;
+import swp391.code.swp391.dto.CarModelDTO;
+import swp391.code.swp391.dto.VehicleRequestDTO;
+import swp391.code.swp391.dto.VehicleResponseDTO;
+import swp391.code.swp391.entity.CarModel;
+import swp391.code.swp391.entity.ConnectorType;
 import swp391.code.swp391.entity.User;
 import swp391.code.swp391.entity.Vehicle;
 import swp391.code.swp391.repository.UserRepository;
@@ -23,7 +27,7 @@ public class VehicleServiceImpl implements VehicleService {
     private final CarModelRepository carModelRepository;
 
     @Override
-    public VehicleDTO createVehicle(VehicleDTO vehicleDTO) {
+    public VehicleResponseDTO createVehicle(VehicleRequestDTO vehicleDTO) {
         // Kiểm tra plate number đã tồn tại
         if (vehicleRepository.existsByPlateNumber(vehicleDTO.getPlateNumber())) {
             throw new RuntimeException("Vehicle with plate number " + vehicleDTO.getPlateNumber() + " already exists");
@@ -36,7 +40,7 @@ public class VehicleServiceImpl implements VehicleService {
 
     @Override
     @Transactional(readOnly = true)
-    public VehicleDTO getVehicleByPlateNumber(String plateNumber) {
+    public VehicleResponseDTO getVehicleByPlateNumber(String plateNumber) {
         Vehicle vehicle = vehicleRepository.findByPlateNumber(plateNumber)
                 .orElseThrow(() -> new RuntimeException("Vehicle not found with plate number: " + plateNumber));
         return convertToDTO(vehicle);
@@ -44,7 +48,7 @@ public class VehicleServiceImpl implements VehicleService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<VehicleDTO> getAllVehicles() {
+    public List<VehicleResponseDTO> getAllVehicles() {
         return vehicleRepository.findAll().stream()
                 .map(this::convertToDTO)
                 .collect(Collectors.toList());
@@ -52,14 +56,14 @@ public class VehicleServiceImpl implements VehicleService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<VehicleDTO> getVehiclesByUserId(Long userId) {
+    public List<VehicleResponseDTO> getVehiclesByUserId(Long userId) {
         return vehicleRepository.findByUserUserId(userId).stream()
                 .map(this::convertToDTO)
                 .collect(Collectors.toList());
     }
 
     @Override
-    public VehicleDTO updateVehicle(String plateNumber, VehicleDTO vehicleDTO, Long userId) {
+    public VehicleResponseDTO updateVehicle(String plateNumber, VehicleRequestDTO vehicleDTO, Long userId) {
         Vehicle existingVehicle = vehicleRepository.findByPlateNumber(plateNumber)
                 .orElseThrow(() -> new RuntimeException("Vehicle not found"));
         // Kiểm tra vehicle có thuộc về user không
@@ -70,8 +74,11 @@ public class VehicleServiceImpl implements VehicleService {
 
 
         // Cập nhật carModel nếu có
-        if (vehicleDTO.getCarModel() != null) {
-            existingVehicle.setCarModel(vehicleDTO.getCarModel());
+        if (vehicleDTO.getCarModelId() != null) {
+            CarModel carModel = carModelRepository.findById(vehicleDTO.getCarModelId())
+                    .orElseThrow(() -> new RuntimeException(
+                            "CarModel not found with id: " + vehicleDTO.getCarModelId()));
+            existingVehicle.setCarModel(carModel);
         }
 
         // Cập nhật user nếu có
@@ -99,29 +106,52 @@ public class VehicleServiceImpl implements VehicleService {
 
 
     // Helper methods
-    private Vehicle convertToEntity(VehicleDTO vehicleDTO) {
+    private Vehicle convertToEntity(VehicleRequestDTO requestDTO) {
         Vehicle vehicle = new Vehicle();
-        vehicle.setPlateNumber(vehicleDTO.getPlateNumber());
+        vehicle.setPlateNumber(requestDTO.getPlateNumber());
 
         // Set carModel
-        if (vehicleDTO.getCarModel() != null) {
-            vehicle.setCarModel(vehicleDTO.getCarModel());
+        if (requestDTO.getCarModelId() != null) {
+            CarModel carModel = carModelRepository.findById(requestDTO.getCarModelId())
+                    .orElseThrow(() -> new RuntimeException(
+                            "CarModel not found with id: " + requestDTO.getCarModelId()));
+            vehicle.setCarModel(carModel);
         }
 
         // Set user
-        if (vehicleDTO.getUserId() != null) {
-            User user = userRepository.findById(vehicleDTO.getUserId())
-                    .orElseThrow(() -> new RuntimeException("User not found with id: " + vehicleDTO.getUserId()));
+        if (requestDTO.getUserId() != null) {
+            User user = userRepository.findById(requestDTO.getUserId())
+                    .orElseThrow(() -> new RuntimeException("User not found with id: " + requestDTO.getUserId()));
             vehicle.setUser(user);
         }
 
         return vehicle;
     }
 
-    private VehicleDTO convertToDTO(Vehicle vehicle) {
-        VehicleDTO dto = new VehicleDTO();
+    private VehicleResponseDTO convertToDTO(Vehicle vehicle) {
+        VehicleResponseDTO dto = new VehicleResponseDTO();
         dto.setPlateNumber(vehicle.getPlateNumber());
+        if (vehicle.getCarModel() != null) {
+            CarModel carModel = vehicle.getCarModel();
 
+            List<Long> connectorTypeIds = null;
+            if (carModel.getConnectorTypes() != null) {
+                connectorTypeIds = carModel.getConnectorTypes().stream()
+                        .map(ConnectorType::getConnectorTypeId)
+                        .collect(Collectors.toList());
+            }
+            CarModelDTO carModelDTO = new CarModelDTO(
+                    carModel.getCar_model_id(),
+                    carModel.getBrand(),
+                    carModel.getModel(),
+                    carModel.getCapacity(),
+                    carModel.getProductYear(),
+                    connectorTypeIds,
+                    carModel.getImg_url()
+
+            );
+            dto.setCarModel(carModelDTO);
+        }
 
         // Cho response: set full objects
         if (vehicle.getCarModel() != null && vehicle.getUser() != null)

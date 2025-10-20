@@ -26,7 +26,7 @@ public class UserDTO {
     private int violations;
 
     // Danh sách xe của user
-    private List<VehicleDTO> vehicles;
+    private List<VehicleResponseDTO> vehicles;
 
     // Constructor từ User entity
     public UserDTO(User user) {
@@ -48,7 +48,7 @@ public class UserDTO {
 
         if (includeVehicles && user.getVehicles() != null) {
             this.vehicles = user.getVehicles().stream()
-                    .map(VehicleDTO::new)
+                    .map(VehicleResponseDTO::new)
                     .collect(Collectors.toList());
         }
     }
