@@ -1,12 +1,14 @@
 package swp391.code.swp391.service;
 
+import swp391.code.swp391.dto.NotificationDTO;
 import swp391.code.swp391.entity.Notification;
+import swp391.code.swp391.entity.User;
 
 import java.util.List;
 
 public interface NotificationService {
 
-    List<Notification> getAllNotificationsForUser(Long userId);
+    List<NotificationDTO> getNotificationDTOs(Long userId);
     List<Notification> getUnreadNotificationsForUser(Long userId);
     Long getUnreadCountForUser(Long userId);
     void markAsRead(Long notificationId, Long userId);

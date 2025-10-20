@@ -5,6 +5,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import swp391.code.swp391.dto.NotificationDTO;
 import swp391.code.swp391.entity.Notification;
 import swp391.code.swp391.service.JwtService;
 import swp391.code.swp391.service.NotificationService;
@@ -21,7 +22,7 @@ public class NotificationController {
     private final JwtService jwtService;
 
     @GetMapping
-    public ResponseEntity<List<Notification>> getNotifications(HttpServletRequest request) {
+    public ResponseEntity<List<NotificationDTO>> getNotifications(HttpServletRequest request) {
         String header = request.getHeader("Authorization");
         String token = jwtService.getTokenFromRequestHeader(header);
         Long userId;
@@ -32,7 +33,7 @@ public class NotificationController {
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
-        return ResponseEntity.ok(notificationService.getAllNotificationsForUser(userId));
+        return ResponseEntity.ok(notificationService.getNotificationDTOs(userId));
     }
 
     @GetMapping("/unread/count")

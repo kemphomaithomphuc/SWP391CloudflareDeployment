@@ -3,6 +3,7 @@ package swp391.code.swp391.service;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import swp391.code.swp391.dto.NotificationDTO;
 import swp391.code.swp391.entity.*;
 import swp391.code.swp391.repository.NotificationRepository;
 import swp391.code.swp391.repository.OrderRepository;
@@ -11,6 +12,7 @@ import swp391.code.swp391.repository.UserRepository;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -21,10 +23,17 @@ public class NotificationServiceImpl implements NotificationService {
     private final UserRepository userRepository;
 
     @Override
-    public List<Notification> getAllNotificationsForUser(Long userId) {
+    @Transactional
+    public List<NotificationDTO> getNotificationDTOs(Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
-        return notificationRepository.findByUserOrderBySentTimeDesc(user);
+        List<Notification> notifications = notificationRepository.findByUserOrderBySentTimeDesc(user);
+        return notifications.stream()
+                .map(n -> new NotificationDTO(n.getNotificationId(), n.getUser().getUserId(),
+                        n.getTitle(), n.getContent(),
+                        n.getSentTime().toString(),
+                        n.getIsRead(), n.getType()))
+                .collect(Collectors.toList());
     }
 
     @Override
