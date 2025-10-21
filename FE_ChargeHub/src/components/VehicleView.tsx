@@ -112,7 +112,9 @@ export default function VehicleView({ onBack }: VehicleViewProps) {
                                 } : undefined,
                                 capacity: vehicle.carModel?.capacity,
                                 productYear: vehicle.carModel?.productYear,
-                                connectorTypeName: connectorType?.TypeName || "Unknown"
+                                connectorTypeName: connectorType?.TypeName || "Unknown",
+                                vehicleId: vehicle.vehicleId || vehicle.id, // Add vehicleId
+                                id: vehicle.id // Add id for compatibility
                             };
                         }
                         return {
@@ -130,7 +132,9 @@ export default function VehicleView({ onBack }: VehicleViewProps) {
                             } : undefined,
                             capacity: vehicle.carModel?.capacity,
                             productYear: vehicle.carModel?.productYear,
-                            connectorTypeName: "Unknown"
+                            connectorTypeName: "Unknown",
+                            vehicleId: vehicle.vehicleId || vehicle.id, // Add vehicleId
+                            id: vehicle.id // Add id for compatibility
                         };
                     })
                 );
@@ -245,11 +249,23 @@ export default function VehicleView({ onBack }: VehicleViewProps) {
 
     // Get models filtered by selected brand
     const getModelsByBrand = (brand: string): string[] => {
-        if (!carModels || !brand) return [];
+        console.log("=== GET MODELS BY BRAND DEBUG ===");
+        console.log("Requested brand:", brand);
+        console.log("Car models available:", carModels?.length || 0);
+        
+        if (!carModels || !brand) {
+            console.log("No car models or brand, returning empty array");
+            return [];
+        }
+        
         const models = carModels
             .filter(model => model.brand === brand)
             .map(model => model.model);
-        return [...new Set(models)].sort();
+        
+        const uniqueModels = [...new Set(models)].sort();
+        console.log("Found models for brand", brand, ":", uniqueModels);
+        
+        return uniqueModels;
     };
 
     // Handle brand selection
@@ -290,9 +306,12 @@ export default function VehicleView({ onBack }: VehicleViewProps) {
     const loadCarModels = async() => {
         try {
             setLoading(true);
+            console.log("=== LOADING CAR MODELS ===");
             const models = await filterCarModesByConnector();
+            console.log("Loaded car models:", models?.length || 0);
             if (models) {
                 setCarModels(models);
+                console.log("Car models set in state:", models.length);
             }
         } catch (err) {
             console.error("Error loading car models:", err);
@@ -388,8 +407,25 @@ export default function VehicleView({ onBack }: VehicleViewProps) {
 
     // ------------------------- EDIT VEHICLE -------------------------
     const handleEdit = (vehicle: Vehicle) => {
+        console.log("=== EDIT VEHICLE DEBUG ===");
+        console.log("Vehicle to edit:", vehicle);
+        console.log("Vehicle brand:", vehicle.brand);
+        console.log("Vehicle carModel:", vehicle.carModel);
+        
         setEditingPlate(vehicle.plateNumber);
         setEditVehicle({ ...vehicle });
+        
+        // Set the selected brand and model for the edit form
+        if (vehicle.brand) {
+            setSelectedBrand(vehicle.brand);
+        }
+        if (vehicle.carModel?.model) {
+            setSelectedModel(vehicle.carModel.model);
+            setSelectedCarModel(vehicle.carModel);
+            setSelectedCarModelId(vehicle.carModel.carModelId);
+        }
+        
+        console.log("Edit state set - brand:", vehicle.brand, "model:", vehicle.carModel?.model);
     };
 
     const handleSaveEdit = async () => {
@@ -398,23 +434,43 @@ export default function VehicleView({ onBack }: VehicleViewProps) {
         const brand = editVehicle.brand?.trim() ?? "";
         if (!brand) return toast.error("Brand is required.");
 
+        if (!editVehicle.carModel?.carModelId) {
+            return toast.error("Please select a car model.");
+        }
+
+        console.log("=== SAVE EDIT DEBUG ===");
+        console.log("Edit vehicle data:", editVehicle);
+        console.log("Brand:", brand);
+        console.log("Car model:", editVehicle.carModel);
+
         try {
             setLoading(true);
             const body = {
                 plateNumber: editingPlate,
-                brand,
+                carModelId: editVehicle.carModel?.carModelId, // Only send car model ID
                 userId: parseInt(userId as string),
             };
 
+            console.log("Sending body to API:", body);
+
             const res = await api.put(`/api/vehicles/${editingPlate}/user/${userId}`, body);
+
+            console.log("API response:", res.data);
 
             const updated = res.data?.data ?? res.data;
             setVehicles((prev) =>
-                prev.map((v) =>
-                    v.plateNumber === editingPlate
-                        ? { ...v, brand }
-                        : v
-                )
+                prev.map((v) => {
+                    if (v.plateNumber === editingPlate) {
+                        const newCarModel = editVehicle.carModel || v.carModel;
+                        const updatedVehicle: Vehicle = {
+                            ...v,
+                            brand: editVehicle.carModel?.brand || v.brand,
+                            ...(newCarModel && { carModel: newCarModel })
+                        };
+                        return updatedVehicle;
+                    }
+                    return v;
+                })
             );
             toast.success("Vehicle updated successfully.");
             setEditingPlate(null);
@@ -576,7 +632,19 @@ export default function VehicleView({ onBack }: VehicleViewProps) {
                                             <div>
                                                 <Label>Brand</Label>
                                                 <Select value={editVehicle.brand ?? ""} onValueChange={(brand: string) => {
-                                                    setEditVehicle(prev => ({ ...prev, brand }));
+                                                    console.log("=== EDIT BRAND CHANGE DEBUG ===");
+                                                    console.log("Selected brand:", brand);
+                                                    console.log("Previous edit vehicle:", editVehicle);
+                                                    
+                                                    setEditVehicle(prev => {
+                                                        const { carModel, ...rest } = prev;
+                                                        return { 
+                                                            ...rest, 
+                                                            brand
+                                                        };
+                                                    });
+                                                    
+                                                    console.log("Updated edit vehicle brand to:", brand);
                                                 }}>
                                                     <SelectTrigger>
                                                         <SelectValue placeholder="Select Brand" />
@@ -595,11 +663,21 @@ export default function VehicleView({ onBack }: VehicleViewProps) {
                                                 <Select 
                                                     value={editVehicle.carModel?.model ?? ""} 
                                                     onValueChange={(model: string) => {
+                                                        console.log("=== EDIT MODEL CHANGE DEBUG ===");
+                                                        console.log("Selected model:", model);
+                                                        console.log("Edit vehicle brand:", editVehicle.brand);
+                                                        console.log("Available car models:", carModels.length);
+                                                        
                                                         const carModel = carModels.find(car => 
                                                             car.brand === editVehicle.brand && car.model === model
                                                         );
+                                                        console.log("Found car model:", carModel);
+                                                        
                                                         if (carModel) {
                                                             setEditVehicle(prev => ({ ...prev, carModel }));
+                                                            console.log("Updated edit vehicle with car model");
+                                                        } else {
+                                                            console.log("No car model found for brand:", editVehicle.brand, "model:", model);
                                                         }
                                                     }}
                                                     disabled={!editVehicle.brand}
