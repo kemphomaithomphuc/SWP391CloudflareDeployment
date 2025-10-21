@@ -5,6 +5,8 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDateTime;
+
 @Data
 @Entity
 @Table(name = "[Transaction]")
@@ -15,16 +17,16 @@ public class Transaction {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long transactionId;
 
-    @ManyToOne //Liên kết với bảng Session
+    @ManyToOne
     @JoinColumn(name = "session_id", nullable = false)
     private Session session;
 
-    @ManyToOne //Liên kết với bảng User
+    @ManyToOne
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
     @Column(nullable = false)
-    private Double amount; //Giá tiền cuối cùng của Giao dịch
+    private Double amount;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
@@ -33,6 +35,22 @@ public class Transaction {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private Status status = Status.PENDING;
+
+    // Thông tin từ VNPay
+    @Column(name = "vnpay_transaction_no")
+    private String vnpayTransactionNo;
+
+    @Column(name = "vnpay_bank_code")
+    private String vnpayBankCode;
+
+    @Column(name = "vnpay_card_type")
+    private String vnpayCardType;
+
+    @Column(name = "payment_time")
+    private LocalDateTime paymentTime;
+
+    @Column(name = "created_at")
+    private LocalDateTime createdAt = LocalDateTime.now();
 
     public enum PaymentMethod {
         VNPAY, CASH, QR

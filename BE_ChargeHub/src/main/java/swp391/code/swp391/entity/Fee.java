@@ -5,6 +5,8 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDateTime;
+
 @Data
 @Entity
 @Table(name = "Fee")
@@ -17,11 +19,11 @@ public class Fee {
 
     @ManyToOne
     @JoinColumn(name = "order_id")
-    private Order order;  // For NO_SHOW and CANCEL fees
+    private Order order;
 
     @ManyToOne
     @JoinColumn(name = "session_id")
-    private Session session;  // For CHARGING fees
+    private Session session;
 
     @Column(nullable = false)
     private Double amount;
@@ -30,17 +32,18 @@ public class Fee {
     @Column(nullable = false)
     private Type type;
 
-    @Column
-    private String description; // Additional explanation for the fee
+    @Column(columnDefinition = "TEXT")
+    private String description;
 
     @Column(nullable = false)
     private Boolean isPaid = false;
 
     @Column(nullable = false)
-    @Temporal(TemporalType.TIMESTAMP)
-    private java.time.LocalDateTime createdAt;
+    private LocalDateTime createdAt = LocalDateTime.now();
 
     public enum Type {
-        CHARGING, NO_SHOW, CANCEL
+        CHARGING,  // Phí sạc quá giờ khi pin đầy
+        NO_SHOW,   // Phí không đến theo lịch
+        CANCEL     // Phí hủy muộn
     }
 }
