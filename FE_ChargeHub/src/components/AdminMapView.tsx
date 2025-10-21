@@ -30,6 +30,7 @@ import axios, { AxiosError } from "axios";
 import * as maptilersdk from "@maptiler/sdk";
 import { toast, Toaster } from "sonner";
 import "@maptiler/sdk/dist/maptiler-sdk.css";
+import { useLanguage } from "../contexts/LanguageContext";
 // ========= Types =========
 
 type StationStatus = "ACTIVE" | "INACTIVE" | "MAINTENANCE";
@@ -207,7 +208,22 @@ function sanitizeStation(raw: any): ChargingStation {
 }
 
 export default function AdminMapView({ onBack }: AdminMapViewProps) {
+    const { language, t } = useLanguage();
     const [selectedStation, setSelectedStation] = useState<ChargingStation | null>(null);
+
+    // Helper function to translate dynamic API data
+    const translateStatus = (status: string): string => {
+        switch (status?.toUpperCase()) {
+            case 'ACTIVE':
+                return t('active');
+            case 'INACTIVE':
+                return t('inactive');
+            case 'MAINTENANCE':
+                return t('maintenance');
+            default:
+                return t('unknown');
+        }
+    };
     const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -576,7 +592,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
             );
 
             if (res.status === 200 || res.status === 201) {
-                toast.success("Cập nhật thành công");
+                toast.success(t('success'));
                 return sanitizeStation({
                     ...res.data,
                     stationId: res.data?.stationId ?? undefined,
@@ -587,9 +603,9 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                 });
             }
 
-            throw new Error("Cập nhật thất bại");
+            throw new Error(t('error_loading_data'));
         } catch (err: any) {
-            const msg = err?.response?.data?.message || "Cập nhật thất bại. Vui lòng thử lại.";
+            const msg = err?.response?.data?.message || t('error_loading_data');
             setError(msg);
             toast.error(msg);
             return null;
@@ -608,16 +624,16 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
             );
 
             if (res.status === 200 || res.status === 204) {
-                toast.success("Xóa trạm sạc thành công");
+                toast.success(t('success'));
                 return true;
             }
 
-            throw new Error("Xóa trạm sạc thất bại");
+            throw new Error(t('error_loading_data'));
         } catch (err: unknown) {
             const msg =
                 err instanceof AxiosError && err.response?.data?.message
                     ? err.response.data.message
-                    : "Xóa trạm sạc thất bại. Vui lòng thử lại.";
+                    : t('error_loading_data');
             setError(msg);
             toast.error(msg);
             return false;
@@ -635,16 +651,16 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
             );
 
             if (res.status === 200 || res.status === 204) {
-                toast.success("Xóa cổng sạc thành công");
+                toast.success(t('success'));
                 return true;
             }
 
-            throw new Error("Xóa cổng sạc thất bại");
+            throw new Error(t('error_loading_data'));
         } catch (err: unknown) {
             const msg =
                 err instanceof AxiosError && err.response?.data?.message
                     ? err.response.data.message
-                    : "Xóa cổng sạc thất bại. Vui lòng thử lại.";
+                    : t('error_loading_data');
             setError(msg);
             toast.error(msg);
             return false;
@@ -669,7 +685,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
             );
 
             if (res.status === 200 || res.status === 201) {
-                toast.success("Thêm loại cổng sạc thành công");
+                toast.success(t('success'));
                 return {
                     connectorId: res.data.connectorTypeId,
                     name: res.data?.typeName ?? payload.typeName,
@@ -678,9 +694,9 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                 };
             }
 
-            throw new Error("Thêm loại cổng sạc thất bại");
+            throw new Error(t('error_loading_data'));
         } catch (err: any) {
-            const msg = err?.response?.data?.message || "Thêm loại cổng sạc thất bại. Vui lòng thử lại.";
+            const msg = err?.response?.data?.message || t('error_loading_data');
             setError(msg);
             toast.error(msg);
             return null;
@@ -894,16 +910,16 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
             if (res.status === 200 || res.status === 201) {
                 const statusText = status === "ACTIVE" ? "kích hoạt" : "vô hiệu hóa";
-                toast.success(`Cập nhật trạng thái trạm sạc thành công - ${statusText}`);
+                toast.success(`${t('success')} - ${statusText}`);
                 return true;
             }
 
-            throw new Error("Cập nhật trạng thái thất bại");
+            throw new Error(t('error_loading_data'));
         } catch (err: unknown) {
             const msg =
                 err instanceof AxiosError && err.response?.data?.message
                     ? err.response.data.message
-                    : "Cập nhật trạng thái trạm sạc thất bại. Vui lòng thử lại.";
+                    : t('error_loading_data');
             setError(msg);
             toast.error(msg);
             return false;
@@ -1514,7 +1530,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
             setIsAddDialogOpen(false);
         } catch (err) {
             console.error("Error adding station:", err);
-            toast.error("Lỗi khi thêm trạm sạc. Vui lòng thử lại.");
+            toast.error(t('error_loading_data'));
         }
     };
 
@@ -1586,7 +1602,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
             setIsEditDialogOpen(false);
         } catch (err) {
             console.error("Error updating station:", err);
-            toast.error("Lỗi khi cập nhật trạm sạc. Vui lòng thử lại.");
+            toast.error(t('error_loading_data'));
         }
     };
 
@@ -1629,7 +1645,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
             setIsDeleteDialogOpen(false);
         } catch (err) {
             console.error("Error deleting station:", err);
-            toast.error("Lỗi khi xóa trạm sạc. Vui lòng thử lại.");
+            toast.error(t('error_loading_data'));
         }
     };
 
@@ -1718,10 +1734,10 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
             console.log("Removing connector type from state...");
             setPortTypes((prev) => prev.filter((connector) => connector.connectorId !== connectorToDelete.id));
 
-            toast.success("Xóa loại cổng sạc thành công!");
+            toast.success(t('success'));
         } catch (err) {
             console.error("Error deleting connector:", err);
-            toast.error("Lỗi khi xóa loại cổng sạc. Vui lòng thử lại.");
+            toast.error(t('error_loading_data'));
         } finally {
             setIsDeleteConnectorDialogOpen(false);
             setConnectorToDelete(null);
@@ -1745,10 +1761,10 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
     const getStatusBadge = (s: StationStatus) => {
         const statusConfig: Record<StationStatus, { label: string; class: string }> = {
-            ACTIVE: { label: "Hoạt động", class: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200" },
-            INACTIVE: { label: "Ngoại tuyến", class: "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-200" },
+            ACTIVE: { label: t('active'), class: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200" },
+            INACTIVE: { label: t('inactive'), class: "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-200" },
             MAINTENANCE: {
-                label: "Bảo trì",
+                label: t('maintenance'),
                 class: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-200"
             },
         };
@@ -1859,7 +1875,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
             toast.success("Đã cập nhật dữ liệu trạm sạc");
         } catch (err) {
             console.error("Error refreshing stations:", err);
-            toast.error("Lỗi khi làm mới dữ liệu. Vui lòng thử lại.");
+            toast.error(t('error_loading_data'));
         }
     };
 
@@ -2060,7 +2076,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
     setIsAllChargingPointsDialogOpen(true);
   } catch (err) {
     console.error("Error fetching charging points:", err);
-    toast.error("Lỗi khi tải danh sách trụ sạc");
+    toast.error(t('error_loading_data'));
   }
 };
 
@@ -2089,8 +2105,10 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                 const el = document.createElement("div");
                 el.className = "relative";
                 el.innerHTML = `
-                    <div class="w-8 h-8 bg-primary rounded-full border-2 border-white shadow-lg flex items-center justify-center cursor-pointer hover:scale-110 transition-transform">
-                        <Plug class="w-4 h-4 text-white" />
+                    <div class="w-10 h-10 rounded-full border-4 border-white shadow-lg flex items-center justify-center cursor-pointer hover:scale-110 transition-transform" style="background-color: ${getStatusColor(station.status)};">
+                        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                        </svg>
                     </div>
                 `;
 
@@ -2178,8 +2196,8 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
             } : s)));
             setSelectedStation({ ...station, status: "MAINTENANCE" });
 
-            toast.info("Khởi động lại trạm sạc", {
-                description: `Đang khởi động lại ${station.name}...`,
+            toast.info(t('restarting_station'), {
+                description: `${t('restarting')} ${station.name}...`,
             });
 
             setTimeout(() => {
@@ -2189,8 +2207,8 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                 } : s)));
                 setSelectedStation({ ...station, status: "ACTIVE" });
 
-                toast.success("Khởi động lại hoàn tất", {
-                    description: `${station.name} đã hoạt động trở lại bình thường`,
+                toast.success(t('restart_complete'), {
+                    description: `${station.name} ${t('back_to_normal')}`,
                 });
             }, 3000);
         }
@@ -2307,12 +2325,14 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                 const el = document.createElement("div");
                 el.className = "relative";
                 el.innerHTML = `
-        <div class="w-6 h-6 rounded-full border-2 border-white shadow-lg flex items-center justify-center" style="background-color:${getStatusColor(
+        <div class="w-10 h-10 rounded-full border-4 border-white shadow-lg flex items-center justify-center" style="background-color:${getStatusColor(
                     station.status
                 )}">
-          <div class="w-2 h-2 bg-white rounded-full"></div>
+          <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+          </svg>
         </div>
-        <div class="absolute top-8 left-1/2 -translate-x-1/2 bg-background/90 backdrop-blur-sm border border-border/50 rounded-md px-2 py-1 text-xs font-medium whitespace-nowrap shadow-lg">
+        <div class="absolute top-10 left-1/2 -translate-x-1/2 bg-background/90 backdrop-blur-sm border border-border/50 rounded-md px-2 py-1 text-xs font-medium whitespace-nowrap shadow-lg">
           ${(station.name.split(" - ")[1] || station.name).replace(/</g, "&lt;")}
         </div>
       `;
@@ -2328,7 +2348,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
             });
         } catch (err) {
             console.error("Error updating markers:", err);
-            toast.error("Lỗi khi cập nhật bản đồ. Vui lòng thử lại.");
+            toast.error(t('error_loading_data'));
         }
     }, [filteredStations]);
 
@@ -2349,9 +2369,11 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
     return (
         <>
-            <div className="min-h-screen bg-gradient-to-br from-background via-secondary/20 to-accent/30 p-4 lg:p-8">
-                <div className="max-w-7xl mx-auto">
-                    <div className="flex items-center justify-between mb-8">
+            <div className="min-h-screen bg-gradient-to-br from-background via-secondary/20 to-accent/30">
+                {/* Enhanced Header */}
+                <div className="sticky top-0 z-40 bg-card/80 backdrop-blur-sm border-b border-border shadow-sm">
+                    <div className="container mx-auto px-4 py-4">
+                        <div className="flex items-center justify-between">
                         <div className="flex items-center space-x-4">
                             <Button
                                 variant="ghost"
@@ -2359,21 +2381,22 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                                 className="flex items-center space-x-2 text-muted-foreground hover:text-foreground"
                             >
                                 <ArrowLeft className="w-4 h-4" />
-                                <span>Quay lại</span>
+                                <span>{t('back')}</span>
                             </Button>
                             <div>
                                 <h1 className="text-3xl font-semibold bg-gradient-to-r from-primary to-secondary-foreground bg-clip-text text-transparent">
-                                    Quản lý Bản đồ Trạm sạc
+                                    {t('charging_station_map_management')}
                                 </h1>
-                                <p className="text-muted-foreground mt-2">Giám sát và quản lý tất cả trạm sạc trên bản
-                                    đồ</p>
+                                <p className="text-muted-foreground mt-2">
+                                    {t('monitor_manage_stations')}
+                                </p>
                             </div>
                         </div>
 
                         <div className="flex items-center space-x-2">
                             <Button variant="outline" onClick={refreshStations} className="flex items-center space-x-2">
                                 <RefreshCw className="w-4 h-4" />
-                                <span className="hidden sm:inline">Làm mới</span>
+                                <span className="hidden sm:inline">{t('refresh')}</span>
                             </Button>
 
                             {/* Charging Port Types Management Button */}
@@ -2390,7 +2413,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                                     className="flex items-center space-x-2 bg-green-600 hover:bg-green-700 text-white border-green-600 hover:border-green-700"
                                 >
                                     <Plug className="w-4 h-4" />
-                                    <span className="hidden sm:inline">Loại cổng sạc</span>
+                                    <span className="hidden sm:inline">{t('port_types')}</span>
                                 </Button>
 
                                 {/* Port Types Popup */}
@@ -2401,7 +2424,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                                             <div className="flex items-center justify-between">
                                                 <h3 className="text-lg font-semibold text-white flex items-center space-x-2">
                                                     <Plug className="w-5 h-5 text-green-400" />
-                                                    <span>Quản lý loại cổng sạc</span>
+                                                    <span>{t('manage_port_types')}</span>
                                                 </h3>
                                                 <button
                                                     onClick={() => setShowPortTypesPopup(false)}
@@ -2460,7 +2483,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                                                 onClick={() => setShowAddPortTypePopup(true)}
                                             >
                                                 <Plus className="w-4 h-4 mr-2" />
-                                                Thêm loại cổng sạc mới
+                                                {t('add_new_port_type')}
                                             </Button>
                                         </div>
                                     </div>
@@ -2476,7 +2499,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                                             <div className="flex items-center justify-between">
                                                 <h3 className="text-xl font-semibold text-white flex items-center space-x-2">
                                                     <Plus className="w-6 h-6 text-green-400" />
-                                                    <span>Thêm loại cổng sạc mới</span>
+                                                    <span>{t('add_new_port_type')}</span>
                                                 </h3>
                                                 <button
                                                     onClick={handleCancelAddPortType}
@@ -2491,19 +2514,19 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                                         <div className="p-6 space-y-4">
                                             {/* Tên cổng sạc */}
                                             <div className="space-y-2">
-                                                <label className="text-sm font-medium text-white">Tên cổng sạc</label>
+                                                <label className="text-sm font-medium text-white">{t('port_type_name')}</label>
                                                 <input
                                                     type="text"
                                                     value={newPortType.name}
                                                     onChange={(e) => setNewPortType(prev => ({ ...prev, name: e.target.value }))}
-                                                    placeholder="Nhập tên loại cổng sạc"
+                                                    placeholder={t('port_type_name')}
                                                     className="w-full h-12 bg-gray-900 border border-gray-600 rounded-xl px-4 text-white placeholder-gray-400 focus:border-green-500 focus:ring-2 focus:ring-green-500/20 transition-all duration-200"
                                                 />
                                             </div>
 
                                             {/* Công suất */}
                                             <div className="space-y-2">
-                                                <label className="text-sm font-medium text-white">Công suất (kWh)</label>
+                                                <label className="text-sm font-medium text-white">{t('power_output_kw')}</label>
                                                 <input
                                                     type="number"
                                                     value={newPortType.power}
@@ -2534,13 +2557,13 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                                                 onClick={handleCancelAddPortType}
                                                 className="flex-1 h-12 border-gray-600 text-gray-300 hover:bg-gray-800 hover:text-white"
                                             >
-                                                Hủy
+                                                {t('cancel')}
                                             </Button>
                                             <Button
                                                 onClick={handleAddPortType}
                                                 className="flex-1 h-12 bg-green-600 hover:bg-green-700 text-white"
                                             >
-                                                Thêm trạm sạc
+                                                {t('add_port_type')}
                                             </Button>
                                         </div>
                                     </div>
@@ -2575,8 +2598,8 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                                 </DialogTrigger>
                                 <DialogContent className="max-w-4xl max-h-[30vh] overflow-y-auto">
                                     <DialogHeader className="pb-4">
-                                        <DialogTitle>Thêm trạm sạc mới</DialogTitle>
-                                        <DialogDescription>Nhập thông tin cơ bản để tạo trạm sạc mới trong hệ thống</DialogDescription>
+                                        <DialogTitle>{t('add_station')}</DialogTitle>
+                                        <DialogDescription>{t('add_station_description')}</DialogDescription>
                                     </DialogHeader>
 
                                     <form onSubmit={handleAddingStation} className="space-y-4">
@@ -2584,7 +2607,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                                             {error &&
                                                 <div className="text-red-600 text-sm p-2 bg-red-50 rounded">{error}</div>}
                                             <div>
-                                                <Label htmlFor="name">Tên trạm sạc</Label>
+                                                <Label htmlFor="name">{t('station_name')}</Label>
                                                 <Input
                                                     id="name"
                                                     placeholder="ChargeHub Premium - Q1"
@@ -2595,7 +2618,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                                             </div>
 
                                             <div>
-                                                <Label htmlFor="address">Địa chỉ</Label>
+                                                <Label htmlFor="address">{t('station_address')}</Label>
                                                 <Textarea
                                                     id="address"
                                                     placeholder="123 Nguyễn Huệ, Quận 1, TP.HCM"
@@ -2609,11 +2632,11 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                                             </div>
 
                                             <div>
-                                                <Label htmlFor="status">Trạng thái</Label>
+                                                <Label htmlFor="status">{t('status')}</Label>
                                                 <Select value={status} onValueChange={(v: string) => setStatus(v as StationStatus)}
                                                     disabled={loading}>
                                                     <SelectTrigger id="status">
-                                                        <SelectValue placeholder="Chọn trạng thái" />
+                                                        <SelectValue placeholder={t('select_status')} />
                                                     </SelectTrigger>
                                                     <SelectContent>
                                                         <SelectItem value="ACTIVE">ACTIVE</SelectItem>
@@ -2625,7 +2648,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
                                             <div className="grid grid-cols-2 gap-4">
                                                 <div>
-                                                    <Label htmlFor="latitude">Vĩ độ</Label>
+                                                    <Label htmlFor="latitude">{t('latitude')}</Label>
                                                     <Input
                                                         id="latitude"
                                                         type="number"
@@ -2641,7 +2664,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                                                     />
                                                 </div>
                                                 <div>
-                                                    <Label htmlFor="longitude">Kinh độ</Label>
+                                                    <Label htmlFor="longitude">{t('longitude')}</Label>
                                                     <Input
                                                         id="longitude"
                                                         type="number"
@@ -2661,7 +2684,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                                             {/* Charging Posts Management */}
                                             <div className="space-y-3">
                                                 <div className="flex items-center justify-between">
-                                                    <Label className="text-foreground/90 font-medium">Trụ sạc ({chargingPosts.length})</Label>
+                                                    <Label className="text-foreground/90 font-medium">{t('charging_points')} ({chargingPosts.length})</Label>
                                                     <Button
                                                         type="button"
                                                         onClick={addChargingPost}
@@ -2697,7 +2720,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
                                                                     <div className="space-y-3">
                                                                         <div>
-                                                                            <label className="text-xs text-gray-400 mb-1 block">Loại cổng sạc</label>
+                                                                            <label className="text-xs text-gray-400 mb-1 block">{t('connector_type')}</label>
                                                                             <select
                                                                                 value={post.connectorType}
                                                                                 onChange={(e) => {
@@ -2710,7 +2733,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                                                                                 }}
                                                                                 className="w-full h-8 text-sm bg-black border border-gray-600 rounded-lg px-3 text-white focus:border-green-500 focus:ring-1 focus:ring-green-500/20 transition-colors"
                                                                             >
-                                                                                <option value="">Chọn loại cổng sạc</option>
+                                                                                <option value="">{t('select_connector_type')}</option>
                                                                                 {portTypes.map((type, idx) => (
                                                                                     <option key={idx} value={type.name}>
                                                                                         {type.name} ({type.power} kWh - ₫{type.price}/kWh)
@@ -2720,16 +2743,16 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                                                                         </div>
 
                                                                         <div>
-                                                                            <label className="text-xs text-gray-400 mb-1 block">Trạng thái</label>
+                                                                            <label className="text-xs text-gray-400 mb-1 block">{t('status')}</label>
                                                                             <select
                                                                                 value={post.status}
                                                                                 onChange={(e) => updateChargingPost(post.id, 'status', e.target.value)}
                                                                                 className="w-full h-8 text-sm bg-black border border-gray-600 rounded-lg px-3 text-white focus:border-green-500 focus:ring-1 focus:ring-green-500/20 transition-colors"
                                                                             >
-                                                                                <option value="AVAILABLE">🟢 Có sẵn</option>
-                                                                                <option value="OCCUPIED">🔴 Đang sử dụng</option>
-                                                                                <option value="OUT_OF_SERVICE">⚫ Ngừng hoạt động</option>
-                                                                                <option value="MAINTENANCE">🔧 Bảo trì</option>
+                                                                                <option value="AVAILABLE">🟢 {t('available')}</option>
+                                                                                <option value="OCCUPIED">🔴 {t('occupied')}</option>
+                                                                                <option value="OUT_OF_SERVICE">⚫ {t('out_of_service')}</option>
+                                                                                <option value="MAINTENANCE">🔧 {t('maintenance')}</option>
                                                                             </select>
                                                                         </div>
                                                                     </div>
@@ -2743,7 +2766,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
                                         <div className="pt-4 border-t border-gray-700">
                                             <Button type="submit" disabled={loading} className="w-full">
-                                                {loading ? "Đang tạo..." : "Thêm trạm sạc"}
+                                                {loading ? t('loading') : t('add_station')}
                                             </Button>
                                         </div>
                                     </form>
@@ -2751,10 +2774,14 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                             </Dialog>
                         </div>
                     </div>
+                </div>
+            </div>
 
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Main Content */}
+            <div className="container mx-auto px-4 py-6">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                         <div className="lg:col-span-2">
-                            <Card className="bg-black/80 backdrop-blur-xl border border-gray-600 h-[600px]">
+                            <Card className="bg-card/80 backdrop-blur-xl border border-border h-[600px]">
                                 <CardHeader className="pb-4">
                                     <div className="flex items-center justify-end">
                                         <div className="flex items-center space-x-2">
@@ -2763,7 +2790,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                                                 <div className="relative">
                                                     <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors" />
                                                     <Input
-                                                        placeholder="Tìm kiếm địa điểm..."
+                                                        placeholder={t('search_locations')}
                                                         value={searchInput}
                                                         onChange={handleSearchInputChange}
                                                         className="pl-10 pr-10 w-80 h-10 bg-background/80 backdrop-blur-sm border-border/50 focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all duration-200 shadow-sm hover:shadow-md"
@@ -2796,10 +2823,10 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                                                                         </div>
                                                                         <div>
                                                                             <span className="text-sm font-semibold text-white">
-                                                                                {searchResults.length} kết quả tìm thấy
+                                                                                {searchResults.length} {t('search_results_found')}
                                                                             </span>
                                                                             <div className="text-xs text-gray-300 mt-0.5">
-                                                                                Chọn để xem trên bản đồ
+                                                                                {t('select_to_view_on_map')}
                                                                             </div>
                                                                         </div>
                                                                     </div>
@@ -2865,7 +2892,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                                                 <Search
                                                     className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
                                                 <Input
-                                                    placeholder="Tìm kiếm trạm..."
+                                                    placeholder={t('search_locations')}
                                                     value={searchQuery}
                                                     onChange={(e) => setSearchQuery(e.target.value)}
                                                     className="pl-10 w-48"
@@ -2876,10 +2903,10 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                                                     <SelectValue />
                                                 </SelectTrigger>
                                                 <SelectContent>
-                                                    <SelectItem value="all">Tất cả</SelectItem>
-                                                    <SelectItem value="ACTIVE">Hoạt động</SelectItem>
-                                                    <SelectItem value="INACTIVE">Ngoại tuyến</SelectItem>
-                                                    <SelectItem value="MAINTENANCE">Bảo trì</SelectItem>
+                                                    <SelectItem value="all">{t('all')}</SelectItem>
+                                                    <SelectItem value="ACTIVE">{t('active')}</SelectItem>
+                                                    <SelectItem value="INACTIVE">{t('inactive')}</SelectItem>
+                                                    <SelectItem value="MAINTENANCE">{t('maintenance')}</SelectItem>
                                                 </SelectContent>
                                             </Select>
                                         </div>
@@ -2994,7 +3021,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                                             <div className="flex items-center justify-between mb-2">
                                                 {getStatusBadge(selectedStationPopup.status)}
                                                 <span className="text-xs text-gray-300">
-                                                    {selectedStationPopup.availablePoints}/{selectedStationPopup.totalPoints} điểm sạc
+                                                    {selectedStationPopup.availablePoints}/{selectedStationPopup.totalPoints} {t('charging_points')}
                                                 </span>
                                             </div>
                                             <div className="space-y-1">
@@ -3009,7 +3036,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                                                             </Badge>
                                                         </div>
                                                         <div className="flex justify-between text-xs mb-1">
-                                                            <span className="text-gray-300">Khả dụng:</span>
+                                                            <span className="text-gray-300">{t('available')}:</span>
                                                             <span
                                                                 className={connector.available > 0 ? "text-green-400 font-medium" : "text-red-400 font-medium"}>
                                                                 {connector.available}/{connector.total}
@@ -3017,7 +3044,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                                                         </div>
                                                         {connector.pricePerKwh && (
                                                             <div className="flex justify-between text-xs">
-                                                                <span className="text-gray-300">Giá:</span>
+                                                                <span className="text-gray-300">{t('price_per_kwh')}:</span>
                                                                 <span className="text-yellow-400 font-medium">
                                                                     {connector.pricePerKwh.toLocaleString()} VND/kWh
                                                                 </span>
@@ -3054,11 +3081,11 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                                             </div>
 
                                             <div className="mb-3">
-                                                <div className="text-xs text-gray-400 mb-1">Địa chỉ:</div>
+                                                <div className="text-xs text-gray-400 mb-1">{t('station_address')}:</div>
                                                 <div className="text-xs text-gray-300 bg-gray-900 border border-gray-700 px-2 py-1 rounded mb-2">
                                                     {selectedPOI.address}
                                                 </div>
-                                                <div className="text-xs text-gray-400 mb-1">Tọa độ:</div>
+                                                <div className="text-xs text-gray-400 mb-1">{t('coordinates')}:</div>
                                                 <div className="text-xs font-mono text-gray-300 bg-gray-900 border border-gray-700 px-2 py-1 rounded">
                                                     {selectedPOI.latitude.toFixed(4)}, {selectedPOI.longitude.toFixed(4)}
                                                 </div>
@@ -3078,12 +3105,12 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                                                     return (
                                                         <div className="space-y-2">
                                                             <div className="text-xs text-green-400 font-medium">
-                                                                ✓ Đã có trạm sạc gần đây
+                                                                ✓ {t('nearby_station_found')}
                                                             </div>
                                                             <div className="bg-gray-900 border border-gray-700 rounded p-2">
                                                                 <div className="text-xs text-white font-medium">{nearbyStation.name}</div>
                                                                 <div className="text-xs text-gray-400 mt-1">
-                                                                    {nearbyStation.availablePoints}/{nearbyStation.totalPoints} điểm sạc
+                                                                    {nearbyStation.availablePoints}/{nearbyStation.totalPoints} {t('charging_points')}
                                                                 </div>
                                                                 <div className="flex items-center mt-2">
                                                                     {getStatusBadge(nearbyStation.status)}
@@ -3119,7 +3146,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                                                                 className="w-full bg-blue-600 hover:bg-blue-700 text-white text-xs py-2 border border-blue-500"
                                                             >
                                                                 <Plus className="w-4 h-4 mr-2" />
-                                                                Thêm trạm sạc tại đây
+                                                                {t('add_station_here')}
                                                             </Button>
                                                         </div>
                                                     );
@@ -3133,7 +3160,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                             {selectedStation && (
                                 <Card className="mt-4 bg-black/80 backdrop-blur-xl border border-gray-600">
                                     <CardHeader>
-                                        <CardTitle>Điều khiển Trạm sạc</CardTitle>
+                                        <CardTitle>{t('station_control')}</CardTitle>
                                     </CardHeader>
                                     <CardContent>
                                         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
@@ -3142,14 +3169,13 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                                                     <Button variant="outline" className="flex items-center space-x-2"
                                                         onClick={handleEditStation}>
                                                         <Edit className="w-4 h-4" />
-                                                        <span>Chỉnh sửa</span>
+                                                        <span>{t('edit')}</span>
                                                     </Button>
                                                 </DialogTrigger>
                                                 <DialogContent className="max-w-4xl max-h-[30vh] overflow-y-auto">
                                                     <DialogHeader>
-                                                        <DialogTitle>Chỉnh sửa {selectedStation.name}</DialogTitle>
-                                                        <DialogDescription>Cập nhật thông tin và cấu hình cho trạm sạc
-                                                            này</DialogDescription>
+                                                        <DialogTitle>{t('edit')} {selectedStation.name}</DialogTitle>
+                                                        <DialogDescription>{t('update_station_info')}</DialogDescription>
                                                     </DialogHeader>
                                                     <form
                                                         onSubmit={(e) => handleUpdatingStation(e, selectedStation.id)}>
@@ -3157,7 +3183,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                                                             {error && <div
                                                                 className="text-red-600 text-sm p-2 bg-red-50 rounded">{error}</div>}
                                                             <div>
-                                                                <Label htmlFor="editStationId">Mã trạm sạc</Label>
+                                                                <Label htmlFor="editStationId">{t('station_code')}</Label>
                                                                 <Input
                                                                     id="editStationId"
                                                                     defaultValue={selectedStation.id}
@@ -3166,7 +3192,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                                                             </div>
 
                                                             <div>
-                                                                <Label htmlFor="editName">Tên trạm sạc</Label>
+                                                                <Label htmlFor="editName">{t('station_name')}</Label>
                                                                 <Input
                                                                     id="editName"
                                                                     name="stationName"
@@ -3177,7 +3203,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                                                             </div>
 
                                                             <div className="relative">
-                                                                <Label htmlFor="editAddress">Địa chỉ</Label>
+                                                                <Label htmlFor="editAddress">{t('station_address')}</Label>
                                                                 <div className="relative">
                                                                     <Input
                                                                         id="editAddress"
@@ -3191,7 +3217,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                                                                                 setIsAddressFieldTouched(true);
                                                                             }
                                                                         }}
-                                                                        placeholder="Tìm kiếm địa điểm..."
+                                                                        placeholder={t('search_locations')}
                                                                         disabled={loading}
                                                                         className="w-full"
                                                                     />
@@ -3204,10 +3230,10 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                                                                                     <MapPin className="w-4 h-4 text-blue-400" />
                                                                                     <div>
                                                                                         <span className="text-sm font-semibold text-white">
-                                                                                            {addressSearchResults.length} kết quả tìm thấy
+                                                                                            {addressSearchResults.length} {t('search_results_found')}
                                                                                         </span>
                                                                                         <div className="text-xs text-gray-300 mt-0.5">
-                                                                                            Chọn để cập nhật địa chỉ và tọa độ
+                                                                                            {t('select_to_update_address')}
                                                                                         </div>
                                                                                     </div>
                                                                                 </div>
@@ -3261,7 +3287,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
                                                             <div className="grid grid-cols-2 gap-4">
                                                                 <div>
-                                                                    <Label htmlFor="editLatitude">Vĩ độ</Label>
+                                                                    <Label htmlFor="editLatitude">{t('latitude')}</Label>
                                                                     <Input
                                                                         id="editLatitude"
                                                                         name="latitude"
@@ -3277,7 +3303,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                                                                     />
                                                                 </div>
                                                                 <div>
-                                                                    <Label htmlFor="editLongitude">Kinh độ</Label>
+                                                                    <Label htmlFor="editLongitude">{t('longitude')}</Label>
                                                                     <Input
                                                                         id="editLongitude"
                                                                         name="longitude"
@@ -3297,7 +3323,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                                                             {/* Charging Points Management for Edit - Editable */}
                                                             <div className="space-y-3">
                                                                 <div className="flex items-center justify-between">
-                                                                    <Label className="text-foreground/90 font-medium">Trụ sạc ({chargingPosts.length})</Label>
+                                                                    <Label className="text-foreground/90 font-medium">{t('charging_points')} ({chargingPosts.length})</Label>
                                                                 </div>
 
                                                                 {chargingPosts.length === 0 && (
@@ -3313,7 +3339,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                                                                             {chargingPosts.map((post, index) => (
                                                                                 <div key={post.id} className="p-2 border border-gray-600 rounded-lg bg-gray-900/30">
                                                                                     <div className="flex items-center justify-between mb-2">
-                                                                                        <h4 className="text-sm font-medium text-white">Trụ sạc #{index + 1}</h4>
+                                                                                        <h4 className="text-sm font-medium text-white">{t('charging_points')} #{index + 1}</h4>
                                                                                         <Button
                                                                                             type="button"
                                                                                             variant="ghost"
@@ -3327,7 +3353,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
                                                                                     <div className="space-y-2">
                                                                                         <div>
-                                                                                            <label className="text-xs text-gray-400 mb-1 block">Loại cổng sạc</label>
+                                                                                            <label className="text-xs text-gray-400 mb-1 block">{t('connector_type')}</label>
                                                                                             <select
                                                                                                 value={post.connectorType}
                                                                                                 onChange={(e) => {
@@ -3340,7 +3366,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                                                                                                 }}
                                                                                                 className="w-full h-8 text-sm bg-black border border-gray-600 rounded-lg px-3 text-white focus:border-green-500 focus:ring-1 focus:ring-green-500/20 transition-colors"
                                                                                             >
-                                                                                                <option value="">Chọn loại cổng sạc</option>
+                                                                                                <option value="">{t('select_connector_type')}</option>
                                                                                                 {newPortTypes.map((type, idx) => (
                                                                                                     <option key={idx} value={type.name}>
                                                                                                         {type.name} ({type.power} kWh - ₫{type.price}/kWh)
@@ -3350,16 +3376,16 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                                                                                         </div>
 
                                                                                         <div>
-                                                                                            <label className="text-xs text-gray-400 mb-1 block">Trạng thái</label>
+                                                                                            <label className="text-xs text-gray-400 mb-1 block">{t('status')}</label>
                                                                                             <select
                                                                                                 value={post.status}
                                                                                                 onChange={(e) => updateChargingPost(post.id, 'status', e.target.value)}
                                                                                                 className="w-full h-8 text-sm bg-black border border-gray-600 rounded-lg px-3 text-white focus:border-green-500 focus:ring-1 focus:ring-green-500/20 transition-colors"
                                                                                             >
-                                                                                                <option value="AVAILABLE">🟢 Có sẵn</option>
-                                                                                                <option value="OCCUPIED">🔴 Đang sử dụng</option>
-                                                                                                <option value="OUT_OF_SERVICE">⚫ Ngừng hoạt động</option>
-                                                                                                <option value="MAINTENANCE">🔧 Bảo trì</option>
+                                                                                                <option value="AVAILABLE">🟢 {t('available')}</option>
+                                                                                                <option value="OCCUPIED">🔴 {t('occupied')}</option>
+                                                                                                <option value="OUT_OF_SERVICE">⚫ {t('out_of_service')}</option>
+                                                                                                <option value="MAINTENANCE">🔧 {t('maintenance')}</option>
                                                                                             </select>
                                                                                         </div>
                                                                                     </div>
@@ -3371,7 +3397,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                                                             </div>
 
                                                             <Button type="submit" disabled={loading}>
-                                                                {loading ? "Đang cập nhật.." : "Cập nhật"}
+                                                                {loading ? t('loading') : t('update')}
                                                             </Button>
                                                         </div>
                                                     </form>
@@ -3383,16 +3409,15 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                                                     <Button variant="destructive"
                                                         className="flex items-center space-x-2">
                                                         <Trash2 className="w-4 h-4" />
-                                                        <span>Xóa</span>
+                                                        <span>{t('delete')}</span>
                                                     </Button>
                                                 </DialogTrigger>
                                                 <DialogContent
                                                     className="bg-black border border-gray-600">
                                                     <DialogHeader>
-                                                        <DialogTitle>Xác nhận xóa trạm sạc</DialogTitle>
+                                                        <DialogTitle>{t('confirm_delete')} {t('charging_stations')}</DialogTitle>
                                                         <DialogDescription>
-                                                            Bạn có chắc chắn muốn xóa trạm sạc này? Hành động này không
-                                                            thể hoàn tác.
+                                                            {t('are_you_sure_delete')} {t('charging_stations')}? {t('warning')}: {t('cannot_delete_in_use')}
                                                         </DialogDescription>
                                                     </DialogHeader>
                                                     <form onSubmit={(e) => handleDeletingStation(e, selectedStation.id)}>
@@ -3405,11 +3430,11 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                                                                     <p className="text-sm text-muted-foreground">{selectedStation.address}</p>
                                                                 </div>
                                                                 <div className="flex items-center justify-between">
-                                                                    <span>Trạng thái:</span>
+                                                                    <span>{t('status')}:</span>
                                                                     {getStatusBadge(selectedStation.status)}
                                                                 </div>
                                                                 <div className="flex items-center justify-between">
-                                                                    <span>Điểm sạc:</span>
+                                                                    <span>{t('charging_points')}:</span>
                                                                     <span className="font-medium">
                                                                         {selectedStation.availablePoints}/{selectedStation.totalPoints}
                                                                     </span>
@@ -3435,23 +3460,23 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                                                                 <Separator />
                                                                 <div className="grid grid-cols-2 gap-4 text-sm">
                                                                     <div>
-                                                                        <span className="text-muted-foreground">Giờ hoạt động:</span>
+                                                                        <span className="text-muted-foreground">{t('operating_hours')}:</span>
                                                                         <p className="font-medium">{selectedStation.operatingHours}</p>
                                                                     </div>
                                                                     <div>
                                                                         <span
-                                                                            className="text-muted-foreground">Liên hệ:</span>
+                                                                            className="text-muted-foreground">{t('contact_phone')}:</span>
                                                                         <p className="font-medium">{selectedStation.contactPhone}</p>
                                                                     </div>
                                                                 </div>
                                                                 <Separator />
                                                                 <div className="grid grid-cols-2 gap-4 text-sm">
                                                                     <div>
-                                                                        <span className="text-muted-foreground">Doanh thu ngày:</span>
+                                                                        <span className="text-muted-foreground">{t('daily_revenue')}:</span>
                                                                         <p className="font-medium text-green-600">{Number(selectedStation.revenue.daily || 0).toLocaleString()} VND</p>
                                                                     </div>
                                                                     <div>
-                                                                        <span className="text-muted-foreground">Doanh thu tháng:</span>
+                                                                        <span className="text-muted-foreground">{t('monthly_revenue')}:</span>
                                                                         <p className="font-medium text-blue-600">{Number(selectedStation.revenue.monthly || 0).toLocaleString()} VND</p>
                                                                     </div>
                                                                 </div>
@@ -3460,10 +3485,10 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                                                         <div className="flex justify-end space-x-2 mt-4">
                                                             <Button variant="outline" type="button"
                                                                 onClick={() => setIsDeleteDialogOpen(false)}>
-                                                                Hủy
+                                                                {t('cancel')}
                                                             </Button>
                                                             <Button variant="destructive" type="submit">
-                                                                Xác nhận xóa
+                                                                {t('confirm_delete')}
                                                             </Button>
                                                         </div>
                                                     </form>
@@ -3476,10 +3501,10 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                                                     <DialogHeader>
                                                         <DialogTitle className="flex items-center space-x-2">
                                                             <Trash2 className="w-5 h-5 text-red-400" />
-                                                            <span>Xác nhận xóa loại cổng sạc</span>
+                                                            <span>{t('confirm_delete')} {t('port_types')}</span>
                                                         </DialogTitle>
                                                         <DialogDescription>
-                                                            Bạn có chắc chắn muốn xóa loại cổng sạc này? Hành động này không thể hoàn tác.
+                                                            {t('are_you_sure_delete')} {t('port_types')}? {t('warning')}: {t('cannot_delete_in_use')}
                                                         </DialogDescription>
                                                     </DialogHeader>
                                                     
@@ -3541,7 +3566,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                                                                 setConnectorToDelete(null);
                                                             }}
                                                         >
-                                                            Hủy
+                                                            {t('cancel')}
                                                         </Button>
                                                         <Button 
                                                             variant="destructive" 
@@ -3553,7 +3578,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                                                                 : ""
                                                             }
                                                         >
-                                                            Xác nhận xóa
+                                                            {t('confirm_delete')}
                                                         </Button>
                                                     </div>
                                                 </DialogContent>
@@ -3565,10 +3590,10 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                                                     <DialogHeader>
                                                         <DialogTitle className="flex items-center space-x-2">
                                                             <Plug className="w-5 h-5 text-primary" />
-                                                            <span>Tất cả trụ sạc - {selectedStationForAllPoints?.name}</span>
+                                                            <span>{t('view_all_charging_points')} - {selectedStationForAllPoints?.name}</span>
                                                         </DialogTitle>
                                                         <DialogDescription>
-                                                            Danh sách tất cả trụ sạc tại trạm này
+                                                            {t('charging_point_details')}
                                                         </DialogDescription>
                                                     </DialogHeader>
 
@@ -3580,7 +3605,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                                                                     <p className="text-sm text-muted-foreground">{selectedStationForAllPoints.address}</p>
                                                                 </div>
                                                                 <div className="flex items-center justify-between">
-                                                                    <span className="text-sm text-muted-foreground">Tổng số trụ:</span>
+                                                                    <span className="text-sm text-muted-foreground">{t('total_points')}:</span>
                                                                     <span className="font-medium text-white">
                                                                         {allChargingPoints.length}
                                                                     </span>
@@ -3588,7 +3613,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                                                             </div>
 
                                                             <div className="space-y-3 flex-1 overflow-hidden">
-                                                                <h5 className="font-medium text-white">Danh sách tất cả trụ sạc</h5>
+                                                                <h5 className="font-medium text-white">{t('all_charging_points_list')}</h5>
                                                                 {allChargingPoints.length > 0 ? (
                                                                     <ScrollArea className="h-96 w-full">
                                                                         <div className="space-y-2 pr-4">
@@ -3598,7 +3623,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                                                                                         <div className="flex items-start justify-between mb-2">
                                                                                             <div className="flex items-center space-x-2">
                                                                                                 <Plug className="w-4 h-4 text-primary" />
-                                                                                                <h6 className="font-medium text-white">Trụ #{point.chargingPointId}</h6>
+                                                                                                <h6 className="font-medium text-white">{t('charging_points')} #{point.chargingPointId}</h6>
                                                                                             </div>
                                                                                             <div className="flex items-center space-x-2">
                                                                                                 <div className={`px-2 py-1 rounded-full text-xs font-medium ${point.status === 'AVAILABLE' ? 'bg-green-600/20 text-green-400' :
@@ -3606,10 +3631,10 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                                                                                                             point.status === 'OUT_OF_SERVICE' ? 'bg-gray-600/20 text-gray-400' :
                                                                                                                 'bg-yellow-600/20 text-yellow-400'
                                                                                                     }`}>
-                                                                                                    {point.status === 'AVAILABLE' ? '🟢 Có sẵn' :
-                                                                                                        point.status === 'OCCUPIED' ? '🔴 Đang sử dụng' :
-                                                                                                            point.status === 'OUT_OF_SERVICE' ? '⚫ Ngừng hoạt động' :
-                                                                                                                '🔧 Bảo trì'}
+                                                                                                    {point.status === 'AVAILABLE' ? `🟢 ${t('available')}` :
+                                                                                                        point.status === 'OCCUPIED' ? `🔴 ${t('occupied')}` :
+                                                                                                            point.status === 'OUT_OF_SERVICE' ? `⚫ ${t('out_of_service')}` :
+                                                                                                                `🔧 ${t('maintenance')}`}
                                                                                                 </div>
                                                                                                 <Button
                                                                                                     size="sm"
@@ -3627,19 +3652,19 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
                                                                                         <div className="grid grid-cols-2 gap-4 text-sm">
                                                                                             <div>
-                                                                                                <span className="text-muted-foreground">Trạng thái:</span>
+                                                                                                <span className="text-muted-foreground">{t('status')}:</span>
                                                                                                 <p className="font-medium text-white">{point.status || "Unknown"}</p>
                                                                                             </div>
                                                                                             <div>
-                                                                                                <span className="text-muted-foreground">Loại:</span>
+                                                                                                <span className="text-muted-foreground">{t('type')}:</span>
                                                                                                 <p className="font-medium text-white">{point.typeName || "Unknown"}</p>
                                                                                             </div>
                                                                                             <div>
-                                                                                                <span className="text-muted-foreground">Công suất:</span>
+                                                                                                <span className="text-muted-foreground">{t('capacity')}:</span>
                                                                                                 <p className="font-medium text-white">{point.powerOutput || 0} kW</p>
                                                                                             </div>
                                                                                             <div>
-                                                                                                <span className="text-muted-foreground">Giá:</span>
+                                                                                                <span className="text-muted-foreground">{t('price_per_kwh')}:</span>
                                                                                                 <p className="font-medium text-white">₫{(point.pricePerKwh || 0).toLocaleString()}/kWh</p>
                                                                                             </div>
                                                                                             <div>
@@ -3647,7 +3672,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                                                                                                 <p className="font-medium text-white">#{point.chargingPointId}</p>
                                                                                             </div>
                                                                                             <div>
-                                                                                                <span className="text-muted-foreground">Trạm:</span>
+                                                                                                <span className="text-muted-foreground">{t('station')}:</span>
                                                                                                 <p className="font-medium text-white">{selectedStationForAllPoints?.name || "Unknown Station"}</p>
                                                                                             </div>
                                                                                         </div>
@@ -3673,7 +3698,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                                                             onClick={() => setIsAllChargingPointsDialogOpen(false)}
                                                             className="bg-gray-800 hover:bg-gray-700 text-white border-gray-600"
                                                         >
-                                                            Đóng
+                                                            {t('close')}
                                                         </Button>
                                                     </div>
                                                 </DialogContent>
@@ -3699,7 +3724,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                                                         disabled={selectedStation.status === "ACTIVE"}
                                                     >
                                                         <Power className="w-4 h-4" />
-                                                        <span>Kích hoạt</span>
+                                                        <span>{t('activate')}</span>
                                                     </Button>
                                                 </form>
 
@@ -3714,7 +3739,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                                                         disabled={selectedStation.status === "INACTIVE"}
                                                     >
                                                         <XCircle className="w-4 h-4" />
-                                                        <span>Vô hiệu hóa</span>
+                                                        <span>{t('deactivate')}</span>
                                                     </Button>
                                                 </form>
 
@@ -3722,18 +3747,17 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                                                     onClick={() => handleChargerRestart(selectedStation.id)}
                                                     className="flex items-center space-x-2">
                                                     <RotateCw className="w-4 h-4" />
-                                                    <span>Khởi động lại</span>
+                                                    <span>{t('restart')}</span>
                                                 </Button>
                                             </div>
 
                                             <div className="mt-3 p-3 bg-muted/30 rounded-lg">
-                                                <div className="text-xs text-muted-foreground mb-2">Trạng thái hiện
-                                                    tại:
+                                                <div className="text-xs text-muted-foreground mb-2">{t('current_status')}:
                                                 </div>
                                                 <div className="flex items-center justify-between">
                                                     {getStatusBadge(selectedStation.status)}
                                                     <span
-                                                        className="text-xs text-muted-foreground">Cập nhật: {new Date().toLocaleString("vi-VN")}</span>
+                                                        className="text-xs text-muted-foreground">{t('update')}: {new Date().toLocaleString("vi-VN")}</span>
                                                 </div>
                                             </div>
                                         </div>
@@ -3745,8 +3769,8 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                         <div className="space-y-4">
                             <Card className="bg-black/80 backdrop-blur-xl border border-gray-600">
                                 <CardHeader>
-                                    <CardTitle>Danh sách Trạm sạc</CardTitle>
-                                    <p className="text-sm text-muted-foreground">{filteredStations.length} trạm sạc</p>
+                                    <CardTitle>{t('station_list')}</CardTitle>
+                                    <p className="text-sm text-muted-foreground">{filteredStations.length} {t('charging_stations')}</p>
                                 </CardHeader>
                                 <CardContent className="p-0">
                                     <ScrollArea className="h-[500px]">
@@ -3766,8 +3790,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                                                             </div>
                                                             {getStatusBadge(station.status)}
                                                         </div>
-                                                        <p className="text-xs text-muted-foreground mb-1">Mã
-                                                            trạm: {station.id}</p>
+                                                        <p className="text-xs text-muted-foreground mb-1">{t('station_code')}: {station.id}</p>
                                                         <p className="text-xs text-muted-foreground mb-3">{station.address}</p>
 
                                                         <div className="grid grid-cols-2 gap-2 text-xs">
@@ -3779,7 +3802,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                                                             </div>
                                                             <div className="flex items-center space-x-1">
                                                                 <Zap className="w-3 h-3 text-yellow-500" />
-                                                                <span>{(station.connectorTypes ?? []).length} loại</span>
+                                                                <span>{(station.connectorTypes ?? []).length} {t('type')}</span>
                                                             </div>
                                                         </div>
 
@@ -3810,7 +3833,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                                                                 className="w-full h-8 text-xs bg-purple-600 hover:bg-purple-700 text-white"
                                                             >
                                                                 <Plug className="w-3 h-3 mr-1" />
-                                                                Hiển thị trụ sạc
+                                                                {t('show_charging_points')}
                                                             </Button>
                                                         </div>
                                                     </CardContent>

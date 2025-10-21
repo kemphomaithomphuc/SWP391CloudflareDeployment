@@ -20,72 +20,72 @@ api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
-    
+
     // Check if it's a 401 error and we haven't already tried to refresh
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
-      
+
       const refreshToken = localStorage.getItem("refreshToken");
-      
+
       if (refreshToken) {
         try {
           console.log("=== TOKEN REFRESH DEBUG ===");
           console.log("Attempting to refresh token...");
-          
+
           // Call refresh token endpoint
           const response = await axios.post(`${apiBaseUrl}/api/auth/refresh`, {
             refreshToken: refreshToken
           });
-          
+
           if (response.data?.success && response.data?.data?.accessToken) {
             const newAccessToken = response.data.data.accessToken;
             const newRefreshToken = response.data.data.refreshToken;
-            
+
             console.log("Token refresh successful");
-            
+
             // Update tokens in localStorage
             localStorage.setItem("token", newAccessToken);
             if (newRefreshToken) {
               localStorage.setItem("refreshToken", newRefreshToken);
             }
-            
+
             // Update the original request with new token
             originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
-            
+
             // Retry the original request
             return api(originalRequest);
           }
         } catch (refreshError) {
           console.error("=== TOKEN REFRESH FAILED ===");
           console.error("Refresh error:", refreshError);
-          
+
           // Clear tokens and redirect to login
           localStorage.removeItem("token");
           localStorage.removeItem("refreshToken");
           localStorage.removeItem("userId");
           localStorage.removeItem("fullName");
           localStorage.removeItem("email");
-          
+
           // Redirect to login page
           window.location.href = "/";
-          
+
           return Promise.reject(refreshError);
         }
       } else {
         console.log("No refresh token available, redirecting to login");
-        
+
         // Clear tokens and redirect to login
         localStorage.removeItem("token");
         localStorage.removeItem("refreshToken");
         localStorage.removeItem("userId");
         localStorage.removeItem("fullName");
         localStorage.removeItem("email");
-        
+
         // Redirect to login page
         window.location.href = "/";
       }
     }
-    
+
     return Promise.reject(error);
   }
 );
@@ -95,7 +95,12 @@ api.interceptors.response.use(
 // Check if token is expired (with 5 minute buffer)
 export const isTokenExpired = (token: string): boolean => {
   try {
-    const payload = JSON.parse(atob(token.split('.')[1]));
+    const parts = token.split('.');
+    if (parts.length !== 3 || !parts[1]) {
+      console.error("Invalid token format");
+      return true;
+    }
+    const payload = JSON.parse(atob(parts[1]));
     const currentTime = Math.floor(Date.now() / 1000);
     const bufferTime = 5 * 60; // 5 minutes buffer
     return payload.exp < (currentTime + bufferTime);
@@ -109,52 +114,52 @@ export const isTokenExpired = (token: string): boolean => {
 export const checkAndRefreshToken = async (): Promise<boolean> => {
   const accessToken = localStorage.getItem("token");
   const refreshToken = localStorage.getItem("refreshToken");
-  
+
   if (!accessToken || !refreshToken) {
     return false;
   }
-  
+
   if (isTokenExpired(accessToken)) {
     try {
       console.log("=== PROACTIVE TOKEN REFRESH ===");
       console.log("Token is expired, refreshing...");
-      
+
       const response = await axios.post(`${apiBaseUrl}/api/auth/refresh`, {
         refreshToken: refreshToken
       });
-      
+
       if (response.data?.success && response.data?.data?.accessToken) {
         const newAccessToken = response.data.data.accessToken;
         const newRefreshToken = response.data.data.refreshToken;
-        
+
         console.log("Proactive token refresh successful");
-        
+
         // Update tokens in localStorage
         localStorage.setItem("token", newAccessToken);
         if (newRefreshToken) {
           localStorage.setItem("refreshToken", newRefreshToken);
         }
-        
+
         return true;
       }
     } catch (error) {
       console.error("=== PROACTIVE TOKEN REFRESH FAILED ===");
       console.error("Refresh error:", error);
-      
+
       // Clear tokens and redirect to login
       localStorage.removeItem("token");
       localStorage.removeItem("refreshToken");
       localStorage.removeItem("userId");
       localStorage.removeItem("fullName");
       localStorage.removeItem("email");
-      
+
       // Redirect to login page
       window.location.href = "/";
-      
+
       return false;
     }
   }
-  
+
   return true; // Token is still valid
 };
 

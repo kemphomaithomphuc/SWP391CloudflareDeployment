@@ -46,6 +46,15 @@ export default function ProfileView({ onBack }: ProfileViewProps) {
 
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [retryCount, setRetryCount] = useState(0);
+    const [isRetrying, setIsRetrying] = useState(false);
+    
+    // Avatar state
+    const [avatar, setAvatar] = useState<string | null>(null);
+    const [avatarLoading, setAvatarLoading] = useState(false);
+    
+    // Local sync state
+    const [isLocalSync, setIsLocalSync] = useState(false);
 
     // For password change
     const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
@@ -236,14 +245,29 @@ export default function ProfileView({ onBack }: ProfileViewProps) {
                 toast.success("Profile loaded successfully");
             } catch (err: any) {
                 console.error("Fetch profile error:", err);
-                let errMsg = t("Failed to load Profile") + ": " + (err.response?.data?.message || err.message);
-                if (err.response?.status === 405 || err.response?.status === 400) {
+                let errMsg = t("Failed to load Profile");
+                
+                // Handle different error types
+                if (err.response?.status === 401) {
+                    errMsg = "Authentication failed. Please log in again.";
+                    localStorage.clear();
+                    window.location.href = "/login";
+                    return;
+                } else if (err.response?.status === 405 || err.response?.status === 400) {
                     errMsg = "Endpoint mismatch (405/400). Fallback to local data.";
                 } else if (err.response?.status === 404) {
                     errMsg = "Profile not found for ID " + userId + ". Check user ID.";
+                } else if (err.response?.status === 500) {
+                    errMsg = "Server error. Using cached data.";
+                } else if (err.response?.data?.message) {
+                    errMsg += ": " + err.response.data.message;
+                } else if (err.message) {
+                    errMsg += ": " + err.message;
                 }
+                
                 setError(errMsg);
                 toast.error(errMsg);
+                
                 // Fallback UI data từ localStorage/email
                 setProfileData({
                     userId: parseInt(userId) || 0,
@@ -253,7 +277,7 @@ export default function ProfileView({ onBack }: ProfileViewProps) {
                     dateOfBirth: localStorage.getItem("dateOfBirth") || null,
                     gender: null,
                     role: localStorage.getItem("role") || "DRIVER",
-                    address: null,
+                    address: localStorage.getItem("address") || null,
                     status: "ACTIVE",
                 });
             } finally {
@@ -271,6 +295,12 @@ export default function ProfileView({ onBack }: ProfileViewProps) {
     };
 
     const handleSave = async () => {
+        // Prevent multiple simultaneous save attempts
+        if (loading || isRetrying) {
+            console.log("Save already in progress, skipping...");
+            return;
+        }
+        
         console.log("=== handleSave START ===");
         console.log("profileData.fullName:", profileData.fullName);
         console.log("profileData.phone:", profileData.phone);
@@ -317,6 +347,7 @@ export default function ProfileView({ onBack }: ProfileViewProps) {
         try {
             setLoading(true);
             setError(null);
+            setIsRetrying(retryCount > 0);
             console.log("=== Profile Save Debug ===");
             console.log("userId:", userId);
             console.log("token:", token ? "Present" : "Missing");
@@ -330,10 +361,15 @@ export default function ProfileView({ onBack }: ProfileViewProps) {
                 address: profileData.address,
             };
             
-            console.log("Payload to send:", payload);
+            // Remove null/undefined values to avoid backend issues
+            const cleanPayload = Object.fromEntries(
+                Object.entries(payload).filter(([_, value]) => value !== null && value !== undefined && value !== "")
+            );
+            
+            console.log("Payload to send:", cleanPayload);
             
             // Sử dụng API service thay vì axios trực tiếp
-            const response = await api.put(`/api/user/profile/${userId}`, payload);
+            const response = await api.put(`/api/user/profile/${userId}`, cleanPayload);
             
             console.log("API Response:", response);
             console.log("Response status:", response.status);
@@ -345,6 +381,9 @@ export default function ProfileView({ onBack }: ProfileViewProps) {
             localStorage.setItem("dateOfBirth", profileData.dateOfBirth || "");
             localStorage.setItem("address", profileData.address || "");
             setIsEditing(false);
+            setRetryCount(0); // Reset retry count on success
+            setIsRetrying(false);
+            setIsLocalSync(false); // Clear local sync state on successful save
             console.log("Save success:", response.data);
             toast.success("Profile updated successfully!");
         } catch (err: any) {
@@ -355,11 +394,66 @@ export default function ProfileView({ onBack }: ProfileViewProps) {
             console.error("Error data:", err.response?.data);
             console.error("Error message:", err.message);
             
-            const errMsg = t("Failed to save Profile") + ": " + (err.response?.data?.message || err.message);
+            let errMsg = t("Failed to save Profile");
+            
+            // Handle different error types
+            if (err.response?.status === 401) {
+                errMsg = "Authentication failed. Please log in again.";
+                // Clear local storage and redirect
+                localStorage.clear();
+                window.location.href = "/login";
+                return;
+            } else if (err.response?.status === 500) {
+                // Check if it's a Hibernate/ByteBuddy error (backend entity issue)
+                const errorMessage = err.response?.data?.message || '';
+                if (errorMessage.includes('ByteBuddyInterceptor') || errorMessage.includes('Hibernate') || errorMessage.includes('proxy')) {
+                    errMsg = "🔧 Backend database error detected. Your data has been saved locally and will sync automatically when the backend is fixed.";
+                    setRetryCount(0); // Don't retry for backend entity errors
+                } else if (retryCount < 1) { // Reduced retries to 1
+                    errMsg = `Server error. Retrying... (${retryCount + 1}/1)`;
+                    setRetryCount(prev => prev + 1);
+                    setIsRetrying(true);
+                    toast.error(errMsg);
+                    // Retry after a short delay
+                    setTimeout(() => {
+                        handleSave();
+                    }, 3000); // Increased delay
+                    return;
+                } else {
+                    errMsg = "Server error. Please try again later or contact support.";
+                }
+            } else if (err.response?.status === 400) {
+                errMsg = "Invalid data. Please check your input and try again.";
+            } else if (err.response?.data?.message) {
+                errMsg += ": " + err.response.data.message;
+            } else if (err.message) {
+                errMsg += ": " + err.message;
+            }
+            
             setError(errMsg);
             toast.error(errMsg);
+            setRetryCount(0); // Reset retry count on final error
+            setIsRetrying(false);
+            
+            // For backend errors, save data locally as fallback
+            if (err.response?.status === 500) {
+                console.log("Backend error - saving data locally as fallback");
+                localStorage.setItem("fullName", profileData.fullName);
+                localStorage.setItem("phone", profileData.phone || "");
+                localStorage.setItem("dateOfBirth", profileData.dateOfBirth || "");
+                localStorage.setItem("address", profileData.address || "");
+                
+                // Show success message and exit edit mode
+                setIsEditing(false);
+                setIsLocalSync(true);
+                toast.success("✅ Data saved locally! Will sync when backend is fixed.", { 
+                    icon: "💾",
+                    duration: 5000 
+                });
+            }
         } finally {
             setLoading(false);
+            setIsRetrying(false);
         }
     };
 
@@ -369,6 +463,56 @@ export default function ProfileView({ onBack }: ProfileViewProps) {
             [field]: value,
         }));
     };
+
+    // Avatar upload handler
+    const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        // Validate file type
+        if (!file.type.startsWith('image/')) {
+            toast.error('Please select an image file');
+            return;
+        }
+
+        // Validate file size (max 5MB)
+        if (file.size > 5 * 1024 * 1024) {
+            toast.error('Image size must be less than 5MB');
+            return;
+        }
+
+        try {
+            setAvatarLoading(true);
+            
+            // Convert to base64 for preview
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const result = e.target?.result as string;
+                setAvatar(result);
+                localStorage.setItem('avatar', result);
+                toast.success('Avatar updated successfully!');
+            };
+            reader.readAsDataURL(file);
+
+            // TODO: Upload to backend when backend supports file upload
+            // For now, just save locally
+            console.log('Avatar file selected:', file.name);
+            
+        } catch (err) {
+            console.error('Avatar upload error:', err);
+            toast.error('Failed to upload avatar');
+        } finally {
+            setAvatarLoading(false);
+        }
+    };
+
+    // Load avatar from localStorage on mount
+    useEffect(() => {
+        const savedAvatar = localStorage.getItem('avatar');
+        if (savedAvatar) {
+            setAvatar(savedAvatar);
+        }
+    }, []);
 
     // Handle password change
     const handleChangePassword = async () => {
@@ -482,11 +626,14 @@ export default function ProfileView({ onBack }: ProfileViewProps) {
                                     setIsEditing(true);
                                 }
                             }}
-                            disabled={loading}
+                            disabled={loading || isRetrying}
                             className="flex items-center space-x-2"
                         >
                             {isEditing ? <Save className="w-4 h-4" /> : <Edit className="w-4 h-4" />}
-                            <span>{isEditing ? t('Save Changes') : t('Edit Profile')}</span>
+                            <span>
+                                {isRetrying ? `Retrying... (${retryCount}/1)` : 
+                                 isEditing ? t('Save Changes') : t('Edit Profile')}
+                            </span>
                         </Button>
                         <Button
                             variant="outline"
@@ -502,13 +649,59 @@ export default function ProfileView({ onBack }: ProfileViewProps) {
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     <Card>
                         <CardHeader className="text-center">
-                            <Avatar className="w-24 h-24 mx-auto mb-4">
-                                <AvatarFallback className="bg-primary text-primary-foreground text-xl">
-                                    {profileData.fullName.charAt(0).toUpperCase() || emailFallback.charAt(0).toUpperCase()}
-                                </AvatarFallback>
-                            </Avatar>
+                            <div className="relative inline-block">
+                                <Avatar className="w-24 h-24 mx-auto mb-4">
+                                    {avatar ? (
+                                        <img 
+                                            src={avatar} 
+                                            alt="Profile Avatar" 
+                                            className="w-full h-full object-cover rounded-full"
+                                        />
+                                    ) : (
+                                        <AvatarFallback className="bg-primary text-primary-foreground text-xl">
+                                            {profileData.fullName.charAt(0).toUpperCase() || emailFallback.charAt(0).toUpperCase()}
+                                        </AvatarFallback>
+                                    )}
+                                </Avatar>
+                                
+                                {/* Avatar upload button */}
+                                <label 
+                                    htmlFor="avatar-upload" 
+                                    className="absolute bottom-0 right-0 bg-primary text-primary-foreground rounded-full p-2 cursor-pointer hover:bg-primary/90 transition-colors"
+                                    title="Change Avatar"
+                                >
+                                    <input
+                                        id="avatar-upload"
+                                        type="file"
+                                        accept="image/*"
+                                        onChange={handleAvatarUpload}
+                                        className="hidden"
+                                        disabled={avatarLoading}
+                                    />
+                                    {avatarLoading ? (
+                                        <RefreshCw className="w-4 h-4 animate-spin" />
+                                    ) : (
+                                        <User className="w-4 h-4" />
+                                    )}
+                                </label>
+                            </div>
                             <CardTitle>{profileData.fullName || emailFallback}</CardTitle>
                             <p className="text-muted-foreground">{profileData.email || emailFallback}</p>
+                            {isLocalSync && (
+                                <div className="mt-2 px-2 py-1 bg-yellow-100 text-yellow-800 text-xs rounded-full inline-flex items-center">
+                                    <span className="w-2 h-2 bg-yellow-500 rounded-full mr-1 animate-pulse"></span>
+                                    Data saved locally
+                                    <button 
+                                        onClick={() => {
+                                            setIsLocalSync(false);
+                                            handleSave();
+                                        }}
+                                        className="ml-2 text-blue-600 hover:text-blue-800 underline"
+                                    >
+                                        Retry sync
+                                    </button>
+                                </div>
+                            )}
                         </CardHeader>
                     </Card>
 

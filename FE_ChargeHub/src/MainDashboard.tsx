@@ -23,7 +23,7 @@ import { useLanguage } from "./contexts/LanguageContext";
 import ProfileView from "./components/ProfileView";
 import VehicleView from "./components/VehicleView";
 import SubscriptionView from "./components/SubscriptionView";
-import { logoutUser, getUnreadNotificationCount } from "./services/api";
+import { logoutUser, getUnreadNotificationCount, getNotifications } from "./services/api";
 import { toast } from "sonner";
 
 import Footer from "./components/Footer";
@@ -57,10 +57,24 @@ export default function MainDashboard({ onLogout, onBooking, onHistory, onAnalys
       console.log("Loading notification count...");
       
       try {
-        const count = await getUnreadNotificationCount();
-        console.log("Notification count loaded:", count);
-        setUnreadNotificationCount(count);
-        console.log("Set unreadNotificationCount to:", count);
+        // Get all notifications and calculate unread count locally
+        const notifications = await getNotifications();
+        const localCount = notifications.filter(n => !n.isRead).length;
+        
+        console.log("Total notifications:", notifications.length);
+        console.log("Unread count (local calculation):", localCount);
+        
+        // Also get API count for comparison
+        try {
+          const apiCount = await getUnreadNotificationCount();
+          console.log("API count:", apiCount);
+          console.log("Difference:", localCount - apiCount);
+        } catch (apiErr) {
+          console.log("API count failed, using local calculation");
+        }
+        
+        setUnreadNotificationCount(localCount);
+        console.log("Set unreadNotificationCount to:", localCount);
       } catch (error) {
         console.error("=== NOTIFICATION COUNT ERROR ===");
         console.error("Error loading notification count:", error);

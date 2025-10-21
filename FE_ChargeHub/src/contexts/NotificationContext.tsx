@@ -50,10 +50,22 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
       // Update unread count
       const count = fetchedNotifications.filter(n => !n.isRead).length;
       setUnreadCount(count);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error loading notifications:', err);
+      
+      // Handle 401 errors gracefully
+      if (err.response?.status === 401) {
+        console.log('401 error in notifications - user will be redirected to login');
+        setNotifications([]);
+        setUnreadCount(0);
+        return;
+      }
+      
       setError('Failed to load notifications');
-      toast.error('Failed to load notifications');
+      // Don't show error toast for 401 as user will be redirected
+      if (err.response?.status !== 401) {
+        toast.error('Failed to load notifications');
+      }
     } finally {
       setLoading(false);
     }
@@ -69,10 +81,34 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
         return;
       }
       
-      const count = await getUnreadNotificationCount();
-      setUnreadCount(count);
-    } catch (err) {
+      // Instead of relying on API count, calculate from actual notifications
+      const fetchedNotifications = await getNotifications();
+      const localCount = fetchedNotifications.filter(n => !n.isRead).length;
+      
+      console.log("=== FRONTEND NOTIFICATION COUNT DEBUG ===");
+      console.log("Total notifications fetched:", fetchedNotifications.length);
+      console.log("Unread notifications (local calculation):", localCount);
+      
+      // Also get API count for comparison
+      try {
+        const apiCount = await getUnreadNotificationCount();
+        console.log("API count:", apiCount);
+        console.log("Difference:", localCount - apiCount);
+      } catch (apiErr) {
+        console.log("API count failed, using local calculation");
+      }
+      
+      setUnreadCount(localCount);
+    } catch (err: any) {
       console.error('Error getting unread count:', err);
+      
+      // Handle 401 errors gracefully
+      if (err.response?.status === 401) {
+        console.log('401 error in unread count - user will be redirected to login');
+        setUnreadCount(0);
+        return;
+      }
+      
       // Don't show error toast for unread count as it's not critical
       // Reset to 0 if there's an error
       setUnreadCount(0);

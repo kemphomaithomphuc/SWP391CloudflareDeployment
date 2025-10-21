@@ -58,6 +58,11 @@ export default function NotificationView({ onBack }: NotificationViewProps) {
     const unread = notifications.filter(n => !n.isRead).length;
     const actionRequired = notifications.filter(n => n.requiresAction && !n.isRead).length;
     
+    console.log("=== NOTIFICATION VIEW COUNT DEBUG ===");
+    console.log("Total notifications:", total);
+    console.log("Unread notifications:", unread);
+    console.log("Action required:", actionRequired);
+    
     setNotificationCounts({
       total,
       unread,
