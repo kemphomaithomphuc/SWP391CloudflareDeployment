@@ -45,6 +45,7 @@ import ChargingSessionView from "./components/ChargingSessionView";
 import StationManagementView from "./components/StationManagementView";
 import PremiumSubscriptionView from "./components/PremiumSubscriptionView";
 import { access } from "fs";
+import { checkAndRefreshToken } from "./services/api";
 
 type ViewType = "login" | "register" | "roleSelection" | "profileSetup" | "vehicleSetup" | "staffProfileSetup" | "educationSetup" | "dashboard" | "staffLogin" | "staffDashboard" | "staffHome" | "adminLogin" | "adminDashboard" | "systemConfig" | "adminMap" | "revenue" | "staffManagement" | "usageAnalytics" | "booking" | "history" | "analysis" | "reportIssue" | "wallet" | "notifications" | "staffNotifications" | "postActivating" | "adminChargerPostActivating" | "myBookings" | "chargingSession" | "stationManagement" | "premiumSubscription";
 
@@ -233,6 +234,21 @@ function AppContent() {
   }, []);
   //Phần này Minh thêm, chạy không được thì comment block hoặc xóa
 
+  // Token refresh check - runs every 5 minutes
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+
+    // Check token immediately
+    checkAndRefreshToken();
+
+    // Set up interval to check token every 5 minutes
+    const interval = setInterval(() => {
+      checkAndRefreshToken();
+    }, 5 * 60 * 1000); // 5 minutes
+
+    return () => clearInterval(interval);
+  }, []);
 
   // Render current view based on state
   const renderContent = () => {
