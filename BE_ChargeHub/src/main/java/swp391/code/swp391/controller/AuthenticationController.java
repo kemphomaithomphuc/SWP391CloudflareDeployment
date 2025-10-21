@@ -65,13 +65,7 @@ public class AuthenticationController {
             return ResponseEntity.badRequest().body(APIResponse.error("Logout failed: " + e.getMessage()));
         }
     }
-    /**
-     * Social login endpoint
-     * URL: /api/auth/social/login
-     * Method: GET
-     * Query Parameter: loginType (e.g., google, facebook)
-     * Response: JSON containing success status, message, and redirect URL or error message
-     */
+
     @GetMapping("/social/login") //?loginType=google
     public ResponseEntity<APIResponse<String>> socialLogin(@RequestParam String loginType) {
         loginType = loginType.trim().toLowerCase();
@@ -80,13 +74,6 @@ public class AuthenticationController {
         return ResponseEntity.ok(APIResponse.success("Redirect to social platform", url));
     }
 
-    /**
-     * Social login callback endpoint
-     * URL: /api/auth/social/callback
-     * Method: GET
-     * Query Parameters: code (authorization code), login_type (e.g., google, facebook)
-     * Response: JSON containing success status, message, and tokens or error message
-     */
     @GetMapping("/social/callback")
     public ResponseEntity<APIResponse<LoginResponseDTO>> socialCallback(@RequestParam("code") String code,
                                                                         @RequestParam("state") String loginType) {

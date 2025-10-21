@@ -329,13 +329,12 @@ export const getCurrentUserId = async (): Promise<APIResponse<number>> => {
 // ===== NOTIFICATION API TYPES =====
 
 export interface Notification {
-  id: number;
+  notificationId: number;
   title: string;
-  message: string;
-  type: string;
+  content: string;
+  sentTime: string;
+  type: "BOOKING" | "PAYMENT" | "ISSUE" | "GENERAL" | "PENALTY";
   isRead: boolean;
-  createdAt: string;
-  updatedAt: string;
   userId: number;
 }
 
@@ -380,6 +379,16 @@ export const markNotificationAsRead = async (notificationId: number): Promise<vo
 // Mark all notifications as read
 export const markAllNotificationsAsRead = async (): Promise<void> => {
   await api.put('/api/notifications/mark-all-read');
+};
+
+// Create a new notification
+export const createNotification = async (notificationData: {
+  title: string;
+  content: string;
+  type: 'booking' | 'payment' | 'issue' | 'penalty' | 'general' | 'invoice' | 'late_arrival' | 'charging_complete' | 'overstay_warning' | 'report_success' | 'booking_confirmed';
+}): Promise<Notification> => {
+  const response = await api.post<Notification>('/api/notifications', notificationData);
+  return response.data;
 };
 
 export default api;

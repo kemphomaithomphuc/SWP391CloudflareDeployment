@@ -32,6 +32,12 @@ public class CustomUserDetails implements UserDetails { //không phải entity, 
         return userIdentifier;
     } // Trả về email hoặc phone tùy theo userIdentifier đã được set
 
+    public Long getUserId() {
+        return user.getUserId();
+    }
+    public String getEmail() {
+        return user.getEmail();
+    }
     @Override
     public boolean isAccountNonExpired() {
         return true;

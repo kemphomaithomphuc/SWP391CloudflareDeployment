@@ -6,6 +6,7 @@ import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Avatar, AvatarFallback } from "./ui/avatar";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
+import PasswordInput from "./ui/PasswordInput";
 import { useLanguage } from "../contexts/LanguageContext";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "./ui/dialog";
 import { Mail } from "lucide-react";
@@ -127,9 +128,24 @@ export default function ProfileView({ onBack }: ProfileViewProps) {
         try {
             setEmailChangeLoading(true);
             setEmailChangeError(null);
+            
+            // Get current user email from profile data
+            const currentUserEmail = profileData?.email;
+            console.log("Current user email from profile:", currentUserEmail);
+            console.log("New email to change to:", newEmailInput);
+            
+            if (!currentUserEmail) {
+                setEmailChangeError("Cannot get current user email from profile");
+                toast.error("Cannot get current user email from profile");
+                return;
+            }
+            
             await axios.post(
                 "http://localhost:8080/api/otp/send/email-change",
-                { email: newEmailInput },
+                { 
+                    email: newEmailInput,
+                    currentUserEmail: currentUserEmail  // Send current user email to help backend identify user
+                },
                 { headers: { Authorization: `Bearer ${token}` } }
             );
             setEmailOtpSent(true);
@@ -624,9 +640,8 @@ export default function ProfileView({ onBack }: ProfileViewProps) {
                                 <Label htmlFor="oldPassword" className="text-sm font-medium">
                                     {t("Old Password")}
                                 </Label>
-                                <Input
+                                <PasswordInput
                                     id="oldPassword"
-                                    type="password"
                                     value={oldPassword}
                                     onChange={(e) => setOldPassword(e.target.value)}
                                     placeholder="Enter current password"
@@ -638,9 +653,8 @@ export default function ProfileView({ onBack }: ProfileViewProps) {
                                 <Label htmlFor="newPassword" className="text-sm font-medium">
                                     {t("New Password")}
                                 </Label>
-                                <Input
+                                <PasswordInput
                                     id="newPassword"
-                                    type="password"
                                     value={newPassword}
                                     onChange={(e) => setNewPassword(e.target.value)}
                                     placeholder="Enter new password"
@@ -652,9 +666,8 @@ export default function ProfileView({ onBack }: ProfileViewProps) {
                                 <Label htmlFor="confirmPassword" className="text-sm font-medium">
                                     {t("Confirm Password")}
                                 </Label>
-                                <Input
+                                <PasswordInput
                                     id="confirmPassword"
-                                    type="password"
                                     value={confirmPassword}
                                     onChange={(e) => setConfirmPassword(e.target.value)}
                                     placeholder="Confirm new password"

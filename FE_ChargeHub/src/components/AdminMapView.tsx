@@ -2200,7 +2200,47 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
         if (!mapContainerRef.current || __mapRef.current) return;
 
         try {
-            const customStyleUrl = `https://api.maptiler.com/maps/019983ed-809a-7bba-8d9b-f5f42a71219e/style.json?key=${import.meta.env.VITE_MAPTILER_API_KEY}`;
+            // Check for API key
+            const apiKey = import.meta.env.VITE_MAPTILER_API_KEY;
+            if (!apiKey || apiKey === "get_your_free_key_from_maptiler_cloud") {
+                console.warn("VITE_MAPTILER_API_KEY not configured, using basic map fallback");
+                
+                // Use OpenStreetMap as fallback
+                const map = new maptilersdk.Map({
+                    container: mapContainerRef.current,
+                    style: {
+                        version: 8,
+                        sources: {
+                            'osm': {
+                                type: 'raster',
+                                tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
+                                tileSize: 256,
+                                attribution: '© OpenStreetMap contributors'
+                            }
+                        },
+                        layers: [{
+                            id: 'osm',
+                            type: 'raster',
+                            source: 'osm'
+                        }]
+                    },
+                    center: defaultCenterLngLat,
+                    zoom: mapZoom,
+                    hash: false,
+                });
+                
+                __mapRef.current = map;
+                
+                // Add basic event handlers
+                map.on('load', () => {
+                    console.log("Admin map loaded with fallback style");
+                });
+                
+                return;
+            }
+            
+            // Use configured API key
+            const customStyleUrl = `https://api.maptiler.com/maps/019983ed-809a-7bba-8d9b-f5f42a71219e/style.json?key=${apiKey}`;
             const map = new maptilersdk.Map({
                 container: mapContainerRef.current,
                 style: customStyleUrl,

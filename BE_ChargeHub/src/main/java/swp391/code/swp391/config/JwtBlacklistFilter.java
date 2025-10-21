@@ -30,7 +30,6 @@ public class JwtBlacklistFilter extends OncePerRequestFilter {
                 return;
             }
         }
-
         filterChain.doFilter(request, response);
     }
 }
