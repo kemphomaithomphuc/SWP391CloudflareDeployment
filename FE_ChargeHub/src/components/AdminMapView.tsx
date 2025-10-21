@@ -48,10 +48,18 @@ interface ConnectorType {
 
 interface ChargingPoint {
     chargingPointId: number;
-    typeName: string;
     status: string;
+    connectorTypeId: number;
+    stationId: number;
     powerOutput: number;
     pricePerKwh: number;
+    typeName?: string; // Add typeName for backward compatibility
+    connectorType?: {
+        connectorTypeId: number;
+        typeName: string;
+        powerOutput: number;
+        pricePerKwh: number;
+    } | undefined;
     station?: {
         stationId: number;
         stationName: string;
@@ -61,7 +69,7 @@ interface ChargingPoint {
         longitude: number;
         chargingPoint: any;
         chargingPointNumber: number;
-    };
+    } | undefined;
 }
 
 interface ChargingStation {
@@ -203,6 +211,10 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
     const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+    const [isDeleteConnectorDialogOpen, setIsDeleteConnectorDialogOpen] = useState(false);
+    const [connectorToDelete, setConnectorToDelete] = useState<{ id: string; name: string } | null>(null);
+    const [carModels, setCarModels] = useState<Array<{ carModelId: number; brand: string; model: string; connectorTypeId: number }>>([]);
+    const [isCarModelsLoading, setIsCarModelsLoading] = useState(false);
     const [searchQuery, setSearchQuery] = useState("");
     const [statusFilter, setStatusFilter] = useState<string>("all");
     const [mapCenter, setMapCenter] = useState({ lat: 10.7769, lng: 106.7009 });
@@ -367,39 +379,26 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
         try {
             const list = await fetchChargingStations();
             if (list) {
-                // Fetch connector type details for each station
-                const stationsWithConnectorDetails = await Promise.all(
+                // Fetch complete station details using fetchChargingPointsByStationId for each station
+                const stationsWithCompleteDetails = await Promise.all(
                     list.map(async (station) => {
-                        if (station.connectorTypes && station.connectorTypes.length > 0) {
-                            const updatedConnectorTypes = await Promise.all(
-                                station.connectorTypes.map(async (connector) => {
-                                    // Assuming connector has a connectorTypeId field
-                                    if (connector.connectorTypeId) {
-                                        const connectorDetails = await fetchConnectorTypeById(connector.connectorTypeId);
-                                        if (connectorDetails) {
-                                            return {
-                                                ...connector,
-                                                typeName: connectorDetails.typeName,
-                                                powerOutput: connectorDetails.powerOutput,
-                                                pricePerKwh: connectorDetails.pricePerKwh,
-                                                vehicles: connectorDetails.vehicles
-                                            };
-                                        }
-                                    }
-                                    return connector;
-                                })
-                            );
-                            return {
-                                ...station,
-                                connectorTypes: updatedConnectorTypes
-                            };
+                        try {
+                            // Use fetchChargingPointsByStationId to get complete station data with connector types
+                            const detailedStation = await fetchChargingPointsByStationId(station.id);
+                            if (detailedStation) {
+                                return detailedStation;
+                            }
+                            // Fallback to original station if detailed fetch fails
+                            return station;
+                        } catch (error) {
+                            console.error(`Error fetching details for station ${station.id}:`, error);
+                            return station;
                         }
-                        return station;
                     })
                 );
 
-                setStations(stationsWithConnectorDetails);
-                console.log("Station List with Connector Details: ", stationsWithConnectorDetails);
+                setStations(stationsWithCompleteDetails);
+                console.log("Station List with Complete Details: ", stationsWithCompleteDetails);
             } else {
                 console.warn("Can not receive the station list");
             }
@@ -429,6 +428,40 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                 err?.response?.data?.message || "Lấy danh sách loại cổng sạc thất bại. Vui lòng thử lại.";
             toast.error(msg);
             return null;
+        }
+    };
+
+    const fetchCarModels = async (): Promise<Array<{ carModelId: number; brand: string; model: string; connectorTypeId: number }> | null> => {
+        if (isCarModelsLoading) return null;
+        
+        setIsCarModelsLoading(true);
+        try {
+            const res = await axios.get("http://localhost:8080/api/carModel");
+            
+            if (res.status === 200 && res.data.success) {
+                console.log("Car Models API Response:", res.data);
+                // Filter out invalid entries (where brand or model is null)
+                const validModels = res.data.data.filter((model: any) => 
+                    model.brand && model.model && model.brand !== null && model.model !== null
+                );
+                
+                const carModelsData = validModels.map((model: any) => ({
+                    carModelId: model.carModelId,
+                    brand: model.brand,
+                    model: model.model,
+                    connectorTypeId: model.connectorTypeIds?.[0] || 0 // Take first connector type ID
+                }));
+                
+                setCarModels(carModelsData);
+                return carModelsData;
+            }
+            
+            return null;
+        } catch (err: any) {
+            console.error("Error fetching car models:", err);
+            return null;
+        } finally {
+            setIsCarModelsLoading(false);
         }
     };
 
@@ -482,6 +515,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
         handleGetStationList();
         fetchMapTilerPOIs();
         handleGetConnectorList();
+        fetchCarModels();
     }, []);
 
     // Đảm bảo search control hiển thị sau khi map load
@@ -900,6 +934,119 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
             post.id === id ? { ...post, [field]: value } : post
         ));
     };
+
+
+    const fetchChargingPointsByStationId = async (stationId: string): Promise<ChargingStation | null> => {
+        try {
+            const res = await axios.get(`http://localhost:8080/api/charging-points/station/${stationId}`);
+            
+            if (res.status === 200 && Array.isArray(res.data) && res.data.length > 0) {
+                console.log("Charging Points by Station ID API Response:", res.data);
+                
+                // Get station info from the first charging point's station data
+                const firstPoint = res.data[0];
+                const stationData = firstPoint.station;
+                
+                // Calculate available and total points
+                const totalPoints = res.data.length;
+                const availablePoints = res.data.filter(point => point.status === 'AVAILABLE').length;
+                
+                // Process connector types from charging points
+                const connectorTypesMap = new Map<string, ConnectorType>();
+                
+                res.data.forEach((point: any) => {
+                    const connectorType = point.connectorType;
+                    const typeName = connectorType?.typeName || 'Unknown';
+                    const existing = connectorTypesMap.get(typeName);
+                    
+                    if (existing) {
+                        existing.total += 1;
+                        if (point.status === 'AVAILABLE') {
+                            existing.available += 1;
+                        }
+                    } else {
+                        connectorTypesMap.set(typeName, {
+                            type: typeName,
+                            available: point.status === 'AVAILABLE' ? 1 : 0,
+                            total: 1,
+                            power: `${connectorType?.powerOutput || 0}kW`,
+                            connectorTypeId: connectorType?.connectorTypeId,
+                            typeName: typeName,
+                            powerOutput: connectorType?.powerOutput,
+                            pricePerKwh: connectorType?.pricePerKwh
+                        });
+                    }
+                });
+                
+                const connectorTypes = Array.from(connectorTypesMap.values());
+                
+                // Map charging points to the expected format
+                const chargingPoints: ChargingPoint[] = res.data.map((point: any) => ({
+                    chargingPointId: point.chargingPointId,
+                    status: point.status,
+                    connectorTypeId: point.connectorTypeId,
+                    stationId: point.stationId,
+                    powerOutput: point.connectorType?.powerOutput || point.powerOutput || 0,
+                    pricePerKwh: point.connectorType?.pricePerKWh || point.pricePerKwh || 0,
+                    typeName: point.connectorType?.typeName,
+                    connectorType: point.connectorType ? {
+                        connectorTypeId: point.connectorType.connectorTypeId,
+                        typeName: point.connectorType.typeName,
+                        powerOutput: point.connectorType.powerOutput,
+                        pricePerKwh: point.connectorType.pricePerKwh
+                    } : undefined,
+                    station: point.station ? {
+                        stationId: point.station.stationId,
+                        stationName: point.station.stationName,
+                        address: point.station.address,
+                        status: point.station.status,
+                        latitude: point.station.latitude,
+                        longitude: point.station.longitude,
+                        chargingPoint: point.station.chargingPoint,
+                        chargingPointNumber: point.station.chargingPointNumber
+                    } : undefined
+                }));
+                
+                // Create the station object with all details
+                const station: ChargingStation = {
+                    id: String(stationData.stationId || stationId),
+                    name: stationData.stationName || 'Unknown Station',
+                    address: stationData.address || '',
+                    latitude: stationData.latitude || 0,
+                    longitude: stationData.longitude || 0,
+                    status: stationData.status || 'INACTIVE',
+                    totalPoints: totalPoints,
+                    availablePoints: availablePoints,
+                    connectorTypes: connectorTypes,
+                    chargingPoints: chargingPoints,
+                    chargingPointNumber: stationData.chargingPointNumber || totalPoints,
+                    pricing: {
+                        standard: 0,
+                        fast: 0,
+                        rapid: 0
+                    },
+                    operatingHours: '24/7',
+                    contactPhone: '',
+                    contactEmail: '',
+                    lastMAINTENANCE: '',
+                    nextMAINTENANCE: '',
+                    revenue: {
+                        daily: 0,
+                        monthly: 0
+                    }
+                };
+                
+                return station;
+            }
+            
+            throw new Error("Không thể lấy thông tin trạm sạc");
+        } catch (err: any) {
+            const msg = err?.response?.data?.message || "Lấy thông tin trạm sạc thất bại. Vui lòng thử lại.";
+            console.error("Error fetching charging points by station ID:", err);
+            toast.error(msg);
+            return null;
+        }
+    }
 
     // ========= PORT TYPE MANAGEMENT FUNCTIONS =========
 
@@ -1505,60 +1652,79 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
             return connectorType?.connectorId === connectorId;
         });
 
-        return isUsedInStations || isUsedInForm;
+        // Check in car models
+        const isUsedInCarModels = carModels.some(carModel => 
+            carModel.connectorTypeId === Number(connectorId)
+        );
+
+        return isUsedInStations || isUsedInForm || isUsedInCarModels;
     };
 
-    // Get detailed information about which stations are using this connector type
-    const getConnectorUsageDetails = (connectorId: string): string[] => {
-        const usageDetails: string[] = [];
+    // Get usage count information for this connector type
+    const getConnectorUsageDetails = (connectorId: string): { chargingPoints: number; carModels: number } => {
+        let chargingPointsCount = 0;
+        let carModelsCount = 0;
 
-        // Check in all stations from API data
+        // Count charging points in all stations from API data
         stations.forEach(station => {
             station.chargingPoints?.forEach(point => {
                 const connectorType = newPortTypes.find(type =>
                     type.name === point.typeName && type.connectorId === connectorId
                 );
                 if (connectorType) {
-                    usageDetails.push(`Trạm ${station.name} - Trụ sạc ${point.chargingPointId}`);
+                    chargingPointsCount++;
                 }
             });
         });
 
-        // Check in current form's charging posts
-        chargingPosts.forEach((post, index) => {
+        // Count charging points in current form's charging posts
+        chargingPosts.forEach((post) => {
             const connectorType = newPortTypes.find(type => type.name === post.connectorType);
             if (connectorType?.connectorId === connectorId) {
-                usageDetails.push(`Form hiện tại - Trụ sạc #${index + 1}`);
+                chargingPointsCount++;
             }
         });
 
-        return usageDetails;
+        // Count car models using this connector type
+        carModels.forEach(carModel => {
+            if (carModel.connectorTypeId === Number(connectorId)) {
+                carModelsCount++;
+            }
+        });
+
+        return { chargingPoints: chargingPointsCount, carModels: carModelsCount };
     };
 
-    const handleDeletingConnectorType = async (connectorId: string) => {
+    const handleDeletingConnectorType = (connectorId: string) => {
         console.log("Starting deletion for connector type:", connectorId);
 
-        // Check if connector type is in use
-        if (isConnectorTypeInUse(connectorId)) {
-            const usageDetails = getConnectorUsageDetails(connectorId);
-            const detailsText = usageDetails.length > 0 ? `\nĐang được sử dụng bởi: ${usageDetails.join(', ')}` : '';
-            toast.error(`Không thể xóa loại cổng sạc này vì đang được sử dụng bởi ít nhất một trụ sạc trong hệ thống!${detailsText}`);
-            return;
+        // Find the connector type name
+        const connectorType = portTypes.find(ct => ct.connectorId === connectorId);
+        if (connectorType) {
+            setConnectorToDelete({ id: connectorId, name: connectorType.name });
+            setIsDeleteConnectorDialogOpen(true);
         }
+    };
+
+    const confirmDeleteConnectorType = async () => {
+        if (!connectorToDelete) return;
 
         try {
-            const success = await callApiForConnectorDeleting(connectorId);
+            const success = await callApiForConnectorDeleting(connectorToDelete.id);
             console.log("Deletion success:", success);
             if (!success) return;
 
             // Update state to remove the connector type
             console.log("Removing connector type from state...");
-            setPortTypes((prev) => prev.filter((connector) => connector.connectorId !== connectorId));
+            setPortTypes((prev) => prev.filter((connector) => connector.connectorId !== connectorToDelete.id));
 
             toast.success("Xóa loại cổng sạc thành công!");
         } catch (err) {
             console.error("Error deleting connector:", err);
             toast.error("Lỗi khi xóa loại cổng sạc. Vui lòng thử lại.");
+        } finally {
+            setIsDeleteConnectorDialogOpen(false);
+            setConnectorToDelete(null);
         }
     };
 
@@ -1616,38 +1782,47 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
     const handleEditStation = async () => {
         if (selectedStation) {
+            // First set basic info for immediate UI response
             setStationName(selectedStation.name);
             setAddress(selectedStation.address);
             setLatitude(selectedStation.latitude);
             setLongitude(selectedStation.longitude);
             setStatus(selectedStation.status);
 
-            // Load existing charging points from API
+            // Fetch complete station details using the new method
             try {
-                const points = await fetchChargingPoints();
-                if (points) {
-                    // Filter charging points for this specific station
-                    const stationPoints = points.filter(point =>
-                        point.station?.stationId === Number(selectedStation.id)
-                    );
+                const detailedStation = await fetchChargingPointsByStationId(selectedStation.id);
+                if (detailedStation) {
+                    // Update the selected station with complete details
+                    setSelectedStation(detailedStation);
+                    
+                    // Use the detailed station data for form fields
+                    setStationName(detailedStation.name);
+                    setAddress(detailedStation.address);
+                    setLatitude(detailedStation.latitude);
+                    setLongitude(detailedStation.longitude);
+                    setStatus(detailedStation.status);
 
-                    if (stationPoints.length > 0) {
-                        const existingPosts = stationPoints.map((point) => ({
+                    // Load charging points from the detailed station data
+                    if (detailedStation.chargingPoints && detailedStation.chargingPoints.length > 0) {
+                        const existingPosts = detailedStation.chargingPoints.map((point: ChargingPoint) => ({
                             id: `post-${point.chargingPointId}`,
-                            connectorType: point.station?.chargingPoint?.[0]?.connectorType?.typeName || "Unknown",
-                            power: point.station?.chargingPoint?.[0]?.connectorType?.powerOutput?.toString() || "0",
-                            price: point.station?.chargingPoint?.[0]?.connectorType?.pricePerKwh?.toString() || "0",
+                            connectorType: point.typeName || point.connectorType?.typeName || "Unknown",
+                            power: point.powerOutput?.toString() || "0",
+                            price: point.pricePerKwh?.toString() || "0",
                             status: point.status
                         }));
+
                         setChargingPosts(existingPosts);
                     } else {
                         setChargingPosts([]);
                     }
                 } else {
+                    // If detailed fetch fails, keep original station data
                     setChargingPosts([]);
                 }
-            } catch (err) {
-                console.error("Error loading charging points:", err);
+            } catch (error) {
+                console.error("Error fetching detailed station information:", error);
                 setChargingPosts([]);
             }
 
@@ -1688,15 +1863,52 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
         }
     };
 
-    const handleStationClick = (station: ChargingStation) => {
+    const handleStationClick = async (station: ChargingStation) => {
+        // First set the basic station info for immediate UI response
         setSelectedStation(station);
         setSelectedStationPopup(station);
+        
+        // Then fetch complete station details using the new method
+        try {
+            const detailedStation = await fetchChargingPointsByStationId(station.id);
+            if (detailedStation) {
+                // Update the selected station with complete details
+                setSelectedStation(detailedStation);
+                setSelectedStationPopup(detailedStation);
+                
+                // Also update the station in the stations list
+                setStations(prev => prev.map(s => 
+                    s.id === station.id ? detailedStation : s
+                ));
+                
+                console.log("Station details updated with complete information:", detailedStation);
+            }
+        } catch (error) {
+            console.error("Error fetching detailed station information:", error);
+            // Keep the original station data if fetching fails
+        }
     };
 
     const handleViewAllChargingPoints = async (station: ChargingStation) => {
   setSelectedStationForAllPoints(station);
 
+  // Use the already loaded charging points from the station data (no API call needed)
+  if (station.chargingPoints && station.chargingPoints.length > 0) {
+    setAllChargingPoints(station.chargingPoints);
+    setIsAllChargingPointsDialogOpen(true);
+    return;
+  }
+
+  // Fallback: If no charging points in station data, try to fetch them
   try {
+    const detailedStation = await fetchChargingPointsByStationId(station.id);
+    if (detailedStation && detailedStation.chargingPoints) {
+      setAllChargingPoints(detailedStation.chargingPoints);
+      setIsAllChargingPointsDialogOpen(true);
+      return;
+    }
+
+    // Final fallback to original method
     const points = await fetchChargingPoints();
     if (!points) {
       setAllChargingPoints([]);
@@ -1921,18 +2133,6 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
     const poiMarkersRef = useRef<maptilersdk.Marker[]>([]);
     const defaultCenterLngLat: [number, number] = useMemo(() => [106.7009, 10.7769], []);
 
-    const handleZoomIn = () => {
-        setMapZoom((prev) => Math.min(prev + 1, 18));
-        __mapRef.current?.zoomIn();
-        toast.info("Phóng to bản đồ");
-    };
-
-    const handleZoomOut = () => {
-        setMapZoom((prev) => Math.max(prev - 1, 1));
-        __mapRef.current?.zoomOut();
-        toast.info("Thu nhỏ bản đồ");
-    };
-
 
     const handleChargerActivate = async (stationId: string) => {
         const success = await updateStationStatus(stationId, "ACTIVE");
@@ -2140,7 +2340,13 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                             <div className="relative port-types-popup-container">
                                 <Button
                                     variant="outline"
-                                    onClick={() => setShowPortTypesPopup(!showPortTypesPopup)}
+                                    onClick={async () => {
+                                        // Ensure car models are loaded before opening popup
+                                        if (carModels.length === 0) {
+                                            await fetchCarModels();
+                                        }
+                                        setShowPortTypesPopup(!showPortTypesPopup);
+                                    }}
                                     className="flex items-center space-x-2 bg-green-600 hover:bg-green-700 text-white border-green-600 hover:border-green-700"
                                 >
                                     <Plug className="w-4 h-4" />
@@ -2194,7 +2400,10 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                                                         {portType.connectorId && (
                                                             <Button
                                                                 onClick={() => handleDeletingConnectorType(portType.connectorId!)}
-                                                                className="h-8 w-8 p-0 text-red-400 hover:text-red-300 hover:bg-red-400/10"
+                                                                disabled={isCarModelsLoading}
+                                                                className={`h-8 w-8 p-0 text-red-400 hover:text-red-300 hover:bg-red-400/10 ${
+                                                                    isCarModelsLoading ? 'opacity-50 cursor-not-allowed' : ''
+                                                                }`}
                                                             >
                                                                 <Trash2 className="w-4 h-4" />
                                                             </Button>
@@ -3221,6 +3430,95 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                                                 </DialogContent>
                                             </Dialog>
 
+                                            {/* Connector Type Deletion Confirmation Dialog */}
+                                            <Dialog open={isDeleteConnectorDialogOpen} onOpenChange={setIsDeleteConnectorDialogOpen}>
+                                                <DialogContent className="bg-black border border-gray-600">
+                                                    <DialogHeader>
+                                                        <DialogTitle className="flex items-center space-x-2">
+                                                            <Trash2 className="w-5 h-5 text-red-400" />
+                                                            <span>Xác nhận xóa loại cổng sạc</span>
+                                                        </DialogTitle>
+                                                        <DialogDescription>
+                                                            Bạn có chắc chắn muốn xóa loại cổng sạc này? Hành động này không thể hoàn tác.
+                                                        </DialogDescription>
+                                                    </DialogHeader>
+                                                    
+                                                    {connectorToDelete && (() => {
+                                                        const isInUse = isConnectorTypeInUse(connectorToDelete.id);
+                                                        const usageCounts = isInUse ? getConnectorUsageDetails(connectorToDelete.id) : { chargingPoints: 0, carModels: 0 };
+                                                        
+                                                        return (
+                                                            <div className="space-y-4">
+                                                                <div className="p-4 bg-gray-900/50 rounded-lg border border-gray-700">
+                                                                    <div className="flex items-center space-x-2 mb-2">
+                                                                        <Plug className="w-4 h-4 text-green-400" />
+                                                                        <h4 className="font-medium text-white">{connectorToDelete.name}</h4>
+                                                                    </div>
+                                                                    <p className="text-sm text-gray-400">
+                                                                        Loại cổng sạc này sẽ bị xóa vĩnh viễn khỏi hệ thống.
+                                                                    </p>
+                                                                </div>
+                                                                
+                                                                {isInUse ? (
+                                                                    <div className="bg-red-900/20 border border-red-600/30 rounded-lg p-3">
+                                                                        <div className="flex items-start space-x-2">
+                                                                            <div className="w-5 h-5 text-red-400 mt-0.5">🚫</div>
+                                                                            <div className="text-sm text-red-200">
+                                                                                <p className="font-medium mb-1">Không thể xóa:</p>
+                                                                                <p className="mb-2">Loại cổng sạc này đang được sử dụng trong hệ thống.</p>
+                                                                                <div className="mt-2 space-y-1">
+                                                                                    {usageCounts.carModels > 0 && (
+                                                                                        <p className="text-xs">• {usageCounts.carModels} mẫu xe đang sử dụng</p>
+                                                                                    )}
+                                                                                    {usageCounts.chargingPoints > 0 && (
+                                                                                        <p className="text-xs">• {usageCounts.chargingPoints} trụ sạc đang sử dụng</p>
+                                                                                    )}
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                ) : (
+                                                                    <div className="bg-yellow-900/20 border border-yellow-600/30 rounded-lg p-3">
+                                                                        <div className="flex items-start space-x-2">
+                                                                            <div className="w-5 h-5 text-yellow-400 mt-0.5">⚠️</div>
+                                                                            <div className="text-sm text-yellow-200">
+                                                                                <p className="font-medium mb-1">Lưu ý quan trọng:</p>
+                                                                                <p>Đảm bảo rằng không có trụ sạc nào đang sử dụng loại cổng sạc này trước khi xóa.</p>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        );
+                                                    })()}
+                                                    
+                                                    <div className="flex justify-end space-x-2 mt-4">
+                                                        <Button 
+                                                            variant="outline" 
+                                                            type="button"
+                                                            onClick={() => {
+                                                                setIsDeleteConnectorDialogOpen(false);
+                                                                setConnectorToDelete(null);
+                                                            }}
+                                                        >
+                                                            Hủy
+                                                        </Button>
+                                                        <Button 
+                                                            variant="destructive" 
+                                                            type="button"
+                                                            onClick={confirmDeleteConnectorType}
+                                                            disabled={connectorToDelete ? isConnectorTypeInUse(connectorToDelete.id) : true}
+                                                            className={connectorToDelete && isConnectorTypeInUse(connectorToDelete.id) 
+                                                                ? "opacity-50 cursor-not-allowed" 
+                                                                : ""
+                                                            }
+                                                        >
+                                                            Xác nhận xóa
+                                                        </Button>
+                                                    </div>
+                                                </DialogContent>
+                                            </Dialog>
+
                                             {/* All Charging Points Dialog */}
                                             <Dialog open={isAllChargingPointsDialogOpen} onOpenChange={setIsAllChargingPointsDialogOpen}>
                                                 <DialogContent className="bg-black border border-gray-600 max-w-6xl max-h-[80vh] overflow-hidden">
@@ -3483,125 +3781,6 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                                 </CardContent>
                             </Card>
 
-                            {selectedStation && (
-                                <Card className="bg-black/80 backdrop-blur-xl border border-gray-600">
-                                    <CardHeader>
-                                        <CardTitle className="flex items-center space-x-2">
-                                            <MapPin className="w-5 h-5 text-primary" />
-                                            <span>Chi tiết Trạm sạc</span>
-                                        </CardTitle>
-                                    </CardHeader>
-                                    <CardContent className="space-y-4">
-                                        <div>
-                                            <h4 className="font-medium">{selectedStation.name}</h4>
-                                            <p className="text-sm text-muted-foreground">{selectedStation.address}</p>
-                                        </div>
-
-                                        <div className="flex items-center justify-between">
-                                            <span>Trạng thái:</span>
-                                            {getStatusBadge(selectedStation.status)}
-                                        </div>
-
-                                        <div className="flex items-center justify-between">
-                                            <span>Điểm sạc:</span>
-                                            <span className="font-medium">
-                                                {selectedStation.availablePoints}/{selectedStation.totalPoints}
-                                            </span>
-                                        </div>
-
-                                        <Separator />
-
-                                        <div>
-                                            <h5 className="font-medium mb-2">Loại Connector:</h5>
-                                            <div className="space-y-2">
-                                                {(selectedStation.connectorTypes ?? []).map((connector, idx) => (
-                                                    <div key={idx} className="flex justify-between text-sm">
-                                                        <span>
-                                                            {connector.type} ({connector.power})
-                                                        </span>
-                                                        <span
-                                                            className={connector.available > 0 ? "text-green-600" : "text-red-600"}>
-                                                            {connector.available}/{connector.total}
-                                                        </span>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </div>
-
-                                        <Separator />
-
-                                        <div className="grid grid-cols-2 gap-4 text-sm">
-                                            <div>
-                                                <span className="text-muted-foreground">Giờ hoạt động:</span>
-                                                <p className="font-medium">{selectedStation.operatingHours}</p>
-                                            </div>
-                                            <div>
-                                                <span className="text-muted-foreground">Liên hệ:</span>
-                                                <p className="font-medium">{selectedStation.contactPhone}</p>
-                                            </div>
-                                        </div>
-
-                                        <Separator />
-
-                                        <div>
-                                            <h5 className="font-medium mb-2 flex items-center">
-                                                <Zap className="w-4 h-4 mr-2 text-yellow-500" />
-                                                Thông tin Công suất:
-                                            </h5>
-                                            <div className="space-y-2">
-                                                {(selectedStation.connectorTypes ?? []).map((connector, idx) => (
-                                                    <div key={idx} className="bg-muted/30 rounded-lg p-3">
-                                                        <div className="flex justify-between items-center mb-1">
-                                                            <span
-                                                                className="font-medium text-sm">{connector.typeName || connector.type}</span>
-                                                            <Badge variant="outline" className="text-xs">
-                                                                {connector.powerOutput || connector.power} kW
-                                                            </Badge>
-                                                        </div>
-                                                        <div
-                                                            className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
-                                                            <div>
-                                                                Khả dụng: <span
-                                                                    className="font-medium text-green-600">{connector.available}</span>
-                                                            </div>
-                                                            <div>
-                                                                Tổng số: <span
-                                                                    className="font-medium">{connector.total}</span>
-                                                            </div>
-                                                        </div>
-                                                        <div className="mt-1 text-xs">
-                                                            <span
-                                                                className="text-muted-foreground">Tỷ lệ use: </span>
-                                                            <span className="font-medium">
-                                                                {Math.round(((connector.total - connector.available) / Math.max(1, connector.total)) * 100)}%
-                                                            </span>
-                                                        </div>
-                                                        {connector.pricePerKwh && (
-                                                            <div className="mt-1 text-xs">
-                                                                <span className="text-muted-foreground">Giá: </span>
-                                                                <span className="font-medium text-yellow-600">
-                                                                    {connector.pricePerKwh.toLocaleString()} VND/kWh
-                                                                </span>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </div>
-
-                                        <div className="grid grid-cols-2 gap-4 text-sm">
-                                            <div>
-                                                <span className="text-muted-foreground">Doanh thu ngày:</span>
-                                                <p className="font-medium text-green-600">{Number(selectedStation.revenue.daily || 0).toLocaleString()} VND</p>
-                                            </div>
-                                            <div>
-                                                <span className="text-muted-foreground">Doanh thu tháng:</span>
-                                                <p className="font-medium text-blue-600">{Number(selectedStation.revenue.monthly || 0).toLocaleString()} VND</p>
-                                            </div>
-                                        </div>
-                                    </CardContent>
-                                </Card>
-                            )}
                         </div>
                     </div>
                 </div>
