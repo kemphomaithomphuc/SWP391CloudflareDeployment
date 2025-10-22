@@ -35,7 +35,7 @@ public class SessionController {
             userId = jwtService.getUserIdByTokenDecode(token);
             sessionId = sessionService.startSession(userId, request.getOrderId(), request.getVehicleId());
         } catch (ParseException | JOSEException e) {
-            throw new RuntimeException(e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(APIResponse.error("Token parsing error"));
         } catch (RuntimeException e){
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(APIResponse.error(e.getMessage()));
         } catch (Exception e){
@@ -56,7 +56,7 @@ public class SessionController {
             userId = jwtService.getUserIdByTokenDecode(token);
             progress = sessionService.monitorSession(sessionId, userId);
         } catch (ParseException | JOSEException e) {
-            throw new RuntimeException(e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(APIResponse.error("Token parsing error"));
         } catch (RuntimeException e){
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(APIResponse.error(e.getMessage()));
         }catch (Exception e){
@@ -78,7 +78,7 @@ public class SessionController {
             Long completedSessionId = sessionService.endSession(sessionId, userId);
             return ResponseEntity.ok(APIResponse.success("Session ended successfully", completedSessionId));
         } catch (ParseException | JOSEException e) {
-            throw new RuntimeException(e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(APIResponse.error("Token parsing error"));
         } catch (RuntimeException e) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(APIResponse.error(e.getMessage()));
         } catch (Exception e) {

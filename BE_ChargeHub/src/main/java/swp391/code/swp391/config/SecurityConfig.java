@@ -14,10 +14,12 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import swp391.code.swp391.filter.JwtBlacklistFilter;
 import swp391.code.swp391.service.CustomUserDetailService;
 
 import java.util.List;
@@ -50,9 +52,11 @@ public class SecurityConfig {
                 .cors(Customizer.withDefaults())
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(PUBLIC_URLS).permitAll()
+                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                        .requestMatchers("/api/staff/**").hasAnyRole( "STAFF")
                         .anyRequest().authenticated()
                 )
-                .addFilterBefore(jwtBlacklistFilter, org.springframework.security.oauth2.server.resource.web.BearerTokenAuthenticationFilter.class)
+                .addFilterBefore(jwtBlacklistFilter, BearerTokenAuthenticationFilter.class)
                 .oauth2ResourceServer((oauth2) -> oauth2
                         .jwt(jwtConfigurer -> jwtConfigurer.decoder(jwtDecoder))
                 );

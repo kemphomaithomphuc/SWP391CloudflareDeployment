@@ -19,7 +19,7 @@ public class CustomUserDetails implements UserDetails { //không phải entity, 
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        return List.of(() -> "ROLE_" + user.getRole().name());
+        return List.of(() -> "ROLE_" + user.getRole().toString());
     } // Sử dụng lambda để tạo GrantedAuthority từ role của user
 
     @Override

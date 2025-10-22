@@ -36,7 +36,7 @@ public class JwtService {
 
         JWTClaimsSet claimsSet = new JWTClaimsSet.Builder() //tạo các thông tin trong payload
                 .subject(user.getUsername())
-//                .claim("role", user.getAuthorities()) //thêm thông tin role vào payload
+                .claim("role", user.getAuthorities()) //thêm thông tin role vào payload
                 .issueTime(issueTime) //thời gian tạo token
                 .expirationTime(expiredTime) //thời gian hết hạn token
                 .build();
