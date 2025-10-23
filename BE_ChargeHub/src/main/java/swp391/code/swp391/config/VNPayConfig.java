@@ -1,4 +1,4 @@
-package swp391.code.swp391.util;
+package swp391.code.swp391.config;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
@@ -7,7 +7,7 @@ import java.nio.charset.StandardCharsets;
 /**
  * Utility class cho các hàm hỗ trợ VNPay
  */
-public class VNPayUtil {
+public class VNPayConfig {
 
     /**
      * Tạo mã HMAC SHA512
