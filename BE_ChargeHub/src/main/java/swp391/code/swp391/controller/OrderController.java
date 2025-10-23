@@ -111,6 +111,22 @@ public class OrderController {
     }
 
     /**
+     * API 4.1: Get order details - Lấy chi tiết đơn đặt chỗ
+     */
+    @GetMapping("/{orderId}")
+    public ResponseEntity<APIResponse<OrderResponseDTO>> getOrderDetails(
+            @PathVariable Long orderId) {
+        OrderResponseDTO order = orderServiceImpl.getOrderDetails(orderId);
+        return ResponseEntity.ok(
+                APIResponse.<OrderResponseDTO>builder()
+                        .success(true)
+                        .message("Lấy chi tiết đơn đặt chỗ thành công")
+                        .data(order)
+                        .build()
+        );
+    }
+
+    /**
      * API 5: HỦY ĐƠN ĐẶT CHỖ
      */
     @PutMapping("/cancel")

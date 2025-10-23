@@ -112,4 +112,6 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 
 
     List<Order> findByChargingPoint_Station_StationId(Long stationId);
+
+    Order getOrderByOrderId(Long orderId);
 }

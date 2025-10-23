@@ -31,4 +31,9 @@ public interface OrderService {
      * @throws ApiRequestException nếu không thể hủy
      */
     OrderResponseDTO cancelOrder(CancelOrderDTO request);
+
+    /**
+     * Lấy chi tiết đơn đặt chỗ.
+     */
+    OrderResponseDTO getOrderDetails(Long orderId);
 }

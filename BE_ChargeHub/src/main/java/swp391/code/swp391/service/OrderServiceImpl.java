@@ -343,6 +343,15 @@ public class OrderServiceImpl implements OrderService {
         return convertToDTO(order);
     }
 
+    @Override
+    public OrderResponseDTO getOrderDetails(Long orderId) {
+        Order order = orderRepository.getOrderByOrderId(orderId);
+        if (order == null ){
+            throw new ApiRequestException("Không tìm thấy đơn đặt chỗ");
+        }
+        return convertToDTO(order);
+    }
+
     public List<OrderResponseDTO> getStationOrders(Long stationId) {
         List<Order> orders = orderRepository.findByChargingPoint_Station_StationId(stationId);
 
