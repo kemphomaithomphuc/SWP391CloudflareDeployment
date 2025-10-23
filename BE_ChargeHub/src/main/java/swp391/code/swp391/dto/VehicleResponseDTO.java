@@ -18,12 +18,13 @@ public class VehicleResponseDTO {
     private String plateNumber;
     private CarModelDTO carModel;
     private Long userId;
+    private Long vehicleId;
 
     // Constructor from Vehicle entity
     public VehicleResponseDTO(Vehicle vehicle) {
         if (vehicle == null) return;
         this.plateNumber = vehicle.getPlateNumber();
-
+        this.vehicleId = vehicle.getId();
         if (vehicle.getCarModel() != null) {
             CarModel cm = vehicle.getCarModel();
             List<Long> connectorTypeIds = null;
