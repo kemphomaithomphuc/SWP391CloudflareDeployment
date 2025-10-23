@@ -95,6 +95,13 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
   // Constants for simulation
   const BATTERY_CAPACITY_KWH = 50; // Typical EV battery capacity
   const CHARGING_POWER_KW = session.power; // Charging power from session
+  
+  // Token timeout warning (30 minutes)
+  const [tokenWarningShown, setTokenWarningShown] = useState(false);
+  
+  // 100% completion popup
+  const [showCompletionDialog, setShowCompletionDialog] = useState(false);
+  const [completionDialogShown, setCompletionDialogShown] = useState(false);
 
   
 
@@ -198,7 +205,18 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
         // Update session state
         setSession(updatedSession);
 
-        // Store API data for simulation corrections (don't immediately update smooth values)
+        // Update smooth values immediately with API data (no loading indicators)
+        if (monitoringData.currentBattery !== undefined) {
+          setSmoothBattery(monitoringData.currentBattery);
+        }
+        if (monitoringData.powerConsumed !== undefined) {
+          setSmoothEnergy(monitoringData.powerConsumed);
+        }
+        if (monitoringData.cost !== undefined) {
+          setSmoothCost(monitoringData.cost);
+        }
+        
+        // Store API data for simulation corrections
         if (monitoringData.currentBattery !== undefined || 
             monitoringData.powerConsumed !== undefined || 
             monitoringData.cost !== undefined) {
@@ -306,7 +324,7 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
       if (response.data && response.data.success) {
         console.log('Charging session terminated successfully:', response.data);
         
-        // Stop simulation
+        // Stop simulation and monitoring
         setIsSimulating(false);
         
         // Update session status
@@ -315,6 +333,10 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
           status: 'stopped',
           endTime: new Date().toISOString()
         }));
+        
+        // Clear session data from localStorage
+        localStorage.removeItem("currentSessionId");
+        localStorage.removeItem("currentOrderId");
         
         // Show success message
         toast.success(language === 'vi' 
@@ -339,7 +361,19 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
         const status = err.response.status;
         const serverMessage = err.response.data?.message;
         
-
+        switch (status) {
+          case 401:
+            errorMessage = 'Authentication failed. Please login again.';
+            break;
+          case 404:
+            errorMessage = 'Session not found. Please check your session ID.';
+            break;
+          case 500:
+            errorMessage = 'Server error. Please try again later.';
+            break;
+          default:
+            errorMessage = serverMessage || `Server error (${status})`;
+        }
       } else if (err.request) {
         errorMessage = 'Network error. Please check your connection.';
       } else {
@@ -366,6 +400,13 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
     
     if (isSimulating && session.status === 'charging' && simulationStartTime && session.initialBattery > 0) {
       interval = setInterval(() => {
+        // Stop simulation if session is stopped
+        if (session.status === 'stopped') {
+          setIsSimulating(false);
+          clearInterval(interval);
+          return;
+        }
+        
         const now = Date.now();
         const elapsedSeconds = (now - simulationStartTime) / 1000;
         
@@ -375,21 +416,15 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
         const simulatedBattery = Math.min(100, session.initialBattery + batteryIncrease);
         const simulatedCost = energyConsumed * session.costPerKWh;
         
-        // Apply API corrections if available (smooth transition to real data)
-        if (lastApiData && (now - lastApiData.timestamp) < 5000) { // Use API data if less than 5 seconds old
-          const correctionFactor = 0.1; // Smooth correction factor
-          setSmoothBattery(prev => prev + (lastApiData.battery - prev) * correctionFactor);
-          setSmoothEnergy(prev => prev + (lastApiData.energy - prev) * correctionFactor);
-          setSmoothCost(prev => prev + (lastApiData.cost - prev) * correctionFactor);
-        } else {
-          // Use simulated values
+        // Only use simulation if no recent API data (API data takes priority)
+        if (!lastApiData || (now - lastApiData.timestamp) > 3000) { // Use simulation if API data is older than 3 seconds
           setSmoothBattery(simulatedBattery);
           setSmoothEnergy(energyConsumed);
           setSmoothCost(simulatedCost);
         }
+        // If recent API data exists, the API monitoring effect will handle the updates
         
-        // Update elapsed time
-        setElapsedTime(Math.floor(elapsedSeconds));
+        // Elapsed time is handled by separate 1-second interval
         
         // Stop simulation when battery reaches 100%
         if (simulatedBattery >= 100) {
@@ -415,7 +450,7 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
   // Initial API call and periodic monitoring (every 2 seconds)
   useEffect(() => {
     const sessionId = localStorage.getItem("currentSessionId");
-    if (!sessionId || !sessionStarted) return;
+    if (!sessionId || !sessionStarted || session.status === 'stopped') return;
     console.log("Current session id: ", sessionId);
 
     // Initial monitoring call to get initial battery (with loading)
@@ -423,13 +458,33 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
 
     // Set up periodic monitoring every 2 seconds for smooth updates (no loading)
     const monitoringInterval = setInterval(() => {
+      // Stop monitoring if session is stopped
+      if (session.status === 'stopped') {
+        clearInterval(monitoringInterval);
+        return;
+      }
       handleChargingMonitoring(sessionId, false);
     }, 2000); // 2 seconds for smooth updates
 
     return () => {
       clearInterval(monitoringInterval);
     };
-  }, [sessionStarted, token]);
+  }, [sessionStarted, token, session.status]);
+
+  // Separate effect for 1-second updates (elapsed time only)
+  useEffect(() => {
+    let timeInterval: NodeJS.Timeout;
+    
+    if (session.status === 'charging') {
+      timeInterval = setInterval(() => {
+        setElapsedTime(prev => prev + 1);
+      }, 1000); // Update elapsed time every 1 second
+    }
+
+    return () => {
+      if (timeInterval) clearInterval(timeInterval);
+    };
+  }, [session.status]);
 
   // Retry mechanism for failed monitoring
   const retryMonitoring = () => {
@@ -440,17 +495,51 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
     }
   };
 
-  // Auto complete when target battery reached (100%)
+  // Show completion dialog when battery reaches 100%
   useEffect(() => {
-    if (smoothBattery >= 100 && session.status === 'charging' && isSimulating) {
+    if (smoothBattery >= 100 && session.status === 'charging' && isSimulating && !completionDialogShown) {
       setIsSimulating(false);
-      const endTime = new Date().toISOString();
-      setSession(prev => ({ ...prev, status: 'completed', endTime }));
-      endChargingSession(bookingId, endTime);
-      toast.success(language === 'vi' ? 'Sạc hoàn tất!' : 'Charging completed!');
-      setShowPaymentDialog(true);
+      setShowCompletionDialog(true);
+      setCompletionDialogShown(true);
+      toast.success(language === 'vi' ? 'Pin đã sạc đầy 100%!' : 'Battery charged to 100%!');
     }
-  }, [smoothBattery, session.status, isSimulating, bookingId, endChargingSession, language]);
+  }, [smoothBattery, session.status, isSimulating, completionDialogShown, language]);
+
+  // Token timeout warning for 30-minute sessions
+  useEffect(() => {
+    const checkTokenTimeout = () => {
+      const token = localStorage.getItem("token");
+      if (!token || tokenWarningShown) return;
+
+      try {
+        const parts = token.split('.');
+        if (parts.length !== 3 || !parts[1]) return;
+        
+        const payload = JSON.parse(atob(parts[1]));
+        const currentTime = Math.floor(Date.now() / 1000);
+        const timeUntilExpiry = payload.exp - currentTime;
+        
+        // Show warning when 5 minutes remaining (for 30-minute tokens)
+        if (timeUntilExpiry <= 5 * 60 && timeUntilExpiry > 0) {
+          setTokenWarningShown(true);
+          toast.warning(language === 'vi' 
+            ? 'Phiên đăng nhập sắp hết hạn. Vui lòng lưu tiến trình sạc.' 
+            : 'Session will expire soon. Please save your charging progress.'
+          );
+        }
+      } catch (error) {
+        console.error('Error checking token timeout:', error);
+      }
+    };
+
+    // Check every minute for token timeout
+    const interval = setInterval(checkTokenTimeout, 60 * 1000);
+    
+    // Check immediately
+    checkTokenTimeout();
+
+    return () => clearInterval(interval);
+  }, [tokenWarningShown, language]);
 
   const handlePause = () => {
     setSession(prev => ({ ...prev, status: 'paused' }));
@@ -469,8 +558,46 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
       return;
     }
 
-    // Call API to terminate charging session
+    // Prevent multiple calls
+    if (loading) {
+      return;
+    }
+
+    // Stop simulation immediately to prevent further updates
+    setIsSimulating(false);
+    
+    // Call API to terminate charging session (only once)
     await handleChargingTerminating(sessionId);
+  };
+
+  const handleCompletionConfirm = async () => {
+    const sessionId = localStorage.getItem("currentSessionId");
+    if (!sessionId) {
+      toast.error(language === 'vi' ? 'Không tìm thấy ID phiên sạc' : 'Session ID not found');
+      return;
+    }
+
+    // Prevent multiple calls
+    if (loading) {
+      return;
+    }
+
+    // Stop simulation immediately to prevent further updates
+    setIsSimulating(false);
+    
+    // Call API to terminate charging session (only once)
+    await handleChargingTerminating(sessionId);
+    
+    // Close the completion dialog
+    setShowCompletionDialog(false);
+  };
+
+  const handleCompletionCancel = () => {
+    // Close the completion dialog
+    setShowCompletionDialog(false);
+    
+    // Resume simulation if user cancels
+    setIsSimulating(true);
   };
 
 
@@ -512,10 +639,8 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
     }
   };
 
-  // Calculate battery progress from initial to 100% (smooth)
-  const batteryProgress = session.initialBattery > 0 
-    ? Math.max(0, Math.min(100, ((smoothBattery - session.initialBattery) / (100 - session.initialBattery)) * 100))
-    : 0;
+  // Calculate battery progress from 0% to 100% (simple and dynamic)
+  const batteryProgress = Math.max(0, Math.min(100, smoothBattery));
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 via-blue-50 to-purple-50 dark:from-gray-950 dark:via-blue-950 dark:to-green-950">
@@ -617,7 +742,25 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
                   {Math.round(smoothBattery)}%
                 </span>
               </div>
-              <Progress value={Math.max(0, Math.min(100, batteryProgress))} className="h-3" />
+              <div className="relative w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3 overflow-hidden">
+                <div 
+                  className={`h-full bg-gradient-to-r from-green-400 via-green-500 to-green-600 transition-all duration-500 ease-out ${
+                    session.status === 'charging' ? 'animate-pulse' : ''
+                  }`}
+                  style={{ width: `${batteryProgress}%` }}
+                />
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <span className="text-xs font-bold text-white drop-shadow-sm">
+                    {Math.round(batteryProgress)}%
+                  </span>
+                </div>
+                {/* Charging indicator */}
+                {session.status === 'charging' && (
+                  <div className="absolute right-2 top-1/2 transform -translate-y-1/2">
+                    <div className="w-1 h-1 bg-green-400 rounded-full animate-ping" />
+                  </div>
+                )}
+              </div>
               <div className="flex items-center justify-between text-sm text-muted-foreground">
                 <span>{session.initialBattery}%</span>
                 <span>Target: 100%</span>
@@ -694,7 +837,7 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
                         <AlertDialogCancel>
                           {language === 'vi' ? 'Hủy' : 'Cancel'}
                         </AlertDialogCancel>
-                        <AlertDialogAction 
+                        <AlertDialogAction
                           onClick={handleStop}
                           disabled={loading}
                           className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
@@ -741,7 +884,7 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
                         <AlertDialogCancel>
                           {language === 'vi' ? 'Hủy' : 'Cancel'}
                         </AlertDialogCancel>
-                        <AlertDialogAction 
+                        <AlertDialogAction
                           onClick={handleStop}
                           disabled={loading}
                           className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
@@ -867,6 +1010,64 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
             <p className="text-center font-medium text-lg">
               {formatCurrency(smoothCost)}
             </p>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* 100% Completion Dialog */}
+      <Dialog open={showCompletionDialog} onOpenChange={setShowCompletionDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Battery className="w-5 h-5 text-green-500" />
+              {language === 'vi' ? 'Pin đã sạc đầy 100%' : 'Battery Charged to 100%'}
+            </DialogTitle>
+            <DialogDescription>
+              {language === 'vi' 
+                ? 'Pin của bạn đã được sạc đầy 100%. Bạn có muốn kết thúc phiên sạc không?' 
+                : 'Your battery has been charged to 100%. Would you like to end the charging session?'
+              }
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div className="text-center">
+              <div className="w-16 h-16 mx-auto mb-4 bg-green-100 dark:bg-green-900 rounded-full flex items-center justify-center">
+                <Battery className="w-8 h-8 text-green-600 dark:text-green-400" />
+              </div>
+              <p className="text-2xl font-bold text-green-600 dark:text-green-400">
+                100%
+              </p>
+              <p className="text-sm text-muted-foreground mt-2">
+                {language === 'vi' 
+                  ? 'Pin đã được sạc đầy hoàn toàn' 
+                  : 'Battery fully charged'
+                }
+              </p>
+            </div>
+            
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                onClick={handleCompletionCancel}
+                className="flex-1"
+                disabled={loading}
+              >
+                {language === 'vi' ? 'Tiếp tục sạc' : 'Continue Charging'}
+              </Button>
+              <Button
+                onClick={handleCompletionConfirm}
+                className="flex-1 bg-green-600 hover:bg-green-700"
+                disabled={loading}
+              >
+                {loading ? (
+                  <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Square className="w-4 h-4 mr-2" />
+                )}
+                {language === 'vi' ? 'Kết thúc sạc' : 'End Charging'}
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>

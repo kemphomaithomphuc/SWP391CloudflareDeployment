@@ -92,7 +92,7 @@ api.interceptors.response.use(
 
 // ===== TOKEN UTILITIES =====
 
-// Check if token is expired (with 5 minute buffer)
+// Check if token is expired (with 5 minute buffer for 30-minute tokens)
 export const isTokenExpired = (token: string): boolean => {
   try {
     const parts = token.split('.');
@@ -102,11 +102,28 @@ export const isTokenExpired = (token: string): boolean => {
     }
     const payload = JSON.parse(atob(parts[1]));
     const currentTime = Math.floor(Date.now() / 1000);
-    const bufferTime = 5 * 60; // 5 minutes buffer
+    const bufferTime = 5 * 60; // 5 minutes buffer (for 30-minute tokens)
     return payload.exp < (currentTime + bufferTime);
   } catch (error) {
     console.error("Error parsing token:", error);
     return true; // Assume expired if can't parse
+  }
+};
+
+// Check if token will expire soon (for 30-minute tokens)
+export const isTokenExpiringSoon = (token: string): boolean => {
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3 || !parts[1]) {
+      return false;
+    }
+    const payload = JSON.parse(atob(parts[1]));
+    const currentTime = Math.floor(Date.now() / 1000);
+    const timeUntilExpiry = payload.exp - currentTime;
+    const warningTime = 5 * 60; // 5 minutes warning for 30-minute tokens
+    return timeUntilExpiry <= warningTime && timeUntilExpiry > 0;
+  } catch (error) {
+    return false;
   }
 };
 

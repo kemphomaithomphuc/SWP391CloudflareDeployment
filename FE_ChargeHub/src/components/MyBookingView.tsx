@@ -320,7 +320,7 @@ export default function MyBookingView({ onBack, onStartCharging }: MyBookingView
         setApiOrders(prevOrders => 
           prevOrders.map(order => 
             order.orderId === orderId 
-              ? { ...order, status: 'ACTIVE' }
+              ? { ...order, status: 'CHARGING' }
               : order
           )
         );
@@ -436,6 +436,10 @@ export default function MyBookingView({ onBack, onStartCharging }: MyBookingView
            (order.status === 'BOOKED' && (isPastEndTime || isExpired));
   });
 
+  // Check if there's an active charging session
+  const hasActiveSession = apiActiveOrders.length > 0;
+  const activeSession = apiActiveOrders[0]; // Get the first (and should be only) active session
+
 
   // Card for raw API orders to show all details
   const OrderCard = ({ order }: { order: OrderResponseDTO }) => {
@@ -466,6 +470,13 @@ export default function MyBookingView({ onBack, onStartCharging }: MyBookingView
           icon: <Zap className="w-4 h-4 text-green-500" />,
           text: language === 'vi' ? 'Đang sạc' : 'Active'
         };
+      } else if (startTime <= now && canStartCharging) {
+        // Within 15-minute window after start time but not yet in active charging period
+        return {
+          color: 'bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950 dark:text-orange-300',
+          icon: <Clock className="w-4 h-4 text-orange-500" />,
+          text: language === 'vi' ? 'Có thể bắt đầu' : 'Ready to Start'
+        };
       } else {
         return {
           color: 'bg-gray-50 text-gray-700 border-gray-200 dark:bg-gray-950 dark:text-gray-300',
@@ -491,6 +502,15 @@ export default function MyBookingView({ onBack, onStartCharging }: MyBookingView
           );
         }
         return;
+      }
+    };
+
+    const handleViewCharging = () => {
+      // Ensure session data is available for ChargingSessionView
+      localStorage.setItem("currentOrderId", String(order.orderId));
+      
+      if (onStartCharging) {
+        onStartCharging(String(order.orderId));
       }
     };
 
@@ -577,21 +597,36 @@ export default function MyBookingView({ onBack, onStartCharging }: MyBookingView
               <div className="text-xs text-muted-foreground">
                 ID: #{order.orderId}
               </div>
-              {startTime > now && !isExpired && (
+              {/* Show different buttons based on order status and active session */}
+              {order.status === 'CHARGING' ? (
+                // Active charging session - show "View Charging" button
+                <Button 
+                  onClick={handleViewCharging}
+                  size="sm" 
+                  className="h-7 px-3 text-xs bg-blue-500 hover:bg-blue-600 text-white shadow-md"
+                >
+                  <Zap className="w-3 h-3 mr-1" />
+                  {language === 'vi' ? 'Xem sạc' : 'View Charging'}
+                </Button>
+              ) : (startTime > now || (startTime <= now && canStartCharging)) && !isExpired ? (
+                // Upcoming session - show "Start Charging" button (disabled if active session exists)
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
                     <Button 
                       onClick={handleStartChargingClick}
-                      disabled={!canStartCharging}
+                      disabled={!canStartCharging || hasActiveSession}
                       size="sm" 
                       className={`h-7 px-3 text-xs ${
-                        canStartCharging 
+                        canStartCharging && !hasActiveSession
                           ? 'bg-green-500 hover:bg-green-600 text-white shadow-md' 
                           : 'bg-gray-300 text-gray-500 cursor-not-allowed opacity-60'
                       }`}
                     >
                       <Zap className="w-3 h-3 mr-1" />
-                      {language === 'vi' ? 'Bắt đầu sạc' : 'Start Charging'}
+                      {hasActiveSession 
+                        ? (language === 'vi' ? 'Có phiên sạc khác' : 'Other session active')
+                        : (language === 'vi' ? 'Bắt đầu sạc' : 'Start Charging')
+                      }
                     </Button>
                   </AlertDialogTrigger>
                   <AlertDialogContent>
@@ -600,9 +635,15 @@ export default function MyBookingView({ onBack, onStartCharging }: MyBookingView
                         {language === 'vi' ? 'Xác nhận bắt đầu sạc' : 'Confirm Start Charging'}
                       </AlertDialogTitle>
                       <AlertDialogDescription>
-                        {language === 'vi' 
-                          ? `Bạn có chắc chắn muốn bắt đầu phiên sạc tại ${order.stationName}?`
-                          : `Are you sure you want to start charging session at ${order.stationName}?`
+                        {hasActiveSession 
+                          ? (language === 'vi' 
+                              ? 'Bạn đã có một phiên sạc đang hoạt động. Vui lòng kết thúc phiên sạc hiện tại trước khi bắt đầu phiên sạc mới.'
+                              : 'You already have an active charging session. Please end the current session before starting a new one.'
+                            )
+                          : (language === 'vi' 
+                              ? `Bạn có chắc chắn muốn bắt đầu phiên sạc tại ${order.stationName}?`
+                              : `Are you sure you want to start charging session at ${order.stationName}?`
+                            )
                         }
                       </AlertDialogDescription>
                     </AlertDialogHeader>
@@ -610,16 +651,18 @@ export default function MyBookingView({ onBack, onStartCharging }: MyBookingView
                       <AlertDialogCancel>
                         {language === 'vi' ? 'Hủy' : 'Cancel'}
                       </AlertDialogCancel>
-                      <AlertDialogAction 
-                        onClick={() => handleStartCharging(order.orderId)}
-                        className="bg-primary hover:bg-primary/90"
-                      >
-                        {language === 'vi' ? 'Xác nhận' : 'Confirm'}
-                      </AlertDialogAction>
+                      {!hasActiveSession && (
+                        <AlertDialogAction 
+                          onClick={() => handleStartCharging(order.orderId)}
+                          className="bg-primary hover:bg-primary/90"
+                        >
+                          {language === 'vi' ? 'Xác nhận' : 'Confirm'}
+                        </AlertDialogAction>
+                      )}
                     </AlertDialogFooter>
                   </AlertDialogContent>
                 </AlertDialog>
-              )}
+              ) : null}
             </div>
           </div>
         </CardContent>
@@ -732,6 +775,27 @@ export default function MyBookingView({ onBack, onStartCharging }: MyBookingView
               <ErrorState message={error} />
             ) : apiUpcomingOrders.length > 0 ? (
               <>
+                {/* Show warning when there's an active session */}
+                {hasActiveSession && (
+                  <Card className="mb-4 border-orange-200 bg-orange-50 dark:bg-orange-950/20 dark:border-orange-800">
+                    <CardContent className="p-4">
+                      <div className="flex items-center gap-3">
+                        <AlertTriangle className="w-5 h-5 text-orange-600 dark:text-orange-400" />
+                        <div>
+                          <h4 className="font-medium text-orange-800 dark:text-orange-200">
+                            {language === 'vi' ? 'Đang sạc' : 'Currently Charging'}
+                          </h4>
+                          <p className="text-sm text-orange-700 dark:text-orange-300 mt-1">
+                            {language === 'vi' 
+                              ? 'Bạn đang có một phiên sạc đang hoạt động. Vui lòng kết thúc phiên sạc hiện tại trước khi bắt đầu phiên sạc mới.'
+                              : 'You have an active charging session. Please end the current session before starting a new one.'
+                            }
+                          </p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
                 {getPaginatedData(apiUpcomingOrders).map(order => (
                   <OrderCard key={order.orderId} order={order} />
                 ))}
@@ -784,6 +848,25 @@ export default function MyBookingView({ onBack, onStartCharging }: MyBookingView
               <ErrorState message={error} />
             ) : apiActiveOrders.length > 0 ? (
               <>
+                {/* Show info about single active session */}
+                <Card className="mb-4 border-blue-200 bg-blue-50 dark:bg-blue-950/20 dark:border-blue-800">
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-3">
+                      <Zap className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                      <div>
+                        <h4 className="font-medium text-blue-800 dark:text-blue-200">
+                          {language === 'vi' ? 'Phiên sạc đang hoạt động' : 'Active Charging Session'}
+                        </h4>
+                        <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
+                          {language === 'vi' 
+                            ? 'Bạn chỉ có thể có một phiên sạc hoạt động tại một thời điểm. Kết thúc phiên sạc này để bắt đầu phiên sạc mới.'
+                            : 'You can only have one active charging session at a time. End this session to start a new one.'
+                          }
+                        </p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
                 {getPaginatedData(apiActiveOrders).map(order => (
                   <OrderCard key={order.orderId} order={order} />
                 ))}
