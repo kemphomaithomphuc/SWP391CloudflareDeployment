@@ -7,7 +7,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import swp391.code.swp391.service.JwtService;
+import swp391.code.swp391.util.JwtUtil;
 import swp391.code.swp391.service.NotificationService;
 
 import java.text.ParseException;
@@ -17,7 +17,7 @@ import java.text.ParseException;
 @RequiredArgsConstructor
 public class AdminController {
 
-    private final JwtService jwtService;
+    private final JwtUtil jwtUtil;
     private final NotificationService notificationService;
 
 
@@ -25,10 +25,10 @@ public class AdminController {
     @GetMapping("/unread/count")
     public ResponseEntity<Long> getUnreadCount(HttpServletRequest request) {
         String header = request.getHeader("Authorization");
-        String token = jwtService.getTokenFromRequestHeader(header);
+        String token = jwtUtil.getTokenFromRequestHeader(header);
         Long userId;
         try {
-            userId = jwtService.getUserIdByTokenDecode(token);
+            userId = jwtUtil.getUserIdByTokenDecode(token);
         } catch (ParseException | JOSEException e) {
             throw new RuntimeException(e);
         } catch (Exception e) {

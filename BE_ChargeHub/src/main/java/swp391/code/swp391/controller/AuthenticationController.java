@@ -11,7 +11,7 @@ import swp391.code.swp391.dto.LoginRequestDTO;
 import swp391.code.swp391.dto.LoginResponseDTO;
 import swp391.code.swp391.dto.RegisterRequestDTO;
 import swp391.code.swp391.service.AuthenticationService;
-import swp391.code.swp391.service.JwtService;
+import swp391.code.swp391.util.JwtUtil;
 import swp391.code.swp391.service.UserServiceImpl;
 
 @RestController
@@ -20,7 +20,7 @@ import swp391.code.swp391.service.UserServiceImpl;
 public class AuthenticationController {
 
     private final AuthenticationService authenticationService;
-    private final JwtService jwtService;
+    private final JwtUtil jwtUtil;
     private final UserServiceImpl userServiceImpl;
 
     @PostMapping("/login")
@@ -104,7 +104,7 @@ public class AuthenticationController {
             if (token == null) {
                 return ResponseEntity.badRequest().body(APIResponse.error("No token provided"));
             }
-            Long userId = jwtService.getUserByTokenDecode(token).getUserId();
+            Long userId = jwtUtil.getUserByTokenDecode(token).getUserId();
             return ResponseEntity.ok(APIResponse.success("User ID retrieved successfully", userId));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(APIResponse.error("Failed to retrieve user ID: " + e.getMessage()));
