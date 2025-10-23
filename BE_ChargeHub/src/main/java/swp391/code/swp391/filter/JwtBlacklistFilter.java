@@ -1,4 +1,4 @@
-package swp391.code.swp391.config;
+package swp391.code.swp391.filter;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;

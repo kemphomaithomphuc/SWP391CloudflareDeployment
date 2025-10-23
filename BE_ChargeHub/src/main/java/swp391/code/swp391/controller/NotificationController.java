@@ -6,7 +6,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import swp391.code.swp391.dto.NotificationDTO;
-import swp391.code.swp391.entity.Notification;
+import swp391.code.swp391.entity.User;
 import swp391.code.swp391.service.JwtService;
 import swp391.code.swp391.service.NotificationService;
 
@@ -23,47 +23,41 @@ public class NotificationController {
 
     @GetMapping
     public ResponseEntity<List<NotificationDTO>> getNotifications(HttpServletRequest request) {
-        String header = request.getHeader("Authorization");
-        String token = jwtService.getTokenFromRequestHeader(header);
-        Long userId;
+        User user;
         try {
-            userId = jwtService.getUserIdByTokenDecode(token);
+            user = jwtService.getUserByTokenThroughSecurityContext();
         } catch (ParseException | JOSEException e) {
-            throw new RuntimeException(e);
+            return ResponseEntity.badRequest().build();
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
-        return ResponseEntity.ok(notificationService.getNotificationDTOs(userId));
+        return ResponseEntity.ok(notificationService.getNotificationDTOs(user.getUserId()));
     }
 
     @GetMapping("/unread/count")
-    public ResponseEntity<Long> getUnreadCount(HttpServletRequest request) {
-        String header = request.getHeader("Authorization");
-        String token = jwtService.getTokenFromRequestHeader(header);
-        Long userId;
+    public ResponseEntity<Long> getUnreadCount() {
+        User user;
         try {
-            userId = jwtService.getUserIdByTokenDecode(token);
+            user = jwtService.getUserByTokenThroughSecurityContext();
         } catch (ParseException | JOSEException e) {
             throw new RuntimeException(e);
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
-        return ResponseEntity.ok(notificationService.getUnreadCountForUser(userId));
+        return ResponseEntity.ok(notificationService.getUnreadCountForUser(user.getUserId()));
     }
 
     @PutMapping("/{id}/read")
     public ResponseEntity<Void> markAsRead(@PathVariable Long id, HttpServletRequest request) {
-        String header = request.getHeader("Authorization");
-        String token = jwtService.getTokenFromRequestHeader(header);
-        Long userId;
+        User user;
         try {
-            userId = jwtService.getUserIdByTokenDecode(token);
+            user  = jwtService.getUserByTokenThroughSecurityContext();
         } catch (ParseException | JOSEException e) {
             throw new RuntimeException(e);
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
-        notificationService.markAsRead(id, userId);
+        notificationService.markAsRead(id, user.getUserId());
         return ResponseEntity.ok().build();
     }
 

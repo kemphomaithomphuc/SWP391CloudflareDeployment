@@ -127,20 +127,16 @@ public class SessionServiceImpl implements SessionService {
         // 2. Tính toán tiến trình sạc (chuẩn bị data trả về DTO)
         Vehicle vehicle = vehicleRepository.findById(session.getOrder().getVehicle().getId())
                 .orElseThrow(() -> new RuntimeException("Vehicle not found for session"));
+
         double power = connectorType.getPowerOutput(); // kW
         LocalDateTime now = LocalDateTime.now();
         long minutesElapsed = ChronoUnit.MINUTES.between(session.getStartTime(), now);
+
         double powerConsumed = power * (minutesElapsed / 60.0); // Simplified
 
-        // Tính cost (dựa trên BR12 formula, nhưng đơn giản hóa)
-        //TODO: Chèn method tính giá tiền (US12) vào đây thay vì tự tính
         double basePrice = connectorType.getPricePerKWh();
-
-//        PriceFactor factor = getPriceFactor(now); // Logic lấy factor theo giờ
-        double priceFactor = 1.0; // Giả sử factor = 1.0
-//        Double discount = getSubscriptionDiscount(session.getOrder().getUser());
-        double discount = 0.0; // Giả sử không có subscription
-
+        double priceFactor = 1.0;
+        double discount = 0.0;
         double cost = powerConsumed * basePrice * priceFactor * (1 - discount);
         //===============================================================
         session.setPowerConsumed(powerConsumed);

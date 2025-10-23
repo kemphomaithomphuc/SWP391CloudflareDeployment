@@ -6,6 +6,7 @@ import com.nimbusds.jwt.JWTClaimsSet;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
@@ -15,6 +16,7 @@ import swp391.code.swp391.entity.User;
 import swp391.code.swp391.repository.UserRepository;
 
 import java.text.ParseException;
+import java.util.Collection;
 import java.util.Date;
 import java.util.Optional;
 import java.util.regex.Pattern;
@@ -30,13 +32,16 @@ public class JwtService {
     private String secretKey;
 
     public String generateAccessToken(CustomUserDetails user){
+        Collection<? extends GrantedAuthority> roles = user.getAuthorities();
         Date issueTime = new Date();
         Date expiredTime = Date.from(issueTime.toInstant().plus(60, java.time.temporal.ChronoUnit.MINUTES));
         JWSHeader header = new JWSHeader(JWSAlgorithm.HS512); //HS512: thuật toán băm, mã hóa đối xứng
 
         JWTClaimsSet claimsSet = new JWTClaimsSet.Builder() //tạo các thông tin trong payload
                 .subject(user.getUsername())
-//                .claim("role", user.getAuthorities()) //thêm thông tin role vào payload
+                .claim("roles", user.getAuthorities().stream()
+                        .map(GrantedAuthority::getAuthority)
+                        .toList()) // Chuyển đổi GrantedAuthority thành List<String>
                 .issueTime(issueTime) //thời gian tạo token
                 .expirationTime(expiredTime) //thời gian hết hạn token
                 .build();
