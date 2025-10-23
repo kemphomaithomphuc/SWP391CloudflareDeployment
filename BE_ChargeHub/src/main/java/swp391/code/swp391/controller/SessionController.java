@@ -2,6 +2,7 @@ package swp391.code.swp391.controller;
 
 import com.nimbusds.jose.JOSEException;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -9,7 +10,7 @@ import org.springframework.web.bind.annotation.*;
 import swp391.code.swp391.dto.APIResponse;
 import swp391.code.swp391.dto.SessionProgressDTO;
 import swp391.code.swp391.dto.StartSessionRequestDTO;
-import swp391.code.swp391.service.JwtService;
+import swp391.code.swp391.util.JwtUtil;
 import swp391.code.swp391.service.SessionService;
 
 import java.text.ParseException;
@@ -21,18 +22,18 @@ import java.text.ParseException;
 public class SessionController {
 
     private final SessionService sessionService;
-    private final JwtService jwtService;
+    private final JwtUtil jwtUtil;
 
     // US10: POST /api/sessions/start
     @PostMapping("/start")
-    public ResponseEntity<APIResponse<Long>> startSession(@RequestBody StartSessionRequestDTO request,
+    public ResponseEntity<APIResponse<Long>> startSession(@Valid @RequestBody StartSessionRequestDTO request,
                                              HttpServletRequest httpServletRequest) {
         String header = httpServletRequest.getHeader("Authorization");
-        String token = jwtService.getTokenFromHeader(header);
+        String token = jwtUtil.getTokenFromHeader(header);
         Long sessionId;
         Long userId;
         try {
-            userId = jwtService.getUserIdByTokenDecode(token);
+            userId = jwtUtil.getUserIdByTokenDecode(token);
             sessionId = sessionService.startSession(userId, request.getOrderId(), request.getVehicleId());
         } catch (ParseException | JOSEException e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(APIResponse.error("Token parsing error"));
@@ -49,11 +50,11 @@ public class SessionController {
     public ResponseEntity<APIResponse<SessionProgressDTO>> monitorSession(@PathVariable Long sessionId,
                                                              HttpServletRequest httpServletRequest) {
         String header = httpServletRequest.getHeader("Authorization");
-        String token = jwtService.getTokenFromHeader(header);
+        String token = jwtUtil.getTokenFromHeader(header);
         Long userId;
         SessionProgressDTO progress;
         try {
-            userId = jwtService.getUserIdByTokenDecode(token);
+            userId = jwtUtil.getUserIdByTokenDecode(token);
             progress = sessionService.monitorSession(sessionId, userId);
         } catch (ParseException | JOSEException e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(APIResponse.error("Token parsing error"));
@@ -71,10 +72,10 @@ public class SessionController {
     public ResponseEntity<APIResponse<Long>> endSession(@PathVariable Long sessionId,
                                                       HttpServletRequest httpServletRequest) {
         String header = httpServletRequest.getHeader("Authorization");
-        String token = jwtService.getTokenFromHeader(header);
+        String token = jwtUtil.getTokenFromHeader(header);
         Long userId;
         try {
-            userId = jwtService.getUserIdByTokenDecode(token);
+            userId = jwtUtil.getUserIdByTokenDecode(token);
             Long completedSessionId = sessionService.endSession(sessionId, userId);
             return ResponseEntity.ok(APIResponse.success("Session ended successfully", completedSessionId));
         } catch (ParseException | JOSEException e) {
