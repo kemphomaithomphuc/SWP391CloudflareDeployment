@@ -7,7 +7,7 @@ import { Badge } from './ui/badge';
 import { motion, AnimatePresence } from 'motion/react';
 import { useTheme } from '../contexts/ThemeContext';
 import { useLanguage } from '../contexts/LanguageContext';
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
 
 interface ChargingSession {
   sessionId: string;

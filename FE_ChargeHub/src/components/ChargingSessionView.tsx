@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Zap, Pause, Play, Square, Clock, Battery, MapPin, CreditCard, QrCode } from 'lucide-react';
+import { ArrowLeft, Zap, Pause, Play, Square, Clock, Battery, MapPin, CreditCard, QrCode, RefreshCw, AlertTriangle } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useBooking } from '../contexts/BookingContext';
@@ -10,9 +10,11 @@ import { Progress } from './ui/progress';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog';
 import { Separator } from './ui/separator';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from './ui/alert-dialog';
-import { toast } from 'sonner@2.0.3';
-import { motion } from 'motion/react';
+import { toast } from 'sonner';
+import { motion } from 'framer-motion';
 import QRCodeGenerator from './QRCodeGenerator';
+import axios from 'axios';
+
 
 interface ChargingSessionViewProps {
   onBack: () => void;
@@ -33,9 +35,9 @@ interface ChargingSession {
   currentBattery: number;
   targetBattery: number;
   initialBattery: number;
-  energyConsumed: number; // in kWh
+  energyConsumed: number; // in kWh (powerConsumed in api)
   costPerKWh: number;
-  totalCost: number;
+  totalCost: number; //(cost in api)
   estimatedTimeRemaining: number; // in minutes
 }
 
@@ -43,10 +45,15 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
   const { language } = useLanguage();
   const { theme } = useTheme();
   const { bookings, updateBookingStatus, startChargingSession, endChargingSession, calculatePenaltyFees } = useBooking();
+  const sessionId = localStorage.getItem("currentSessionId");
+  const userId = localStorage.getItem("userId");
+  const orderId = localStorage.getItem("currentOrderId");
+  const token = localStorage.getItem("token");
+
   
   const [session, setSession] = useState<ChargingSession>({
-    id: `session-${Date.now()}`,
-    bookingId,
+    id: String(sessionId),
+    bookingId: String(orderId),
     stationName: "EVN Station Thủ Đức",
     stationAddress: "123 Võ Văn Ngân, Thủ Đức, TP.HCM",
     chargerType: 'DC_FAST',
@@ -54,19 +61,42 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
     startTime: new Date().toISOString(),
     pausedTime: 0,
     status: 'charging',
-    currentBattery: 45,
-    targetBattery: 80,
-    initialBattery: 45,
+    currentBattery: 0, // Will be set from API
+    targetBattery: 100, // Always 100% as final milestone
+    initialBattery: 0, // Will be set from API
     energyConsumed: 0,
     costPerKWh: 3500, // VND per kWh
     totalCost: 0,
-    estimatedTimeRemaining: 42
+    estimatedTimeRemaining: 0
   });
 
   const [elapsedTime, setElapsedTime] = useState(0); // in seconds
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
   const [showQRDialog, setShowQRDialog] = useState(false);
   const [sessionStarted, setSessionStarted] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [isInitialized, setIsInitialized] = useState(false);
+  const [smoothBattery, setSmoothBattery] = useState(0);
+  const [smoothEnergy, setSmoothEnergy] = useState(0);
+  const [smoothCost, setSmoothCost] = useState(0);
+  const [lastUpdateTime, setLastUpdateTime] = useState<Date | null>(null);
+  
+  // Simulation state
+  const [isSimulating, setIsSimulating] = useState(false);
+  const [simulationStartTime, setSimulationStartTime] = useState<number | null>(null);
+  const [lastApiData, setLastApiData] = useState<{
+    battery: number;
+    energy: number;
+    cost: number;
+    timestamp: number;
+  } | null>(null);
+  
+  // Constants for simulation
+  const BATTERY_CAPACITY_KWH = 50; // Typical EV battery capacity
+  const CHARGING_POWER_KW = session.power; // Charging power from session
+
+  
 
   const translations = {
     title: language === 'vi' ? 'Phiên sạc đang hoạt động' : 'Active Charging Session',
@@ -95,41 +125,283 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
     }
   };
 
-  // Timer effect
+  const handleChargingMonitoring = async (sessionId: string, isInitialCall: boolean = false): Promise<ChargingSession | null> => {
+    // Only show loading for initial call, not for periodic updates
+    if (isInitialCall) {
+      setLoading(true);
+    }
+    setError(null);
+    
+    try {
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      if (!sessionId) {
+        throw new Error('Session ID is required for monitoring');
+      }
+
+      console.log(`Monitoring session ID: `, sessionId);
+      
+      const response = await axios.get(`http://localhost:8080/api/sessions/${sessionId}/monitor`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.data && response.data.success) {
+        const monitoringData = response.data.data;
+        
+        console.log('Monitoring API Response:', response.data);
+        console.log('Monitoring Data:', monitoringData);
+        
+        // Handle initial battery setup and start simulation
+        if (!isInitialized && monitoringData.currentBattery) {
+          setSession(prev => ({
+            ...prev,
+            initialBattery: monitoringData.currentBattery,
+            currentBattery: monitoringData.currentBattery
+          }));
+          setSmoothBattery(monitoringData.currentBattery);
+          setSmoothEnergy(monitoringData.powerConsumed || 0);
+          setSmoothCost(monitoringData.cost || 0);
+          setIsInitialized(true);
+          setIsSimulating(true);
+          setSimulationStartTime(Date.now());
+          console.log('Initial battery set:', monitoringData.currentBattery);
+        }
+
+        // Map API response to ChargingSession format based on actual API structure
+        const updatedSession: ChargingSession = {
+          id: sessionId,
+          bookingId: String(orderId),
+          stationName: session.stationName,
+          stationAddress: session.stationAddress,
+          chargerType: session.chargerType,
+          power: session.power,
+          startTime: session.startTime,
+          ...(session.endTime && { endTime: session.endTime }),
+          pausedTime: session.pausedTime,
+          status: session.status,
+          currentBattery: monitoringData.currentBattery || session.currentBattery,
+          targetBattery: 100, // Always 100% as final milestone
+          initialBattery: session.initialBattery || monitoringData.currentBattery || 0,
+          energyConsumed: monitoringData.powerConsumed || session.energyConsumed,
+          costPerKWh: session.costPerKWh,
+          totalCost: monitoringData.cost || session.totalCost,
+          estimatedTimeRemaining: session.estimatedTimeRemaining
+        };
+
+        console.log('Updated Session:', updatedSession);
+
+        // Update session state
+        setSession(updatedSession);
+
+        // Store API data for simulation corrections (don't immediately update smooth values)
+        if (monitoringData.currentBattery !== undefined || 
+            monitoringData.powerConsumed !== undefined || 
+            monitoringData.cost !== undefined) {
+          setLastApiData({
+            battery: monitoringData.currentBattery || smoothBattery,
+            energy: monitoringData.powerConsumed || smoothEnergy,
+            cost: monitoringData.cost || smoothCost,
+            timestamp: Date.now()
+          });
+        }
+        
+        // Update last update time for subtle feedback
+        setLastUpdateTime(new Date());
+        
+        // Only update loading state for initial call
+        if (isInitialCall) {
+          setLoading(false);
+        }
+        
+        // Only show success toast for initial call, not periodic updates
+        if (isInitialCall) {
+          toast.success(language === 'vi' 
+            ? 'Kết nối theo dõi sạc thành công' 
+            : 'Charging monitoring connected successfully'
+          );
+        }
+        
+        return updatedSession;
+      } else {
+        throw new Error(response.data?.message || 'Failed to get monitoring data');
+      }
+    } catch (err: any) {
+      console.error('Error monitoring charging session:', err);
+      
+      // Handle different types of errors
+      let errorMessage = 'Failed to monitor charging session';
+      
+      if (err.response) {
+        // Server responded with error status
+        const status = err.response.status;
+        const serverMessage = err.response.data?.message;
+        
+        switch (status) {
+          case 401:
+            errorMessage = 'Authentication failed. Please login again.';
+            break;
+          case 404:
+            errorMessage = 'Session not found. Please check your session ID.';
+            break;
+          case 500:
+            errorMessage = 'Server error. Please try again later.';
+            break;
+          default:
+            errorMessage = serverMessage || `Server error (${status})`;
+        }
+      } else if (err.request) {
+        // Network error
+        errorMessage = 'Network error. Please check your connection.';
+      } else {
+        // Other error
+        errorMessage = err.message || 'Unknown error occurred';
+      }
+      
+      setError(errorMessage);
+      
+      // Only update loading state for initial call
+      if (isInitialCall) {
+        setLoading(false);
+      }
+      
+      // Show error toast with specific message
+      toast.error(language === 'vi' 
+        ? `Lỗi: ${errorMessage}` 
+        : `Error: ${errorMessage}`
+      );
+      
+      return null;
+    }
+  };
+
+  const handleChargingTerminating = async (sessionId: string) => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      if (!sessionId) {
+        throw new Error('Session ID is required for terminating charging');
+      }
+
+      console.log(`Terminating charging session: ${sessionId}`);
+      
+      const response = await axios.post(`http://localhost:8080/api/sessions/${sessionId}/end`, {
+
+      }, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.data && response.data.success) {
+        console.log('Charging session terminated successfully:', response.data);
+        
+        // Stop simulation
+        setIsSimulating(false);
+        
+        // Update session status
+        setSession(prev => ({
+          ...prev,
+          status: 'stopped',
+          endTime: new Date().toISOString()
+        }));
+        
+        // Show success message
+        toast.success(language === 'vi' 
+          ? 'Đã dừng sạc thành công' 
+          : 'Charging session stopped successfully'
+        );
+        
+        // Show payment dialog
+        setShowPaymentDialog(true);
+        
+        return response.data;
+      } else {
+        throw new Error(response.data?.message || 'Failed to terminate charging session');
+      }
+    } catch (err: any) {
+      console.error('Error terminating charging session:', err);
+      
+      // Handle different types of errors
+      let errorMessage = 'Failed to terminate charging session';
+      
+      if (err.response) {
+        const status = err.response.status;
+        const serverMessage = err.response.data?.message;
+        
+
+      } else if (err.request) {
+        errorMessage = 'Network error. Please check your connection.';
+      } else {
+        errorMessage = err.message || 'Unknown error occurred';
+      }
+      
+      setError(errorMessage);
+      
+      // Show error toast
+      toast.error(language === 'vi' 
+        ? `Lỗi: ${errorMessage}` 
+        : `Error: ${errorMessage}`
+      );
+      
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Main charging simulation effect (runs every 100ms for smooth animation)
   useEffect(() => {
     let interval: NodeJS.Timeout;
     
-    if (session.status === 'charging') {
+    if (isSimulating && session.status === 'charging' && simulationStartTime && session.initialBattery > 0) {
       interval = setInterval(() => {
-        setElapsedTime(prev => prev + 1);
+        const now = Date.now();
+        const elapsedSeconds = (now - simulationStartTime) / 1000;
         
-        // Simulate charging progress
-        setSession(prev => {
-          const newEnergyConsumed = prev.energyConsumed + (prev.power / 3600); // kWh per second
-          const newCurrentBattery = Math.min(
-            prev.targetBattery,
-            prev.initialBattery + ((newEnergyConsumed / 50) * 100) // Assume 50kWh battery capacity
-          );
-          const newTotalCost = newEnergyConsumed * prev.costPerKWh;
-          
-          const batteryDifference = prev.targetBattery - newCurrentBattery;
-          const newEstimatedTime = batteryDifference > 0 ? Math.ceil((batteryDifference / 100) * 50 * 60 / prev.power) : 0;
-          
-          return {
-            ...prev,
-            energyConsumed: newEnergyConsumed,
-            currentBattery: newCurrentBattery,
-            totalCost: newTotalCost,
-            estimatedTimeRemaining: newEstimatedTime
-          };
-        });
-      }, 1000);
+        // Calculate simulated values based on charging power and time
+        const energyConsumed = (CHARGING_POWER_KW * elapsedSeconds) / 3600; // kWh
+        const batteryIncrease = (energyConsumed / BATTERY_CAPACITY_KWH) * 100; // percentage
+        const simulatedBattery = Math.min(100, session.initialBattery + batteryIncrease);
+        const simulatedCost = energyConsumed * session.costPerKWh;
+        
+        // Apply API corrections if available (smooth transition to real data)
+        if (lastApiData && (now - lastApiData.timestamp) < 5000) { // Use API data if less than 5 seconds old
+          const correctionFactor = 0.1; // Smooth correction factor
+          setSmoothBattery(prev => prev + (lastApiData.battery - prev) * correctionFactor);
+          setSmoothEnergy(prev => prev + (lastApiData.energy - prev) * correctionFactor);
+          setSmoothCost(prev => prev + (lastApiData.cost - prev) * correctionFactor);
+        } else {
+          // Use simulated values
+          setSmoothBattery(simulatedBattery);
+          setSmoothEnergy(energyConsumed);
+          setSmoothCost(simulatedCost);
+        }
+        
+        // Update elapsed time
+        setElapsedTime(Math.floor(elapsedSeconds));
+        
+        // Stop simulation when battery reaches 100%
+        if (simulatedBattery >= 100) {
+          setIsSimulating(false);
+        }
+      }, 100); // Update every 100ms for smooth animation
     }
 
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [session.status]);
+  }, [isSimulating, session.status, simulationStartTime, session.initialBattery, session.costPerKWh, CHARGING_POWER_KW, lastApiData]);
 
   // Auto start charging session on mount
   useEffect(() => {
@@ -140,16 +412,45 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
     }
   }, [bookingId, startChargingSession, sessionStarted]);
 
-  // Auto complete when target battery reached
+  // Initial API call and periodic monitoring (every 2 seconds)
   useEffect(() => {
-    if (session.currentBattery >= session.targetBattery && session.status === 'charging') {
+    const sessionId = localStorage.getItem("currentSessionId");
+    if (!sessionId || !sessionStarted) return;
+    console.log("Current session id: ", sessionId);
+
+    // Initial monitoring call to get initial battery (with loading)
+    handleChargingMonitoring(sessionId, true);
+
+    // Set up periodic monitoring every 2 seconds for smooth updates (no loading)
+    const monitoringInterval = setInterval(() => {
+      handleChargingMonitoring(sessionId, false);
+    }, 2000); // 2 seconds for smooth updates
+
+    return () => {
+      clearInterval(monitoringInterval);
+    };
+  }, [sessionStarted, token]);
+
+  // Retry mechanism for failed monitoring
+  const retryMonitoring = () => {
+    const sessionId = localStorage.getItem("currentSessionId");
+    if (sessionId) {
+      setError(null); // Clear previous errors
+      handleChargingMonitoring(sessionId, true); // Show loading for retry
+    }
+  };
+
+  // Auto complete when target battery reached (100%)
+  useEffect(() => {
+    if (smoothBattery >= 100 && session.status === 'charging' && isSimulating) {
+      setIsSimulating(false);
       const endTime = new Date().toISOString();
       setSession(prev => ({ ...prev, status: 'completed', endTime }));
       endChargingSession(bookingId, endTime);
       toast.success(language === 'vi' ? 'Sạc hoàn tất!' : 'Charging completed!');
       setShowPaymentDialog(true);
     }
-  }, [session.currentBattery, session.targetBattery, session.status, bookingId, endChargingSession, language]);
+  }, [smoothBattery, session.status, isSimulating, bookingId, endChargingSession, language]);
 
   const handlePause = () => {
     setSession(prev => ({ ...prev, status: 'paused' }));
@@ -161,17 +462,17 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
     toast.success(language === 'vi' ? 'Tiếp tục sạc' : 'Charging resumed');
   };
 
-  const handleStop = () => {
-    const endTime = new Date().toISOString();
-    setSession(prev => ({ 
-      ...prev, 
-      status: 'stopped', 
-      endTime 
-    }));
-    endChargingSession(bookingId, endTime);
-    toast.info(language === 'vi' ? 'Đã dừng sạc' : 'Charging stopped');
-    setShowPaymentDialog(true);
+  const handleStop = async () => {
+    const sessionId = localStorage.getItem("currentSessionId");
+    if (!sessionId) {
+      toast.error(language === 'vi' ? 'Không tìm thấy ID phiên sạc' : 'Session ID not found');
+      return;
+    }
+
+    // Call API to terminate charging session
+    await handleChargingTerminating(sessionId);
   };
+
 
   const handlePayment = () => {
     toast.success(language === 'vi' ? 'Thanh toán thành công!' : 'Payment successful!');
@@ -211,7 +512,10 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
     }
   };
 
-  const batteryProgress = ((session.currentBattery - session.initialBattery) / (session.targetBattery - session.initialBattery)) * 100;
+  // Calculate battery progress from initial to 100% (smooth)
+  const batteryProgress = session.initialBattery > 0 
+    ? Math.max(0, Math.min(100, ((smoothBattery - session.initialBattery) / (100 - session.initialBattery)) * 100))
+    : 0;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 via-blue-50 to-purple-50 dark:from-gray-950 dark:via-blue-950 dark:to-green-950">
@@ -227,23 +531,74 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
             >
               <ArrowLeft className="w-5 h-5" />
             </Button>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={() => {
+                const sessionId = localStorage.getItem("currentSessionId");
+                if (sessionId) {
+                  handleChargingMonitoring(sessionId, true); // Show loading for manual refresh
+                }
+              }}
+              disabled={loading}
+              className="p-2 hover:bg-primary/10 rounded-full"
+            >
+              <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
+            </Button>
             <div className="flex-1">
               <h1 className="text-xl font-semibold">{translations.title}</h1>
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <MapPin className="w-4 h-4" />
                 <span>{session.stationName}</span>
+                {lastUpdateTime && (
+                  <span className="text-xs opacity-70">
+                    {language === 'vi' ? 'Cập nhật' : 'Updated'} {lastUpdateTime.toLocaleTimeString()}
+                  </span>
+                )}
               </div>
             </div>
             <Badge className={`${getStatusColor()} text-white flex items-center gap-2`}>
               <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
               {translations.status[session.status]}
             </Badge>
+            {isSimulating && (
+              <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 dark:bg-green-950 dark:text-green-300 flex items-center gap-2">
+                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                {language === 'vi' ? 'Đang mô phỏng' : 'Simulating'}
+              </Badge>
+            )}
           </div>
         </div>
       </div>
 
       {/* Content */}
       <div className="max-w-4xl mx-auto p-4 space-y-6">
+        {/* Error Display */}
+        {error && (
+          <Card className="border-red-200 bg-red-50 dark:bg-red-950/20">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-red-600 dark:text-red-400">
+                  <AlertTriangle className="w-5 h-5" />
+                  <span className="font-medium">
+                    {language === 'vi' ? 'Lỗi theo dõi phiên sạc' : 'Charging monitoring error'}
+                  </span>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={retryMonitoring}
+                  disabled={loading}
+                  className="text-red-600 border-red-300 hover:bg-red-100 dark:text-red-400 dark:border-red-700 dark:hover:bg-red-950"
+                >
+                  <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+                  {language === 'vi' ? 'Thử lại' : 'Retry'}
+                </Button>
+              </div>
+              <p className="text-sm text-red-600 dark:text-red-400 mt-2">{error}</p>
+            </CardContent>
+          </Card>
+        )}
         {/* Main Status Card */}
         <Card className="relative overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-blue-500/5" />
@@ -259,13 +614,13 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium">{translations.batteryLevel}</span>
                 <span className="text-2xl font-bold text-primary">
-                  {Math.round(session.currentBattery)}%
+                  {Math.round(smoothBattery)}%
                 </span>
               </div>
-              <Progress value={batteryProgress} className="h-3" />
+              <Progress value={Math.max(0, Math.min(100, batteryProgress))} className="h-3" />
               <div className="flex items-center justify-between text-sm text-muted-foreground">
                 <span>{session.initialBattery}%</span>
-                <span>Target: {session.targetBattery}%</span>
+                <span>Target: 100%</span>
               </div>
             </div>
 
@@ -279,13 +634,13 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
               
               <div className="text-center p-4 bg-card rounded-lg border">
                 <Zap className="w-8 h-8 mx-auto mb-2 text-yellow-500" />
-                <p className="text-2xl font-bold">{session.energyConsumed.toFixed(2)}</p>
+                <p className="text-2xl font-bold">{smoothEnergy.toFixed(2)}</p>
                 <p className="text-sm text-muted-foreground">kWh</p>
               </div>
               
               <div className="text-center p-4 bg-card rounded-lg border">
                 <CreditCard className="w-8 h-8 mx-auto mb-2 text-green-500" />
-                <p className="text-2xl font-bold">{formatCurrency(session.totalCost)}</p>
+                <p className="text-2xl font-bold">{formatCurrency(smoothCost)}</p>
                 <p className="text-sm text-muted-foreground">{translations.currentCost}</p>
               </div>
               
@@ -321,6 +676,7 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
                       <Button
                         variant="destructive"
                         size="lg"
+                        disabled={loading}
                         className="flex items-center gap-2 min-w-[140px]"
                       >
                         <Square className="w-5 h-5" />
@@ -338,8 +694,9 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
                         <AlertDialogCancel>
                           {language === 'vi' ? 'Hủy' : 'Cancel'}
                         </AlertDialogCancel>
-                        <AlertDialogAction
+                        <AlertDialogAction 
                           onClick={handleStop}
+                          disabled={loading}
                           className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                         >
                           {language === 'vi' ? 'Dừng sạc' : 'Stop Charging'}
@@ -366,6 +723,7 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
                       <Button
                         variant="destructive"
                         size="lg"
+                        disabled={loading}
                         className="flex items-center gap-2 min-w-[140px]"
                       >
                         <Square className="w-5 h-5" />
@@ -383,8 +741,9 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
                         <AlertDialogCancel>
                           {language === 'vi' ? 'Hủy' : 'Cancel'}
                         </AlertDialogCancel>
-                        <AlertDialogAction
+                        <AlertDialogAction 
                           onClick={handleStop}
+                          disabled={loading}
                           className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                         >
                           {language === 'vi' ? 'Dừng sạc' : 'Stop Charging'}
@@ -446,16 +805,16 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
                   </div>
                   <div className="flex justify-between">
                     <span>{translations.energyConsumed}:</span>
-                    <span>{session.energyConsumed.toFixed(2)} kWh</span>
+                    <span>{smoothEnergy.toFixed(2)} kWh</span>
                   </div>
                   <div className="flex justify-between">
                     <span>{language === 'vi' ? 'Pin sạc:' : 'Battery charged:'}:</span>
-                    <span>{session.initialBattery}% → {Math.round(session.currentBattery)}%</span>
+                    <span>{session.initialBattery}% → {Math.round(smoothBattery)}%</span>
                   </div>
                   <Separator />
                   <div className="flex justify-between font-medium text-lg">
                     <span>{translations.totalAmount}:</span>
-                    <span className="text-primary">{formatCurrency(session.totalCost)}</span>
+                    <span className="text-primary">{formatCurrency(smoothCost)}</span>
                   </div>
                 </div>
               </CardContent>
@@ -487,15 +846,17 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
           </DialogHeader>
           <div className="flex flex-col items-center space-y-4">
             <QRCodeGenerator 
-              data={{
+              value={JSON.stringify({
                 amount: (() => {
                   const currentBooking = bookings.find(b => b.id === bookingId);
                   const penaltyTotal = currentBooking?.penaltyFees?.total || 0;
                   return Math.round(session.totalCost + penaltyTotal);
                 })(),
                 sessionId: session.id,
-                stationName: session.stationName
-              }}
+                stationName: session.stationName,
+                bookingId: bookingId
+              })}
+              size={200}
             />
             <p className="text-center text-sm text-muted-foreground">
               {language === 'vi' 
@@ -504,7 +865,7 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
               }
             </p>
             <p className="text-center font-medium text-lg">
-              {formatCurrency(session.totalCost)}
+              {formatCurrency(smoothCost)}
             </p>
           </div>
         </DialogContent>
