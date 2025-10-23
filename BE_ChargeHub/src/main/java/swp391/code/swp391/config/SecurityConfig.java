@@ -67,6 +67,7 @@ public class SecurityConfig {
                         .requestMatchers(PUBLIC_URLS).permitAll()
                         .requestMatchers("/api/admin/**").hasRole(User.UserRole.ADMIN.name())
                         .requestMatchers("/api/staff/**").hasAnyRole( "STAFF", "ADMIN")
+                        .requestMatchers("/api/issue-reports/**").hasAnyRole( "STAFF", "ADMIN")
                         .anyRequest().authenticated()
                 );
         return http.build();

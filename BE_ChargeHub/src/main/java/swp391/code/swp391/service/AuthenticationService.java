@@ -21,6 +21,7 @@ import swp391.code.swp391.dto.LoginRequestDTO;
 import swp391.code.swp391.dto.LoginResponseDTO;
 import swp391.code.swp391.entity.CustomUserDetails;
 import swp391.code.swp391.entity.User;
+import swp391.code.swp391.util.JwtUtil;
 
 import java.io.IOException;
 import java.util.Map;
@@ -30,7 +31,7 @@ import java.util.Map;
 public class AuthenticationService {
 
     private final AuthenticationManager authenticationManager;
-    private final JwtService jwtService;
+    private final JwtUtil jwtUtil;
     private final UserServiceImpl userServiceImpl;
     private final JwtBlacklistService jwtBlacklistService;
 
@@ -72,8 +73,8 @@ public class AuthenticationService {
             CustomUserDetails customUserDetails = (CustomUserDetails) authenticate.getPrincipal();  // Hoan thanh xac thuc, lấy thông tin user
 
             // Tạo token
-            String accessToken = jwtService.generateAccessToken(customUserDetails); //Payload chứa thông tin user, issueTime, expiredTime
-            String refreshToken = jwtService.generateRefreshToken(customUserDetails); //Payload chứa thông tin user, issueTime, expiredTime
+            String accessToken = jwtUtil.generateAccessToken(customUserDetails); //Payload chứa thông tin user, issueTime, expiredTime
+            String refreshToken = jwtUtil.generateRefreshToken(customUserDetails); //Payload chứa thông tin user, issueTime, expiredTime
 
             // Nếu thành công → trả token
             return LoginResponseDTO.builder()
@@ -232,8 +233,8 @@ public class AuthenticationService {
     public LoginResponseDTO generateTokenForSocialUser(String code, String loginType){
         CustomUserDetails customUserDetails = processSocialLogin(code, loginType);
         return LoginResponseDTO.builder()
-                .accessToken(jwtService.generateAccessToken(customUserDetails))
-                .refreshToken(jwtService.generateRefreshToken(customUserDetails))
+                .accessToken(jwtUtil.generateAccessToken(customUserDetails))
+                .refreshToken(jwtUtil.generateRefreshToken(customUserDetails))
                 .build();
     }
 

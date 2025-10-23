@@ -11,6 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 import swp391.code.swp391.entity.CustomUserDetails;
 import swp391.code.swp391.entity.User;
 import swp391.code.swp391.repository.UserRepository;
+import swp391.code.swp391.util.JwtUtil;
 
 @Service
 @RequiredArgsConstructor
@@ -18,11 +19,11 @@ import swp391.code.swp391.repository.UserRepository;
 public class CustomUserDetailService implements UserDetailsService {
 
     private final UserRepository userRepository;
-    private final JwtService jwtService;
+    private final JwtUtil jwtUtil;
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException { // Spring Security sử dụng method này để load user
         User user;
-        if (jwtService.isValidEmail(username)) {
+        if (jwtUtil.isValidEmail(username)) {
             user = userRepository.findByEmail(username)
                     .orElseThrow(() -> new UsernameNotFoundException("User not found with email: " + username));
         } else {

@@ -9,7 +9,7 @@
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
     <groupId>SWP391.code</groupId>
-    <artifactId>SWP391</artifactId>
+    <artifactId>BE_ChargeHub</artifactId>
     <version>0.0.1-SNAPSHOT</version>
     <name>SWP391</name>
     <description>SWP391</description>

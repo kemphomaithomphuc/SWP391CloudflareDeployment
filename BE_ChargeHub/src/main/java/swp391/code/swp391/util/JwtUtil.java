@@ -1,4 +1,4 @@
-package swp391.code.swp391.service;
+package swp391.code.swp391.util;
 
 import com.nimbusds.jose.*;
 import com.nimbusds.jose.crypto.MACSigner;
@@ -23,7 +23,7 @@ import java.util.regex.Pattern;
 
 @Service
 @RequiredArgsConstructor
-public class JwtService {
+public class JwtUtil {
 
     private final JwtDecoder jwtDecoder;
     private final UserRepository userRepository;
@@ -65,8 +65,10 @@ public class JwtService {
 
         JWTClaimsSet claimsSet = new JWTClaimsSet.Builder() //tạo các thông tin trong payload
                 .subject(user.getUsername())
-//                .claim("role", user.getAuthorities()) //thêm thông tin role vào payload
-                .issueTime(issueTime) //thời gian tạo token
+                .claim("roles", user.getAuthorities().stream()
+                        .map(GrantedAuthority::getAuthority)
+                        .toList()) // Chuyển đổi GrantedAuthority thành List<String>
+                 .issueTime(issueTime) //thời gian tạo token
                 .expirationTime(expiredTime) //thời gian hết hạn token
                 .build();
 
