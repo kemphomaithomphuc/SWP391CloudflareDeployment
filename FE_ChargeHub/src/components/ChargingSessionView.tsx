@@ -41,6 +41,16 @@ interface ChargingSession {
   estimatedTimeRemaining: number; // in minutes
 }
 
+interface PaymentDetail {
+  userName: string,
+  stationName: string,
+  stationAddress: string,
+  sesionStartTime: string,
+  sessionEndTime: string,
+  powerConsumed: number,
+  baseCost: number,
+  totalFee: number
+}
 export default function ChargingSessionView({ onBack, bookingId }: ChargingSessionViewProps) {
   const { language } = useLanguage();
   const { theme } = useTheme();
@@ -81,6 +91,8 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
   const [smoothEnergy, setSmoothEnergy] = useState(0);
   const [smoothCost, setSmoothCost] = useState(0);
   const [lastUpdateTime, setLastUpdateTime] = useState<Date | null>(null);
+
+  
   
   // Simulation state
   const [isSimulating, setIsSimulating] = useState(false);
@@ -102,6 +114,41 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
   // 100% completion popup
   const [showCompletionDialog, setShowCompletionDialog] = useState(false);
   const [completionDialogShown, setCompletionDialogShown] = useState(false);
+  
+  // Payment confirmation
+  const [showPaymentConfirmation, setShowPaymentConfirmation] = useState(false);
+  const [paymentData, setPaymentData] = useState<PaymentDetail | null>(null);
+  const [paymentLoading, setPaymentLoading] = useState(false);
+  
+  // Charging finishing state
+  const [isChargingFinishing, setIsChargingFinishing] = useState(false);
+  
+  // Monitor localStorage changes for sessionId
+  useEffect(() => {
+    const checkSessionId = () => {
+      const currentSessionId = localStorage.getItem("currentSessionId");
+      const currentUserId = localStorage.getItem("userId");
+      console.log("SessionId Monitor - currentSessionId:", currentSessionId);
+      console.log("SessionId Monitor - currentUserId:", currentUserId);
+      
+      // Update session state if sessionId is available
+      if (currentSessionId && session.id !== currentSessionId) {
+        setSession(prev => ({
+          ...prev,
+          id: currentSessionId
+        }));
+        console.log("SessionId Monitor - Updated session.id to:", currentSessionId);
+      }
+    };
+    
+    // Check immediately
+    checkSessionId();
+    
+    // Set up interval to check periodically
+    const interval = setInterval(checkSessionId, 2000);
+    
+    return () => clearInterval(interval);
+  }, [session.id]);
 
   
 
@@ -559,9 +606,15 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
     }
 
     // Prevent multiple calls
-    if (loading) {
+    if (loading || isChargingFinishing) {
       return;
     }
+
+    // Set charging finishing state
+    setIsChargingFinishing(true);
+    
+    // Show notification that charging is finishing
+    toast.info(language === 'vi' ? 'Đang kết thúc phiên sạc...' : 'Finishing charging session...');
 
     // Stop simulation immediately to prevent further updates
     setIsSimulating(false);
@@ -578,9 +631,15 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
     }
 
     // Prevent multiple calls
-    if (loading) {
+    if (loading || isChargingFinishing) {
       return;
     }
+
+    // Set charging finishing state
+    setIsChargingFinishing(true);
+    
+    // Show notification that charging is finishing
+    toast.info(language === 'vi' ? 'Đang kết thúc phiên sạc...' : 'Finishing charging session...');
 
     // Stop simulation immediately to prevent further updates
     setIsSimulating(false);
@@ -601,10 +660,123 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
   };
 
 
-  const handlePayment = () => {
-    toast.success(language === 'vi' ? 'Thanh toán thành công!' : 'Payment successful!');
-    setShowPaymentDialog(false);
-    onBack();
+  const handlePayment = async () => {
+    try {
+      setPaymentLoading(true);
+      let sessionId = localStorage.getItem("currentSessionId");
+      const userId = localStorage.getItem("userId");
+      console.log("Payment Debug - handlePayment SessionId:", sessionId);
+      console.log("Payment Debug - handlePayment UserId:", userId);
+      
+      // If sessionId is not found, try to get it from the session state
+      if (!sessionId && session.id) {
+        sessionId = session.id;
+        console.log("Payment Debug - Using session.id as fallback in handlePayment:", sessionId);
+      }
+      
+      if (!sessionId || !userId) {
+        toast.error(language === 'vi' ? 'Không tìm thấy thông tin phiên sạc' : 'Session information not found');
+        return;
+      }
+
+      const res = await axios.get(`http://localhost:8080/api/payment/detail?sessionId=${sessionId}&userId=${userId}`);
+      if (res.status === 200 && res.data.success) {
+        const paymentDetail: PaymentDetail = {
+          userName: res.data.data.userName,
+          stationName: res.data.data.stationName,
+          stationAddress: res.data.data.stationAddress,
+          sesionStartTime: res.data.data.sessionStartTime,
+          sessionEndTime: res.data.data.sessionEndTime,
+          powerConsumed: res.data.data.powerConsumed,
+          baseCost: res.data.data.baseCost,
+          totalFee: res.data.data.totalFee
+        };
+        
+        setPaymentData(paymentDetail);
+        setShowPaymentConfirmation(true);
+      } else {
+        toast.error(language === 'vi' ? 'Không thể lấy thông tin thanh toán' : 'Unable to fetch payment information');
+      }
+    } catch (err: any) {
+      console.error('Error fetching payment details:', err);
+      toast.error(language === 'vi' ? 'Lỗi khi lấy thông tin thanh toán' : 'Error fetching payment details');
+    } finally {
+      setPaymentLoading(false);
+    }
+  };
+  const handleDirectPayment = async() => {
+    try {
+      // Get fresh values from localStorage
+      let sessionId = localStorage.getItem("currentSessionId");
+      const userId = localStorage.getItem("userId");
+      const token = localStorage.getItem("token");
+      
+      console.log("Payment Debug - SessionId:", sessionId);
+      console.log("Payment Debug - UserId:", userId);
+      console.log("Payment Debug - Token:", token);
+      console.log("Payment Debug - All localStorage:", {
+        currentSessionId: localStorage.getItem("currentSessionId"),
+        userId: localStorage.getItem("userId"),
+        currentOrderId: localStorage.getItem("currentOrderId"),
+        token: localStorage.getItem("token")
+      });
+      
+      // If sessionId is not found, try to get it from the session state
+      if (!sessionId && session.id) {
+        sessionId = session.id;
+        console.log("Payment Debug - Using session.id as fallback:", sessionId);
+      }
+      
+      if (!sessionId || !userId) {
+        toast.error(language === 'vi' ? 'Không tìm thấy thông tin phiên sạc' : 'Session information not found');
+        return;
+      }
+
+      const payload = {
+        sessionId: sessionId,
+        userId: userId,
+        paymentMethod: "VNPAY",
+        returnUrl: "http://localhost:3000/payment/result",
+        bankCode: "NCB"
+      }
+      
+      const res = await axios.post('http://localhost:8080/api/payment/initiate', payload, {
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (res.status === 200 && res.data.success) {
+        // Close dialogs before redirecting
+        setShowPaymentConfirmation(false);
+        setShowPaymentDialog(false);
+        
+        // Redirect to payment URL
+        window.location.href = res.data.data.paymentUrl;
+      } else {
+        throw new Error(res.data?.message || 'Payment initiation failed');
+      }
+
+    } catch (err: any) {
+      console.error('Error initiating payment:', err);
+      toast.error(language === 'vi' ? 'Lỗi khi khởi tạo thanh toán' : 'Error initiating payment');
+      throw err; // Re-throw to be caught by handleConfirmPayment
+    }
+  }
+
+  const handleConfirmPayment = async () => {
+    try {
+      setPaymentLoading(true);
+      
+      // Call the direct payment method
+      await handleDirectPayment();
+      
+    } catch (err: any) {
+      console.error('Error processing payment:', err);
+      toast.error(language === 'vi' ? 'Lỗi khi xử lý thanh toán' : 'Error processing payment');
+    } finally {
+      setPaymentLoading(false);
+    }
   };
 
   const formatTime = (seconds: number) => {
@@ -619,9 +791,8 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
   };
 
   const formatCurrency = (amount: number) => {
-    return language === 'vi' 
-      ? `${Math.round(amount).toLocaleString('vi-VN')}đ`
-      : `$${(amount / 23000).toFixed(2)}`;
+    // Always use Vietnamese currency (VND) regardless of language
+    return `${Math.round(amount).toLocaleString('vi-VN')}đ`;
   };
 
   const getStatusColor = () => {
@@ -695,6 +866,28 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
           </div>
         </div>
       </div>
+
+      {/* Charging Finishing Notification */}
+      {isChargingFinishing && (
+        <div className="bg-orange-50 dark:bg-orange-950/20 border-b border-orange-200 dark:border-orange-800">
+          <div className="max-w-4xl mx-auto px-4 py-3">
+            <div className="flex items-center gap-3">
+              <RefreshCw className="w-5 h-5 text-orange-600 dark:text-orange-400 animate-spin" />
+              <div>
+                <h4 className="font-medium text-orange-800 dark:text-orange-200">
+                  {language === 'vi' ? 'Đang kết thúc phiên sạc' : 'Finishing Charging Session'}
+                </h4>
+                <p className="text-sm text-orange-700 dark:text-orange-300">
+                  {language === 'vi' 
+                    ? 'Vui lòng đợi trong khi hệ thống kết thúc phiên sạc của bạn...' 
+                    : 'Please wait while the system finishes your charging session...'
+                  }
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Content */}
       <div className="max-w-4xl mx-auto p-4 space-y-6">
@@ -839,10 +1032,13 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
                         </AlertDialogCancel>
                         <AlertDialogAction
                           onClick={handleStop}
-                          disabled={loading}
-                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                          disabled={loading || isChargingFinishing}
+                          className={`${isChargingFinishing ? 'bg-gray-400 text-gray-600 cursor-not-allowed opacity-60' : 'bg-destructive text-destructive-foreground hover:bg-destructive/90'}`}
                         >
-                          {language === 'vi' ? 'Dừng sạc' : 'Stop Charging'}
+                          {isChargingFinishing 
+                            ? (language === 'vi' ? 'Đang kết thúc...' : 'Finishing...')
+                            : (language === 'vi' ? 'Dừng sạc' : 'Stop Charging')
+                          }
                         </AlertDialogAction>
                       </AlertDialogFooter>
                     </AlertDialogContent>
@@ -886,10 +1082,13 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
                         </AlertDialogCancel>
                         <AlertDialogAction
                           onClick={handleStop}
-                          disabled={loading}
-                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                          disabled={loading || isChargingFinishing}
+                          className={`${isChargingFinishing ? 'bg-gray-400 text-gray-600 cursor-not-allowed opacity-60' : 'bg-destructive text-destructive-foreground hover:bg-destructive/90'}`}
                         >
-                          {language === 'vi' ? 'Dừng sạc' : 'Stop Charging'}
+                          {isChargingFinishing 
+                            ? (language === 'vi' ? 'Đang kết thúc...' : 'Finishing...')
+                            : (language === 'vi' ? 'Dừng sạc' : 'Stop Charging')
+                          }
                         </AlertDialogAction>
                       </AlertDialogFooter>
                     </AlertDialogContent>
@@ -930,50 +1129,61 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
       {/* Payment Dialog */}
       <Dialog open={showPaymentDialog} onOpenChange={setShowPaymentDialog}>
         <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>{translations.paymentRequired}</DialogTitle>
-            <DialogDescription>
+          <DialogHeader className="text-center pb-4">
+            <DialogTitle className="text-2xl font-bold flex items-center justify-center gap-2">
+              <CreditCard className="w-6 h-6 text-primary" />
+              {translations.paymentRequired}
+            </DialogTitle>
+            <DialogDescription className="text-base">
               {translations.paymentDetails}
             </DialogDescription>
           </DialogHeader>
           
           <div className="space-y-4">
-            <Card>
-              <CardContent className="p-4 space-y-3">
-                <h4 className="font-medium">{translations.sessionSummary}</h4>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span>{translations.timeElapsed}:</span>
-                    <span>{formatTime(elapsedTime)}</span>
+            <Card className="border-2">
+              <CardContent className="p-6 space-y-4">
+                <h4 className="font-semibold text-lg flex items-center gap-2">
+                  <Clock className="w-5 h-5 text-primary" />
+                  {translations.sessionSummary}
+                </h4>
+                <div className="space-y-3 text-sm">
+                  <div className="flex justify-between items-center py-2">
+                    <span className="text-muted-foreground">{translations.timeElapsed}:</span>
+                    <span className="font-medium">{formatTime(elapsedTime)}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span>{translations.energyConsumed}:</span>
-                    <span>{smoothEnergy.toFixed(2)} kWh</span>
+                  <div className="flex justify-between items-center py-2">
+                    <span className="text-muted-foreground">{translations.energyConsumed}:</span>
+                    <span className="font-medium">{session.energyConsumed.toFixed(2)} kWh</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span>{language === 'vi' ? 'Pin sạc:' : 'Battery charged:'}:</span>
-                    <span>{session.initialBattery}% → {Math.round(smoothBattery)}%</span>
+                  <div className="flex justify-between items-center py-2">
+                    <span className="text-muted-foreground">{language === 'vi' ? 'Pin sạc:' : 'Battery charged:'}:</span>
+                    <span className="font-medium">{session.initialBattery}% → {Math.round(session.currentBattery)}%</span>
                   </div>
-                  <Separator />
-                  <div className="flex justify-between font-medium text-lg">
-                    <span>{translations.totalAmount}:</span>
-                    <span className="text-primary">{formatCurrency(smoothCost)}</span>
+                  <Separator className="my-4" />
+                  <div className="flex justify-between items-center py-3 bg-muted/50 rounded-lg px-3">
+                    <span className="text-lg font-semibold">{translations.totalAmount}:</span>
+                    <span className="text-2xl font-bold text-primary">{formatCurrency(session.totalCost)}</span>
                   </div>
                 </div>
               </CardContent>
             </Card>
             
-            <div className="flex gap-2">
-              <Button onClick={handlePayment} className="flex-1">
-                <CreditCard className="w-4 h-4 mr-2" />
+            <div className="flex gap-3">
+              <Button 
+                onClick={handlePayment} 
+                className="flex-1 bg-green-600 hover:bg-green-700 text-white font-medium py-3"
+                size="lg"
+              >
+                <CreditCard className="w-5 h-5 mr-2" />
                 {translations.payNow}
               </Button>
               <Button
                 variant="outline"
                 onClick={() => setShowQRDialog(true)}
-                className="flex-1"
+                className="flex-1 border-2 hover:bg-muted font-medium py-3"
+                size="lg"
               >
-                <QrCode className="w-4 h-4 mr-2" />
+                <QrCode className="w-5 h-5 mr-2" />
                 {translations.payWithQR}
               </Button>
             </div>
@@ -1051,24 +1261,160 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
                 variant="outline"
                 onClick={handleCompletionCancel}
                 className="flex-1"
-                disabled={loading}
+                disabled={loading || isChargingFinishing}
               >
                 {language === 'vi' ? 'Tiếp tục sạc' : 'Continue Charging'}
               </Button>
               <Button
                 onClick={handleCompletionConfirm}
-                className="flex-1 bg-green-600 hover:bg-green-700"
-                disabled={loading}
+                className={`flex-1 ${isChargingFinishing ? 'bg-gray-400 hover:bg-gray-400 cursor-not-allowed opacity-60' : 'bg-green-600 hover:bg-green-700'}`}
+                disabled={loading || isChargingFinishing}
               >
-                {loading ? (
+                {loading || isChargingFinishing ? (
                   <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
                 ) : (
                   <Square className="w-4 h-4 mr-2" />
                 )}
-                {language === 'vi' ? 'Kết thúc sạc' : 'End Charging'}
+                {isChargingFinishing 
+                  ? (language === 'vi' ? 'Đang kết thúc...' : 'Finishing...')
+                  : (language === 'vi' ? 'Kết thúc sạc' : 'End Charging')
+                }
               </Button>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Payment Confirmation Dialog */}
+      <Dialog open={showPaymentConfirmation} onOpenChange={setShowPaymentConfirmation}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CreditCard className="w-5 h-5 text-blue-500" />
+              {language === 'vi' ? 'Xác nhận thanh toán' : 'Payment Confirmation'}
+            </DialogTitle>
+            <DialogDescription>
+              {language === 'vi' 
+                ? 'Vui lòng xem lại thông tin thanh toán trước khi xác nhận' 
+                : 'Please review the payment information before confirming'
+              }
+            </DialogDescription>
+          </DialogHeader>
+          
+          {paymentData && (
+            <div className="space-y-6">
+              {/* User and Station Information */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">{language === 'vi' ? 'Thông tin phiên sạc' : 'Session Information'}</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-sm font-medium text-muted-foreground">
+                        {language === 'vi' ? 'Tên người dùng' : 'User Name'}
+                      </label>
+                      <p className="text-sm font-medium">{paymentData.userName}</p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-muted-foreground">
+                        {language === 'vi' ? 'Trạm sạc' : 'Charging Station'}
+                      </label>
+                      <p className="text-sm font-medium">{paymentData.stationName}</p>
+                    </div>
+                    <div className="md:col-span-2">
+                      <label className="text-sm font-medium text-muted-foreground">
+                        {language === 'vi' ? 'Địa chỉ trạm' : 'Station Address'}
+                      </label>
+                      <p className="text-sm font-medium">{paymentData.stationAddress}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Session Details */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">{language === 'vi' ? 'Chi tiết phiên sạc' : 'Session Details'}</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-sm font-medium text-muted-foreground">
+                        {language === 'vi' ? 'Thời gian bắt đầu' : 'Start Time'}
+                      </label>
+                      <p className="text-sm font-medium">
+                        {new Date(paymentData.sesionStartTime).toLocaleString()}
+                      </p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-muted-foreground">
+                        {language === 'vi' ? 'Thời gian kết thúc' : 'End Time'}
+                      </label>
+                      <p className="text-sm font-medium">
+                        {new Date(paymentData.sessionEndTime).toLocaleString()}
+                      </p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-muted-foreground">
+                        {language === 'vi' ? 'Năng lượng tiêu thụ' : 'Energy Consumed'}
+                      </label>
+                      <p className="text-sm font-medium">{paymentData.powerConsumed} kWh</p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-muted-foreground">
+                        {language === 'vi' ? 'Chi phí cơ bản' : 'Base Cost'}
+                      </label>
+                      <p className="text-sm font-medium">{formatCurrency(paymentData.baseCost)}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Payment Summary */}
+              <Card className="border-green-200 bg-green-50 dark:bg-green-950/20 dark:border-green-800">
+                <CardHeader>
+                  <CardTitle className="text-lg text-green-800 dark:text-green-200">
+                    {language === 'vi' ? 'Tổng thanh toán' : 'Payment Summary'}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center justify-between">
+                    <span className="text-lg font-medium">
+                      {language === 'vi' ? 'Tổng cộng' : 'Total Amount'}
+                    </span>
+                    <span className="text-2xl font-bold text-green-600 dark:text-green-400">
+                      {formatCurrency(paymentData.totalFee)}
+                    </span>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Action Buttons */}
+              <div className="flex gap-3">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowPaymentConfirmation(false)}
+                  className="flex-1"
+                  disabled={paymentLoading}
+                >
+                  {language === 'vi' ? 'Hủy' : 'Cancel'}
+                </Button>
+                <Button
+                  onClick={handleConfirmPayment}
+                  className="flex-1 bg-green-600 hover:bg-green-700"
+                  disabled={paymentLoading}
+                >
+                  {paymentLoading ? (
+                    <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <CreditCard className="w-4 h-4 mr-2" />
+                  )}
+                  {language === 'vi' ? 'Xác nhận thanh toán' : 'Confirm Payment'}
+                </Button>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>
