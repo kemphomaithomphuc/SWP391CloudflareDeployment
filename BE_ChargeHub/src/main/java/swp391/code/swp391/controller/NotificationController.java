@@ -4,17 +4,14 @@ import com.nimbusds.jose.JOSEException;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import swp391.code.swp391.dto.NotificationDTO;
-import swp391.code.swp391.entity.Notification;
 import swp391.code.swp391.entity.User;
 import swp391.code.swp391.service.JwtService;
 import swp391.code.swp391.service.NotificationService;
 
 import java.text.ParseException;
 import java.util.List;
-import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/notifications")
@@ -38,7 +35,6 @@ public class NotificationController {
     }
 
     @GetMapping("/unread/count")
-    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Long> getUnreadCount() {
         User user;
         try {

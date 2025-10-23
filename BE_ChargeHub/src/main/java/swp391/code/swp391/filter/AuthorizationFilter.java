@@ -1,6 +1,5 @@
 package swp391.code.swp391.filter;
 
-import com.nimbusds.jose.JOSEException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -13,17 +12,14 @@ import org.springframework.util.AntPathMatcher;
 import org.springframework.web.filter.OncePerRequestFilter;
 import swp391.code.swp391.entity.User;
 import swp391.code.swp391.repository.UserRepository;
-import swp391.code.swp391.service.JwtService;
 
 import java.io.IOException;
-import java.text.ParseException;
 import java.util.Arrays;
 
 @Component
 @RequiredArgsConstructor
 public class AuthorizationFilter extends OncePerRequestFilter {
 
-    public final JwtService jwtService;
     public final UserRepository userRepository;
 
     private static final String[] EXCLUDED_PATHS = {

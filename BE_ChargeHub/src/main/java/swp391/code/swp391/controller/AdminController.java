@@ -21,6 +21,7 @@ public class AdminController {
     private final NotificationService notificationService;
 
 
+    //test api for admin
     @GetMapping("/unread/count")
     public ResponseEntity<Long> getUnreadCount(HttpServletRequest request) {
         String header = request.getHeader("Authorization");
