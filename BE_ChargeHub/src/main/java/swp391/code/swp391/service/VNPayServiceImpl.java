@@ -1,6 +1,5 @@
 package swp391.code.swp391.service;
 
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Lazy;
@@ -8,7 +7,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import swp391.code.swp391.entity.Transaction;
 import swp391.code.swp391.repository.TransactionRepository;
-import swp391.code.swp391.util.VNPayUtil;
+import swp391.code.swp391.config.VNPayConfig;
 
 import java.io.UnsupportedEncodingException;
 import java.math.BigDecimal;
@@ -128,7 +127,7 @@ public class VNPayServiceImpl implements VNPayService {
             }
 
             // Tạo secure hash
-            String vnpSecureHash = VNPayUtil.hmacSHA512(vnpHashSecret, hashData.toString());
+            String vnpSecureHash = VNPayConfig.hmacSHA512(vnpHashSecret, hashData.toString());
             String paymentUrl = vnpPayUrl + "?" + query.toString() + "&vnp_SecureHash=" + vnpSecureHash;
 
             log.info("Đã tạo URL thanh toán VNPay thành công cho transaction: {}", transactionId);
@@ -223,7 +222,7 @@ public class VNPayServiceImpl implements VNPayService {
             }
 
             // Tạo chữ ký mới để so sánh
-            String signValue = VNPayUtil.hmacSHA512(vnpHashSecret, hashData.toString());
+            String signValue = VNPayConfig.hmacSHA512(vnpHashSecret, hashData.toString());
 
             boolean isValid = signValue.equals(vnpSecureHash);
 

@@ -69,4 +69,13 @@ public interface ChargingPointRepository extends JpaRepository<ChargingPoint, Lo
     @Query("SELECT cp.connectorType.typeName, COUNT(cp) FROM ChargingPoint cp WHERE cp.connectorType IS NOT NULL GROUP BY cp.connectorType.typeName")
     List<Object[]> countChargingPointsGroupedByConnectorType(); // Optional: thống kê
 
+    /**
+     * Tìm charging points theo station, connector type và status
+     * Dùng để tìm trụ sạc thay thế
+     */
+    List<ChargingPoint> findByStation_StationIdAndConnectorType_ConnectorTypeIdAndStatus(
+            Long stationId,
+            Long connectorTypeId,
+            ChargingPointStatus status
+    );
 }

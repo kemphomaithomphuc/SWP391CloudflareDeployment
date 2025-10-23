@@ -4,7 +4,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
-import swp391.code.swp391.dto.OrderResponseDTO;
 import swp391.code.swp391.entity.Order;
 import swp391.code.swp391.entity.User;
 
@@ -111,6 +110,21 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
             @Param("endTime") LocalDateTime endTime
     );
 
+    /**
+     * Tìm các order bị conflict về thời gian cho một charging point cụ thể
+     * Loại trừ order hiện tại (để tránh tự check với chính nó)
+     */
+    @Query("SELECT o FROM Order o WHERE " +
+            "o.chargingPoint.chargingPointId = :chargingPointId AND " +
+            "o.status = 'BOOKED' AND " +
+            "o.orderId != :excludeOrderId AND " +
+            "((o.startTime <= :endTime AND o.endTime >= :startTime))")
+    List<Order> findConflictingOrders(
+            @Param("chargingPointId") Long chargingPointId,
+            @Param("startTime") LocalDateTime startTime,
+            @Param("endTime") LocalDateTime endTime,
+            @Param("excludeOrderId") Long excludeOrderId
+    );
 
     List<Order> findByChargingPoint_Station_StationId(Long stationId);
 
