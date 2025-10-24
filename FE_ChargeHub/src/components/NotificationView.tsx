@@ -44,6 +44,10 @@ export default function NotificationView({ onBack }: NotificationViewProps) {
     markAsRead: contextMarkAsRead,
     markAllAsRead 
   } = useNotifications();
+  
+  // 🆕 Note: The notification context should handle local state updates
+  // when markAsRead/markAllAsRead are called, so we don't need to
+  // trigger manual refreshes that could overwrite correct local state
   const [selectedNotification, setSelectedNotification] = useState<Notification | null>(null);
   const [showPopup, setShowPopup] = useState(false);
   const [notificationCounts, setNotificationCounts] = useState({
@@ -51,6 +55,7 @@ export default function NotificationView({ onBack }: NotificationViewProps) {
     unread: 0,
     actionRequired: 0
   });
+  const [isRefreshing, setIsRefreshing] = useState(false);
   
   // Update notification counts
   const updateNotificationCounts = (notifications: any[]) => {
@@ -70,9 +75,36 @@ export default function NotificationView({ onBack }: NotificationViewProps) {
     });
   };
   
+  // 🆕 Sort notifications: unread first, then read, both by creation time descending
+  const sortNotifications = (notifications: any[]) => {
+    return [...notifications].sort((a, b) => {
+      // First sort by read status (unread first)
+      if (a.isRead !== b.isRead) {
+        return a.isRead ? 1 : -1;
+      }
+      // Then sort by creation time (newest first)
+      const aTime = new Date(a.sentTime || a.createdAt || 0).getTime();
+      const bTime = new Date(b.sentTime || b.createdAt || 0).getTime();
+      return bTime - aTime;
+    });
+  };
+
   // Update counts when notifications change
   useEffect(() => {
-    updateNotificationCounts(apiNotifications);
+    console.log("=== NOTIFICATION VIEW NOTIFICATIONS DEBUG ===");
+    console.log("API notifications received:", apiNotifications);
+    console.log("API notifications length:", apiNotifications.length);
+    console.log("API notifications types:", apiNotifications.map(n => ({ id: n.notificationId, type: n.type, title: n.title, content: n.content })));
+    
+    // 🆕 Update counts with sorted notifications
+    const sortedNotifications = sortNotifications(apiNotifications);
+    updateNotificationCounts(sortedNotifications);
+    
+    // 🆕 Log read status for debugging
+    const unreadCount = sortedNotifications.filter(n => !n.isRead).length;
+    const readCount = sortedNotifications.filter(n => n.isRead).length;
+    console.log("Unread notifications:", unreadCount);
+    console.log("Read notifications:", readCount);
   }, [apiNotifications]);
 
   // Handle mark as read
@@ -89,13 +121,49 @@ export default function NotificationView({ onBack }: NotificationViewProps) {
       return;
     }
     
-    console.log('Calling contextMarkAsRead with:', Number(id));
-    await contextMarkAsRead(Number(id));
+    try {
+      console.log('Calling contextMarkAsRead with:', Number(id));
+      await contextMarkAsRead(Number(id));
+      
+      // 🆕 Update local state immediately without triggering refresh
+      console.log('Successfully marked notification as read, updating local state');
+      toast.success(language === 'vi' ? 'Đã đánh dấu đã đọc' : 'Marked as read');
+    } catch (error) {
+      console.error('Failed to mark notification as read:', error);
+      toast.error(language === 'vi' ? 'Không thể đánh dấu đã đọc' : 'Failed to mark as read');
+    }
   };
 
   // Handle mark all as read
   const handleMarkAllAsRead = async () => {
-    await markAllAsRead();
+    try {
+      await markAllAsRead();
+      // 🆕 Show success message without triggering refresh
+      toast.success(language === 'vi' ? 'Tất cả thông báo đã được đánh dấu đã đọc' : 'All notifications marked as read');
+    } catch (error) {
+      console.error('Failed to mark all as read:', error);
+      toast.error(language === 'vi' ? 'Không thể đánh dấu tất cả đã đọc' : 'Failed to mark all as read');
+    }
+  };
+
+  // 🆕 Enhanced refresh function with sorting and backend sync
+  const handleRefresh = async () => {
+    console.log("=== MANUAL REFRESH NOTIFICATIONS ===");
+    
+    try {
+      setIsRefreshing(true);
+      
+      // 🆕 Only refresh from backend when user manually clicks refresh
+      await refreshNotifications();
+      
+      console.log("Manual refresh completed successfully");
+      toast.success(language === 'vi' ? 'Đã làm mới thông báo' : 'Notifications refreshed');
+    } catch (error) {
+      console.error("Refresh failed:", error);
+      toast.error(language === 'vi' ? 'Không thể làm mới thông báo' : 'Failed to refresh notifications');
+    } finally {
+      setIsRefreshing(false);
+    }
   };
   
   // Generate localized notification data (fallback) - 5 notification tasks
@@ -283,23 +351,67 @@ export default function NotificationView({ onBack }: NotificationViewProps) {
     }
   ];
 
-  // Use only API notifications (database-driven)
-  const displayNotifications = apiNotifications.map((notif, index) => {
-    console.log(`Processing notification ${index}:`, notif);
+  // 🆕 Sort and display API notifications (database-driven)
+  const sortedApiNotifications = sortNotifications(apiNotifications);
+  const displayNotifications = sortedApiNotifications.map((notif, index) => {
+    console.log(`=== PROCESSING NOTIFICATION ${index} ===`);
+    console.log("Raw notification:", notif);
+    console.log("Notification ID:", notif.notificationId);
+    console.log("Notification type:", notif.type);
+    console.log("Notification title:", notif.title);
+    console.log("Notification content:", notif.content);
+    console.log("Notification isRead:", notif.isRead);
+    
     const id = notif.notificationId ? notif.notificationId.toString() : `temp-${Math.random()}`;
     console.log(`Notification ${index} ID:`, id, 'original:', notif.notificationId);
     
-    return {
+    // Map backend types to frontend types
+    const mapBackendTypeToFrontend = (backendType: string) => {
+      switch (backendType?.toUpperCase()) {
+        case 'BOOKING':
+          return 'booking';
+        case 'PAYMENT':
+          return 'payment';
+        case 'ISSUE':
+          return 'issue';
+        case 'PENALTY':
+          return 'penalty';
+        case 'GENERAL':
+          return 'general';
+        default:
+          return 'general';
+      }
+    };
+    
+    // Determine if notification requires action based on content
+    const requiresAction = notif.content?.toLowerCase().includes('action required') || 
+                          notif.content?.toLowerCase().includes('cần hành động') ||
+                          notif.content?.toLowerCase().includes('penalty') ||
+                          notif.content?.toLowerCase().includes('phạt') ||
+                          notif.content?.toLowerCase().includes('payment failed') ||
+                          notif.content?.toLowerCase().includes('thanh toán thất bại');
+    
+    const mappedNotification = {
       id,
-      type: notif.type ? notif.type.toLowerCase() as any : 'general',
+      type: mapBackendTypeToFrontend(notif.type) as "booking" | "payment" | "issue" | "penalty" | "general" | "invoice" | "late_arrival" | "charging_complete" | "overstay_warning" | "report_success" | "booking_confirmed",
       title: notif.title || 'No Title',
       message: notif.content || 'No Content',
       timestamp: notif.sentTime || new Date().toISOString(),
       isRead: notif.isRead || false,
-      requiresAction: false,
+      requiresAction: requiresAction,
       actionData: undefined
     };
+    
+    console.log(`Mapped notification ${index}:`, mappedNotification);
+    console.log(`Mapped type: ${mappedNotification.type}, requiresAction: ${mappedNotification.requiresAction}`);
+    
+    return mappedNotification;
   });
+  
+  console.log("=== FINAL DISPLAY NOTIFICATIONS ===");
+  console.log("Display notifications count:", displayNotifications.length);
+  console.log("Display notifications:", displayNotifications);
+  
 
   const getNotificationIcon = (type: string) => {
     switch (type) {
@@ -411,9 +523,15 @@ export default function NotificationView({ onBack }: NotificationViewProps) {
   };
 
   // Handle popup actions
-  const handleViewNotification = (notification: Notification) => {
+  const handleViewNotification = async (notification: Notification) => {
     setSelectedNotification(notification);
     setShowPopup(true);
+    
+    // Automatically mark as read when viewing details
+    if (!notification.isRead) {
+      await handleMarkAsRead(notification.id);
+      // 🆕 No automatic refresh - let the context handle state updates
+    }
   };
 
   const handleClosePopup = () => {
@@ -499,12 +617,12 @@ export default function NotificationView({ onBack }: NotificationViewProps) {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={refreshNotifications}
-                disabled={loading}
+                onClick={handleRefresh}
+                disabled={loading || isRefreshing}
                 className="flex items-center space-x-2"
               >
-                <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-                <span>{t('refresh')}</span>
+                <RefreshCw className={`w-4 h-4 ${(loading || isRefreshing) ? 'animate-spin' : ''}`} />
+                <span>{isRefreshing ? (language === 'vi' ? 'Đang làm mới...' : 'Refreshing...') : t('refresh')}</span>
               </Button>
               {unreadCount > 0 && (
                 <Button
@@ -566,9 +684,9 @@ export default function NotificationView({ onBack }: NotificationViewProps) {
                             <span className="font-medium text-orange-900 dark:text-orange-100">
                               {language === 'vi' ? 'Bạn muốn làm gì?' : 'What would you like to do?'}
                             </span>
-                            {notification.actionData?.penaltyAmount && (
+                            {notification.actionData && 'penaltyAmount' in notification.actionData && (notification.actionData as any).penaltyAmount && (
                             <Badge variant="outline" className="text-orange-700 border-orange-300 dark:text-orange-300 dark:border-orange-700">
-                                {language === 'vi' ? 'Phí' : 'Fee'}: {notification.actionData.penaltyAmount.toLocaleString()} VND
+                                {language === 'vi' ? 'Phí' : 'Fee'}: {(notification.actionData as any).penaltyAmount.toLocaleString()} VND
                             </Badge>
                             )}
                           </div>
