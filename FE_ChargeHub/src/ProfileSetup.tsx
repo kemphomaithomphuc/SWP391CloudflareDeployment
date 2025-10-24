@@ -6,7 +6,7 @@ import { ArrowLeft, Upload, User, X } from "lucide-react";
 import DatePicker from "./components/DatePicker";
 import { countries, getProvincesByCountry, Province } from "./data/locationData";
 import { useLanguage } from "./contexts/LanguageContext";
-import axios, { AxiosError } from "axios";
+import { api } from "./services/api";
 
 
 interface ProfileSetupProps {
@@ -51,7 +51,7 @@ export default function ProfileSetup({ onNext, onBack }: ProfileSetupProps) {
         return;
       }
       
-      const res = await axios.put(`http://localhost:8080/api/user/profile/${userId}`, {
+      const res = await api.put(`/api/user/profile/${userId}`, {
         userId: parseInt(userId),
         phoneNumber: data.phone,
         address: data.address + (data.province ? `, ${data.province}` : '') + (data.country ? `, ${data.country}` : ''),

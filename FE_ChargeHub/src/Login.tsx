@@ -9,6 +9,7 @@ import { Zap } from "lucide-react";
 import { useLanguage } from "./contexts/LanguageContext";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "./components/ui/dialog";
 import toast from "react-hot-toast";  // 🆕 Dùng react-hot-toast
+import { api } from "./services/api";
 
 interface LoginProps {
     onSwitchToRegister: () => void;
@@ -230,7 +231,7 @@ export default function Login({ onSwitchToRegister, onLogin, onStaffLogin, onAdm
         setError(null);
         localStorage.setItem("registeredUserId", userId);
         try {
-            const res = await axios.get(`http://localhost:8080/api/user/profile/${userId}?include=vehicles`);
+            const res = await api.get(`/api/user/profile/${userId}?include=vehicles`);
             console.log("User profile response:", res.data);
             
             if (res.status === 200 && res.data) {

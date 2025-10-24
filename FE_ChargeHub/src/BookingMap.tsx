@@ -415,7 +415,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
         }
     const fetchConnectorTypeById = async (connectorTypeId: string): Promise<ConnectorType | null> => {
         try {
-            const res = await axios.get(`http://localhost:8080/api/connector-types/${connectorTypeId}`);
+            const res = await api.get(`/api/connector-types/${connectorTypeId}`);
             if (res.status === 200) {
                 const connector = res.data;
                 console.log("=== fetchConnectorTypeById Debug ===");
@@ -597,7 +597,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
     //Start Calling Api
     const callApiForGetStationList = async (): Promise<ChargingStation[] | null> => {
         try {
-            const res = await axios.get("http://localhost:8080/api/charging-stations");
+            const res = await api.get("/api/charging-stations");
             if (res.status == 200) {
                 return (res.data as any[]).map(station => ({
                     stationId: station.stationId,
@@ -621,8 +621,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
 
     const callApiForGetPointsForEachStation = async (stationId: string): Promise<ChargingPoint[] | null> => {
         try {
-            const res = await axios.get(`http://localhost:8080/api/charging-points/station/${stationId}`);
-            
+            const res = await api.get(`api/charging-points/station/${stationId}`);
             if (res.status == 200 && Array.isArray(res.data)) {
                 console.log('Fetched charging points for station', stationId, ':', res.data);
                 return res.data.map((chargingPoint: any) => ({
@@ -1218,8 +1217,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
              style="background-color: ${backgroundColor};">
           <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
-        </svg>
-      </div>
+        </div>
     `;
 
             markerElement.style.cursor = "pointer";
@@ -1530,8 +1528,6 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
 
     };
 
-
-
     const handleBooking = () => {
 
         if (!selectedStation || !selectedTimeSlot || targetBatteryLevel <= currentBatteryLevel) return;
@@ -1669,8 +1665,6 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
         }
 
     };
-
-
 
     const handleStartCharging = () => {
 
@@ -3334,8 +3328,12 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                                         <MapPin className="w-8 h-8 text-muted-foreground" />
                                     </div>
                                     <div className="space-y-2">
-                                        <h3 className="text-lg font-medium text-muted-foreground">No stations found</h3>
-                                        <p className="text-sm text-muted-foreground">Try adjusting your search or filters</p>
+                                        <h3 className="text-lg font-medium text-muted-foreground">
+                                            {language === 'vi' ? 'Không có trạm nào' : 'No stations found'}
+                                        </h3>
+                                        <p className="text-sm text-muted-foreground">
+                                            {language === 'vi' ? 'Vui lòng thử lại sau' : 'Please try again later'}
+                                        </p>
                                     </div>
                                 </div>
                             </div>
@@ -4423,8 +4421,6 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
 
 
 
-
-
                     </div>
 
                 </div>
@@ -4566,10 +4562,12 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                                                     </div>
                                                 ))
                                             ) : (
-                                                <p className="text-lg font-semibold">
-                                                    {stationTotalPoints[detailsStation.stationId?.toString() || ''] || detailsStation.chargingPointNumber || 0}
-                                                    {language === 'vi' ? ' trụ sạc' : ' charging points'}
-                                                </p>
+                                                <div className="flex items-center justify-between">
+                                                    <span className="text-sm font-medium">
+                                                        {stationTotalPoints[detailsStation.stationId?.toString() || ''] || detailsStation.chargingPointNumber || 0}
+                                                        {language === 'vi' ? ' trụ sạc' : ' charging points'}
+                                                    </span>
+                                                </div>
                                             )}
                                         </div>
                                     </div>
@@ -4803,7 +4801,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                                     <div className="flex items-center justify-center space-x-3">
                                         <button
                                             onClick={() => setInitialBatteryLevel(Math.max(0, initialBatteryLevel - 1))}
-                                            className="w-8 h-8 bg-muted hover:bg-muted/80 rounded-lg flex items-center justify-center transition-colors text-sm"
+                                            className="w-8 h-8 bg-muted hover:bg-muted/80 rounded-lg flex items-center justify-center transition-colors"
                                         >
                                             −
                                         </button>
@@ -4824,29 +4822,35 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                                         </div>
                                         <button
                                             onClick={() => setInitialBatteryLevel(Math.min(100, initialBatteryLevel + 1))}
-                                            className="w-8 h-8 bg-muted hover:bg-muted/80 rounded-lg flex items-center justify-center transition-colors text-sm"
+                                            className="w-8 h-8 bg-muted hover:bg-muted/80 rounded-lg flex items-center justify-center transition-colors"
                                         >
                                             +
                                         </button>
                                     </div>
 
-                                    {/* Battery Level Visual Bar */}
-                                    <div className="relative w-full h-4 bg-muted rounded-full overflow-hidden">
-                                        <div
-                                            className={`h-full transition-all duration-300 ${
-                                                initialBatteryLevel <= 20 ? 'bg-red-500' :
-                                                    initialBatteryLevel <= 50 ? 'bg-yellow-500' : 'bg-green-500'
-                                            }`}
-                                            style={{ width: `${initialBatteryLevel}%` }}
-                                        />
+
+
+                                    {/* Current Battery Level Display */}
+
+                                    <div className="text-center">
+
+                                        <div className={`text-3xl font-bold ${currentBatteryLevel <= 20 ? 'text-destructive' :
+
+                                            currentBatteryLevel <= 50 ? 'text-yellow-600' : 'text-primary'
+
+                                        }`}>
+
+                                            {currentBatteryLevel}%
+
+                                        </div>
+
+                                        <div className="text-sm text-muted-foreground">Current Battery Level</div>
+
                                     </div>
 
-                                    <div className="flex justify-between text-xs text-muted-foreground">
-                                        <span>0%</span>
-                                        <span>50%</span>
-                                        <span>100%</span>
-                                    </div>
                                 </div>
+
+
 
                                 {/* Target Battery Level */}
                                 <div className="space-y-1">
@@ -4856,7 +4860,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                                     <div className="flex items-center justify-center space-x-3">
                                         <button
                                             onClick={() => setTargetBatteryLevelConfig(Math.max(initialBatteryLevel + 5, targetBatteryLevelConfig - 1))}
-                                            className="w-8 h-8 bg-muted hover:bg-muted/80 rounded-lg flex items-center justify-center transition-colors text-sm"
+                                            className="w-8 h-8 bg-muted hover:bg-muted/80 rounded-lg flex items-center justify-center transition-colors"
                                         >
                                             −
                                         </button>
@@ -4877,7 +4881,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                                         </div>
                                         <button
                                             onClick={() => setTargetBatteryLevelConfig(Math.min(100, targetBatteryLevelConfig + 1))}
-                                            className="w-8 h-8 bg-muted hover:bg-muted/80 rounded-lg flex items-center justify-center transition-colors text-sm"
+                                            className="w-8 h-8 bg-muted hover:bg-muted/80 rounded-lg flex items-center justify-center transition-colors"
                                         >
                                             +
                                         </button>
@@ -5047,10 +5051,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                                         {language === 'vi' ? 'Không có xe nào' : 'No vehicles found'}
                                     </h3>
                                     <p className="text-sm text-muted-foreground">
-                                        {language === 'vi' 
-                                            ? 'Vui lòng thêm xe vào tài khoản của bạn' 
-                                            : 'Please add a vehicle to your account'
-                                        }
+                                        {language === 'vi' ? 'Vui lòng thêm xe vào tài khoản của bạn' : 'Please add a vehicle to your account'}
                                     </p>
                                 </div>
                             </div>
@@ -5161,3 +5162,4 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
     );
 
 }
+

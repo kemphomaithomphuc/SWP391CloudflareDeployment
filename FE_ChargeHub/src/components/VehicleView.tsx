@@ -153,7 +153,7 @@ export default function VehicleView({ onBack }: VehicleViewProps) {
 
     const fetchConnectorTypeById = async (connectorTypeId: string): Promise<ConnectorType | null> => {
         try {
-            const res = await axios.get(`http://localhost:8080/api/connector-types/${connectorTypeId}`);
+            const res = await api.get(`/api/connector-types/${connectorTypeId}`);
             if (res.status === 200) {
                 const connector = res.data;
                 return {
@@ -172,7 +172,7 @@ export default function VehicleView({ onBack }: VehicleViewProps) {
 
     const fetchConnectorType = async(): Promise<ConnectorType[] | null> => {
         try {
-            const res = await axios.get("http://localhost:8080/api/connector-types");
+            const res = await api.get("/api/connector-types");
             if (res.status === 200) {
                 return (res.data as any[]).map((connector) => ({ 
                     TypeName: connector.TypeName,
@@ -189,7 +189,7 @@ export default function VehicleView({ onBack }: VehicleViewProps) {
         setLoading(true);
         setError(null);
         try {
-            const res = await axios.get("http://localhost:8080/api/carModel");
+            const res = await api.get("/api/carModel");
             if (res.status === 200 && res.data.success) {
                 const validModels = res.data.data.filter((model: any) => 
                     model.brand && model.model && model.brand !== null && model.model !== null

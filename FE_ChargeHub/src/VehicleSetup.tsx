@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { ArrowLeft, Car } from "lucide-react";
 import { useLanguage } from "./contexts/LanguageContext";
 import axios from "axios";
+import { api } from "./services/api";
 
 
 interface VehicleSetupProps {
@@ -82,7 +83,7 @@ export default function VehicleSetup({ onNext, onBack }: VehicleSetupProps) {
   };
   const fetchConnectorType = async() : Promise<ConnectorType[] | null> => {
     try {
-      const res = await axios.get("http://localhost:8080/api/connector-types");
+      const res = await api.get("/api/connector-types");
       if (res.status === 200) {
         return (res.data as any[]).map((connector) => ({ 
           TypeName: connector.TypeName,
@@ -99,7 +100,7 @@ export default function VehicleSetup({ onNext, onBack }: VehicleSetupProps) {
     setLoading(true);
     setError(null);
     try {
-      const res = await axios.get("http://localhost:8080/api/carModel");
+      const res = await api.get("/api/carModel");
       if (res.status === 200 && res.data.success) {
         // Filter out invalid entries (where brand or model is null)
         const validModels = res.data.data.filter((model: any) => 
@@ -159,8 +160,8 @@ export default function VehicleSetup({ onNext, onBack }: VehicleSetupProps) {
         userId: userId,
         carModelId: selectedCarModelId
       };     
-      const response = await axios.post("http://localhost:8080/api/vehicles", payload);
-      
+      const response = await api.post("/api/vehicles", payload);
+
       if (response.status === 200 || response.status === 201) {
         console.log("Vehicle added successfully");
         setLoading(false);
