@@ -73,6 +73,59 @@ export default function ProfileView({ onBack }: ProfileViewProps) {
     const [emailChangeSuccess, setEmailChangeSuccess] = useState<string | null>(null);
     const [emailChangeLoading, setEmailChangeLoading] = useState(false);
     const [emailOtpSent, setEmailOtpSent] = useState(false);
+    
+    // 🆕 Email modal validation state
+    const [emailModalValidationError, setEmailModalValidationError] = useState<string | null>(null);
+    const [isEmailModalValidating, setIsEmailModalValidating] = useState(false);
+
+    // 🆕 Form validation state
+    const [formErrors, setFormErrors] = useState<{
+        fullName?: string | undefined;
+        phone?: string | undefined;
+        dateOfBirth?: string | undefined;
+        address?: string | undefined;
+    }>({});
+    const [isValidating, setIsValidating] = useState(false);
+    
+    // 🆕 Form validity state
+    const [isFormValid, setIsFormValid] = useState(false);
+    
+    // 🆕 Field tracking state - tracks which fields have been touched/edited
+    const [touchedFields, setTouchedFields] = useState<{
+        fullName?: boolean;
+        phone?: boolean;
+        dateOfBirth?: boolean;
+        address?: string;
+    }>({});
+    
+    // 🆕 Track if save has been attempted
+    const [saveAttempted, setSaveAttempted] = useState(false);
+
+    // 🆕 Check if form is valid (no errors and all required fields filled)
+    const checkFormValidity = () => {
+        const errors = formErrors;
+        
+        // 🆕 Check for actual validation errors (not just display conditions)
+        const hasErrors = Object.values(errors).some(error => error !== undefined);
+        
+        // Check if all required fields are filled
+        const requiredFields = ['fullName', 'phone', 'dateOfBirth', 'address'];
+        const allFieldsFilled = requiredFields.every(field => {
+            const value = profileData[field as keyof UserProfile];
+            return value && value.toString().trim() !== '';
+        });
+        
+        const isValid = !hasErrors && allFieldsFilled;
+        console.log("=== FORM VALIDITY CHECK ===");
+        console.log("hasErrors:", hasErrors);
+        console.log("allFieldsFilled:", allFieldsFilled);
+        console.log("isValid:", isValid);
+        console.log("formErrors:", errors);
+        console.log("touchedFields:", touchedFields);
+        console.log("saveAttempted:", saveAttempted);
+        setIsFormValid(isValid);
+        return isValid;
+    };
 
     // 🆕 Validation functions (tương tự login)
     const validateEmail = (emailValue: string): boolean => {
@@ -108,6 +161,216 @@ export default function ProfileView({ onBack }: ProfileViewProps) {
         return selectedDate < today;
     };
 
+    // 🆕 Comprehensive form validation functions
+    const validateFormField = (field: string, value: string): string | null => {
+        switch (field) {
+            case 'fullName':
+                if (!value.trim()) {
+                    return "Name cannot be empty or contain special characters.";
+                }
+                // 🆕 Updated regex to allow Vietnamese characters and letters
+                if (!/^[\p{L}\s]+$/u.test(value.trim())) {
+                    return "Name cannot be empty or contain special characters.";
+                }
+                if (!validateFullName(value)) {
+                    return "Name cannot be empty or contain special characters.";
+                }
+                return null;
+            case 'phone':
+                if (!value.trim()) {
+                    return "Phone number cannot be empty or contain invalid characters.";
+                }
+                // Check for only digits and optional '+' at start
+                if (!/^\+?[0-9]+$/.test(value.trim())) {
+                    return "Phone number cannot be empty or contain invalid characters.";
+                }
+                if (!validatePhone(value)) {
+                    return "Phone number cannot be empty or contain invalid characters.";
+                }
+                return null;
+            case 'dateOfBirth':
+                if (!value.trim()) {
+                    return "Date of birth cannot be empty.";
+                }
+                return null;
+            case 'address':
+                if (!value.trim()) {
+                    return "Address cannot be empty.";
+                }
+                return null;
+            case 'email':
+                if (!value.trim()) {
+                    return "Email cannot be empty.";
+                }
+                if (!validateEmail(value)) {
+                    return "Invalid email format.";
+                }
+                return null;
+            default:
+                return null;
+        }
+    };
+
+    // 🆕 Check if email is already in use
+    const checkEmailDuplicate = async (email: string): Promise<boolean> => {
+        if (email === profileData.email) {
+            return false; // Same email, not duplicate
+        }
+        
+        try {
+            setIsValidating(true);
+            const response = await api.get(`/api/user/check-email/${encodeURIComponent(email)}`);
+            return response.data.exists || false;
+        } catch (error) {
+            console.error('Email duplicate check error:', error);
+            return false; // Assume not duplicate on error to allow submission
+        } finally {
+            setIsValidating(false);
+        }
+    };
+
+    // 🆕 Frontend email validation function
+    const validateEmailField = async (email: string): Promise<string | null> => {
+        console.log("=== EMAIL VALIDATION ===");
+        console.log("Input email:", email);
+        console.log("Current profile email:", profileData.email);
+        
+        // Check if email is empty
+        if (!email.trim()) {
+            return "Email cannot be empty.";
+        }
+        
+        // Check if email format is valid
+        if (!validateEmail(email)) {
+            return "Invalid email format.";
+        }
+        
+        // Check if email is the same as current saved email
+        if (email === profileData.email) {
+            return "You entered the same email as before.";
+        }
+        
+        // Check if email already exists in database (if different from current)
+        if (email !== profileData.email) {
+            try {
+                setIsValidating(true);
+                const isDuplicate = await checkEmailDuplicate(email);
+                if (isDuplicate) {
+                    return "This email is already in use.";
+                }
+            } catch (error) {
+                console.error('Email duplicate check error:', error);
+                // Don't show error for network issues, allow user to proceed
+            } finally {
+                setIsValidating(false);
+            }
+        }
+        
+        return null; // No validation errors
+    };
+
+    // 🆕 Email modal validation function
+    const validateEmailModal = async (email: string): Promise<string | null> => {
+        console.log("=== EMAIL MODAL VALIDATION ===");
+        console.log("Input email:", email);
+        console.log("Current profile email:", profileData.email);
+        
+        // Check if email is empty
+        if (!email.trim()) {
+            return "Email cannot be empty.";
+        }
+        
+        // Check if email format is valid
+        if (!validateEmail(email)) {
+            return "Invalid email format.";
+        }
+        
+        // Check if email is the same as current saved email
+        if (email === profileData.email) {
+            return "You entered the same email as before.";
+        }
+        
+        // Check if email already exists in database
+        try {
+            setIsEmailModalValidating(true);
+            const isDuplicate = await checkEmailDuplicate(email);
+            if (isDuplicate) {
+                return "This email is already in use.";
+            }
+        } catch (error) {
+            console.error('Email duplicate check error:', error);
+            // Don't show error for network issues, allow user to proceed
+        } finally {
+            setIsEmailModalValidating(false);
+        }
+        
+        return null; // No validation errors
+    };
+
+    // 🆕 Validate all form fields
+    const validateAllFields = async (): Promise<boolean> => {
+        const errors: { 
+            fullName?: string | undefined; 
+            phone?: string | undefined; 
+            dateOfBirth?: string | undefined; 
+            address?: string | undefined; 
+        } = {};
+        let hasErrors = false;
+
+        // 🆕 Always validate all required fields on save
+        console.log("=== VALIDATING ALL FIELDS ===");
+        console.log("profileData:", profileData);
+
+        // Validate name
+        const nameError = validateFormField('fullName', profileData.fullName);
+        if (nameError) {
+            errors.fullName = nameError;
+            hasErrors = true;
+            console.log("Name validation error:", nameError);
+        }
+
+        // Validate phone
+        const phoneError = validateFormField('phone', profileData.phone || '');
+        if (phoneError) {
+            errors.phone = phoneError;
+            hasErrors = true;
+            console.log("Phone validation error:", phoneError);
+        }
+
+        // Validate date of birth
+        const dateError = validateFormField('dateOfBirth', profileData.dateOfBirth || '');
+        if (dateError) {
+            errors.dateOfBirth = dateError;
+            hasErrors = true;
+            console.log("Date validation error:", dateError);
+        }
+
+        // Validate address
+        const addressError = validateFormField('address', profileData.address || '');
+        if (addressError) {
+            errors.address = addressError;
+            hasErrors = true;
+            console.log("Address validation error:", addressError);
+        }
+
+
+        console.log("Validation result - hasErrors:", hasErrors, "errors:", errors);
+        setFormErrors(errors);
+        return !hasErrors;
+    };
+
+    // 🆕 Check form validity when profileData or formErrors change
+    useEffect(() => {
+        checkFormValidity();
+    }, [profileData, formErrors]);
+
+    // 🆕 Initialize form validity when component mounts
+    useEffect(() => {
+        if (isEditing) {
+            checkFormValidity();
+        }
+    }, [isEditing]);
+
     // Collect from localStorage
     const userId = localStorage.getItem("userId");  //từ login
     const token = localStorage.getItem("token");
@@ -124,19 +387,21 @@ export default function ProfileView({ onBack }: ProfileViewProps) {
     };
 
     const handleSendOTPForEmailChange = async () => {
-        if (!newEmailInput.trim()) {
-            setEmailChangeError("Please enter your new email");
-            toast.error(t("Please enter your new email"));
+        // 🆕 Clear previous validation errors
+        setEmailModalValidationError(null);
+        
+        // 🆕 Validate email before proceeding
+        const validationError = await validateEmailModal(newEmailInput.trim());
+        if (validationError) {
+            setEmailModalValidationError(validationError);
+            toast.error(validationError);
             return;
         }
-        if (!validateEmail(newEmailInput.trim())) {
-            setEmailChangeError("Invalid email format");
-            toast.error("Bạn nhập sai format email");
-            return;
-        }
+        
         try {
             setEmailChangeLoading(true);
             setEmailChangeError(null);
+            setEmailModalValidationError(null);
             
             // Get current user email from profile data
             const currentUserEmail = profileData?.email;
@@ -213,6 +478,9 @@ export default function ProfileView({ onBack }: ProfileViewProps) {
         setEmailChangeError(null);
         setEmailChangeSuccess(null);
         setEmailOtpSent(false);
+        // 🆕 Clear validation errors when closing dialog
+        setEmailModalValidationError(null);
+        setIsEmailModalValidating(false);
     };
 
     useEffect(() => {
@@ -296,7 +564,7 @@ export default function ProfileView({ onBack }: ProfileViewProps) {
 
     const handleSave = async () => {
         // Prevent multiple simultaneous save attempts
-        if (loading || isRetrying) {
+        if (loading || isRetrying || isValidating) {
             console.log("Save already in progress, skipping...");
             return;
         }
@@ -307,6 +575,17 @@ export default function ProfileView({ onBack }: ProfileViewProps) {
         console.log("profileData.dateOfBirth:", profileData.dateOfBirth);
         console.log("userId:", userId);
         console.log("token:", token ? "Present" : "Missing");
+        
+        // 🆕 Set save attempted flag and validate all fields
+        setSaveAttempted(true);
+        
+        // 🆕 Validate all fields before saving
+        const isValid = await validateAllFields();
+        if (!isValid) {
+            console.log("Form validation failed:", formErrors);
+            toast.error("Please fix the validation errors before saving.");
+            return;
+        }
         
         console.log("=== Validation Checks ===");
         console.log("validateFullName result:", validateFullName(profileData.fullName));
@@ -367,8 +646,6 @@ export default function ProfileView({ onBack }: ProfileViewProps) {
             );
             
             console.log("Payload to send:", cleanPayload);
-            
-            // Sử dụng API service thay vì axios trực tiếp
             const response = await api.put(`/api/user/profile/${userId}`, cleanPayload);
             
             console.log("API Response:", response);
@@ -462,7 +739,32 @@ export default function ProfileView({ onBack }: ProfileViewProps) {
             ...prev,
             [field]: value,
         }));
+
+        // 🆕 Mark field as touched when user edits it
+        if (field === 'fullName' || field === 'phone' || field === 'dateOfBirth' || field === 'address') {
+            setTouchedFields(prev => ({
+                ...prev,
+                [field]: true
+            }));
+            
+            // 🆕 Always validate on input change for real-time feedback
+            const error = validateFormField(field, value);
+            setFormErrors(prev => {
+                const newErrors = {
+                    ...prev,
+                    [field]: error || undefined
+                };
+                
+                // 🆕 Check form validity after updating errors
+                setTimeout(() => {
+                    checkFormValidity();
+                }, 0);
+                
+                return newErrors;
+            });
+        }
     };
+
 
     // Avatar upload handler
     const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -552,8 +854,8 @@ export default function ProfileView({ onBack }: ProfileViewProps) {
             setPasswordError(null);
             setPasswordSuccess(null);
             // Path param numeric userId cho PUT password
-            const response = await axios.put(
-                `http://localhost:8080/api/user/profile/password/${userId}`,
+            const response = await api.put(
+                `/api/user/profile/password/${userId}`,
                 { oldPassword, newPassword, confirmNewPassword: confirmPassword },
                 { headers: { Authorization: `Bearer ${token}` } }
             );
@@ -623,15 +925,20 @@ export default function ProfileView({ onBack }: ProfileViewProps) {
                                     handleSave();
                                 } else {
                                     console.log("Setting editing to true...");
+                                    // 🆕 Clear form errors and reset tracking when starting to edit
+                                    setFormErrors({});
+                                    setTouchedFields({});
+                                    setSaveAttempted(false);
                                     setIsEditing(true);
                                 }
                             }}
-                            disabled={loading || isRetrying}
+                            disabled={loading || isRetrying || isValidating || (isEditing && !isFormValid)}
                             className="flex items-center space-x-2"
                         >
                             {isEditing ? <Save className="w-4 h-4" /> : <Edit className="w-4 h-4" />}
                             <span>
                                 {isRetrying ? `Retrying... (${retryCount}/1)` : 
+                                 isValidating ? 'Validating...' :
                                  isEditing ? t('Save Changes') : t('Edit Profile')}
                             </span>
                         </Button>
@@ -717,12 +1024,18 @@ export default function ProfileView({ onBack }: ProfileViewProps) {
                                 <div className="space-y-2">
                                     <Label htmlFor="fullName">{t('full_name')}</Label>
                                     {isEditing ? (
-                                        <Input
-                                            id="fullName"
-                                            value={profileData.fullName || ''}
-                                            onChange={(e) => handleInputChange('fullName', e.target.value)}
-                                            required
-                                        />
+                                        <>
+                                            <Input
+                                                id="fullName"
+                                                value={profileData.fullName || ''}
+                                                onChange={(e) => handleInputChange('fullName', e.target.value)}
+                                                required
+                                                className={formErrors.fullName ? "border-red-500" : ""}
+                                            />
+                                            {formErrors.fullName && (
+                                                <p className="text-red-500 text-sm">{formErrors.fullName}</p>
+                                            )}
+                                        </>
                                     ) : (
                                         <p className="py-2 px-3 bg-muted rounded-md">{profileData.fullName || "Not set"}</p>
                                     )}
@@ -756,11 +1069,17 @@ export default function ProfileView({ onBack }: ProfileViewProps) {
                                 <div className="space-y-2">
                                     <Label htmlFor="phone">{t('phone')}</Label>
                                     {isEditing ? (
-                                        <Input
-                                            id="phone"
-                                            value={profileData.phone || ''}
-                                            onChange={(e) => handleInputChange('phone', e.target.value)}
-                                        />
+                                        <>
+                                            <Input
+                                                id="phone"
+                                                value={profileData.phone || ''}
+                                                onChange={(e) => handleInputChange('phone', e.target.value)}
+                                                className={formErrors.phone ? "border-red-500" : ""}
+                                            />
+                                            {formErrors.phone && (
+                                                <p className="text-red-500 text-sm">{formErrors.phone}</p>
+                                            )}
+                                        </>
                                     ) : (
                                         <p className="py-2 px-3 bg-muted rounded-md">{profileData.phone || "Not set"}</p>
                                     )}
@@ -769,13 +1088,19 @@ export default function ProfileView({ onBack }: ProfileViewProps) {
                                 <div className="space-y-2">
                                     <Label htmlFor="dateOfBirth">{t('date_of_birth')}</Label>
                                     {isEditing ? (
-                                        <Input
-                                            id="dateOfBirth"
-                                            type="date"
-                                            value={profileData.dateOfBirth || ''}
-                                            onChange={(e) => handleInputChange('dateOfBirth', e.target.value)}
-                                            max={new Date().toISOString().split('T')[0]}  // 🆕 Prevent future dates in input
-                                        />
+                                        <>
+                                            <Input
+                                                id="dateOfBirth"
+                                                type="date"
+                                                value={profileData.dateOfBirth || ''}
+                                                onChange={(e) => handleInputChange('dateOfBirth', e.target.value)}
+                                                max={new Date().toISOString().split('T')[0]}  // 🆕 Prevent future dates in input
+                                                className={formErrors.dateOfBirth ? "border-red-500" : ""}
+                                            />
+                                            {formErrors.dateOfBirth && (
+                                                <p className="text-red-500 text-sm">{formErrors.dateOfBirth}</p>
+                                            )}
+                                        </>
                                     ) : (
                                         <p className="py-2 px-3 bg-muted rounded-md">{profileData.dateOfBirth || "Not set"}</p>
                                     )}
@@ -797,11 +1122,17 @@ export default function ProfileView({ onBack }: ProfileViewProps) {
                                 <div className="space-y-2">
                                     <Label htmlFor="address">{t('address')}</Label>
                                     {isEditing ? (
-                                        <Input
-                                            id="address"
-                                            value={profileData.address || ''}
-                                            onChange={(e) => handleInputChange('address', e.target.value)}
-                                        />
+                                        <>
+                                            <Input
+                                                id="address"
+                                                value={profileData.address || ''}
+                                                onChange={(e) => handleInputChange('address', e.target.value)}
+                                                className={formErrors.address ? "border-red-500" : ""}
+                                            />
+                                            {formErrors.address && (
+                                                <p className="text-red-500 text-sm">{formErrors.address}</p>
+                                            )}
+                                        </>
                                     ) : (
                                         <p className="py-2 px-3 bg-muted rounded-md">{profileData.address || "Not set"}</p>
                                     )}
@@ -935,11 +1266,23 @@ export default function ProfileView({ onBack }: ProfileViewProps) {
                                             id="newEmail"
                                             type="email"
                                             value={newEmailInput}
-                                            onChange={(e) => setNewEmailInput(e.target.value)}
+                                            onChange={(e) => {
+                                                setNewEmailInput(e.target.value);
+                                                // 🆕 Clear validation error when user starts typing
+                                                if (emailModalValidationError) {
+                                                    setEmailModalValidationError(null);
+                                                }
+                                            }}
                                             placeholder="Enter new email"
-                                            disabled={emailChangeLoading}
-                                            className="border border-slate-300 rounded-md px-3 py-2"
+                                            disabled={emailChangeLoading || isEmailModalValidating}
+                                            className={`border border-slate-300 rounded-md px-3 py-2 ${
+                                                emailModalValidationError ? "border-red-500" : ""
+                                            }`}
                                         />
+                                        {/* 🆕 Display validation error message */}
+                                        {emailModalValidationError && (
+                                            <p className="text-red-500 text-sm">{emailModalValidationError}</p>
+                                        )}
                                     </div>
 
                                     <p className="text-xs text-gray-500">
@@ -1019,10 +1362,10 @@ export default function ProfileView({ onBack }: ProfileViewProps) {
                             {emailChangeStep === "input" ? (
                                 <Button
                                     onClick={handleSendOTPForEmailChange}
-                                    disabled={emailChangeLoading}
+                                    disabled={emailChangeLoading || isEmailModalValidating || !!emailModalValidationError}
                                     className="bg-blue-500 text-white hover:bg-blue-600"
                                 >
-                                    {emailChangeLoading ? t("loading") : t("Send Code")}
+                                    {emailChangeLoading || isEmailModalValidating ? t("loading") : t("Send Code")}
                                 </Button>
                             ) : (
                                 <Button
