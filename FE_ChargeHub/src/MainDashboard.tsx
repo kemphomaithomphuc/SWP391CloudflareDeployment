@@ -47,8 +47,44 @@ export default function MainDashboard({ onLogout, onBooking, onHistory, onAnalys
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [userFullName, setUserFullName] = useState(localStorage.getItem('fullName') || '');
+  const [userAvatar, setUserAvatar] = useState(localStorage.getItem('avatar') || '');
   const { theme, toggleTheme } = useTheme();
   const { language, setLanguage, t } = useLanguage();
+
+  // Update user full name and avatar when localStorage changes
+  useEffect(() => {
+    const handleStorageChange = () => {
+      setUserFullName(localStorage.getItem('fullName') || '');
+      setUserAvatar(localStorage.getItem('avatar') || '');
+    };
+    
+    // Listen for storage changes (works across tabs)
+    window.addEventListener('storage', handleStorageChange);
+    
+    // Listen for custom avatar change events (works within same tab)
+    const handleAvatarChange = () => {
+      setUserAvatar(localStorage.getItem('avatar') || '');
+    };
+    
+    // Listen for custom profile change events (works within same tab)
+    const handleProfileChange = () => {
+      setUserFullName(localStorage.getItem('fullName') || '');
+      setUserAvatar(localStorage.getItem('avatar') || '');
+    };
+    
+    window.addEventListener('avatarChanged', handleAvatarChange);
+    window.addEventListener('profileChanged', handleProfileChange);
+    
+    // Also check on component mount
+    handleStorageChange();
+    
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('avatarChanged', handleAvatarChange);
+      window.removeEventListener('profileChanged', handleProfileChange);
+    };
+  }, []);
 
   // Load notification count on component mount
   useEffect(() => {
@@ -156,7 +192,21 @@ export default function MainDashboard({ onLogout, onBooking, onHistory, onAnalys
   };
 
   return (
-    <div className="min-h-screen bg-background flex relative">
+    <div 
+      className="min-h-screen bg-background flex relative"
+      style={{
+        backgroundImage: "url('/images/dashboard-bg.jpg')",
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
+        backgroundAttachment: 'fixed'
+      }}
+    >
+      {/* Background overlay for better text readability */}
+      <div 
+        className="fixed inset-0 bg-black/20 z-0"
+        style={{ backdropFilter: 'blur(1px)' }}
+      />
       {/* Overlay for mobile sidebar */}
       {sidebarOpen && (
         <div 
@@ -166,11 +216,11 @@ export default function MainDashboard({ onLogout, onBooking, onHistory, onAnalys
       )}
 
       {/* Left Sidebar */}
-      <div className={`w-64 bg-sidebar shadow-sm border-r border-sidebar-border flex flex-col fixed left-0 top-0 h-full z-40 transform transition-transform duration-300 ease-in-out ${
+      <div className={`w-64 bg-white/15 border border-white/25 shadow-lg rounded-2xl flex flex-col fixed left-4 top-4 h-[calc(100vh-2rem)] z-40 transform transition-transform duration-300 ease-in-out ${
         sidebarOpen ? 'translate-x-0' : '-translate-x-full'
       }`}>
         {/* Close button for mobile */}
-        <div className="flex items-center justify-between p-4 border-b border-sidebar-border lg:hidden">
+        <div className="flex items-center justify-between p-4 border-b border-white/25 lg:hidden">
           <h3 className="font-medium text-sidebar-foreground">Menu</h3>
           <button
             onClick={() => setSidebarOpen(false)}
@@ -180,15 +230,25 @@ export default function MainDashboard({ onLogout, onBooking, onHistory, onAnalys
           </button>
         </div>
 
-        <div className="p-6 border-b border-sidebar-border">
+        <div className="p-6 border-b border-white/25">
           <div className="flex items-center space-x-3">
             <Avatar className="w-12 h-12">
-              <AvatarFallback className="bg-sidebar-primary text-sidebar-primary-foreground">
-                JD
-              </AvatarFallback>
+              {userAvatar ? (
+                <img 
+                  src={userAvatar} 
+                  alt="Profile Avatar" 
+                  className="w-full h-full object-cover rounded-full"
+                />
+              ) : (
+                <AvatarFallback className="bg-sidebar-primary text-sidebar-primary-foreground">
+                  {userFullName?.charAt(0)?.toUpperCase() || 'U'}
+                </AvatarFallback>
+              )}
             </Avatar>
             <div>
-              <h3 className="font-medium text-sidebar-foreground">{t('username')}</h3>
+              <h3 className="font-medium text-sidebar-foreground">
+                {userFullName || t('username')}
+              </h3>
             </div>
           </div>
         </div>
@@ -233,7 +293,7 @@ export default function MainDashboard({ onLogout, onBooking, onHistory, onAnalys
             <span>{language === 'vi' ? 'Gói Premium' : 'Premium Plan'}</span>
           </button>
 
-          <div className="pt-4 border-t border-sidebar-border mt-4 space-y-2">
+          <div className="pt-4 border-t border-white/25 mt-4 space-y-2">
             <div className="px-3 py-2 text-sm text-muted-foreground">
               {t('language')}:
             </div>
@@ -264,7 +324,7 @@ export default function MainDashboard({ onLogout, onBooking, onHistory, onAnalys
           </div>
         </nav>
 
-        <div className="p-4 border-t border-sidebar-border">
+        <div className="p-4 border-t border-white/25">
           <button
             onClick={() => {
               console.log("=== LOGOUT BUTTON CLICKED ===");
@@ -287,9 +347,9 @@ export default function MainDashboard({ onLogout, onBooking, onHistory, onAnalys
 
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col relative z-10">
         {/* Header */}
-        <div className="bg-card shadow-sm border-b border-border p-4">
+        <div className="bg-white/15 border border-white/25 shadow-lg rounded-2xl p-4 mx-4 mt-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
               {/* Hamburger Menu Button */}
@@ -340,43 +400,6 @@ export default function MainDashboard({ onLogout, onBooking, onHistory, onAnalys
         <div className="flex-1 p-6">
           {activeSection === "dashboard" && (
             <div className="max-w-5xl mx-auto">
-              {/* Logo Section */}
-              <div className="mb-6">
-                <div className="text-center">
-                  <h2 className="font-medium text-muted-foreground">{t('logo')}</h2>
-                </div>
-              </div>
-
-              {/* Vehicle Status */}
-              <div className="mb-8">
-                <div className="max-w-md mx-auto">
-                  {/* Vehicle Model Card */}
-                  <div className="bg-card rounded-xl p-6 shadow-sm border border-border">
-                    <div className="text-center">
-                      <h3 className="font-medium text-card-foreground mb-4">{t('show_model')}</h3>
-                      
-                      {/* Vehicle Image */}
-                      <div className="w-32 h-20 mx-auto mb-4 rounded-lg overflow-hidden bg-muted">
-                        <img 
-                          src={userVehicle.image}
-                          alt={`${userVehicle.brand} ${userVehicle.model}`}
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                      
-                      {/* Vehicle Info */}
-                      <div className="flex items-center justify-center space-x-2 mb-2">
-                        <Car className="w-5 h-5 text-primary" />
-                        <span className="text-xl font-semibold text-card-foreground">
-                          {userVehicle.brand} {userVehicle.model}
-                        </span>
-                      </div>
-                      <p className="text-sm text-muted-foreground">{userVehicle.plateNumber}</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
               {/* Booking Status - Highlighted */}
               <div className="bg-gradient-to-br from-primary/10 to-primary/20 rounded-xl p-8 mb-8 border-2 border-primary/30 relative cursor-pointer hover:scale-105 transition-transform duration-200" onClick={onBooking}>
                 <div className="text-center">
@@ -404,52 +427,52 @@ export default function MainDashboard({ onLogout, onBooking, onHistory, onAnalys
               </div>
 
               {/* Quick Actions Section */}
-              <div className="bg-card rounded-xl p-6 shadow-sm border border-border mb-8">
-                <h3 className="text-lg font-semibold text-card-foreground mb-4 text-center">{t('quick_actions')}</h3>
+              <div className="bg-white/15 border border-white/25 shadow-lg rounded-2xl p-8 mb-8">
+                <h3 className="text-2xl font-semibold text-primary mb-6 text-center">{t('quick_actions')}</h3>
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                   <Button 
                     variant="outline" 
-                    className="flex flex-col items-center space-y-2 h-20 border-primary/30 text-primary hover:bg-primary/10"
+                    className="flex flex-col items-center space-y-2 h-20 border border-white/25 text-primary hover:bg-white/20 bg-white/10 hover:scale-105 transition-all duration-200 rounded-xl"
                     onClick={onMyBookings}
                   >
                     <BookOpen className="w-6 h-6" />
-                    <span className="text-sm">{language === 'vi' ? 'Đặt chỗ của tôi' : 'My Bookings'}</span>
+                    <span className="text-sm font-medium">{language === 'vi' ? 'Đặt chỗ của tôi' : 'My Bookings'}</span>
                   </Button>
 
                   <Button 
                     variant="outline" 
-                    className="flex flex-col items-center space-y-2 h-20 border-primary/30 text-primary hover:bg-primary/10"
+                    className="flex flex-col items-center space-y-2 h-20 border border-white/25 text-primary hover:bg-white/20 bg-white/10 hover:scale-105 transition-all duration-200 rounded-xl"
                     onClick={onHistory}
                   >
                     <Calendar className="w-6 h-6" />
-                    <span className="text-sm">{t('history')}</span>
+                    <span className="text-sm font-medium">{t('history')}</span>
                   </Button>
 
                   <Button 
                     variant="outline" 
-                    className="flex flex-col items-center space-y-2 h-20 border-primary/30 text-primary hover:bg-primary/10"
+                    className="flex flex-col items-center space-y-2 h-20 border border-white/25 text-primary hover:bg-white/20 bg-white/10 hover:scale-105 transition-all duration-200 rounded-xl"
                     onClick={() => setActiveSection("subscription")}
                   >
                     <CreditCard className="w-6 h-6" />
-                    <span className="text-sm">{t('subscription')}</span>
+                    <span className="text-sm font-medium">{t('subscription')}</span>
                   </Button>
 
                   <Button 
                     variant="outline" 
-                    className="flex flex-col items-center space-y-2 h-20 border-primary/30 text-primary hover:bg-primary/10"
+                    className="flex flex-col items-center space-y-2 h-20 border border-white/25 text-primary hover:bg-white/20 bg-white/10 hover:scale-105 transition-all duration-200 rounded-xl"
                     onClick={onAnalysis}
                   >
                     <FileText className="w-6 h-6" />
-                    <span className="text-sm">{t('personal_analysis')}</span>
+                    <span className="text-sm font-medium">{t('personal_analysis')}</span>
                   </Button>
 
                   <Button 
                     variant="outline" 
-                    className="flex flex-col items-center space-y-2 h-20 border-primary/30 text-primary hover:bg-primary/10"
+                    className="flex flex-col items-center space-y-2 h-20 border border-white/25 text-primary hover:bg-white/20 bg-white/10 hover:scale-105 transition-all duration-200 rounded-xl"
                     onClick={onReportIssue}
                   >
                     <AlertTriangle className="w-6 h-6" />
-                    <span className="text-sm">{t('report_issue')}</span>
+                    <span className="text-sm font-medium">{t('report_issue')}</span>
                   </Button>
                 </div>
               </div>

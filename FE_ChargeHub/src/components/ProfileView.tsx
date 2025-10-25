@@ -657,6 +657,9 @@ export default function ProfileView({ onBack }: ProfileViewProps) {
             localStorage.setItem("phone", profileData.phone || "");
             localStorage.setItem("dateOfBirth", profileData.dateOfBirth || "");
             localStorage.setItem("address", profileData.address || "");
+            
+            // Dispatch custom event to notify other components
+            window.dispatchEvent(new CustomEvent('profileChanged'));
             setIsEditing(false);
             setRetryCount(0); // Reset retry count on success
             setIsRetrying(false);
@@ -719,6 +722,9 @@ export default function ProfileView({ onBack }: ProfileViewProps) {
                 localStorage.setItem("phone", profileData.phone || "");
                 localStorage.setItem("dateOfBirth", profileData.dateOfBirth || "");
                 localStorage.setItem("address", profileData.address || "");
+                
+                // Dispatch custom event to notify other components
+                window.dispatchEvent(new CustomEvent('profileChanged'));
                 
                 // Show success message and exit edit mode
                 setIsEditing(false);
@@ -792,6 +798,10 @@ export default function ProfileView({ onBack }: ProfileViewProps) {
                 const result = e.target?.result as string;
                 setAvatar(result);
                 localStorage.setItem('avatar', result);
+                
+                // Dispatch custom event to notify other components
+                window.dispatchEvent(new CustomEvent('avatarChanged'));
+                
                 toast.success('Avatar updated successfully!');
             };
             reader.readAsDataURL(file);

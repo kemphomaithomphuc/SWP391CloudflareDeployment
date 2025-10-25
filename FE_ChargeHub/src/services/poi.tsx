@@ -84,7 +84,7 @@ function toPoi(feature: any): Poi {
     latitude: lat,
     longitude: lon,
     addressFull,
-  };
+  } as Poi;
 }
 
 /**
