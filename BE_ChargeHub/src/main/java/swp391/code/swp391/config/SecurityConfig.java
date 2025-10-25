@@ -42,7 +42,6 @@ public class SecurityConfig {
             "/api/otp/send/forgot-password",
             "/api/otp/verify/forgot-password",
             "/api/otp/reset-password",
-            "/api/payment/**",
             "/api/test/**" // them de test thoi, khong dung nua thi xoa
     };
     private final JwtDecoder jwtDecoder; // Tự động được Spring inject JwtDecoderConfig
