@@ -46,7 +46,7 @@ public class SessionController {
     }
 
     // US11: GET /api/sessions/{sessionId}/monitor
-    @GetMapping("/{sessionId}/monitor")
+    @PutMapping("/{sessionId}/monitor")
     public ResponseEntity<APIResponse<SessionProgressDTO>> monitorSession(@PathVariable Long sessionId,
                                                              HttpServletRequest httpServletRequest) {
         String header = httpServletRequest.getHeader("Authorization");
