@@ -166,7 +166,6 @@ public class StaffServiceImpl implements StaffService {
 
         boolean notificationSent = false;
         try {
-            // Gửi notification trực tiếp cho user của order
             notificationService.createGeneralNotification(
                     List.of(order.getUser().getUserId()),
                     "Đổi trụ sạc - Order #" + order.getOrderId(),
@@ -177,10 +176,35 @@ public class StaffServiceImpl implements StaffService {
                     order.getUser().getUserId(), order.getOrderId());
         } catch (Exception e) {
             log.error("Failed to send notification to driver: {}", e.getMessage());
-            // Không throw exception, vẫn trả về success vì việc đổi trụ đã thành công
         }
 
-        // 15. Tạo response
+// 15. GỬI EMAIL CHO DRIVER ← THÊM MỚI
+        boolean emailSent = false;
+        try {
+            String driverEmail = order.getUser().getEmail();
+            if (driverEmail != null && !driverEmail.isEmpty()) {
+                emailService.sendChargingPointChangeEmail(
+                        driverEmail,
+                        order.getUser().getFullName(),
+                        order.getOrderId(),
+                        String.format("Trụ #%d - %s", currentPoint.getChargingPointId(),
+                                currentPoint.getConnectorType().getTypeName()),
+                        String.format("Trụ #%d - %s", newPoint.getChargingPointId(),
+                                newPoint.getConnectorType().getTypeName()),
+                        newPoint.getStation().getStationName(),
+                        request.getReason() != null ? request.getReason() : "Driver trước chưa rút sạc ra",
+                        staffName
+                );
+                emailSent = true;
+                log.info("Email sent to driver: {}", driverEmail);
+            } else {
+                log.warn("Driver email not found for user ID: {}", order.getUser().getUserId());
+            }
+        } catch (Exception e) {
+            log.error("Failed to send email to driver: {}", e.getMessage());
+        }
+
+// 16. Tạo response ← CẬP NHẬT
         return ChangeChargingPointResponseDTO.builder()
                 .orderId(order.getOrderId())
                 .oldChargingPointId(currentPoint.getChargingPointId())
@@ -199,10 +223,20 @@ public class StaffServiceImpl implements StaffService {
                 .changedAt(LocalDateTime.now())
                 .changedByStaff(staffName)
                 .notificationSent(notificationSent)
-                .message(notificationSent
-                        ? "Đổi trụ sạc thành công và đã thông báo cho driver"
-                        : "Đổi trụ sạc thành công nhưng gửi thông báo thất bại")
+                .message(buildSuccessMessage(notificationSent, emailSent)) // ← CẬP NHẬT
                 .build();
+    }
+
+    private String buildSuccessMessage(boolean notificationSent, boolean emailSent) {
+        if (notificationSent && emailSent) {
+            return "Đổi trụ sạc thành công! Đã gửi thông báo và email cho driver";
+        } else if (notificationSent) {
+            return "Đổi trụ sạc thành công! Đã gửi thông báo in-app (email thất bại)";
+        } else if (emailSent) {
+            return "Đổi trụ sạc thành công! Đã gửi email (thông báo in-app thất bại)";
+        } else {
+            return "Đổi trụ sạc thành công nhưng gửi thông báo thất bại";
+        }
     }
 
     @Override
