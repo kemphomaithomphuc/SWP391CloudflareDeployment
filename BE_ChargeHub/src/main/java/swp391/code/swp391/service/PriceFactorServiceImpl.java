@@ -2,6 +2,7 @@ package swp391.code.swp391.service;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import swp391.code.swp391.dto.PriceFactorDTO;
 import swp391.code.swp391.entity.ChargingStation;
 import swp391.code.swp391.entity.PriceFactor;
 import swp391.code.swp391.entity.Session;
@@ -11,6 +12,7 @@ import swp391.code.swp391.repository.SessionRepository;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -21,12 +23,14 @@ public class PriceFactorServiceImpl implements PriceFactorService {
     private final ChargingStationRepository chargingStationRepository;
 
     @Override
-    public List<PriceFactor> getPriceFactorsByStation(Long stationId) {
-        return priceFactorRepository.findByStationStationId(stationId);
+    public List<PriceFactorDTO> getPriceFactorsByStation(Long stationId) {
+        List<PriceFactor> factors = priceFactorRepository.findByStationStationId(stationId);
+        return factors.stream().map(this::toDTO).collect(Collectors.toList());
     }
 
     @Override
-    public PriceFactor createPriceFactor(PriceFactor priceFactor) {
+    public PriceFactorDTO createPriceFactor(PriceFactorDTO priceFactorDTO) {
+        PriceFactor priceFactor = toEntity(priceFactorDTO);
         // Validate station exists
         ChargingStation station = chargingStationRepository.findById(priceFactor.getStation().getStationId())
                 .orElseThrow(() -> new IllegalArgumentException("Station not found"));
@@ -40,11 +44,12 @@ public class PriceFactorServiceImpl implements PriceFactorService {
         }
 
         priceFactor.setStation(station);
-        return priceFactorRepository.save(priceFactor);
+        PriceFactor saved = priceFactorRepository.save(priceFactor);
+        return toDTO(saved);
     }
 
     @Override
-    public PriceFactor updatePriceFactor(Long id, PriceFactor priceFactor) {
+    public PriceFactorDTO updatePriceFactor(Long id, PriceFactorDTO priceFactorDTO) {
         PriceFactor existing = priceFactorRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("PriceFactor not found"));
 
@@ -52,17 +57,18 @@ public class PriceFactorServiceImpl implements PriceFactorService {
         List<PriceFactor> existingFactors = priceFactorRepository.findByStationStationId(existing.getStation().getStationId());
         for (PriceFactor pf : existingFactors) {
             if (!pf.getPriceFactorId().equals(id) &&
-                isOverlapping(pf.getStartTime(), pf.getEndTime(), priceFactor.getStartTime(), priceFactor.getEndTime())) {
+                isOverlapping(pf.getStartTime(), pf.getEndTime(), priceFactorDTO.getStartTime(), priceFactorDTO.getEndTime())) {
                 throw new IllegalArgumentException("Time overlap with existing PriceFactor");
             }
         }
 
-        existing.setFactor(priceFactor.getFactor());
-        existing.setStartTime(priceFactor.getStartTime());
-        existing.setEndTime(priceFactor.getEndTime());
-        existing.setDescription(priceFactor.getDescription());
+        existing.setFactor(priceFactorDTO.getFactor());
+        existing.setStartTime(priceFactorDTO.getStartTime());
+        existing.setEndTime(priceFactorDTO.getEndTime());
+        existing.setDescription(priceFactorDTO.getDescription());
 
-        return priceFactorRepository.save(existing);
+        PriceFactor updated = priceFactorRepository.save(existing);
+        return toDTO(updated);
     }
 
     @Override
@@ -84,5 +90,29 @@ public class PriceFactorServiceImpl implements PriceFactorService {
 
     private boolean isOverlapping(LocalDateTime start1, LocalDateTime end1, LocalDateTime start2, LocalDateTime end2) {
         return start1.isBefore(end2) && start2.isBefore(end1);
+    }
+
+    private PriceFactorDTO toDTO(PriceFactor priceFactor) {
+        return new PriceFactorDTO(
+            priceFactor.getPriceFactorId(),
+            priceFactor.getStation().getStationId(),
+            priceFactor.getFactor(),
+            priceFactor.getStartTime(),
+            priceFactor.getEndTime(),
+            priceFactor.getDescription()
+        );
+    }
+
+    private PriceFactor toEntity(PriceFactorDTO dto) {
+        PriceFactor priceFactor = new PriceFactor();
+        priceFactor.setPriceFactorId(dto.getPriceFactorId());
+        ChargingStation station = new ChargingStation();
+        station.setStationId(dto.getStationId());
+        priceFactor.setStation(station);
+        priceFactor.setFactor(dto.getFactor());
+        priceFactor.setStartTime(dto.getStartTime());
+        priceFactor.setEndTime(dto.getEndTime());
+        priceFactor.setDescription(dto.getDescription());
+        return priceFactor;
     }
 }

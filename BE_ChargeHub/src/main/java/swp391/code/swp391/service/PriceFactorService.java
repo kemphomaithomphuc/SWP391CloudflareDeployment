@@ -1,16 +1,17 @@
 package swp391.code.swp391.service;
 
+import swp391.code.swp391.dto.PriceFactorDTO;
 import swp391.code.swp391.entity.PriceFactor;
 
 import java.util.List;
 
 public interface PriceFactorService {
 
-    List<PriceFactor> getPriceFactorsByStation(Long stationId);
+    List<PriceFactorDTO> getPriceFactorsByStation(Long stationId);
 
-    PriceFactor createPriceFactor(PriceFactor priceFactor);
+    PriceFactorDTO createPriceFactor(PriceFactorDTO priceFactorDTO);
 
-    PriceFactor updatePriceFactor(Long id, PriceFactor priceFactor);
+    PriceFactorDTO updatePriceFactor(Long id, PriceFactorDTO priceFactorDTO);
 
     void deletePriceFactor(Long id);
 }
