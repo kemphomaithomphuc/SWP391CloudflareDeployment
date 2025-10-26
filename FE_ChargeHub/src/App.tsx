@@ -6,7 +6,7 @@ import { StationProvider } from "./contexts/StationContext";
 import { NotificationProvider } from "./contexts/NotificationContext";
 import { Toaster } from "./components/ui/sonner";
 import AppLayout from "./components/AppLayout";
-import { Routes, Route } from 'react-router-dom'
+import { Routes, Route, useNavigate, useLocation } from 'react-router-dom'
 import axios from "axios";
 import { jwtDecode } from "jwt-decode";
 
@@ -51,6 +51,8 @@ import { checkAndRefreshToken } from "./services/api";
 type ViewType = "login" | "register" | "roleSelection" | "profileSetup" | "vehicleSetup" | "staffProfileSetup" | "educationSetup" | "dashboard" | "staffLogin" | "staffDashboard" | "staffHome" | "adminLogin" | "adminDashboard" | "systemConfig" | "adminMap" | "revenue" | "staffManagement" | "usageAnalytics" | "booking" | "history" | "analysis" | "reportIssue" | "wallet" | "notifications" | "staffNotifications" | "postActivating" | "adminChargerPostActivating" | "myBookings" | "chargingSession" | "stationManagement" | "premiumSubscription";
 
 function AppContent() {
+  const navigate = useNavigate();
+  const location = useLocation();
   const [currentView, setCurrentView] = useState<ViewType>("login");
   const [vehicleBatteryLevel, setVehicleBatteryLevel] = useState(75);
   const [currentBookingId, setCurrentBookingId] = useState<string>("");
@@ -423,16 +425,58 @@ function AppContent() {
     }
   };
 
+  // Sync currentView with URL
+  useEffect(() => {
+    if (location.pathname === "/home" && currentView !== "dashboard") {
+      setCurrentView("dashboard");
+    }
+  }, [location.pathname]);
+
   return (
-    <AppLayout
-      userType={userType || "driver"}
-      currentView={currentView}
-      onNavigate={handleNavigation}
-      onLogout={switchToLogin}
-      showSidebar={showSidebar}
-    >
-      {renderContent()}
-    </AppLayout>
+    <Routes>
+      <Route 
+        path="/" 
+        element={
+          <AppLayout
+            userType={userType || "driver"}
+            currentView={currentView}
+            onNavigate={handleNavigation}
+            onLogout={switchToLogin}
+            showSidebar={showSidebar}
+          >
+            {renderContent()}
+          </AppLayout>
+        } 
+      />
+      <Route 
+        path="/home" 
+        element={
+          <AppLayout
+            userType={userType || "driver"}
+            currentView="dashboard"
+            onNavigate={handleNavigation}
+            onLogout={switchToLogin}
+            showSidebar={showSidebar}
+          >
+            {renderContent()}
+          </AppLayout>
+        } 
+      />
+      <Route 
+        path="*" 
+        element={
+          <AppLayout
+            userType={userType || "driver"}
+            currentView={currentView}
+            onNavigate={handleNavigation}
+            onLogout={switchToLogin}
+            showSidebar={showSidebar}
+          >
+            {renderContent()}
+          </AppLayout>
+        } 
+      />
+    </Routes>
   );
 }
 

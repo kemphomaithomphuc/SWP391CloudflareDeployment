@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import swp391.code.swp391.entity.Order;
+import swp391.code.swp391.entity.User;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -144,5 +145,15 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
             @Param("fromTime") LocalDateTime fromTime
     );
 
-    List<Order> findByChargingPoint_Station_StationId(Long stationId);
+    /**
+     * Kiểm tra vehicle có đang được đặt trong order active không
+     */
+    @Query("""
+        SELECT COUNT(o) > 0 FROM Order o 
+        WHERE o.vehicle.id = :vehicleId
+        AND o.status IN ('BOOKED', 'CHARGING')
+        """)
+    boolean isVehicleCurrentlyBooked(@Param("vehicleId") Long vehicleId);
+
+    //List<Order> findByChargingPoint_Station_StationId(Long stationId);
 }
