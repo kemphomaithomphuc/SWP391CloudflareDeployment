@@ -9,7 +9,16 @@ public interface SessionService {
 
     boolean isValidTime(Long orderId,int maxStartDelayMinutes);
 
-    Long startSession(Long userId, Long orderId, Long vehicleId);
+    /**
+     * Bắt đầu phiên sạc với kiểm tra khoảng cách
+     * @param userId ID người dùng
+     * @param orderId ID đơn đặt chỗ
+     * @param vehicleId ID xe
+     * @param userLatitude Vĩ độ hiện tại của người dùng
+     * @param userLongitude Kinh độ hiện tại của người dùng
+     * @return Session ID
+     */
+    Long startSession(Long userId, Long orderId, Long vehicleId, Double userLatitude, Double userLongitude);
 
     Long endSession(Long sessionId, Long userId);
 
@@ -17,7 +26,7 @@ public interface SessionService {
 
     Double calculatePenaltyAmount(String type, Order order);
 
-    long expectedMinutes(Vehicle vehicle, Double expectedBattery);
-
     Double calculateBatteryPercentage(Vehicle vehicle, Double kwh);
+
+    long expectedMinutes(Vehicle vehicle, Double expectedBattery);
 }

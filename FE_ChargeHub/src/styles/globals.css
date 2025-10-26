@@ -49,24 +49,24 @@
 }
 
 .dark {
-  /* Pure dark backgrounds with subtle layering */
-  --background: #000000;
+  /* Dark gray backgrounds with subtle layering */
+  --background: #1a1a1a;
   --foreground: #ffffff;
-  --card: #0a0a0a;
+  --card: #2a2a2a;
   --card-foreground: #ffffff;
-  --popover: #0f0f0f;
+  --popover: #2f2f2f;
   --popover-foreground: #ffffff;
   
   /* Elegant primary with bright green for dark theme */
   --primary: #00ff88;
   --primary-foreground: #000000;
-  --secondary: #111111;
+  --secondary: #333333;
   --secondary-foreground: #ffffff;
   
   /* Refined muted tones with better contrast */
-  --muted: #141414;
+  --muted: #3a3a3a;
   --muted-foreground: #b4b4b4;
-  --accent: #1a1a1a;
+  --accent: #404040;
   --accent-foreground: #ffffff;
   
   /* Modern destructive colors */
@@ -74,10 +74,10 @@
   --destructive-foreground: #ffffff;
   
   /* Subtle borders and refined inputs */
-  --border: #1f1f1f;
-  --input: #0a0a0a;
-  --input-background: #0f0f0f;
-  --switch-background: #2a2a2a;
+  --border: #4a4a4a;
+  --input: #2a2a2a;
+  --input-background: #2f2f2f;
+  --switch-background: #5a5a5a;
   --ring: #00ff88;
   
   /* Vibrant chart colors optimized for dark backgrounds */
@@ -88,13 +88,13 @@
   --chart-5: #9966ff;
   
   /* Deep sidebar with elegant layering */
-  --sidebar: #050505;
+  --sidebar: #252525;
   --sidebar-foreground: #ffffff;
   --sidebar-primary: #00ff88;
   --sidebar-primary-foreground: #000000;
-  --sidebar-accent: #0f0f0f;
+  --sidebar-accent: #2f2f2f;
   --sidebar-accent-foreground: #ffffff;
-  --sidebar-border: #1a1a1a;
+  --sidebar-border: #404040;
   --sidebar-ring: #00ff88;
 }
 

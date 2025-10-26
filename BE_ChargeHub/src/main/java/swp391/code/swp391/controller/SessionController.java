@@ -27,18 +27,24 @@ public class SessionController {
     // US10: POST /api/sessions/start
     @PostMapping("/start")
     public ResponseEntity<APIResponse<Long>> startSession(@Valid @RequestBody StartSessionRequestDTO request,
-                                             HttpServletRequest httpServletRequest) {
+                                                          HttpServletRequest httpServletRequest) {
         String header = httpServletRequest.getHeader("Authorization");
         String token = jwtUtil.getTokenFromHeader(header);
         Long sessionId;
         Long userId;
         try {
             userId = jwtUtil.getUserIdByTokenDecode(token);
-            sessionId = sessionService.startSession(userId, request.getOrderId(), request.getVehicleId());
+            sessionId = sessionService.startSession(
+                userId,
+                request.getOrderId(),
+                request.getVehicleId(),
+                request.getUserLatitude(),
+                request.getUserLongitude()
+            );
         } catch (ParseException | JOSEException e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(APIResponse.error("Token parsing error"));
         } catch (RuntimeException e){
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(APIResponse.error(e.getMessage()));
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(APIResponse.error(e.getMessage()));
         } catch (Exception e){
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(APIResponse.error(e.getMessage()));
         }
@@ -48,7 +54,7 @@ public class SessionController {
     // US11: GET /api/sessions/{sessionId}/monitor
     @GetMapping("/{sessionId}/monitor")
     public ResponseEntity<APIResponse<SessionProgressDTO>> monitorSession(@PathVariable Long sessionId,
-                                                             HttpServletRequest httpServletRequest) {
+                                                                          HttpServletRequest httpServletRequest) {
         String header = httpServletRequest.getHeader("Authorization");
         String token = jwtUtil.getTokenFromHeader(header);
         Long userId;
@@ -70,7 +76,7 @@ public class SessionController {
     // US11: End charging session
     @PostMapping("/{sessionId}/end")
     public ResponseEntity<APIResponse<Long>> endSession(@PathVariable Long sessionId,
-                                                      HttpServletRequest httpServletRequest) {
+                                                        HttpServletRequest httpServletRequest) {
         String header = httpServletRequest.getHeader("Authorization");
         String token = jwtUtil.getTokenFromHeader(header);
         Long userId;
