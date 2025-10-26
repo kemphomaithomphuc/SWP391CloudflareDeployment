@@ -7,6 +7,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Entity
@@ -81,4 +82,47 @@ public class User {
 
     @Column(name = "reason_report", columnDefinition = "TEXT")
     private String reasonReport;
+
+    @ManyToOne
+    @JoinColumn(name = "subscription_id")
+    private Subscription subscription;
+
+    @Column(name = "subscription_start_date")
+    private LocalDateTime subscriptionStartDate;
+
+    @Column(name = "subscription_end_date")
+    private LocalDateTime subscriptionEndDate;
+
+    @Column(name = "subscription_auto_renew")
+    private Boolean subscriptionAutoRenew = false;
+
+    // Helper methods trong User entity
+    public boolean hasActiveSubscription() {
+        if (subscription == null) return false;
+        if (subscription.getSubscriptionName().equals("BASIC")) return true; // BASIC vĩnh viễn
+        return subscriptionEndDate != null && subscriptionEndDate.isAfter(LocalDateTime.now());
+    }
+
+    public boolean isBasicUser() {
+        return subscription == null || subscription.getSubscriptionName().equals("BASIC");
+    }
+
+    public boolean isPlusUser() {
+        return subscription != null &&
+                subscription.getSubscriptionName().equals("PLUS") &&
+                hasActiveSubscription();
+    }
+
+    public boolean isProUser() {
+        return subscription != null &&
+                subscription.getSubscriptionName().equals("PRO") &&
+                hasActiveSubscription();
+    }
+
+    public long getDaysRemaining() {
+        if (isBasicUser()) return Long.MAX_VALUE; // Vĩnh viễn
+        if (subscriptionEndDate == null) return 0;
+        if (subscriptionEndDate.isBefore(LocalDateTime.now())) return 0;
+        return java.time.Duration.between(LocalDateTime.now(), subscriptionEndDate).toDays();
+    }
 }

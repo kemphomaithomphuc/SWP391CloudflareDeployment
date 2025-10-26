@@ -28,4 +28,6 @@ public class RegisterRequestDTO {
     @Size(min = 8, message = "Confirmed password must be at least 8 characters")
     private String confirmedPassword;
 
+    private Long subscription;
+
 }

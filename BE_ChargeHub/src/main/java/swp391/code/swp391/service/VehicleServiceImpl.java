@@ -13,6 +13,7 @@ import swp391.code.swp391.entity.Vehicle;
 import swp391.code.swp391.repository.UserRepository;
 import swp391.code.swp391.repository.VehicleRepository;
 import swp391.code.swp391.repository.CarModelRepository;
+import swp391.code.swp391.repository.OrderRepository;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -25,6 +26,7 @@ public class VehicleServiceImpl implements VehicleService {
     private final VehicleRepository vehicleRepository;
     private final UserRepository userRepository;
     private final CarModelRepository carModelRepository;
+    private final OrderRepository orderRepository;
 
     @Override
     public VehicleResponseDTO createVehicle(VehicleRequestDTO vehicleDTO) {
@@ -66,11 +68,18 @@ public class VehicleServiceImpl implements VehicleService {
     public VehicleResponseDTO updateVehicle(String plateNumber, VehicleRequestDTO vehicleDTO, Long userId) {
         Vehicle existingVehicle = vehicleRepository.findByPlateNumber(plateNumber)
                 .orElseThrow(() -> new RuntimeException("Vehicle not found"));
+
         // Kiểm tra vehicle có thuộc về user không
         if (existingVehicle.getUser() == null || !existingVehicle.getUser().getUserId().equals(userId)) {
             throw new RuntimeException("You don't have permission to update this vehicle");
         }
-        else existingVehicle.setPlateNumber(vehicleDTO.getPlateNumber());
+
+        // Kiểm tra vehicle có đang được đặt trong order không
+        if (orderRepository.isVehicleCurrentlyBooked(existingVehicle.getId())) {
+            throw new RuntimeException("Cannot update vehicle. This vehicle is currently booked in an active order.");
+        }
+
+        existingVehicle.setPlateNumber(vehicleDTO.getPlateNumber());
 
 
         // Cập nhật carModel nếu có
@@ -101,6 +110,12 @@ public class VehicleServiceImpl implements VehicleService {
         if (vehicle.getUser() == null || !vehicle.getUser().getUserId().equals(userId)) {
             throw new RuntimeException("You don't have permission to delete this vehicle");
         }
+
+        // Kiểm tra vehicle có đang được đặt trong order không
+        if (orderRepository.isVehicleCurrentlyBooked(vehicle.getId())) {
+            throw new RuntimeException("Cannot delete vehicle. This vehicle is currently booked in an active order.");
+        }
+
         vehicleRepository.deleteByPlateNumber(plateNumber);
     }
 
@@ -161,3 +176,4 @@ public class VehicleServiceImpl implements VehicleService {
         return dto;
     }
 }
+

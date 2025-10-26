@@ -746,7 +746,7 @@ export default function VehicleView({ onBack }: VehicleViewProps) {
             {/* VEHICLE LIST */}
             <div className="p-6 max-w-4xl mx-auto">
                 <Button variant="outline" size="sm" onClick={onBack} className="mb-4">
-                    <ArrowLeft className="w-4 h-4" /><span>Back</span>
+                    <ArrowLeft className="w-4 h-4" /><span>Back to Dashboard</span>
                 </Button>
 
                 {currentVehicles.length > 0 ? (
