@@ -18,6 +18,7 @@ import swp391.code.swp391.repository.UserRepository;
 import java.text.ParseException;
 import java.util.Collection;
 import java.util.Date;
+import java.util.List;
 import java.util.Optional;
 import java.util.regex.Pattern;
 
@@ -32,7 +33,6 @@ public class JwtUtil {
     private String secretKey;
 
     public String generateAccessToken(CustomUserDetails user){
-        Collection<? extends GrantedAuthority> roles = user.getAuthorities();
         Date issueTime = new Date();
         Date expiredTime = Date.from(issueTime.toInstant().plus(60, java.time.temporal.ChronoUnit.MINUTES));
         JWSHeader header = new JWSHeader(JWSAlgorithm.HS512); //HS512: thuật toán băm, mã hóa đối xứng
@@ -89,8 +89,8 @@ public class JwtUtil {
     }
 
     // Lấy role thủ công qua jwtDecoder Bean
-    public String extractRole(String token)throws  ParseException, JOSEException {
-        return jwtDecoder.decode(token).getClaim("role").toString();
+    public List<String> extractRole(String token)throws  ParseException, JOSEException {
+        return jwtDecoder.decode(token).getClaimAsStringList("roles");
     }
 
     // Dùng SecurityContextHolder lấy username
@@ -103,14 +103,15 @@ public class JwtUtil {
     }
 
     // Dùng SecurityContextHolder lấy role
-    public String getRoleFromContext() {
+    public List<String> getRoleFromContext() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth instanceof JwtAuthenticationToken jwtAuth) {
-            return jwtAuth.getToken().getClaim("role").toString();
+            return jwtAuth.getToken().getClaimAsStringList("roles");
         }
         throw new RuntimeException("No JWT token found in context");
     }
 
+    //===================================================================================
     // Fetches user by either email or phone
     //For purpose: fetch User in token payload
     public User getUserByTokenDecode(String token) throws ParseException, JOSEException {
