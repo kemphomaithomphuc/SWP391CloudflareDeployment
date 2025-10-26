@@ -18,4 +18,9 @@ public interface SessionRepository extends JpaRepository<Session, Long> {
      * Tìm session theo order ID
      */
     Session findByOrderOrderId(Long orderId);
+
+    /**
+     * Tìm session theo station ID
+     */
+    List<Session> findByOrderChargingPointStationStationId(Long stationId);
 }

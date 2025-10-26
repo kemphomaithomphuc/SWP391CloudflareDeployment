@@ -62,4 +62,9 @@ public interface ChargingStationRepository extends JpaRepository<ChargingStation
 
     // Custom query: Tìm stations theo tên và status
     List<ChargingStation> findByStationNameContainingIgnoreCaseAndStatus(String stationName, ChargingStationStatus status);
+
+    // Tìm station mà staff đang quản lý
+    @Query("SELECT s FROM ChargingStation s WHERE :staffId MEMBER OF s.staff_id")
+    List<ChargingStation> findByStaffIdContains(@Param("staffId") Long staffId);
+
 }
