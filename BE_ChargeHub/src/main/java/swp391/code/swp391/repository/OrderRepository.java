@@ -4,7 +4,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
-import swp391.code.swp391.dto.OrderResponseDTO;
 import swp391.code.swp391.entity.Order;
 
 import java.time.LocalDateTime;
@@ -125,6 +124,12 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
             @Param("endTime") LocalDateTime endTime,
             @Param("excludeOrderId") Long excludeOrderId
     );
+
+    List<Order> findByChargingPoint_Station_StationId(Long stationId);
+
+    Order getOrderByOrderId(Long orderId);
+
+    int countActiveOrdersByUser(User user);
 
     /**
      * Tìm tất cả orders BOOKED trong tương lai của một station
