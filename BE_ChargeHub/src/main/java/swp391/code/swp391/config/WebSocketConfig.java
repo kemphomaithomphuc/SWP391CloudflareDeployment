@@ -26,12 +26,12 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
         registry.addEndpoint("/ws").withSockJS();
-    }
+    } // WebSocket endpoint with SockJS fallback
 
     @Override
     public void configureMessageBroker(MessageBrokerRegistry registry) {
-        registry.setApplicationDestinationPrefixes("/app");
-        registry.enableSimpleBroker("/topic");
+        registry.setApplicationDestinationPrefixes("/app"); //prefix
+        registry.enableSimpleBroker("/topic"); //in-memory message broker
     }
 
     @Override
