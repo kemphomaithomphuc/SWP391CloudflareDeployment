@@ -257,7 +257,7 @@ function AppContent() {
   }, []);
   //Phần này Minh thêm, chạy không được thì comment block hoặc xóa
 
-  // Token refresh check - runs every 2 minutes for 30-minute tokens
+  // Token refresh check - runs every 5 minutes
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (!token) return;
@@ -265,10 +265,10 @@ function AppContent() {
     // Check token immediately
     checkAndRefreshToken();
 
-    // Set up interval to check token every 2 minutes (for 30-minute tokens)
+    // Set up interval to check token every 5 minutes
     const interval = setInterval(() => {
       checkAndRefreshToken();
-    }, 2 * 60 * 1000); // 2 minutes
+    }, 5 * 60 * 1000); // 5 minutes
 
     return () => clearInterval(interval);
   }, []);

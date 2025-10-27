@@ -4,15 +4,14 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import swp391.code.swp391.dto.ChangeChargingPointRequestDTO;
-import swp391.code.swp391.dto.ChangeChargingPointResponseDTO;
-import swp391.code.swp391.dto.ChargingPointDTO;
+import swp391.code.swp391.dto.*;
 import swp391.code.swp391.entity.*;
 import swp391.code.swp391.entity.ChargingPoint.ChargingPointStatus;
 import swp391.code.swp391.repository.*;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
-import java.util.List;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -24,6 +23,8 @@ public class StaffServiceImpl implements StaffService {
     private final ChargingPointRepository chargingPointRepository;
     private final UserRepository userRepository;
     private final NotificationService notificationService;
+    private final ChargingStationRepository chargingStationRepository;
+    private final EmailService emailService;
 
     @Override
     @Transactional
@@ -165,7 +166,6 @@ public class StaffServiceImpl implements StaffService {
 
         boolean notificationSent = false;
         try {
-            // Gửi notification trực tiếp cho user của order
             notificationService.createGeneralNotification(
                     List.of(order.getUser().getUserId()),
                     "Đổi trụ sạc - Order #" + order.getOrderId(),
@@ -176,10 +176,35 @@ public class StaffServiceImpl implements StaffService {
                     order.getUser().getUserId(), order.getOrderId());
         } catch (Exception e) {
             log.error("Failed to send notification to driver: {}", e.getMessage());
-            // Không throw exception, vẫn trả về success vì việc đổi trụ đã thành công
         }
 
-        // 15. Tạo response
+// 15. GỬI EMAIL CHO DRIVER ← THÊM MỚI
+        boolean emailSent = false;
+        try {
+            String driverEmail = order.getUser().getEmail();
+            if (driverEmail != null && !driverEmail.isEmpty()) {
+                emailService.sendChargingPointChangeEmail(
+                        driverEmail,
+                        order.getUser().getFullName(),
+                        order.getOrderId(),
+                        String.format("Trụ #%d - %s", currentPoint.getChargingPointId(),
+                                currentPoint.getConnectorType().getTypeName()),
+                        String.format("Trụ #%d - %s", newPoint.getChargingPointId(),
+                                newPoint.getConnectorType().getTypeName()),
+                        newPoint.getStation().getStationName(),
+                        request.getReason() != null ? request.getReason() : "Driver trước chưa rút sạc ra",
+                        staffName
+                );
+                emailSent = true;
+                log.info("Email sent to driver: {}", driverEmail);
+            } else {
+                log.warn("Driver email not found for user ID: {}", order.getUser().getUserId());
+            }
+        } catch (Exception e) {
+            log.error("Failed to send email to driver: {}", e.getMessage());
+        }
+
+// 16. Tạo response ← CẬP NHẬT
         return ChangeChargingPointResponseDTO.builder()
                 .orderId(order.getOrderId())
                 .oldChargingPointId(currentPoint.getChargingPointId())
@@ -198,10 +223,20 @@ public class StaffServiceImpl implements StaffService {
                 .changedAt(LocalDateTime.now())
                 .changedByStaff(staffName)
                 .notificationSent(notificationSent)
-                .message(notificationSent
-                        ? "Đổi trụ sạc thành công và đã thông báo cho driver"
-                        : "Đổi trụ sạc thành công nhưng gửi thông báo thất bại")
+                .message(buildSuccessMessage(notificationSent, emailSent)) // ← CẬP NHẬT
                 .build();
+    }
+
+    private String buildSuccessMessage(boolean notificationSent, boolean emailSent) {
+        if (notificationSent && emailSent) {
+            return "Đổi trụ sạc thành công! Đã gửi thông báo và email cho driver";
+        } else if (notificationSent) {
+            return "Đổi trụ sạc thành công! Đã gửi thông báo in-app (email thất bại)";
+        } else if (emailSent) {
+            return "Đổi trụ sạc thành công! Đã gửi email (thông báo in-app thất bại)";
+        } else {
+            return "Đổi trụ sạc thành công nhưng gửi thông báo thất bại";
+        }
     }
 
     @Override
@@ -274,6 +309,178 @@ public class StaffServiceImpl implements StaffService {
                     // KHÔNG SET station và connectorType object để tránh circular reference
                     return dto;
                 })
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public StationConflictResponseDTO getConflictingOrdersByStation(Long stationId) {
+
+        log.info("Finding conflicting orders for station: {}", stationId);
+
+        // 1. Validate station
+        ChargingStation station = chargingStationRepository.findById(stationId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy trạm sạc với ID: " + stationId));
+
+        // 2. Lấy tất cả charging points của station
+        List<ChargingPoint> chargingPoints = chargingPointRepository.findByStation_StationId(stationId);
+
+        if (chargingPoints.isEmpty()) {
+            return StationConflictResponseDTO.builder()
+                    .stationId(stationId)
+                    .stationName(station.getStationName())
+                    .address(station.getAddress())
+                    .totalConflicts(0)
+                    .conflictGroups(new ArrayList<>())
+                    .build();
+        }
+
+        // 3. Lấy tất cả orders BOOKED trong tương lai của station
+        LocalDateTime now = LocalDateTime.now();
+        List<Order> upcomingOrders = orderRepository.findUpcomingOrdersByStation(stationId, now);
+
+        log.info("Found {} upcoming orders for station {}", upcomingOrders.size(), stationId);
+
+        // 4. Group orders by charging point
+        Map<Long, List<Order>> ordersByChargingPoint = upcomingOrders.stream()
+                .collect(Collectors.groupingBy(o -> o.getChargingPoint().getChargingPointId()));
+
+        // 5. Tìm conflicts cho từng charging point
+        List<StationConflictResponseDTO.ConflictGroup> conflictGroups = new ArrayList<>();
+        int totalConflicts = 0;
+
+        for (ChargingPoint point : chargingPoints) {
+            List<Order> pointOrders = ordersByChargingPoint.getOrDefault(
+                    point.getChargingPointId(),
+                    new ArrayList<>()
+            );
+
+            if (pointOrders.size() < 2) {
+                continue; // Không có conflict nếu chỉ có 1 hoặc 0 order
+            }
+
+            // Sort orders by start time
+            pointOrders.sort(Comparator.comparing(Order::getStartTime));
+
+            // Tìm conflicts
+            List<ConflictingOrderDTO> conflictingOrders = new ArrayList<>();
+
+            for (int i = 0; i < pointOrders.size() - 1; i++) {
+                Order current = pointOrders.get(i);
+                Order next = pointOrders.get(i + 1);
+
+                // Check if orders overlap
+                if (current.getEndTime().isAfter(next.getStartTime())) {
+                    // CONFLICT DETECTED!
+                    long overlapMinutes = Duration.between(next.getStartTime(), current.getEndTime()).toMinutes();
+
+                    String conflictType;
+                    String conflictDescription;
+
+                    if (overlapMinutes > 30) {
+                        conflictType = "OVERLAP";
+                        conflictDescription = String.format(
+                                "Order #%d kết thúc lúc %s, nhưng Order #%d bắt đầu từ %s (đè %d phút)",
+                                current.getOrderId(), current.getEndTime(),
+                                next.getOrderId(), next.getStartTime(), overlapMinutes
+                        );
+                    } else if (overlapMinutes > 0) {
+                        conflictType = "BACK_TO_BACK";
+                        conflictDescription = String.format(
+                                "Order #%d kết thúc lúc %s, Order #%d bắt đầu ngay sau đó (chỉ cách %d phút)",
+                                current.getOrderId(), current.getEndTime(),
+                                next.getOrderId(), next.getStartTime(), overlapMinutes
+                        );
+                    } else {
+                        conflictType = "LATE_CHECKOUT";
+                        conflictDescription = String.format(
+                                "Order #%d có nguy cơ checkout trễ, ảnh hưởng Order #%d",
+                                current.getOrderId(), next.getOrderId()
+                        );
+                    }
+
+                    // Add current order to conflicts
+                    conflictingOrders.add(ConflictingOrderDTO.builder()
+                            .orderId(current.getOrderId())
+                            .chargingPointId(point.getChargingPointId())
+                            .chargingPointName("Trụ #" + point.getChargingPointId())
+                            .driverName(current.getUser().getFullName())
+                            .driverEmail(current.getUser().getEmail())
+                            .driverPhone(current.getUser().getPhone())
+                            .startTime(current.getStartTime())
+                            .endTime(current.getEndTime())
+                            .status(current.getStatus().toString())
+                            .vehiclePlate(current.getVehicle().getPlateNumber())
+                            .connectorType(point.getConnectorType().getTypeName())
+                            .conflictWithOrderId(next.getOrderId())
+                            .conflictType(conflictType)
+                            .conflictDescription(conflictDescription)
+                            .overlapMinutes((int) overlapMinutes)
+                            .build());
+
+                    // Add next order to conflicts (bị ảnh hưởng)
+                    conflictingOrders.add(ConflictingOrderDTO.builder()
+                            .orderId(next.getOrderId())
+                            .chargingPointId(point.getChargingPointId())
+                            .chargingPointName("Trụ #" + point.getChargingPointId())
+                            .driverName(next.getUser().getFullName())
+                            .driverEmail(next.getUser().getEmail())
+                            .driverPhone(next.getUser().getPhone())
+                            .startTime(next.getStartTime())
+                            .endTime(next.getEndTime())
+                            .status(next.getStatus().toString())
+                            .vehiclePlate(next.getVehicle().getPlateNumber())
+                            .connectorType(point.getConnectorType().getTypeName())
+                            .conflictWithOrderId(current.getOrderId())
+                            .conflictType(conflictType)
+                            .conflictDescription("Bị ảnh hưởng bởi Order #" + current.getOrderId())
+                            .overlapMinutes((int) overlapMinutes)
+                            .build());
+
+                    totalConflicts++;
+                }
+            }
+
+            // Chỉ thêm vào conflict groups nếu có conflicts
+            if (!conflictingOrders.isEmpty()) {
+                conflictGroups.add(StationConflictResponseDTO.ConflictGroup.builder()
+                        .chargingPointId(point.getChargingPointId())
+                        .chargingPointName("Trụ #" + point.getChargingPointId())
+                        .connectorType(point.getConnectorType().getTypeName())
+                        .orders(conflictingOrders)
+                        .conflictCount(conflictingOrders.size() / 2) // Mỗi conflict tính 2 orders
+                        .build());
+            }
+        }
+
+        log.info("Found {} conflicts in station {}", totalConflicts, stationId);
+
+        return StationConflictResponseDTO.builder()
+                .stationId(stationId)
+                .stationName(station.getStationName())
+                .address(station.getAddress())
+                .totalConflicts(totalConflicts)
+                .conflictGroups(conflictGroups)
+                .build();
+    }
+
+    @Override
+    public List<Long> getStationsManagedByStaff(Long staffId) {
+
+        log.info("Finding stations managed by staff: {}", staffId);
+
+        // Validate staff
+        User staff = userRepository.findById(staffId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy staff với ID: " + staffId));
+
+        if (staff.getRole() != User.UserRole.STAFF) {
+            throw new RuntimeException("User này không phải là STAFF");
+        }
+
+        // Lấy danh sách stations
+        List<ChargingStation> stations = chargingStationRepository.findByStaffIdContains(staffId);
+
+        return stations.stream()
+                .map(ChargingStation::getStationId)
                 .collect(Collectors.toList());
     }
 }

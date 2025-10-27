@@ -33,6 +33,14 @@ public interface ChargingPointRepository extends JpaRepository<ChargingPoint, Lo
     // Đếm số lượng charging points theo station
     long countByStationStationId(Long stationId);
 
+    /**
+     * Tìm và lock charging point để tránh race condition khi booking
+     * Sử dụng PESSIMISTIC_WRITE lock để đảm bảo chỉ 1 transaction có thể access tại 1 thời điểm
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT cp FROM ChargingPoint cp WHERE cp.chargingPointId = :chargingPointId")
+    Optional<ChargingPoint> findByIdWithLock(@Param("chargingPointId") Long chargingPointId);
+
 //    // Custom query: Lấy available charging points có connector types
 //    @Query("SELECT cp FROM ChargingPoint cp WHERE cp.status = 'AVAILABLE' AND SIZE(cp.connectorTypes) > 0")
 //    List<ChargingPoint> findAvailableChargingPointsWithConnectors();
@@ -78,4 +86,7 @@ public interface ChargingPointRepository extends JpaRepository<ChargingPoint, Lo
             Long connectorTypeId,
             ChargingPointStatus status
     );
+
+    // Tìm tất cả charging points của một station
+    List<ChargingPoint> findByStation_StationId(Long stationId);
 }

@@ -110,6 +110,22 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
             @Param("endTime") LocalDateTime endTime
     );
 
+
+    Order getOrderByOrderId(Long orderId);
+
+    int countActiveOrdersByUser(User user);
+
+    /**
+     * Kiểm tra user có order nào trùng thời gian không (tránh double booking)
+     */
+    @Query("""
+        SELECT CASE WHEN COUNT(o) > 0 THEN true ELSE false END
+        FROM Order o
+        WHERE o.vehicle.id = :vehicleId
+        AND o.status IN ('BOOKED', 'CHARGING')
+        """)
+    boolean isVehicleCurrentlyBooked(@Param("vehicleId") Long vehicleId);
+
     /**
      * Tìm các order bị conflict về thời gian cho một charging point cụ thể
      * Loại trừ order hiện tại (để tránh tự check với chính nó)
@@ -133,13 +149,27 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     int countActiveOrdersByUser(User user);
 
     /**
-     * Kiểm tra user có order nào trùng thời gian không (tránh double booking)
+     * Tìm tất cả orders BOOKED trong tương lai của một station
+     */
+    @Query("SELECT o FROM Order o " +
+            "WHERE o.chargingPoint.station.stationId = :stationId " +
+            "AND o.status = 'BOOKED' " +
+            "AND o.startTime >= :fromTime " +
+            "ORDER BY o.chargingPoint.chargingPointId, o.startTime")
+    List<Order> findUpcomingOrdersByStation(
+            @Param("stationId") Long stationId,
+            @Param("fromTime") LocalDateTime fromTime
+    );
+
+    /**
+     * Kiểm tra vehicle có đang được đặt trong order active không
      */
     @Query("""
-        SELECT CASE WHEN COUNT(o) > 0 THEN true ELSE false END
-        FROM Order o
+        SELECT COUNT(o) > 0 FROM Order o 
         WHERE o.vehicle.id = :vehicleId
         AND o.status IN ('BOOKED', 'CHARGING')
         """)
     boolean isVehicleCurrentlyBooked(@Param("vehicleId") Long vehicleId);
+
+    //List<Order> findByChargingPoint_Station_StationId(Long stationId);
 }

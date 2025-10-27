@@ -1,0 +1,13 @@
+-- Insert system_config data
+-- Cấu hình hệ thống cho các tham số phạt và giới hạn
+
+-- Xóa dữ liệu cũ nếu có (tránh duplicate key)
+DELETE FROM system_config WHERE config_key IN ('overtime_fee_per_hour', 'no_show_fee', 'max_cancellation_per_month', 'cancellation_fee');
+
+-- Insert các cấu hình hệ thống
+INSERT INTO system_config (config_key, config_value, description) VALUES
+('overtime_fee_per_hour', '50000', N'Phạt quá giờ (VND/giờ)'),
+('no_show_fee', '100000', N'Phạt không đến (VND/lần)'),
+('max_cancellation_per_month', '3', N'Số lần hủy tối đa mỗi tháng'),
+('cancellation_fee', '20000', N'Phí hủy đặt chỗ (VND/lần)');
+

@@ -55,6 +55,11 @@ public class SubscriptionServiceImpl implements SubscriptionService {
         return convertToDTO(subscription);
     }
 
+    /**
+     * Trả về gói đăng kí hiện tại của người dùng
+     * @param userId ID của người dùng.
+     * @return
+     */
     @Override
     public SubscriptionResponseDTO getCurrentSubscription(Long userId) {
         Subscription subscription = subscriptionRepository.findSubscriptionByUserId(userId);
@@ -77,6 +82,12 @@ public class SubscriptionServiceImpl implements SubscriptionService {
         return dto;
     }
 
+    /**
+     * Hủy đăng kí của người dùng và chuyển về gói BASIC
+     * @param subscriptionId ID của subscription cần hủy.
+     * @param userId         ID của người dùng thực hiện hủy.
+     * @return
+     */
     @Override
     public SubscriptionResponseDTO cancelSubscription(Long subscriptionId, Long userId) {
         // Load user và kiểm tra quyền sở hữu subscription
@@ -127,6 +138,12 @@ public class SubscriptionServiceImpl implements SubscriptionService {
         return dto;
     }
 
+    /**
+     * Cập nhật thông tin cho subscription
+     * @param subscriptionId      ID của subscription plan cần cập nhật.
+     * @param subscriptionRequest DTO chứa thông tin mới để cập nhật.
+     * @return
+     */
     @Override
     public SubscriptionResponseDTO updateSubscriptionPlan(Long subscriptionId, SubscriptionRequestDTO subscriptionRequest) {
         // Tìm subscription plan cần cập nhật
@@ -172,6 +189,11 @@ public class SubscriptionServiceImpl implements SubscriptionService {
         return convertToDTO(updatedSubscription);
     }
 
+    /**
+     * Cập nhật subscription cho user
+     * @param subscriptionRequest DTO chứa thông tin cần thiết để cập nhật subscription của user.
+     * @return
+     */
     @Override
     public SubscriptionResponseDTO updateUserSubscription(SubscriptionRequestDTO subscriptionRequest) {
         // Kiểm tra userId có được cung cấp không

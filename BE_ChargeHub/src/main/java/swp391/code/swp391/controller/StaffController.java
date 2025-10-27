@@ -6,10 +6,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
-import swp391.code.swp391.dto.APIResponse;
-import swp391.code.swp391.dto.ChangeChargingPointRequestDTO;
-import swp391.code.swp391.dto.ChangeChargingPointResponseDTO;
-import swp391.code.swp391.dto.ChargingPointDTO;
+import swp391.code.swp391.dto.*;
 import swp391.code.swp391.service.StaffService;
 
 import java.util.List;
@@ -94,6 +91,65 @@ public class StaffController {
                     APIResponse.<List<ChargingPointDTO>>builder()
                             .success(false)
                             .message("Lỗi hệ thống: " + e.getMessage())
+                            .data(null)
+                            .build()
+            );
+        }
+    }
+    /**
+     * Xem các order bị conflict thời gian
+     */
+    @GetMapping("/station/{stationId}/conflicts")
+    public ResponseEntity<APIResponse<StationConflictResponseDTO>> getStationConflicts(
+            @PathVariable Long stationId) {
+
+        try {
+            StationConflictResponseDTO conflicts = staffService.getConflictingOrdersByStation(stationId);
+
+            String message = conflicts.getTotalConflicts() > 0
+                    ? String.format("Tìm thấy %d conflicts tại trạm %s",
+                    conflicts.getTotalConflicts(), conflicts.getStationName())
+                    : "Không có conflict nào tại trạm này";
+
+            return ResponseEntity.ok(
+                    APIResponse.<StationConflictResponseDTO>builder()
+                            .success(true)
+                            .message(message)
+                            .data(conflicts)
+                            .build()
+            );
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+                    APIResponse.<StationConflictResponseDTO>builder()
+                            .success(false)
+                            .message("Lỗi: " + e.getMessage())
+                            .data(null)
+                            .build()
+            );
+        }
+    }
+
+    /**
+     * Lấy danh sách station mà staff quản lý
+     */
+    @GetMapping("/my-stations")
+    public ResponseEntity<APIResponse<List<Long>>> getMyStations(@RequestParam Long staffId) {
+
+        try {
+            List<Long> stationIds = staffService.getStationsManagedByStaff(staffId);
+
+            return ResponseEntity.ok(
+                    APIResponse.<List<Long>>builder()
+                            .success(true)
+                            .message("Tìm thấy " + stationIds.size() + " trạm sạc")
+                            .data(stationIds)
+                            .build()
+            );
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+                    APIResponse.<List<Long>>builder()
+                            .success(false)
+                            .message("Lỗi: " + e.getMessage())
                             .data(null)
                             .build()
             );
