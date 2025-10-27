@@ -2,6 +2,8 @@ package swp391.code.swp391.service;
 
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import swp391.code.swp391.dto.NotificationDTO;
 import swp391.code.swp391.entity.*;
@@ -21,7 +23,7 @@ public class NotificationServiceImpl implements NotificationService {
     private final NotificationRepository notificationRepository;
     private final OrderRepository orderRepository;
     private final UserRepository userRepository;
-
+    private final SimpMessagingTemplate simpMessagingTemplate;
     @Override
     @Transactional
     public List<NotificationDTO> getNotificationDTOs(Long userId) {
@@ -67,6 +69,20 @@ public class NotificationServiceImpl implements NotificationService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
         notificationRepository.markAllAsRead(user);
+    }
+
+    public void pushNotificationToUser(Notification notification) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName(); //Review lại
+        NotificationDTO dto = convertToDTO(notification);
+        simpMessagingTemplate.convertAndSendToUser(
+                username,
+                "/queue/notifications",
+                dto
+        );
+    }
+
+    public void pushNotificationToAll(Notification notification) {
+        simpMessagingTemplate.convertAndSend("/queue/notifications", convertToDTO(notification));
     }
 
 //=====================BOOKING NOTIFICATION==========================
@@ -124,7 +140,8 @@ public class NotificationServiceImpl implements NotificationService {
         }
         notificationRepository.save(notification);
 
-        // Gửi email/push (placeholder)
+        // Push via WebSocket
+        pushNotificationToUser(notification);
     }
 
     //=====================PAYMENT NOTIFICATION==========================
@@ -168,6 +185,9 @@ public class NotificationServiceImpl implements NotificationService {
                 throw new IllegalArgumentException("Invalid payment event: " + event);
         }
         notificationRepository.save(notification);
+
+        // Push via WebSocket
+        pushNotificationToUser(notification);
     }
 
     //=====================ISSUE NOTIFICATION==========================
@@ -226,6 +246,8 @@ public class NotificationServiceImpl implements NotificationService {
                     break;
             }
             notificationRepository.save(notification);
+            // Push via WebSocket
+            pushNotificationToUser(notification);
         }
     }
 
@@ -273,23 +295,28 @@ public class NotificationServiceImpl implements NotificationService {
                 throw new IllegalArgumentException("Invalid penalty event: " + event);
         }
         notificationRepository.save(notification);
+
+        // Push via WebSocket
+        pushNotificationToUser(notification);
     }
 
     //=====================GENERAL NOTIFICATION==========================
     @Transactional
     public void createGeneralNotification(List<Long> userIds, String title, String content) {
-        for (Long userId : userIds) {
-            User user = userRepository.findById(userId)
-                    .orElseThrow(() -> new RuntimeException("User not found with ID: " + userId));
-
-            Notification notification = new Notification();
-            notification.setUser(user);
-            notification.setType(Notification.Type.GENERAL);
-            notification.setTitle(title);
-            notification.setContent(content);
-            notification.setSentTime(LocalDateTime.now());
-            notificationRepository.save(notification);
-        }
+//        for (Long userId : userIds) {
+//            User user = userRepository.findById(userId)
+//                    .orElseThrow(() -> new RuntimeException("User not found with ID: " + userId));
+//
+//            Notification notification = new Notification();
+//            notification.setUser(user);
+//            notification.setType(Notification.Type.GENERAL);
+//            notification.setTitle(title);
+//            notification.setContent(content);
+//            notification.setSentTime(LocalDateTime.now());
+//            notificationRepository.save(notification);
+//            // Push via WebSocket
+//            pushNotificationToUser(notification);
+//        }
     }
 
     @Transactional
@@ -303,7 +330,22 @@ public class NotificationServiceImpl implements NotificationService {
             notification.setContent(content);
             notification.setSentTime(LocalDateTime.now());
             notificationRepository.save(notification);
+
+            // Push via WebSocket
+            pushNotificationToAll(notification);
         }
     }
 
+    // Helper method to convert Notification to NotificationDTO
+    private NotificationDTO convertToDTO(Notification notification) {
+        return new NotificationDTO(
+            notification.getNotificationId(),
+            notification.getUser().getUserId(),
+            notification.getTitle(),
+            notification.getContent(),
+            notification.getSentTime().toString(),
+            notification.getIsRead(),
+            notification.getType()
+        );
+    }
 }
