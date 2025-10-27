@@ -1,0 +1,28 @@
+-- Insert subscription_feature data
+-- Subscription features cho các gói BASIC, PLUS, PREMIUM
+
+-- Features cho BASIC (subscription_id = 1)
+INSERT INTO subscription_feature (subscription_id, feature_key, feature_value, feature_type, display_name, description, created_at) VALUES
+(1, 'ADVANCE_BOOKING_DAYS', '7', 'NUMERIC', 'Số ngày đặt trước', 'Số ngày tối đa có thể đặt trước', GETDATE()),
+(1, 'DISCOUNT_PERCENTAGE', '5', 'PERCENTAGE', 'Giảm giá', 'Phần trăm giảm giá khi sạc', GETDATE()),
+(1, 'MAX_CONCURRENT_ORDERS', '1', 'NUMERIC', 'Đặt chỗ đồng thời', 'Số lượng đặt chỗ tối đa cùng lúc', GETDATE()),
+(1, 'PRIORITY_SUPPORT', 'false', 'BOOLEAN', 'Hỗ trợ ưu tiên', 'Được hỗ trợ ưu tiên', GETDATE());
+
+-- Features cho PLUS (subscription_id = 2)
+INSERT INTO subscription_feature (subscription_id, feature_key, feature_value, feature_type, display_name, description, created_at) VALUES
+(2, 'ADVANCE_BOOKING_DAYS', '14', 'NUMERIC', 'Số ngày đặt trước', 'Số ngày tối đa có thể đặt trước', GETDATE()),
+(2, 'DISCOUNT_PERCENTAGE', '10', 'PERCENTAGE', 'Giảm giá', 'Phần trăm giảm giá khi sạc', GETDATE()),
+(2, 'MAX_CONCURRENT_ORDERS', '2', 'NUMERIC', 'Đặt chỗ đồng thời', 'Số lượng đặt chỗ tối đa cùng lúc', GETDATE()),
+(2, 'PRIORITY_SUPPORT', 'true', 'BOOLEAN', 'Hỗ trợ ưu tiên', 'Được hỗ trợ ưu tiên', GETDATE()),
+(2, 'FREE_CANCELLATION', 'true', 'BOOLEAN', 'Hủy miễn phí', 'Được hủy đặt chỗ miễn phí', GETDATE());
+
+-- Features cho PREMIUM (subscription_id = 3)
+INSERT INTO subscription_feature (subscription_id, feature_key, feature_value, feature_type, display_name, description, created_at) VALUES
+(3, 'ADVANCE_BOOKING_DAYS', '30', 'NUMERIC', 'Số ngày đặt trước', 'Số ngày tối đa có thể đặt trước', GETDATE()),
+(3, 'DISCOUNT_PERCENTAGE', '20', 'PERCENTAGE', 'Giảm giá', 'Phần trăm giảm giá khi sạc', GETDATE()),
+(3, 'MAX_CONCURRENT_ORDERS', '5', 'NUMERIC', 'Đặt chỗ đồng thời', 'Số lượng đặt chỗ tối đa cùng lúc', GETDATE()),
+(3, 'PRIORITY_SUPPORT', 'true', 'BOOLEAN', 'Hỗ trợ ưu tiên', 'Được hỗ trợ ưu tiên 24/7', GETDATE()),
+(3, 'FREE_CANCELLATION', 'true', 'BOOLEAN', 'Hủy miễn phí', 'Được hủy đặt chỗ miễn phí không giới hạn', GETDATE()),
+(3, 'PREMIUM_STATIONS_ACCESS', 'true', 'BOOLEAN', 'Truy cập trạm VIP', 'Được sử dụng các trạm sạc cao cấp', GETDATE()),
+(3, 'NO_PEAK_HOUR_SURCHARGE', 'true', 'BOOLEAN', 'Không phụ phí giờ cao điểm', 'Miễn phí phụ thu giờ cao điểm', GETDATE());
+

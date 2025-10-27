@@ -15,6 +15,7 @@ import swp391.code.swp391.dto.RegisterRequestDTO;
 import swp391.code.swp391.dto.UserDTO;
 import swp391.code.swp391.entity.CustomUserDetails;
 import swp391.code.swp391.entity.User;
+import swp391.code.swp391.repository.SubscriptionRepository;
 import swp391.code.swp391.repository.UserRepository;
 
 import java.time.LocalDateTime;
@@ -23,6 +24,8 @@ import java.util.Optional;
 import java.util.Random;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
+
+import static swp391.code.swp391.entity.Subscription.Type.BASIC;
 
 
 @Service
@@ -39,6 +42,7 @@ public class UserServiceImpl implements UserService {
 
     private final PasswordEncoder passwordEncoder;
     private final UserRepository userRepository;
+    private final SubscriptionRepository subscriptionRepository;
 
     // Lưu trữ mã xác thực tạm thời (trong thực tế nên dùng Redis)
     private final Map<String, VerificationData> verificationCodes = new ConcurrentHashMap<>();
@@ -71,6 +75,7 @@ public class UserServiceImpl implements UserService {
         // Hash password and create new user
         String encodedPassword = passwordEncoder.encode(registerDTO.getPassword());
         User user = new User(registerDTO.getFullName(), username, encodedPassword, null, null, null);
+        user.setSubscription(subscriptionRepository.findByType(BASIC));
         return addUser(user);
     }
 

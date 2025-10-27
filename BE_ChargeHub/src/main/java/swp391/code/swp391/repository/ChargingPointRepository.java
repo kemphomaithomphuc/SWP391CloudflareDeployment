@@ -1,6 +1,8 @@
 package swp391.code.swp391.repository;
 
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -8,6 +10,7 @@ import swp391.code.swp391.entity.ChargingPoint;
 import swp391.code.swp391.entity.ChargingPoint.ChargingPointStatus;
 
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface ChargingPointRepository extends JpaRepository<ChargingPoint, Long> {
@@ -30,21 +33,13 @@ public interface ChargingPointRepository extends JpaRepository<ChargingPoint, Lo
     // Đếm số lượng charging points theo station
     long countByStationStationId(Long stationId);
 
-//    // Custom query: Lấy available charging points có connector types
-//    @Query("SELECT cp FROM ChargingPoint cp WHERE cp.status = 'AVAILABLE' AND SIZE(cp.connectorTypes) > 0")
-//    List<ChargingPoint> findAvailableChargingPointsWithConnectors();
-//
-//    // Custom query: Tìm charging points theo connector type
-//    @Query("SELECT DISTINCT cp FROM ChargingPoint cp JOIN cp.connectorTypes ct WHERE ct.connectorTypeId = :connectorTypeId")
-//    List<ChargingPoint> findByConnectorTypeId(@Param("connectorTypeId") Long connectorTypeId);
-//
-//    // Custom query: Tìm charging points không có connector types
-//    @Query("SELECT cp FROM ChargingPoint cp WHERE SIZE(cp.connectorTypes) = 0")
-//    List<ChargingPoint> findChargingPointsWithoutConnectors();
-//
-//    // Custom query: Lấy charging points với số lượng connector types
-//    @Query("SELECT cp, SIZE(cp.connectorType) FROM ChargingPoint cp")
-//    List<Object[]> findChargingPointsWithConnectorCount();
+    /**
+     * Tìm và lock charging point để tránh race condition khi booking
+     * Sử dụng PESSIMISTIC_WRITE lock để đảm bảo chỉ 1 transaction có thể access tại 1 thời điểm
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT cp FROM ChargingPoint cp WHERE cp.chargingPointId = :chargingPointId")
+    Optional<ChargingPoint> findByIdWithLock(@Param("chargingPointId") Long chargingPointId);
 
     @Query("SELECT cp FROM ChargingPoint cp WHERE cp.status = 'AVAILABLE' AND cp.connectorType IS NOT NULL")
     List<ChargingPoint> findAvailableChargingPointsWithConnectors();
@@ -58,4 +53,16 @@ public interface ChargingPointRepository extends JpaRepository<ChargingPoint, Lo
     @Query("SELECT cp.connectorType.typeName, COUNT(cp) FROM ChargingPoint cp WHERE cp.connectorType IS NOT NULL GROUP BY cp.connectorType.typeName")
     List<Object[]> countChargingPointsGroupedByConnectorType(); // Optional: thống kê
 
+    /**
+     * Tìm charging points theo station, connector type và status
+     * Dùng để tìm trụ sạc thay thế
+     */
+    List<ChargingPoint> findByStation_StationIdAndConnectorType_ConnectorTypeIdAndStatus(
+            Long stationId,
+            Long connectorTypeId,
+            ChargingPointStatus status
+    );
+
+    // Tìm tất cả charging points của một station
+    List<ChargingPoint> findByStation_StationId(Long stationId);
 }

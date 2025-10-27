@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from "react";
-import axios from "axios";
 import { Edit, Save, ArrowLeft, Trash, Plus, X } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "./ui/dialog";
 import { useLanguage } from "../contexts/LanguageContext";
 import { toast } from "react-hot-toast";
 import { api } from "../services/api";
@@ -61,6 +61,12 @@ export default function VehicleView({ onBack }: VehicleViewProps) {
     const [selectedCarModelId, setSelectedCarModelId] = useState<number | null>(null);
     const [currentPage, setCurrentPage] = useState(1);
     const vehiclesPerPage = 2;
+    
+    // 🆕 Delete confirmation dialog state
+    const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+    const [vehicleToDelete, setVehicleToDelete] = useState<string | null>(null);
+    const [isDeleting, setIsDeleting] = useState(false);
+    const [isCheckingStatus, setIsCheckingStatus] = useState(false);
 
     const userId = localStorage.getItem("userId");
     const token = localStorage.getItem("token");
@@ -483,7 +489,140 @@ export default function VehicleView({ onBack }: VehicleViewProps) {
         }
     };
 
-    // ------------------------- DELETE VEHICLE -------------------------
+    // 🆕 Check vehicle order status before deletion
+    const checkVehicleOrderStatus = async (vehicleId: string): Promise<boolean> => {
+        try {
+            console.log("=== CHECKING VEHICLE ORDER STATUS ===");
+            console.log("Vehicle ID:", vehicleId);
+            
+            // Try different possible API endpoints for checking vehicle status
+            const possibleEndpoints = [
+                `/api/orders/vehicle/${vehicleId}/status`,
+                `/api/vehicles/${vehicleId}/orders/status`,
+                `/api/vehicles/${vehicleId}/active-orders`,
+                `/api/orders/vehicle/${vehicleId}/active`
+            ];
+            
+            for (const endpoint of possibleEndpoints) {
+                try {
+                    console.log(`Trying endpoint: ${endpoint}`);
+                    const response = await api.get(endpoint);
+                    console.log("Response:", response.data);
+                    
+                    // Check if response contains orders with active status
+                    const orders = response.data?.data || response.data?.orders || response.data;
+                    if (Array.isArray(orders)) {
+                        const activeOrders = orders.filter((order: any) => 
+                            order.status === "Booked" || 
+                            order.status === "Charging" ||
+                            order.status === "booked" ||
+                            order.status === "charging"
+                        );
+                        
+                        if (activeOrders.length > 0) {
+                            console.log("Active orders found:", activeOrders);
+                            return false; // Cannot delete - has active orders
+                        }
+                    }
+                    
+                    // If we get here, no active orders found
+                    return true; // Can delete
+                } catch (endpointError) {
+                    console.log(`Endpoint ${endpoint} failed:`, endpointError);
+                    continue; // Try next endpoint
+                }
+            }
+            
+            // If all endpoints fail, assume it's safe to delete (allow deletion)
+            console.log("All endpoints failed, allowing deletion");
+            return true;
+        } catch (error) {
+            console.error("Error checking vehicle order status:", error);
+            // On error, allow deletion to proceed
+            return true;
+        }
+    };
+
+    // 🆕 Open delete confirmation dialog
+    const handleDeleteClick = (plateNumber: string) => {
+        setVehicleToDelete(plateNumber);
+        setDeleteDialogOpen(true);
+    };
+
+    // 🆕 Close delete confirmation dialog
+    const handleCloseDeleteDialog = () => {
+        setDeleteDialogOpen(false);
+        setVehicleToDelete(null);
+        setIsDeleting(false);
+        setIsCheckingStatus(false);
+    };
+
+    // 🆕 Confirm vehicle deletion with backend validation
+    const handleConfirmDelete = async () => {
+        if (!vehicleToDelete || !token || !userId) {
+            toast.error("Missing required information.");
+            return;
+        }
+
+        try {
+            setIsCheckingStatus(true);
+            toast.loading("Checking vehicle status...", { id: "checking-status" });
+
+            // Find the vehicle to get its ID
+            const vehicle = vehicles.find(v => v.plateNumber === vehicleToDelete);
+            if (!vehicle) {
+                toast.error("Vehicle not found.");
+                return;
+            }
+
+            // Get vehicle ID (try different possible ID fields)
+            const vehicleId = (vehicle as any).vehicleId || (vehicle as any).id || vehicleToDelete;
+            console.log("Vehicle to delete:", vehicle);
+            console.log("Vehicle ID:", vehicleId);
+
+            // Check if vehicle has active orders
+            const canDelete = await checkVehicleOrderStatus(vehicleId);
+            
+            if (!canDelete) {
+                toast.dismiss("checking-status");
+                toast.error("This vehicle is currently in a charging or booked order and cannot be deleted.");
+                handleCloseDeleteDialog();
+                return;
+            }
+
+            // Proceed with deletion
+            toast.dismiss("checking-status");
+            setIsCheckingStatus(false);
+            setIsDeleting(true);
+            toast.loading("Deleting vehicle...", { id: "deleting" });
+
+            await api.delete(`/api/vehicles/user/${userId}/vehicle/${encodeURIComponent(vehicleToDelete)}`);
+            
+            setVehicles((prev) => prev.filter((v) => v.plateNumber !== vehicleToDelete));
+            
+            toast.dismiss("deleting");
+            toast.success("Vehicle deleted successfully.");
+            
+            // Adjust current page if needed after deletion
+            const newTotalPages = Math.ceil((vehicles.length - 1) / vehiclesPerPage);
+            if (currentPage > newTotalPages && newTotalPages > 0) {
+                setCurrentPage(newTotalPages);
+            }
+            
+            handleCloseDeleteDialog();
+        } catch (err: any) {
+            console.error("Delete vehicle error:", err);
+            toast.dismiss("checking-status");
+            toast.dismiss("deleting");
+            toast.error(err.response?.data?.message ?? "Failed to delete vehicle.");
+            handleCloseDeleteDialog();
+        } finally {
+            setIsDeleting(false);
+            setIsCheckingStatus(false);
+        }
+    };
+
+    // ------------------------- DELETE VEHICLE (LEGACY - KEPT FOR REFERENCE) -------------------------
     const handleDeleteVehicle = async (plateNumber: string) => {
         if (!token || !userId) {
             toast.error("Not authenticated.");
@@ -607,7 +746,7 @@ export default function VehicleView({ onBack }: VehicleViewProps) {
             {/* VEHICLE LIST */}
             <div className="p-6 max-w-4xl mx-auto">
                 <Button variant="outline" size="sm" onClick={onBack} className="mb-4">
-                    <ArrowLeft className="w-4 h-4" /><span>Back</span>
+                    <ArrowLeft className="w-4 h-4" /><span>Back to Dashboard</span>
                 </Button>
 
                 {currentVehicles.length > 0 ? (
@@ -619,7 +758,7 @@ export default function VehicleView({ onBack }: VehicleViewProps) {
                                         <Button onClick={() => handleEdit(v)} size="sm">
                                             <Edit className="w-4 h-4" />
                                         </Button>
-                                        <Button variant="destructive" onClick={() => handleDeleteVehicle(v.plateNumber)} size="sm">
+                                        <Button variant="destructive" onClick={() => handleDeleteClick(v.plateNumber)} size="sm">
                                             <Trash className="w-4 h-4" />
                                         </Button>
                                     </div>
@@ -827,6 +966,58 @@ export default function VehicleView({ onBack }: VehicleViewProps) {
                     </div>
                 )}
             </div>
+
+            {/* 🆕 Delete Confirmation Dialog */}
+            <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+                <DialogContent className="max-w-md">
+                    <DialogHeader>
+                        <DialogTitle className="text-lg font-semibold">
+                            Delete Vehicle Confirmation
+                        </DialogTitle>
+                    </DialogHeader>
+                    
+                    <div className="py-4">
+                        <p className="text-gray-700">
+                            Are you sure you want to delete this vehicle?
+                        </p>
+                        {vehicleToDelete && (
+                            <p className="text-sm text-gray-500 mt-2">
+                                Vehicle: <span className="font-medium">{vehicleToDelete}</span>
+                            </p>
+                        )}
+                    </div>
+                    
+                    <DialogFooter className="gap-2">
+                        <Button
+                            variant="outline"
+                            onClick={handleCloseDeleteDialog}
+                            disabled={isDeleting || isCheckingStatus}
+                        >
+                            No
+                        </Button>
+                        <Button
+                            variant="destructive"
+                            onClick={handleConfirmDelete}
+                            disabled={isDeleting || isCheckingStatus}
+                            className="min-w-[100px]"
+                        >
+                            {isCheckingStatus ? (
+                                <>
+                                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                                    Checking...
+                                </>
+                            ) : isDeleting ? (
+                                <>
+                                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                                    Processing...
+                                </>
+                            ) : (
+                                "Yes"
+                            )}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

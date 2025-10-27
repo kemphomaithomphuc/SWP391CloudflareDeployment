@@ -30,9 +30,7 @@ import { motion, AnimatePresence } from "motion/react";
 import QRCodeGenerator from "./components/QRCodeGenerator";
 
 import ChargingInvoiceView from "./components/ChargingInvoiceView";
-
-import axios, { AxiosError } from "axios";
-import { toast, Toaster } from "sonner";
+import { toast} from "sonner";
 import * as maptilersdk from "@maptiler/sdk";
 import "@maptiler/sdk/dist/maptiler-sdk.css";
 import { api } from "./services/api";
@@ -155,6 +153,7 @@ interface Vehicle {
     capacity?: number;
     productYear?: number;
     connectorTypeName?: string;
+    VehicleId?: number;
 }
 interface CarModel {
     carModelId: number;
@@ -179,7 +178,49 @@ interface BookingMapProps {
 
 }
 
-
+// Helper function to extract slot information with comprehensive fallbacks
+const extractSlotInfo = (slot: any) => {
+    console.log("=== Extracting slot info ===");
+    console.log("Slot object:", slot);
+    console.log("Charging point info:", slot.chargingPointInfo);
+    
+    // Try to extract connector type name from multiple sources
+    const connectorTypeName = 
+        slot.connectorType?.typeName || 
+        slot.connectorType?.TypeName || 
+        slot.connectorTypeName ||
+        slot.ConnectorTypeName ||
+        slot.typeName ||
+        slot.TypeName ||
+        slot.chargingPointInfo?.connectorType?.typeName ||
+        slot.chargingPointInfo?.connectorType?.TypeName ||
+        slot.chargingPointInfo?.connectorType ||
+        'Standard';
+    
+    // Try to extract power output from multiple sources
+    const powerOutput = 
+        slot.powerOutput || 
+        slot.PowerOutput || 
+        slot.connectorType?.powerOutput || 
+        slot.connectorType?.PowerOutput ||
+        slot.chargingPointInfo?.powerOutput ||
+        slot.chargingPointInfo?.connectorType?.powerOutput ||
+        'N/A';
+    
+    // Try to extract price per kWh from multiple sources
+    const pricePerKwh = 
+        slot.pricePerKwh || 
+        slot.PricePerKwh || 
+        slot.connectorType?.pricePerKwh || 
+        slot.connectorType?.PricePerKwh ||
+        slot.chargingPointInfo?.pricePerKwh ||
+        slot.chargingPointInfo?.connectorType?.pricePerKwh ||
+        'N/A';
+    
+    console.log("Extracted values:", { connectorTypeName, powerOutput, pricePerKwh });
+    
+    return { connectorTypeName, powerOutput, pricePerKwh };
+};
 
 export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurrentBatteryLevel, onStartCharging }: BookingMapProps) {
 
@@ -275,7 +316,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
     const [vehicles, setVehicles] = useState<any[]>([]);
     const [selectedVehicle, setSelectedVehicle] = useState<any>(null);
     const [loadingVehicles, setLoadingVehicles] = useState(false);
-    
+
     // Use ref to persist selected vehicle
     const selectedVehicleRef = useRef<any>(null);
 
@@ -330,56 +371,31 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
 
     //Get Vehicle List Of User
     const getVehicleOfDriver = async (userId: string): Promise<Vehicle[] | null> => {
-            setLoading(true);
-            setError(null);
-            try {
-                console.log("=== getVehicleOfDriver Debug ===");
-                console.log("userId:", userId);
-                const res = await api.get(`/api/user/${userId}/vehicles`);
-                console.log("API response:", res.data);
-                
-                if (res.data.success && res.data.data) {
-                    const vehiclesData = res.data.data;
-                    console.log("vehiclesData:", vehiclesData);
-                    
-                    // Fetch connector type names for each vehicle that has carModel
-                    const vehiclesWithConnectorTypes = await Promise.all(
-                        vehiclesData.map(async (vehicle: any) => {
-                            console.log("Processing vehicle:", vehicle);
-                            if (vehicle.carModel?.connectorTypeIds?.[0]) {
-                                console.log("=== Processing vehicle with connector type ===");
-                                console.log("Vehicle plateNumber:", vehicle.plateNumber);
-                                console.log("ConnectorTypeIds:", vehicle.carModel.connectorTypeIds);
-                                
-                                const connectorType = await fetchConnectorTypeById(vehicle.carModel.connectorTypeIds[0].toString());
-                                console.log("Fetched connector type:", connectorType);
-                                
-                                const result = {
-                                    plateNumber: vehicle.plateNumber,
-                                    brand: vehicle.carModel?.brand || "Unknown",
-                                    carModel: vehicle.carModel ? {
-                                        carModelId: vehicle.carModel.carModelId,
-                                        brand: vehicle.carModel.brand,
-                                        model: vehicle.carModel.model,
-                                        capacity: vehicle.carModel.capacity,
-                                        productYear: vehicle.carModel.productYear,
-                                        carModelImage: vehicle.carModel.carModelImage,
-                                        imageUrl: vehicle.carModel.carModelImage,
-                                        connectorTypeId: vehicle.carModel.connectorTypeIds[0].toString()
-                                    } : undefined,
-                                    capacity: vehicle.carModel?.capacity,
-                                    productYear: vehicle.carModel?.productYear,
-                                    connectorTypeName: connectorType?.TypeName || "Unknown"
-                                };
-                                
-                                console.log("Final vehicle result:", result);
-                                return result;
-                            }
-                            console.log("=== Processing vehicle without connector type ===");
+        setLoading(true);
+        setError(null);
+        try {
+            console.log("=== getVehicleOfDriver Debug ===");
+            console.log("userId:", userId);
+            const res = await api.get(`/api/user/${userId}/vehicles`);
+            console.log("API response:", res.data);
+
+            if (res.data.success && res.data.data) {
+                const vehiclesData = res.data.data;
+                console.log("vehiclesData:", vehiclesData);
+
+                // Fetch connector type names for each vehicle that has carModel
+                const vehiclesWithConnectorTypes = await Promise.all(
+                    vehiclesData.map(async (vehicle: any) => {
+                        console.log("Processing vehicle:", vehicle);
+                        if (vehicle.carModel?.connectorTypeIds?.[0]) {
+                            console.log("=== Processing vehicle with connector type ===");
                             console.log("Vehicle plateNumber:", vehicle.plateNumber);
-                            console.log("No connectorTypeIds found");
-                            
-                            return {
+                            console.log("ConnectorTypeIds:", vehicle.carModel.connectorTypeIds);
+
+                            const connectorType = await fetchConnectorTypeById(vehicle.carModel.connectorTypeIds[0].toString());
+                            console.log("Fetched connector type:", connectorType);
+
+                            const result = {
                                 plateNumber: vehicle.plateNumber,
                                 brand: vehicle.carModel?.brand || "Unknown",
                                 carModel: vehicle.carModel ? {
@@ -390,29 +406,56 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                                     productYear: vehicle.carModel.productYear,
                                     carModelImage: vehicle.carModel.carModelImage,
                                     imageUrl: vehicle.carModel.carModelImage,
-                                    connectorTypeId: vehicle.carModel.connectorTypeIds?.[0]?.toString()
+                                    connectorTypeId: vehicle.carModel.connectorTypeIds[0].toString()
                                 } : undefined,
                                 capacity: vehicle.carModel?.capacity,
                                 productYear: vehicle.carModel?.productYear,
-                                connectorTypeName: "Unknown"
+                                connectorTypeName: connectorType?.TypeName || "Unknown",
+                                VehicleId: vehicle?.vehicleId
                             };
-                        })
-                    );
-                    
-                    console.log("vehiclesWithConnectorTypes:", vehiclesWithConnectorTypes);
-                    return vehiclesWithConnectorTypes;
-                } else {
-                    console.log("No vehicles found or API response format unexpected");
-                    return [];
-                }
-            } catch (err) {
-                console.error("Error fetching vehicles:", err);
-                setError("Failed to load vehicles.");
-                return null;
-            } finally {
-                setLoading(false);
+
+                            console.log("Final vehicle result:", result);
+                            return result;
+                        }
+                        console.log("=== Processing vehicle without connector type ===");
+                        console.log("Vehicle plateNumber:", vehicle.plateNumber);
+                        console.log("No connectorTypeIds found");
+
+                        return {
+                            plateNumber: vehicle.plateNumber,
+                            brand: vehicle.carModel?.brand || "Unknown",
+                            carModel: vehicle.carModel ? {
+                                carModelId: vehicle.carModel.carModelId,
+                                brand: vehicle.carModel.brand,
+                                model: vehicle.carModel.model,
+                                capacity: vehicle.carModel.capacity,
+                                productYear: vehicle.carModel.productYear,
+                                carModelImage: vehicle.carModel.carModelImage,
+                                imageUrl: vehicle.carModel.carModelImage,
+                                connectorTypeId: vehicle.carModel.connectorTypeIds?.[0]?.toString()
+                            } : undefined,
+                            capacity: vehicle.carModel?.capacity,
+                            productYear: vehicle.carModel?.productYear,
+                            connectorTypeName: "Unknown",
+                            VehicleId: vehicle?.vehicleId
+                        };
+                    })
+                );
+
+                console.log("vehiclesWithConnectorTypes:", vehiclesWithConnectorTypes);
+                return vehiclesWithConnectorTypes;
+            } else {
+                console.log("No vehicles found or API response format unexpected");
+                return [];
             }
+        } catch (err) {
+            console.error("Error fetching vehicles:", err);
+            setError("Failed to load vehicles.");
+            return null;
+        } finally {
+            setLoading(false);
         }
+    }
     const fetchConnectorTypeById = async (connectorTypeId: string): Promise<ConnectorType | null> => {
         try {
             const res = await api.get(`/api/connector-types/${connectorTypeId}`);
@@ -421,7 +464,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                 console.log("=== fetchConnectorTypeById Debug ===");
                 console.log("ConnectorTypeId:", connectorTypeId);
                 console.log("API Response:", connector);
-                
+
                 return {
                     TypeName: connector.typeName || connector.TypeName || "Unknown",
                     ConnectorTypeId: connector.connectorTypeId || connector.ConnectorTypeId,
@@ -443,7 +486,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
             console.log("=== calculateStationChargingPoints Debug ===");
             console.log("Station ID:", stationId);
             console.log("Points:", points);
-            
+
             if (points && points.length > 0) {
                 const typeStats: { [typeName: string]: { total: number, available: number } } = {};
 
@@ -452,7 +495,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                     console.log("ConnectorType:", point.connectorType);
                     const typeName = (point.connectorType as any)?.typeName || (point.connectorType as any)?.TypeName || 'Unknown';
                     console.log("TypeName:", typeName);
-                    
+
                     if (!typeStats[typeName]) {
                         typeStats[typeName] = { total: 0, available: 0 };
                     }
@@ -461,7 +504,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                         typeStats[typeName].available++;
                     }
                 });
-                
+
                 console.log("Final typeStats:", typeStats);
 
                 setStationChargingPoints(prev => ({
@@ -621,6 +664,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
 
     const callApiForGetPointsForEachStation = async (stationId: string): Promise<ChargingPoint[] | null> => {
         try {
+
             const res = await api.get(`api/charging-points/station/${stationId}`);
             if (res.status == 200 && Array.isArray(res.data)) {
                 console.log('Fetched charging points for station', stationId, ':', res.data);
@@ -665,16 +709,17 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
             console.log("=== Vehicle Object Debug ===");
             console.log("currentVehicle:", currentVehicle);
             console.log("currentVehicle.vehicleId:", currentVehicle.vehicleId);
+            console.log("currentVehicle.VehicleId:", currentVehicle.VehicleId);
             console.log("currentVehicle.id:", currentVehicle.id);
             console.log("currentVehicle keys:", Object.keys(currentVehicle));
 
             // Try to get vehicleId from various possible fields
-            const actualVehicleId = currentVehicle.vehicleId || currentVehicle.id || currentVehicle.vehicle_id;
-            
+            const actualVehicleId = currentVehicle.vehicleId || currentVehicle.VehicleId || currentVehicle.id || currentVehicle.vehicle_id;
+
             if (!actualVehicleId) {
                 console.error("Vehicle object structure:", currentVehicle);
                 console.log("Available fields:", Object.keys(currentVehicle));
-                
+
                 // If no vehicleId found, we need to find the vehicle by plateNumber
                 // and get its ID from the vehicles list
                 const plateNumber = currentVehicle.plateNumber;
@@ -682,34 +727,45 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                 console.log("plateNumber:", plateNumber);
                 console.log("vehicles.length:", vehicles.length);
                 console.log("vehicles:", vehicles);
-                
+
                 if (plateNumber && vehicles.length > 0) {
                     console.log("Searching for vehicle with plateNumber:", plateNumber);
                     // Case-insensitive search
-                    const fullVehicle = vehicles.find(v => 
+                    const fullVehicle = vehicles.find(v =>
                         v.plateNumber && v.plateNumber.toLowerCase() === plateNumber.toLowerCase()
                     );
                     console.log("Found fullVehicle:", fullVehicle);
-                    
+
                     if (fullVehicle) {
                         console.log("Found full vehicle by plateNumber:", fullVehicle);
-                        const foundVehicleId = fullVehicle.vehicleId || fullVehicle.id || fullVehicle.vehicle_id;
+                        const foundVehicleId = fullVehicle.vehicleId || fullVehicle.VehicleId || fullVehicle.id || fullVehicle.vehicle_id;
                         console.log("foundVehicleId:", foundVehicleId);
-                        
+
                         if (foundVehicleId) {
                             console.log("Using vehicleId from vehicles list:", foundVehicleId);
+                            console.log("foundVehicleId type:", typeof foundVehicleId);
+                            
+                            // Ensure vehicleId is a valid number
+                            const numericVehicleId = typeof foundVehicleId === 'number' ? foundVehicleId : parseInt(foundVehicleId);
+                            console.log("numericVehicleId:", numericVehicleId);
+                            
+                            if (isNaN(numericVehicleId)) {
+                                console.error("Invalid vehicleId - not a number:", foundVehicleId);
+                                throw new Error("Invalid vehicleId - not a valid number");
+                            }
+                            
                             // Update the request body to use the found vehicleId
                             const requestBody = {
                                 userId: parseInt(userId),
-                                vehicleId: parseInt(foundVehicleId),
+                                vehicleId: numericVehicleId,
                                 stationId: parseInt(stationId),
                                 currentBattery: 20,
                                 targetBattery: 80
                             };
-                            
+
                             console.log("=== Find Available Slots Request ===");
                             console.log("Request body:", requestBody);
-                            
+
                             const res = await api.post(`/api/orders/find-available-slots`, requestBody);
                             if (res.status == 200) {
                                 return res.data?.data || res.data;
@@ -727,13 +783,23 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                 } else {
                     console.log("Cannot search - plateNumber:", plateNumber, "vehicles.length:", vehicles.length);
                 }
-                
+
                 throw new Error("Vehicle ID not found in selected vehicle and could not find in vehicles list");
+            }
+
+            // Ensure vehicleId is a valid number
+            const numericVehicleId = typeof actualVehicleId === 'number' ? actualVehicleId : parseInt(actualVehicleId);
+            console.log("actualVehicleId:", actualVehicleId, "type:", typeof actualVehicleId);
+            console.log("numericVehicleId:", numericVehicleId);
+            
+            if (isNaN(numericVehicleId)) {
+                console.error("Invalid vehicleId - not a number:", actualVehicleId);
+                throw new Error("Invalid vehicleId - not a valid number");
             }
 
             const requestBody = {
                 userId: parseInt(userId),
-                vehicleId: parseInt(actualVehicleId), // Use actual vehicle ID
+                vehicleId: numericVehicleId, // Use validated numeric vehicle ID
                 stationId: parseInt(stationId),
                 currentBattery: 20, // Default current battery %
                 targetBattery: 80   // Default target battery %
@@ -744,7 +810,115 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
 
             const res = await api.post(`/api/orders/find-available-slots`, requestBody);
             if (res.status == 200) {
-                return res.data?.data || res.data;
+                console.log("=== API Response Debug ===");
+                console.log("Raw API response:", res.data);
+                
+                const payload: any = res.data?.data || res.data;
+                console.log("Response payload:", payload);
+                console.log("Available slots:", payload?.availableSlots);
+                console.log("Charging points:", payload?.chargingPoints);
+
+                // Backend returns an object (AvailableSlotsResponseDTO), not an array.
+                // Normalize to a flat array of available slots for the UI logic.
+                const directSlots: any[] = Array.isArray(payload?.availableSlots) ? payload.availableSlots : [];
+                const slotsFromPoints: any[] = Array.isArray(payload?.chargingPoints)
+                    ? payload.chargingPoints.flatMap((cp: any) => {
+                        console.log("=== Processing charging point ===");
+                        console.log("Full charging point object:", cp);
+                        console.log("Charging point keys:", Object.keys(cp));
+                        console.log("Charging point connectorType:", cp.connectorType);
+                        console.log("Charging point powerOutput:", cp.powerOutput);
+                        console.log("Charging point pricePerKwh:", cp.pricePerKwh);
+                        console.log("Charging point connectorTypeId:", cp.connectorTypeId);
+                        
+                        if (Array.isArray(cp?.availableSlots)) {
+                            console.log("Available slots in charging point:", cp.availableSlots.length);
+                            // Merge charging point data with each slot
+                            return cp.availableSlots.map((slot: any) => {
+                                console.log("Processing slot:", slot);
+                                const mergedSlot = {
+                                    ...slot,
+                                    // If slot doesn't have these at top level, try to get from charging point or connector type
+                                    connectorType: slot.connectorType || cp.connectorType,
+                                    powerOutput: slot.powerOutput || cp.powerOutput || slot.connectorType?.powerOutput,
+                                    pricePerKwh: slot.pricePerKwh || cp.pricePerKwh || slot.connectorType?.pricePerKwh,
+                                    chargingPointId: slot.chargingPointId || cp.chargingPointId || cp.id,
+                                    // Add charging point info for reference
+                                    chargingPointInfo: {
+                                        id: cp.id || cp.chargingPointId,
+                                        connectorType: cp.connectorType,
+                                        powerOutput: cp.powerOutput,
+                                        pricePerKwh: cp.pricePerKwh,
+                                        status: cp.status
+                                    }
+                                };
+                                console.log("Merged slot:", mergedSlot);
+                                return mergedSlot;
+                            });
+                        }
+                        return [];
+                    })
+                    : [];
+                const mergedSlots: any[] = [...directSlots, ...slotsFromPoints];
+
+                console.log("Direct slots:", directSlots);
+                console.log("Slots from charging points:", slotsFromPoints);
+                console.log("Final merged slots:", mergedSlots);
+                
+                // If slots are missing connector type info, try to fetch it
+                const slotsWithConnectorInfo = await Promise.all(
+                    mergedSlots.map(async (slot) => {
+                        if (!slot.connectorType && slot.chargingPointInfo?.id) {
+                            try {
+                                // Try to fetch connector type info for this charging point
+                                const connectorResponse = await fetchConnectorTypeById(slot.chargingPointInfo.id);
+                                if (connectorResponse) {
+                                    return {
+                                        ...slot,
+                                        connectorType: connectorResponse,
+                                        powerOutput: slot.powerOutput || connectorResponse.PowerOutput,
+                                        pricePerKwh: slot.pricePerKwh || connectorResponse.PricePerKWh,
+                                        chargingPointInfo: {
+                                            ...slot.chargingPointInfo,
+                                            connectorType: connectorResponse,
+                                            powerOutput: connectorResponse.PowerOutput,
+                                            pricePerKwh: connectorResponse.PricePerKWh
+                                        }
+                                    };
+                                }
+                            } catch (error) {
+                                console.warn("Failed to fetch connector type for charging point:", slot.chargingPointInfo.id);
+                            }
+                        }
+                        return slot;
+                    })
+                );
+                
+                // Log first slot structure for inspection
+                if (slotsWithConnectorInfo.length > 0) {
+                    console.log("First slot structure:", slotsWithConnectorInfo[0]);
+                    console.log("First slot keys:", Object.keys(slotsWithConnectorInfo[0]));
+                }
+
+                // Log each slot structure for debugging
+                slotsWithConnectorInfo.forEach((slot, index) => {
+                    console.log(`Slot ${index}:`, slot);
+                    console.log(`  - connectorType:`, slot.connectorType);
+                    console.log(`  - powerOutput:`, slot.powerOutput);
+                    console.log(`  - pricePerKwh:`, slot.pricePerKwh);
+                    console.log(`  - chargingPointId:`, slot.chargingPointId);
+                    console.log(`  - freeFrom:`, slot.freeFrom);
+                    console.log(`  - freeTo:`, slot.freeTo);
+                    console.log(`  - availableMinutes:`, slot.availableMinutes);
+                    if (slot.connectorType) {
+                        console.log(`  - connectorType.typeName:`, slot.connectorType.typeName);
+                        console.log(`  - connectorType.TypeName:`, slot.connectorType.TypeName);
+                        console.log(`  - connectorType.powerOutput:`, slot.connectorType.powerOutput);
+                        console.log(`  - connectorType.pricePerKwh:`, slot.connectorType.pricePerKwh);
+                    }
+                });
+
+                return slotsWithConnectorInfo;
             }
             throw new Error(language === "vi" ? "Không tìm thấy slot khả dụng" : "No available slots found");
         } catch (err: any) {
@@ -848,7 +1022,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                     console.log("=== loadVehicles Debug ===");
                     console.log("vehiclesList:", vehiclesList);
                     console.log("vehiclesList.length:", vehiclesList?.length);
-                    
+
                     if (vehiclesList && vehiclesList.length > 0) {
                         setVehicles(vehiclesList);
                         console.log("Set vehicles to:", vehiclesList);
@@ -1012,11 +1186,11 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
         console.log("Station:", station);
         console.log("selectedVehicle state:", selectedVehicle);
         console.log("selectedVehicleRef.current:", selectedVehicleRef.current);
-        
+
         // Use ref value if state is null but ref has value
         const currentVehicle = selectedVehicle || selectedVehicleRef.current;
         console.log("currentVehicle:", currentVehicle);
-        
+
         // Check if vehicle is selected
         if (!currentVehicle) {
             console.log("No vehicle selected, showing popup");
@@ -1028,7 +1202,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
             setIsVehicleSelectionOpen(true);
             return;
         }
-        
+
         console.log("Vehicle is selected, proceeding with booking");
 
         // Check if station is ACTIVE
@@ -1047,17 +1221,26 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
             const slots = await callApiForFindAvailableSlots(
                 station.stationId?.toString() || ''
             );
-            
+
+            console.log("=== Slots received ===");
+            console.log("Slots count:", slots?.length || 0);
+            console.log("Slots data:", slots);
+
             if (slots && slots.length > 0) {
                 setAvailableSlots(slots);
                 setConfigStation(station);
                 setIsChargingConfigOpen(true);
             } else {
+                console.warn("No slots returned from API");
                 toast.warning(
                     language === 'vi'
                         ? 'Không có slot khả dụng phù hợp với xe của bạn'
                         : 'No available slots suitable for your vehicle'
                 );
+                // Still open dialog to show "no slots" message
+                setAvailableSlots([]);
+                setConfigStation(station);
+                setIsChargingConfigOpen(true);
             }
         } catch (error) {
             console.error("Error checking available slots:", error);
@@ -1070,8 +1253,6 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
             setLoadingSlots(false);
         }
     };
-
-
 
     // Cleanup charging interval on unmount
 
@@ -1311,10 +1492,10 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
     console.log("All stations:", stations);
     console.log("Stations length:", stations.length);
 
-	// Determine required connector type name from selected vehicle, if any
-	const requiredConnectorTypeName = (selectedVehicle || selectedVehicleRef.current)?.connectorTypeName;
+    // Determine required connector type name from selected vehicle, if any
+    const requiredConnectorTypeName = (selectedVehicle || selectedVehicleRef.current)?.connectorTypeName;
 
-	const filteredStations = stations.filter(station => {
+    const filteredStations = stations.filter(station => {
         console.log("Filtering station:", station);
         const matchesSearch = station.stationName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
             station.address?.toLowerCase().includes(searchQuery.toLowerCase());
@@ -1323,13 +1504,13 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
         const matchesFastCharging = true;
         const matches24h = true;
 
-		// Filter by connector type of selected vehicle (if present)
-		let matchesConnector = true;
-		if (requiredConnectorTypeName) {
-			const stationIdKey = station.stationId?.toString() || '';
-			const typeStatsForStation = stationChargingPoints[stationIdKey];
-			matchesConnector = !!(typeStatsForStation && typeStatsForStation[requiredConnectorTypeName] && typeStatsForStation[requiredConnectorTypeName].total > 0);
-		}
+        // Filter by connector type of selected vehicle (if present)
+        let matchesConnector = true;
+        if (requiredConnectorTypeName) {
+            const stationIdKey = station.stationId?.toString() || '';
+            const typeStatsForStation = stationChargingPoints[stationIdKey];
+            matchesConnector = !!(typeStatsForStation && typeStatsForStation[requiredConnectorTypeName] && typeStatsForStation[requiredConnectorTypeName].total > 0);
+        }
 
         console.log("Station matches:", {
             stationName: station.stationName,
@@ -1337,12 +1518,12 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
             matchesSearch,
             matchesAvailable,
             matchesFastCharging,
-			matches24h,
-			requiredConnectorTypeName,
-			matchesConnector
+            matches24h,
+            requiredConnectorTypeName,
+            matchesConnector
         });
 
-		return matchesSearch && matchesAvailable && matchesFastCharging && matches24h && matchesConnector;
+        return matchesSearch && matchesAvailable && matchesFastCharging && matches24h && matchesConnector;
 
     }).sort((a, b) => {
         if (sortByDistance && userLocation) {
@@ -4654,8 +4835,8 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
 
             {/* Charging Configuration Dialog */}
             <Dialog open={isChargingConfigOpen} onOpenChange={setIsChargingConfigOpen}>
-                <DialogContent className="max-w-md max-h-[60vh] overflow-y-auto">
-                    <DialogHeader className="text-center">
+                <DialogContent className="max-w-md max-h-[80vh] overflow-hidden flex flex-col">
+                    <DialogHeader className="flex-shrink-0 text-center">
                         <DialogTitle className="flex items-center justify-center space-x-2">
                             <Zap className="w-5 h-5 text-primary" />
                             <span>{language === 'vi' ? 'Cấu hình sạc xe' : 'Charging Configuration'}</span>
@@ -4666,7 +4847,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                     </DialogHeader>
 
                     {configStation && (
-                        <div className="space-y-6">
+                        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-6 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
                             {/* Station Info */}
                             <div className="bg-muted/50 rounded-lg p-4 text-center">
                                 <h4 className="font-medium mb-2">{configStation.stationName}</h4>
@@ -4729,31 +4910,89 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                                     <h4 className="font-medium flex items-center space-x-2 text-sm">
                                         <Clock className="w-4 h-4 text-primary" />
                                         <span>{language === 'vi' ? 'Slot khả dụng' : 'Available Slots'}</span>
+                                        <Badge variant="secondary" className="text-xs">
+                                            {availableSlots.length}
+                                        </Badge>
                                     </h4>
-                                    <div className="grid grid-cols-1 gap-2 max-h-32 overflow-y-auto">
-                                        {availableSlots.map((slot, index) => (
+                                    <div className="grid grid-cols-1 gap-2 max-h-40 overflow-y-auto pr-2">
+                                        {availableSlots.map((slot, index) => {
+                                            const { connectorTypeName, powerOutput, pricePerKwh } = extractSlotInfo(slot);
+                                            
+                                            return (
                                             <div
                                                 key={index}
-                                                className={`p-2 border rounded-lg cursor-pointer transition-all ${
-                                                    selectedSlot === slot 
-                                                        ? 'border-primary bg-primary/10' 
-                                                        : 'border-border hover:border-primary/50'
+                                                    className={`p-3 border rounded-lg cursor-pointer transition-all ${
+                                                    selectedSlot === slot
+                                                            ? 'border-primary bg-primary/10 ring-2 ring-primary/20'
+                                                            : 'border-border hover:border-primary/50 hover:bg-accent/50'
                                                 }`}
-                                                onClick={() => setSelectedSlot(slot)}
+                                                    onClick={() => {
+                                                        console.log("Selected slot:", slot);
+                                                        setSelectedSlot(slot);
+                                                    }}
                                             >
                                                 <div className="flex items-center justify-between">
-                                                    <div>
-                                                        <p className="text-sm font-medium">{slot.connectorType || 'Standard'}</p>
-                                                        <p className="text-xs text-muted-foreground">
-                                                            {slot.powerOutput || 'N/A'} kW • {slot.pricePerKwh || 'N/A'} VND/kWh
-                                                        </p>
+                                                        <div className="flex-1">
+                                                            <div className="flex items-center space-x-2">
+                                                                <Zap className="w-4 h-4 text-primary" />
+                                                                <p className="text-sm font-medium">{connectorTypeName}</p>
+                                                            </div>
+                                                            <p className="text-xs text-muted-foreground mt-1">
+                                                                {powerOutput !== 'N/A' ? `${powerOutput} kW` : 'Power N/A'} • 
+                                                                {pricePerKwh !== 'N/A' ? ` ${pricePerKwh} VND/kWh` : ' Price N/A'}
+                                                            </p>
+                                                            {/* Show time availability if connector info is not available */}
+                                                            {connectorTypeName === 'Standard' && (slot.freeFrom || slot.freeTo) && (
+                                                                <p className="text-xs text-blue-600 mt-1">
+                                                                    {slot.freeFrom && slot.freeTo ? 
+                                                                        `Available: ${new Date(slot.freeFrom).toLocaleTimeString()} - ${new Date(slot.freeTo).toLocaleTimeString()}` :
+                                                                        slot.availableMinutes ? `${slot.availableMinutes} minutes available` : 'Time slot available'
+                                                                    }
+                                                                </p>
+                                                            )}
+                                                            {/* Show availability status if present */}
+                                                            {slot.status && (
+                                                                <Badge variant="outline" className="text-xs mt-1">
+                                                                    {slot.status}
+                                                                </Badge>
+                                                            )}
                                                     </div>
                                                     {selectedSlot === slot && (
-                                                        <CheckCircle className="w-4 h-4 text-primary" />
+                                                            <CheckCircle className="w-5 h-5 text-primary flex-shrink-0" />
                                                     )}
                                                 </div>
                                             </div>
-                                        ))}
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Show message if no slots available */}
+                            {loadingSlots && (
+                                <div className="flex items-center justify-center py-4">
+                                    <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                                    <span className="ml-2 text-sm text-muted-foreground">
+                                        {language === 'vi' ? 'Đang tải slot...' : 'Loading slots...'}
+                                    </span>
+                                </div>
+                            )}
+
+                            {!loadingSlots && availableSlots.length === 0 && (
+                                <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4">
+                                    <div className="flex items-start space-x-3">
+                                        <Info className="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+                                        <div className="text-sm">
+                                            <p className="font-medium text-amber-700 dark:text-amber-300">
+                                                {language === 'vi' ? 'Không có slot khả dụng' : 'No available slots'}
+                                            </p>
+                                            <p className="text-amber-600 dark:text-amber-400 mt-1">
+                                                {language === 'vi' 
+                                                    ? 'Trạm này hiện không có slot phù hợp với xe của bạn hoặc đã hết slot trống.'
+                                                    : 'This station has no suitable slots for your vehicle or all slots are occupied.'
+                                                }
+                                            </p>
+                                        </div>
                                     </div>
                                 </div>
                             )}
@@ -4927,94 +5166,191 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                             )}
 
 
-                            {/* Action Buttons */}
-                            <div className="flex space-x-2 pt-2 border-t">
-                                <Button
-                                    onClick={async () => {
-                                        // Validate time for scheduled booking
-                                        if (bookingMode === "scheduled") {
-                                            if (!chargingStartTimeInput) {
-                                                toast.error(language === 'vi' ? 'Vui lòng chọn thời gian sạc' : 'Please select charging time');
-                                                return;
-                                            }
-
-                                            // Check if time is at least 2 hours from now
-                                            const now = new Date();
-                                            const selectedTime = new Date();
-                                            const [hours, minutes] = chargingStartTimeInput.split(':').map(Number);
-                                            if (hours !== undefined && minutes !== undefined) {
-                                                selectedTime.setHours(hours, minutes, 0, 0);
-                                            } else {
-                                                toast.error(language === 'vi' ? 'Thời gian không hợp lệ' : 'Invalid time format');
-                                                return;
-                                            }
-
-                                            // If selected time is today, check if it's at least 2 hours from now
-                                            if (selectedTime.getDate() === now.getDate()) {
-                                                const timeDiff = selectedTime.getTime() - now.getTime();
-                                                const hoursDiff = timeDiff / (1000 * 60 * 60);
-
-                                                if (hoursDiff < 2) {
-                                                    toast.error(language === 'vi' ? 'Thời gian phải ít nhất 2 tiếng sau hiện tại' : 'Time must be at least 2 hours from now');
-                                                    return;
-                                                }
-                                            }
-                                        }
-
-                                        // Prepare booking data
-                                        const currentVehicle = selectedVehicle || selectedVehicleRef.current;
-                                        const bookingData = {
-                                            stationId: configStation?.stationId,
-                                            vehicleId: currentVehicle?.vehicleId || currentVehicle?.id || currentVehicle?.plateNumber,
-                                            initialBatteryLevel: initialBatteryLevel,
-                                            targetBatteryLevel: targetBatteryLevelConfig,
-                                            bookingMode: bookingMode,
-                                            chargingStartTime: bookingMode === "scheduled" ? chargingStartTimeInput : null,
-                                            selectedSlot: selectedSlot
-                                        };
-
-                                        // Call confirm booking API
-                                        const result = await callApiForConfirmBooking(bookingData);
-                                        
-                                        if (result) {
-                                            toast.success(language === 'vi' ? 'Đặt lịch thành công!' : 'Booking successful!');
-                                            setIsChargingConfigOpen(false);
-
-                                            // Only navigate to charging session for "Book Now"
-                                            if (bookingMode === "now") {
-                                                // Generate a booking ID for charging session
-                                                const bookingId = `booking_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-
-                                                // Call the callback to navigate to charging session
-                                                onStartCharging?.(bookingId);
-                                            } else {
-                                                // For scheduled booking, navigate to MyBookingView
-                                                // This would typically be handled by parent component
-                                                // For now, we'll just show success message
-                                                toast.info(
-                                                    language === 'vi' 
-                                                        ? 'Đặt lịch đã được lưu vào My Bookings' 
-                                                        : 'Booking saved to My Bookings'
-                                                );
-                                            }
-                                        }
-                                    }}
-                                    className="flex-1"
-                                    disabled={bookingMode === "scheduled" && (!chargingStartTimeInput || targetBatteryLevelConfig <= initialBatteryLevel)}
-                                >
-                                    <Calendar className="w-4 h-4 mr-2" />
-                                    {language === 'vi' ? 'Xác nhận đặt lịch' : 'Confirm Booking'}
-                                </Button>
-
-                                <Button
-                                    variant="outline"
-                                    onClick={() => setIsChargingConfigOpen(false)}
-                                >
-                                    {language === 'vi' ? 'Hủy' : 'Cancel'}
-                                </Button>
-                            </div>
                         </div>
                     )}
+
+                    {/* Confirm and Cancel Buttons - Sticky at bottom */}
+                    <div className="flex-shrink-0 flex space-x-2 pt-4 pb-4 px-6 border-t bg-background">
+                        <Button
+                            onClick={async () => {
+                                // Validate slot selection
+                                if (!selectedSlot) {
+                                    toast.error(language === 'vi' ? 'Vui lòng chọn slot' : 'Please select a slot');
+                                    return;
+                                }
+
+                                // Validate time for scheduled booking
+                                if (bookingMode === "scheduled") {
+                                    if (!chargingStartTimeInput) {
+                                        toast.error(language === 'vi' ? 'Vui lòng chọn thời gian sạc' : 'Please select charging time');
+                                        return;
+                                    }
+
+                                    // Check if time is at least 2 hours from now
+                                    const now = new Date();
+                                    const selectedTime = new Date();
+                                    const [hours, minutes] = chargingStartTimeInput.split(':').map(Number);
+                                    if (hours !== undefined && minutes !== undefined) {
+                                        selectedTime.setHours(hours, minutes, 0, 0);
+                                    } else {
+                                        toast.error(language === 'vi' ? 'Thời gian không hợp lệ' : 'Invalid time format');
+                                        return;
+                                    }
+
+                                    // If selected time is today, check if it's at least 2 hours from now
+                                    if (selectedTime.getDate() === now.getDate()) {
+                                        const timeDiff = selectedTime.getTime() - now.getTime();
+                                        const hoursDiff = timeDiff / (1000 * 60 * 60);
+
+                                        if (hoursDiff < 2) {
+                                            toast.error(language === 'vi' ? 'Thời gian phải ít nhất 2 tiếng sau hiện tại' : 'Time must be at least 2 hours from now');
+                                            return;
+                                        }
+                                    }
+                                }
+
+                                // Ensure we have a valid numeric vehicle ID
+                                const selectedVehicleForId = selectedVehicle || selectedVehicleRef.current;
+                                const vehicleId = selectedVehicleForId?.vehicleId || selectedVehicleForId?.id || selectedVehicleForId?.VehicleId;
+                                const numericVehicleId = typeof vehicleId === 'number' ? vehicleId : parseInt(vehicleId);
+                                
+                                if (!vehicleId || isNaN(numericVehicleId)) {
+                                    toast.error(language === 'vi' ? 'Không tìm thấy ID xe hợp lệ' : 'Invalid vehicle ID');
+                                    return;
+                                }
+                                
+                                // Calculate estimated cost from slot data
+                                const estimatedCost = selectedSlot?.estimatedCost || 0;
+                                
+                                // Calculate start time and end time
+                                const startTime = new Date();
+                                const endTime = new Date(startTime.getTime() + (selectedSlot?.requiredMinutes || 0) * 60000);
+                                
+                                // Calculate energy to charge (kWh) based on battery levels and vehicle capacity
+                                const selectedVehicleForBooking = selectedVehicle || selectedVehicleRef.current;
+                                const vehicleCapacity = selectedVehicleForBooking?.capacity || 50; // Default 50kWh if not available
+                                const energyToCharge = (targetBatteryLevelConfig - initialBatteryLevel) / 100 * vehicleCapacity;
+                                
+                                // Get user ID from context or localStorage
+                                const userId = parseInt(localStorage.getItem('userId') || '0');
+                                
+                                // Extract charging point ID and connector type ID
+                                const chargingPointId = selectedSlot?.chargingPointId || selectedSlot?.chargingPointInfo?.id;
+                                const connectorTypeId = selectedSlot?.connectorType?.ConnectorTypeId || 
+                                                     selectedSlot?.connectorType?.connectorTypeId ||
+                                                     selectedSlot?.chargingPointInfo?.connectorType?.ConnectorTypeId ||
+                                                     selectedSlot?.chargingPointInfo?.connectorType?.connectorTypeId;
+                                
+                                const bookingData = {
+                                    stationId: configStation?.stationId,
+                                    vehicleId: numericVehicleId,
+                                    userId: userId, // Backend requires userId
+                                    chargingPointId: chargingPointId, // Backend requires chargingPointId
+                                    connectorTypeId: connectorTypeId, // Backend requires connectorTypeId
+                                    currentBattery: initialBatteryLevel, // Backend expects currentBattery
+                                    targetBattery: targetBatteryLevelConfig, // Backend expects targetBattery
+                                    initialBatteryLevel: initialBatteryLevel,
+                                    targetBatteryLevel: targetBatteryLevelConfig,
+                                    bookingMode: bookingMode,
+                                    startTime: startTime.toISOString(), // Backend requires startTime
+                                    chargingStartTime: bookingMode === "scheduled" ? chargingStartTimeInput : null,
+                                    endTime: endTime.toISOString(),
+                                    energyToCharge: energyToCharge, // Backend requires energyToCharge
+                                    estimatedCost: estimatedCost,
+                                    selectedSlot: selectedSlot
+                                };
+                                
+                                console.log("=== BOOKING DATA DEBUG ===");
+                                console.log("Selected slot:", selectedSlot);
+                                console.log("Selected slot chargingPointId:", selectedSlot?.chargingPointId);
+                                console.log("Selected slot chargingPointInfo:", selectedSlot?.chargingPointInfo);
+                                console.log("Selected slot chargingPointInfo.id:", selectedSlot?.chargingPointInfo?.id);
+                                console.log("Extracted chargingPointId:", chargingPointId);
+                                console.log("Selected slot connectorType:", selectedSlot?.connectorType);
+                                console.log("Selected slot chargingPointInfo.connectorType:", selectedSlot?.chargingPointInfo?.connectorType);
+                                console.log("Extracted connectorTypeId:", connectorTypeId);
+                                console.log("Current vehicle:", selectedVehicleForBooking);
+                                console.log("Vehicle capacity:", vehicleCapacity);
+                                console.log("Energy to charge:", energyToCharge);
+                                console.log("User ID from localStorage:", userId);
+                                console.log("Start time:", startTime.toISOString());
+                                console.log("Booking data:", bookingData);
+                                
+                                // Validate required fields
+                                if (!bookingData.userId || bookingData.userId === 0) {
+                                    console.error("User ID validation failed:", bookingData.userId);
+                                    toast.error(language === 'vi' ? 'Không tìm thấy User ID' : 'User ID not found');
+                                    return;
+                                }
+                                
+                                if (!bookingData.chargingPointId) {
+                                    console.error("Charging Point ID validation failed:", bookingData.chargingPointId);
+                                    console.error("Selected slot chargingPointId:", selectedSlot?.chargingPointId);
+                                    console.error("Selected slot chargingPointInfo.id:", selectedSlot?.chargingPointInfo?.id);
+                                    toast.error(language === 'vi' ? 'Không tìm thấy Charging Point ID' : 'Charging Point ID not found');
+                                    return;
+                                }
+                                
+                                if (!bookingData.connectorTypeId) {
+                                    console.error("Connector Type ID validation failed:", bookingData.connectorTypeId);
+                                    console.error("Selected slot connectorType:", selectedSlot?.connectorType);
+                                    console.error("Selected slot chargingPointInfo.connectorType:", selectedSlot?.chargingPointInfo?.connectorType);
+                                    toast.error(language === 'vi' ? 'Không tìm thấy Connector Type ID' : 'Connector Type ID not found');
+                                    return;
+                                }
+                                
+                                if (!bookingData.startTime) {
+                                    console.error("Start time validation failed:", bookingData.startTime);
+                                    toast.error(language === 'vi' ? 'Thời gian bắt đầu không hợp lệ' : 'Invalid start time');
+                                    return;
+                                }
+                                
+                                if (!bookingData.energyToCharge || bookingData.energyToCharge <= 0) {
+                                    console.error("Energy to charge validation failed:", bookingData.energyToCharge);
+                                    toast.error(language === 'vi' ? 'Năng lượng sạc không hợp lệ' : 'Invalid energy to charge');
+                                    return;
+                                }
+
+                                // Call confirm booking API
+                                const result = await callApiForConfirmBooking(bookingData);
+
+                                if (result) {
+                                    toast.success(language === 'vi' ? 'Đặt lịch thành công!' : 'Booking successful!');
+                                    setIsChargingConfigOpen(false);
+
+                                    // Only navigate to charging session for "Book Now"
+                                    if (bookingMode === "now") {
+                                        // Generate a booking ID for charging session
+                                        const bookingId = `booking_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+                                        // Call the callback to navigate to charging session
+                                        onStartCharging?.(bookingId);
+                                    } else {
+                                        // For scheduled booking, navigate to MyBookingView
+                                        // This would typically be handled by parent component
+                                        // For now, we'll just show success message
+                                        toast.info(
+                                            language === 'vi'
+                                                ? 'Đặt lịch đã được lưu vào My Bookings'
+                                                : 'Booking saved to My Bookings'
+                                        );
+                                    }
+                                }
+                            }}
+                            className="flex-1"
+                            disabled={!selectedSlot || (bookingMode === "scheduled" && (!chargingStartTimeInput || targetBatteryLevelConfig <= initialBatteryLevel))}
+                        >
+                            <CheckCircle className="w-4 h-4 mr-2" />
+                            {language === 'vi' ? 'Xác nhận' : 'Confirm'}
+                        </Button>
+                        <Button
+                            variant="outline"
+                            onClick={() => setIsChargingConfigOpen(false)}
+                            className="flex-1"
+                        >
+                            {language === 'vi' ? 'Hủy' : 'Cancel'}
+                        </Button>
+                    </div>
                 </DialogContent>
             </Dialog>
 
@@ -5051,7 +5387,9 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                                         {language === 'vi' ? 'Không có xe nào' : 'No vehicles found'}
                                     </h3>
                                     <p className="text-sm text-muted-foreground">
+
                                         {language === 'vi' ? 'Vui lòng thêm xe vào tài khoản của bạn' : 'Please add a vehicle to your account'}
+
                                     </p>
                                 </div>
                             </div>
@@ -5066,7 +5404,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                                     transition={{ duration: 0.2, delay: index * 0.1 }}
                                     className={`p-4 border rounded-lg cursor-pointer transition-all duration-200 hover:shadow-md ${
                                         selectedVehicle?.plateNumber === vehicle?.plateNumber
-                                            ? 'border-primary bg-primary/10' 
+                                            ? 'border-primary bg-primary/10'
                                             : 'border-border hover:border-primary/50'
                                     }`}
                                     onClick={() => {
@@ -5136,8 +5474,8 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                                     } else {
                                         console.log("No vehicle selected at confirm");
                                         toast.warning(
-                                            language === 'vi' 
-                                                ? 'Vui lòng chọn một xe' 
+                                            language === 'vi'
+                                                ? 'Vui lòng chọn một xe'
                                                 : 'Please select a vehicle'
                                         );
                                     }

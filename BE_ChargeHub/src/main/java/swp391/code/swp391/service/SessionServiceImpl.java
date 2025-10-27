@@ -22,6 +22,9 @@ public class SessionServiceImpl implements SessionService {
     private final NotificationService notificationService;
     private final FeeRepository feeRepository;
 
+    // Khoảng cách tối đa cho phép (tính bằng mét)
+    private static final double MAX_DISTANCE_METERS = 100.0; // 100 mét
+
     @Override
     public boolean isValidTime(Long orderId, int maxStartDelayMinutes) {
         maxStartDelayMinutes = 15; // Giới hạn thời gian bắt đầu sạc sau khi tạo order
@@ -33,10 +36,34 @@ public class SessionServiceImpl implements SessionService {
         return now.isAfter(order.getStartTime()) && now.isBefore(order.getStartTime().plusMinutes(maxStartDelayMinutes));
     }
 
+    /**
+     * Tính khoảng cách giữa 2 tọa độ sử dụng công thức Haversine
+     * @return khoảng cách tính bằng mét
+     */
+    private double calculateDistance(double lat1, double lon1, double lat2, double lon2) {
+        final int EARTH_RADIUS = 6371000; // Bán kính trái đất tính bằng mét
+
+        double dLat = Math.toRadians(lat2 - lat1);
+        double dLon = Math.toRadians(lon2 - lon1);
+
+        double a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                   Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2)) *
+                   Math.sin(dLon / 2) * Math.sin(dLon / 2);
+
+        double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+        return EARTH_RADIUS * c; // Khoảng cách tính bằng mét
+    }
+
     // US10: Bắt đầu phiên sạc
     @Transactional
     @Override
-    public Long startSession(Long userId, Long orderId, Long vehicleId) {
+    public Long startSession(Long userId, Long orderId, Long vehicleId, Double userLatitude, Double userLongitude) {
+
+        // Validate location parameters
+        if (userLatitude == null || userLongitude == null) {
+            throw new RuntimeException("User location is required to start charging session");
+        }
 
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
@@ -70,6 +97,27 @@ public class SessionServiceImpl implements SessionService {
         if (point.getStatus() != ChargingPoint.ChargingPointStatus.AVAILABLE) {
             throw new RuntimeException("Charging point not available");
         }
+
+        // ===== KIỂM TRA KHOẢNG CÁCH - TÍNH NĂNG MỚI =====
+        ChargingStation station = point.getStation();
+        if (station.getLatitude() == 0.0 && station.getLongitude() == 0.0) {
+            throw new RuntimeException("Station location not configured");
+        }
+
+        double distance = calculateDistance(
+            userLatitude,
+            userLongitude,
+            station.getLatitude(),
+            station.getLongitude()
+        );
+
+        if (distance > MAX_DISTANCE_METERS) {
+            throw new RuntimeException(
+                String.format("You are too far from the charging station. Current distance: %.0f meters. " +
+                    "You must be within %.0f meters to start charging.", distance, MAX_DISTANCE_METERS)
+            );
+        }
+        // ===== KẾT THÚC KIỂM TRA KHOẢNG CÁCH =====
 
         Vehicle vehicle = vehicleRepository.findById(vehicleId)
                 .orElseThrow(() -> new RuntimeException("Vehicle not found"));

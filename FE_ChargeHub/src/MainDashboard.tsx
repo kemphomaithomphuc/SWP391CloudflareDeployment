@@ -14,7 +14,15 @@ import {
   Sun,
   Moon,
   Clock,
-  BookOpen
+  BookOpen,
+  Receipt,
+  Zap,
+  MapPin,
+  Battery,
+  TrendingUp,
+  Star,
+  ArrowRight,
+  CheckCircle
 } from "lucide-react";
 import { Button } from "./components/ui/button";
 import { Avatar, AvatarFallback } from "./components/ui/avatar";
@@ -23,6 +31,7 @@ import { useLanguage } from "./contexts/LanguageContext";
 import ProfileView from "./components/ProfileView";
 import VehicleView from "./components/VehicleView";
 import SubscriptionView from "./components/SubscriptionView";
+import TransactionHistoryView from "./components/TransactionHistoryView";
 import { logoutUser, getUnreadNotificationCount, getNotifications } from "./services/api";
 import { toast } from "sonner";
 
@@ -233,6 +242,19 @@ export default function MainDashboard({ onLogout, onBooking, onHistory, onAnalys
             <span>{language === 'vi' ? 'Gói Premium' : 'Premium Plan'}</span>
           </button>
 
+          <button
+            onClick={() => {
+              setActiveSection("transaction-history");
+              setSidebarOpen(false);
+            }}
+            className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-left transition-colors ${
+              activeSection === "transaction-history" ? "bg-sidebar-accent text-sidebar-primary" : "text-sidebar-foreground hover:bg-sidebar-accent"
+            }`}
+          >
+            <Receipt className="w-5 h-5" />
+            <span>{t('transaction_history')}</span>
+          </button>
+
           <div className="pt-4 border-t border-sidebar-border mt-4 space-y-2">
             <div className="px-3 py-2 text-sm text-muted-foreground">
               {t('language')}:
@@ -339,125 +361,194 @@ export default function MainDashboard({ onLogout, onBooking, onHistory, onAnalys
         {/* Main Dashboard Content */}
         <div className="flex-1 p-6">
           {activeSection === "dashboard" && (
-            <div className="max-w-5xl mx-auto">
-              {/* Logo Section */}
-              <div className="mb-6">
-                <div className="text-center">
-                  <h2 className="font-medium text-muted-foreground">{t('logo')}</h2>
+            <div className="max-w-7xl mx-auto">
+              {/* Hero Section with Background Video */}
+              <div className="relative mb-16 overflow-hidden rounded-3xl h-[600px]">
+                {/* Background Video */}
+                <div className="absolute inset-0">
+                  <video
+                    className="w-full h-full object-cover"
+                    src="https://digitalassets.tesla.com/tesla-contents/video/upload/f_auto,q_auto:best/Charging-Hero-Desktop.mp4"
+                    autoPlay
+                    muted
+                    loop
+                    playsInline
+                    preload="metadata"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-br from-black/80 via-black/70 to-transparent" />
                 </div>
-              </div>
-
-              {/* Vehicle Status */}
-              <div className="mb-8">
-                <div className="max-w-md mx-auto">
-                  {/* Vehicle Model Card */}
-                  <div className="bg-card rounded-xl p-6 shadow-sm border border-border">
-                    <div className="text-center">
-                      <h3 className="font-medium text-card-foreground mb-4">{t('show_model')}</h3>
+                
+                {/* Floating elements for visual interest */}
+                <div className="absolute inset-0">
+                  <div className="absolute top-20 left-10 w-32 h-32 bg-primary/10 rounded-full blur-3xl" />
+                  <div className="absolute bottom-40 right-20 w-40 h-40 bg-primary/10 rounded-full blur-3xl" />
+                  <div className="absolute top-60 right-10 w-24 h-24 bg-primary/20 rounded-full blur-2xl" />
+                </div>
+                
+                {/* Content */}
+                <div className="relative z-10 p-8 md:p-16 h-full flex items-center">
+                  <div className="max-w-2xl">
+                    <h1 className="text-4xl md:text-6xl font-bold text-white leading-tight mb-6">
+                      {language === 'vi' ? 'Sạc xe điện' : 'EV Charging'}
+                      <span className="block text-primary mt-2 drop-shadow-lg">
+                        {language === 'vi' ? 'thông minh - Nhanh chóng - Tiện lợi' : 'Smart - Fast - Convenient'}
+                      </span>
+                    </h1>
+                    <p className="text-lg text-white mb-8 max-w-xl leading-relaxed">
+                      {language === 'vi' 
+                        ? 'Tìm và đặt trạm sạc gần nhất với giá cả hợp lý. Hơn 1000 trạm sạc trên toàn quốc sẵn sàng phục vụ bạn 24/7.'
+                        : 'Find and book the nearest charging stations with affordable prices. Over 1000 charging stations nationwide ready to serve you 24/7.'
+                      }
+                    </p>
+                    
+                    <div className="flex flex-col sm:flex-row gap-4">
+                      <Button 
+                        size="lg"
+                        className="bg-primary hover:bg-primary/90 text-white px-10 py-7 text-lg font-semibold shadow-2xl hover:shadow-primary/50 hover:scale-105 transition-all duration-300"
+                        onClick={onBooking}
+                      >
+                        <Zap className="w-6 h-6 mr-2" />
+                        {language === 'vi' ? 'Đặt sạc ngay' : 'Book Now'}
+                      </Button>
                       
-                      {/* Vehicle Image */}
-                      <div className="w-32 h-20 mx-auto mb-4 rounded-lg overflow-hidden bg-muted">
-                        <img 
-                          src={userVehicle.image}
-                          alt={`${userVehicle.brand} ${userVehicle.model}`}
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                      
-                      {/* Vehicle Info */}
-                      <div className="flex items-center justify-center space-x-2 mb-2">
-                        <Car className="w-5 h-5 text-primary" />
-                        <span className="text-xl font-semibold text-card-foreground">
-                          {userVehicle.brand} {userVehicle.model}
-                        </span>
-                      </div>
-                      <p className="text-sm text-muted-foreground">{userVehicle.plateNumber}</p>
+                      <Button 
+                        variant="secondary"
+                        size="lg"
+                        className="px-10 py-7 text-lg font-semibold bg-white/10 backdrop-blur-sm hover:bg-white/20 text-white border-2 border-white/30 hover:border-white/50 transition-all duration-300"
+                        onClick={onHistory}
+                      >
+                        <MapPin className="w-5 h-5 mr-2" />
+                        {language === 'vi' ? 'Tìm trạm gần' : 'Find Stations'}
+                      </Button>
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* Booking Status - Highlighted */}
-              <div className="bg-gradient-to-br from-primary/10 to-primary/20 rounded-xl p-8 mb-8 border-2 border-primary/30 relative cursor-pointer hover:scale-105 transition-transform duration-200" onClick={onBooking}>
-                <div className="text-center">
-                  <h2 className="text-2xl font-semibold text-primary mb-2">{t('booking_charging')}</h2>
-                  <p className="text-primary/80 mb-4">{t('charging_session_ready')}</p>
-                  
-                  {/* Book Now Button */}
-                  <Button 
-                    size="lg"
-                    className="bg-primary hover:bg-primary/90 text-primary-foreground px-8"
-                    onClick={(e: React.MouseEvent) => {
-                      e.stopPropagation();
-                      onBooking?.();
-                    }}
-                  >
-                    <Calendar className="w-5 h-5 mr-2" />
-                    {t('booking_charging')}
-                  </Button>
+              {/* Stats Cards - Simple Design */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-16">
+                <div className="bg-card rounded-2xl p-6 border border-border hover:shadow-lg transition-shadow text-center">
+                  <div className="w-12 h-12 bg-primary/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <MapPin className="w-6 h-6 text-primary" />
+                  </div>
+                  <p className="text-3xl font-bold text-foreground mb-2">0.8 km</p>
+                  <p className="text-sm text-muted-foreground">
+                    {language === 'vi' ? 'Trạm gần nhất' : 'Nearest Station'}
+                  </p>
                 </div>
-                
-                {/* Popular annotation */}
-                <div className="absolute -top-2 -right-2 bg-primary text-primary-foreground px-3 py-1 rounded-full text-sm font-medium transform rotate-12">
-                  {t('popular')}
+
+                <div className="bg-card rounded-2xl p-6 border border-border hover:shadow-lg transition-shadow text-center">
+                  <div className="w-12 h-12 bg-primary/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <TrendingUp className="w-6 h-6 text-primary" />
+                  </div>
+                  <p className="text-3xl font-bold text-foreground mb-2">₫2,500</p>
+                  <p className="text-sm text-muted-foreground">
+                    {language === 'vi' ? 'Giá mỗi kWh' : 'Price per kWh'}
+                  </p>
+                </div>
+
+                <div className="bg-card rounded-2xl p-6 border border-border hover:shadow-lg transition-shadow text-center">
+                  <div className="w-12 h-12 bg-primary/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <Star className="w-6 h-6 text-primary" />
+                  </div>
+                  <p className="text-3xl font-bold text-foreground mb-2">4.8</p>
+                  <p className="text-sm text-muted-foreground">
+                    {language === 'vi' ? 'Đánh giá trung bình' : 'Average Rating'}
+                  </p>
                 </div>
               </div>
 
-              {/* Quick Actions Section */}
-              <div className="bg-card rounded-xl p-6 shadow-sm border border-border mb-8">
-                <h3 className="text-lg font-semibold text-card-foreground mb-4 text-center">{t('quick_actions')}</h3>
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                  <Button 
-                    variant="outline" 
-                    className="flex flex-col items-center space-y-2 h-20 border-primary/30 text-primary hover:bg-primary/10"
+              {/* Quick Actions - Simplified */}
+              <div className="mb-16">
+                <h2 className="text-3xl font-bold text-foreground mb-8 text-center">
+                  {language === 'vi' ? 'Dịch vụ của chúng tôi' : 'Our Services'}
+                </h2>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  <div 
+                    className="bg-card rounded-2xl p-6 border border-border hover:shadow-lg hover:border-primary/50 transition-all cursor-pointer"
                     onClick={onMyBookings}
                   >
-                    <BookOpen className="w-6 h-6" />
-                    <span className="text-sm">{language === 'vi' ? 'Đặt chỗ của tôi' : 'My Bookings'}</span>
-                  </Button>
+                    <BookOpen className="w-8 h-8 text-primary mb-4" />
+                    <h3 className="font-semibold text-foreground mb-2">
+                      {language === 'vi' ? 'Đặt chỗ của tôi' : 'My Bookings'}
+                    </h3>
+                    <p className="text-sm text-muted-foreground">
+                      {language === 'vi' ? 'Quản lý lịch sử đặt chỗ' : 'Manage booking history'}
+                    </p>
+                  </div>
 
-                  <Button 
-                    variant="outline" 
-                    className="flex flex-col items-center space-y-2 h-20 border-primary/30 text-primary hover:bg-primary/10"
+                  <div 
+                    className="bg-card rounded-2xl p-6 border border-border hover:shadow-lg hover:border-primary/50 transition-all cursor-pointer"
+                    onClick={() => setActiveSection("transaction-history")}
+                  >
+                    <Receipt className="w-8 h-8 text-primary mb-4" />
+                    <h3 className="font-semibold text-foreground mb-2">
+                      {language === 'vi' ? 'Lịch sử giao dịch' : 'Transaction History'}
+                    </h3>
+                    <p className="text-sm text-muted-foreground">
+                      {language === 'vi' ? 'Xem chi tiết thanh toán' : 'View payment details'}
+                    </p>
+                  </div>
+
+                  <div 
+                    className="bg-card rounded-2xl p-6 border border-border hover:shadow-lg hover:border-primary/50 transition-all cursor-pointer"
                     onClick={onHistory}
                   >
-                    <Calendar className="w-6 h-6" />
-                    <span className="text-sm">{t('history')}</span>
-                  </Button>
+                    <Calendar className="w-8 h-8 text-primary mb-4" />
+                    <h3 className="font-semibold text-foreground mb-2">
+                      {language === 'vi' ? 'Lịch sử sạc' : 'Charging History'}
+                    </h3>
+                    <p className="text-sm text-muted-foreground">
+                      {language === 'vi' ? 'Theo dõi các phiên sạc' : 'Track charging sessions'}
+                    </p>
+                  </div>
 
-                  <Button 
-                    variant="outline" 
-                    className="flex flex-col items-center space-y-2 h-20 border-primary/30 text-primary hover:bg-primary/10"
+                  <div 
+                    className="bg-card rounded-2xl p-6 border border-border hover:shadow-lg hover:border-primary/50 transition-all cursor-pointer"
                     onClick={() => setActiveSection("subscription")}
                   >
-                    <CreditCard className="w-6 h-6" />
-                    <span className="text-sm">{t('subscription')}</span>
-                  </Button>
+                    <CreditCard className="w-8 h-8 text-primary mb-4" />
+                    <h3 className="font-semibold text-foreground mb-2">
+                      {language === 'vi' ? 'Gói Premium' : 'Premium Plan'}
+                    </h3>
+                    <p className="text-sm text-muted-foreground">
+                      {language === 'vi' ? 'Nâng cấp dịch vụ' : 'Upgrade service'}
+                    </p>
+                  </div>
 
-                  <Button 
-                    variant="outline" 
-                    className="flex flex-col items-center space-y-2 h-20 border-primary/30 text-primary hover:bg-primary/10"
+                  <div 
+                    className="bg-card rounded-2xl p-6 border border-border hover:shadow-lg hover:border-primary/50 transition-all cursor-pointer"
                     onClick={onAnalysis}
                   >
-                    <FileText className="w-6 h-6" />
-                    <span className="text-sm">{t('personal_analysis')}</span>
-                  </Button>
+                    <FileText className="w-8 h-8 text-primary mb-4" />
+                    <h3 className="font-semibold text-foreground mb-2">
+                      {language === 'vi' ? 'Phân tích cá nhân' : 'Personal Analysis'}
+                    </h3>
+                    <p className="text-sm text-muted-foreground">
+                      {language === 'vi' ? 'Thống kê sử dụng' : 'Usage statistics'}
+                    </p>
+                  </div>
 
-                  <Button 
-                    variant="outline" 
-                    className="flex flex-col items-center space-y-2 h-20 border-primary/30 text-primary hover:bg-primary/10"
+                  <div 
+                    className="bg-card rounded-2xl p-6 border border-border hover:shadow-lg hover:border-primary/50 transition-all cursor-pointer"
                     onClick={onReportIssue}
                   >
-                    <AlertTriangle className="w-6 h-6" />
-                    <span className="text-sm">{t('report_issue')}</span>
-                  </Button>
-                </div>
+                    <AlertTriangle className="w-8 h-8 text-primary mb-4" />
+                    <h3 className="font-semibold text-foreground mb-2">
+                      {language === 'vi' ? 'Báo cáo sự cố' : 'Report Issue'}
+                    </h3>
+                    <p className="text-sm text-muted-foreground">
+                      {language === 'vi' ? 'Hỗ trợ khách hàng' : 'Customer support'}
+                    </p>
+                  </div>
               </div>
             </div>
+            </div>
           )}
-          
           {activeSection === "profile" && <ProfileView onBack={() => setActiveSection("dashboard")} />}
           {activeSection === "vehicle" && <VehicleView onBack={() => setActiveSection("dashboard")} />}
+          {activeSection === "transaction-history" && <TransactionHistoryView onBack={() => setActiveSection("dashboard")} />}
           {activeSection === "subscription" && <SubscriptionView onBack={() => setActiveSection("dashboard")} mode="explore" />}
           {activeSection === "check-subscription" && <SubscriptionView onBack={() => setActiveSection("dashboard")} mode="current" />}
         </div>

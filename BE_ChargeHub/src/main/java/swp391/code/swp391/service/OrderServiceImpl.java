@@ -28,6 +28,7 @@ public class OrderServiceImpl implements OrderService {
 
     private static final LocalTime OPENING_TIME = LocalTime.of(0, 0);
     private static final LocalTime CLOSING_TIME = LocalTime.of(23, 30);
+    private final SubscriptionService subscriptionService;
 
     @Transactional(readOnly = true)
     public AvailableSlotsResponseDTO findAvailableSlots(OrderRequestDTO request) {
@@ -181,9 +182,25 @@ public class OrderServiceImpl implements OrderService {
 
     @Transactional
     public OrderResponseDTO confirmOrder(ConfirmOrderDTO request) {
+        // ===== BƯỚC 1: VALIDATE USER =====
         User user = userRepository.findById(request.getUserId())
                 .orElseThrow(() -> new ApiRequestException("Không tìm thấy user"));
 
+        // ===== 2. KIỂM TRA SUBSCRIPTION - ĐẶT LỊCH TRƯỚC =====
+        if (!subscriptionService.canBookOnDate(user.getUserId(), request.getStartTime())) {
+            int advanceDays = subscriptionService.getAdvanceBookingDays(user.getUserId());
+            throw new ApiRequestException("Gói của bạn chỉ cho phép đặt lịch trước " + advanceDays + " ngày. " +
+                    "Nâng cấp lên gói PLUS hoặc PRO để đặt sớm hơn!");
+        }
+
+        // ===== 3. KIỂM TRA GIỚI HẠN ĐƠN ĐẶT CHỖ =====
+        int currentActiveOrder = orderRepository.countActiveOrdersByUser(user);
+        if (!subscriptionService.canCreateMoreOrder(user.getUserId(), currentActiveOrder)) {
+            throw new ApiRequestException("Bạn đã đạt giới hạn đơn đặt chỗ hiện tại. " +
+                    "Nâng cấp lên gói PLUS hoặc PRO để được đặt nhiều hơn!");
+        }
+
+        // ===== 4. VALIDATE VEHICLE =====
         Vehicle vehicle = vehicleRepository.findById(request.getVehicleId())
                 .orElseThrow(() -> new ApiRequestException("Không tìm thấy xe"));
 
@@ -191,30 +208,48 @@ public class OrderServiceImpl implements OrderService {
             throw new ApiRequestException("Xe này không thuộc về bạn");
         }
 
+        // ===== 5. VALIDATE STATION =====
         ChargingStation station = stationRepository.findById(request.getStationId())
                 .orElseThrow(() -> new ApiRequestException("Không tìm thấy trạm sạc"));
 
-        ChargingPoint chargingPoint = chargingPointRepository.findById(request.getChargingPointId())
+        // ===== 6. LOCK VÀ VALIDATE CHARGING POINT - QUAN TRỌNG ĐỂ TRÁNH RACE CONDITION =====
+        // Sử dụng pessimistic lock để đảm bảo chỉ 1 transaction có thể book charging point tại 1 thời điểm
+        ChargingPoint chargingPoint = chargingPointRepository.findByIdWithLock(request.getChargingPointId())
                 .orElseThrow(() -> new ApiRequestException("Không tìm thấy điểm sạc"));
 
+        // Kiểm tra charging point có thuộc station không
         if (!chargingPoint.getStation().getStationId().equals(station.getStationId())) {
             throw new ApiRequestException("Điểm sạc không thuộc về trạm này");
         }
 
+        // Kiểm tra status của charging point
         if (chargingPoint.getStatus() != ChargingPoint.ChargingPointStatus.AVAILABLE) {
             throw new ApiRequestException("Điểm sạc không khả dụng");
         }
 
-        if (!isChargingPointAvailable(chargingPoint, request.getStartTime(), request.getEndTime())) {
-            throw new ApiRequestException("Khung giờ này đã có người đặt");
+        // ===== 7. KIỂM TRA TRÙNG LỊCH - DOUBLE CHECK SAU KHI LOCK =====
+        // Kiểm tra lại xem có order nào trùng thời gian không (sau khi đã lock)
+        List<Order> overlappingOrders = orderRepository.findOverlappingOrders(
+                chargingPoint.getChargingPointId(),
+                request.getStartTime(),
+                request.getEndTime()
+        );
+
+        // Nếu có order BOOKED hoặc CHARGING thì không cho đặt
+        boolean hasConflict = overlappingOrders.stream()
+                .anyMatch(order -> order.getStatus() == Order.Status.BOOKED ||
+                                  order.getStatus() == Order.Status.CHARGING);
+
+        if (hasConflict) {
+            throw new ApiRequestException("Khung giờ này đã có người đặt. Vui lòng chọn thời gian khác.");
         }
 
+        // ===== 8. KIỂM TRA USER ĐÃ CÓ ORDER TRÙNG THỜI GIAN CHƯA =====
         if (orderRepository.hasUserOrderInTimeRange(user.getUserId(), request.getStartTime(), request.getEndTime())) {
             throw new ApiRequestException("Bạn đã có đơn đặt chỗ trong khung giờ này");
         }
 
-        double batteryToCharge = request.getTargetBattery() - request.getCurrentBattery();
-
+        // ===== 9. TẠO ORDER MỚI =====
         Order order = Order.builder()
                 .user(user)
                 .vehicle(vehicle)
@@ -229,14 +264,9 @@ public class OrderServiceImpl implements OrderService {
 
         order = orderRepository.save(order);
 
-
         return order.getOrderId() != null ? convertToDTO(order) : null;
     }
 
-    private boolean isChargingPointAvailable(ChargingPoint point, LocalDateTime startTime, LocalDateTime endTime) {
-        List<Order> overlappingOrders = orderRepository.findOverlappingOrders(point.getChargingPointId(), startTime, endTime);
-        return overlappingOrders.stream().noneMatch(Order::isActive);
-    }
 
     @Transactional(readOnly = true)
     public List<OrderResponseDTO> getUserOrders(Long userId, Order.Status status) {
@@ -323,12 +353,21 @@ public class OrderServiceImpl implements OrderService {
             );
         }
 
-        // 4. Kiểm tra thời gian hủy (phải hủy trước 1 giờ)
-        if (order.isPastCancellationDeadline()) {
+        // KIỂM TRA THỜI GIAN HỦY DỰA THEO SUBSCRIPTION
+        // 4. Kiểm tra thời gian hủy (phải hủy trước 1 giờ)(MẶC ĐỊNH)
+        double cancellationHours = subscriptionService.getCancelationHour(request.getUserId());
+        LocalDateTime cancellationDeadline = order.getStartTime().minusHours((long)cancellationHours);
+        if(LocalDateTime.now().isAfter(cancellationDeadline)) {
             throw new ApiRequestException(
-                    "Không thể hủy đơn đặt chỗ trong vòng 1 giờ trước khi bắt đầu sạc"
+                    String.format("Không thể hủy đơn đặt chỗ trước %.1f giờ trước khi bắt đầu sạc" +
+                    "Nâng cấp lên gói PLUS hoặc PRO để được hủy đơn đặt chỗ linh hoạt hơn!", cancellationHours)
             );
         }
+//        if (order.isPastCancellationDeadline()) {
+//            throw new ApiRequestException(
+//                    "Không thể hủy đơn đặt chỗ trong vòng 1 giờ trước khi bắt đầu sạc"
+//            );
+//        }
 
         // 5. Cập nhật trạng thái
         order.setStatus(Order.Status.CANCELED);

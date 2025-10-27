@@ -9,8 +9,5 @@ import java.util.List;
 @Repository
 public interface PriceFactorRepository extends JpaRepository<PriceFactor, Long> {
 
-    /**
-     * Tìm các hệ số giá theo station ID
-     */
-    List<PriceFactor> findByStationStationId(Long stationId);
+    List<PriceFactor> findByStationId(Long stationId);
 }

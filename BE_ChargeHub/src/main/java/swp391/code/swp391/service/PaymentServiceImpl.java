@@ -143,7 +143,7 @@ public class PaymentServiceImpl implements PaymentService {
                 session.getOrder().getChargingPoint().getStation() != null) {
 
             Long stationId = session.getOrder().getChargingPoint().getStation().getStationId();
-            List<PriceFactor> priceFactors = priceFactorRepository.findByStationStationId(stationId);
+            List<PriceFactor> priceFactors = priceFactorRepository.findByStationId(stationId);
 
             for (PriceFactor pf : priceFactors) {
                 if (pf.getStartTime() != null && pf.getEndTime() != null) {
