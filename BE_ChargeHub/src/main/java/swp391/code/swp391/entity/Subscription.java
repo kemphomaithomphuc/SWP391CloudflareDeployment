@@ -61,5 +61,5 @@ public class Subscription {
     private List<SubscriptionFeature> features;
 
     @Column(name ="kwh_used",  precision = 10)
-    private double kwhUsed;
+    private Double kwhUsed = 0.0;
 }
