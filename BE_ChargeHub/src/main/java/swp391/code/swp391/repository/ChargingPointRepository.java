@@ -1,6 +1,8 @@
 package swp391.code.swp391.repository;
 
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -8,6 +10,7 @@ import swp391.code.swp391.entity.ChargingPoint;
 import swp391.code.swp391.entity.ChargingPoint.ChargingPointStatus;
 
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface ChargingPointRepository extends JpaRepository<ChargingPoint, Long> {
@@ -29,6 +32,14 @@ public interface ChargingPointRepository extends JpaRepository<ChargingPoint, Lo
 
     // Đếm số lượng charging points theo station
     long countByStationStationId(Long stationId);
+
+    /**
+     * Tìm và lock charging point để tránh race condition khi booking
+     * Sử dụng PESSIMISTIC_WRITE lock để đảm bảo chỉ 1 transaction có thể access tại 1 thời điểm
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT cp FROM ChargingPoint cp WHERE cp.chargingPointId = :chargingPointId")
+    Optional<ChargingPoint> findByIdWithLock(@Param("chargingPointId") Long chargingPointId);
 
 //    // Custom query: Lấy available charging points có connector types
 //    @Query("SELECT cp FROM ChargingPoint cp WHERE cp.status = 'AVAILABLE' AND SIZE(cp.connectorTypes) > 0")

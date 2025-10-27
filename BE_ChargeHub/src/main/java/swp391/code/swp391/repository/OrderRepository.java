@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import swp391.code.swp391.entity.Order;
+import swp391.code.swp391.entity.User;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -108,6 +109,22 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
             @Param("startTime") LocalDateTime startTime,
             @Param("endTime") LocalDateTime endTime
     );
+
+
+    Order getOrderByOrderId(Long orderId);
+
+    int countActiveOrdersByUser(User user);
+
+    /**
+     * Kiểm tra user có order nào trùng thời gian không (tránh double booking)
+     */
+    @Query("""
+        SELECT CASE WHEN COUNT(o) > 0 THEN true ELSE false END
+        FROM Order o
+        WHERE o.vehicle.id = :vehicleId
+        AND o.status IN ('BOOKED', 'CHARGING')
+        """)
+    boolean isVehicleCurrentlyBooked(@Param("vehicleId") Long vehicleId);
 
     /**
      * Tìm các order bị conflict về thời gian cho một charging point cụ thể
