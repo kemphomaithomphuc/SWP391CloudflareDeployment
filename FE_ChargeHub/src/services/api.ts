@@ -204,6 +204,13 @@ export interface ConfirmOrderDTO {
   estimatedCost: number;
   notes?: string;
   connectorTypeId: number;
+  initialStatus?: string; // "BOOKED" for scheduled, "CHARGING" for immediate
+}
+
+export interface CancelOrderDTO {
+  orderId: number;
+  userId: number;
+  reason?: string;
 }
 
 // Response DTOs
@@ -311,6 +318,12 @@ export const getMyOrders = async (userId: number, status?: string): Promise<APIR
   }
   
   const response = await api.get<APIResponse<OrderResponseDTO[]>>(`/api/orders/my-orders?${params.toString()}`);
+  return response.data;
+};
+
+// 5. Cancel order
+export const cancelOrder = async (request: CancelOrderDTO): Promise<APIResponse<OrderResponseDTO>> => {
+  const response = await api.put<APIResponse<OrderResponseDTO>>('/api/orders/cancel', request);
   return response.data;
 };
 
