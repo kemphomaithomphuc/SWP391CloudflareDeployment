@@ -94,9 +94,7 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 //            @Param("month") int month
 //    );
 
-    /**
-     * Kiểm tra user có order nào trùng thời gian không (tránh double booking)
-     */
+
     @Query("""
         SELECT COUNT(o) > 0 FROM Order o 
         WHERE o.user.userId = :userId
@@ -111,13 +109,10 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     );
 
 
-    Order getOrderByOrderId(Long orderId);
 
     int countActiveOrdersByUser(User user);
 
-    /**
-     * Kiểm tra user có order nào trùng thời gian không (tránh double booking)
-     */
+
     @Query("""
         SELECT CASE WHEN COUNT(o) > 0 THEN true ELSE false END
         FROM Order o
@@ -146,11 +141,6 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 
     Order getOrderByOrderId(Long orderId);
 
-    int countActiveOrdersByUser(User user);
-
-    /**
-     * Tìm tất cả orders BOOKED trong tương lai của một station
-     */
     @Query("SELECT o FROM Order o " +
             "WHERE o.chargingPoint.station.stationId = :stationId " +
             "AND o.status = 'BOOKED' " +
@@ -160,16 +150,4 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
             @Param("stationId") Long stationId,
             @Param("fromTime") LocalDateTime fromTime
     );
-
-    /**
-     * Kiểm tra vehicle có đang được đặt trong order active không
-     */
-    @Query("""
-        SELECT COUNT(o) > 0 FROM Order o 
-        WHERE o.vehicle.id = :vehicleId
-        AND o.status IN ('BOOKED', 'CHARGING')
-        """)
-    boolean isVehicleCurrentlyBooked(@Param("vehicleId") Long vehicleId);
-
-    //List<Order> findByChargingPoint_Station_StationId(Long stationId);
 }

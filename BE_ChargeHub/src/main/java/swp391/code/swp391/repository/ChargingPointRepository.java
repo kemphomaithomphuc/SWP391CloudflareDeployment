@@ -41,30 +41,6 @@ public interface ChargingPointRepository extends JpaRepository<ChargingPoint, Lo
     @Query("SELECT cp FROM ChargingPoint cp WHERE cp.chargingPointId = :chargingPointId")
     Optional<ChargingPoint> findByIdWithLock(@Param("chargingPointId") Long chargingPointId);
 
-//    // Custom query: Lấy available charging points có connector types
-//    @Query("SELECT cp FROM ChargingPoint cp WHERE cp.status = 'AVAILABLE' AND SIZE(cp.connectorTypes) > 0")
-//    List<ChargingPoint> findAvailableChargingPointsWithConnectors();
-//
-//    // Custom query: Tìm charging points theo connector type
-//    @Query("SELECT DISTINCT cp FROM ChargingPoint cp JOIN cp.connectorTypes ct WHERE ct.connectorTypeId = :connectorTypeId")
-//    List<ChargingPoint> findByConnectorTypeId(@Param("connectorTypeId") Long connectorTypeId);
-//
-//    // Custom query: Tìm charging points không có connector types
-//    @Query("SELECT cp FROM ChargingPoint cp WHERE SIZE(cp.connectorTypes) = 0")
-//    List<ChargingPoint> findChargingPointsWithoutConnectors();
-//
-//    // Custom query: Lấy charging points với số lượng connector types
-//    @Query("SELECT cp, SIZE(cp.connectorType) FROM ChargingPoint cp")
-//    List<Object[]> findChargingPointsWithConnectorCount();
-
-    /**
-     * Tìm và lock charging point để tránh race condition khi booking
-     * Sử dụng PESSIMISTIC_WRITE lock để đảm bảo chỉ 1 transaction có thể access tại 1 thời điểm
-     */
-    @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("SELECT cp FROM ChargingPoint cp WHERE cp.chargingPointId = :chargingPointId")
-    Optional<ChargingPoint> findByIdWithLock(@Param("chargingPointId") Long chargingPointId);
-
     @Query("SELECT cp FROM ChargingPoint cp WHERE cp.status = 'AVAILABLE' AND cp.connectorType IS NOT NULL")
     List<ChargingPoint> findAvailableChargingPointsWithConnectors();
 
