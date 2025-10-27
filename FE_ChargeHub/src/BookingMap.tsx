@@ -185,15 +185,15 @@ const extractSlotInfo = (slot: any) => {
     console.log("Charging point info:", slot.chargingPointInfo);
     
     // Try to extract connector type name from multiple sources
-    const connectorTypeName = 
-        slot.connectorType?.typeName || 
+    const connectorTypeName =
         slot.connectorType?.TypeName || 
+        slot.connectorType?.typeName ||
         slot.connectorTypeName ||
         slot.ConnectorTypeName ||
         slot.typeName ||
         slot.TypeName ||
-        slot.chargingPointInfo?.connectorType?.typeName ||
         slot.chargingPointInfo?.connectorType?.TypeName ||
+        slot.chargingPointInfo?.connectorType?.typeName ||
         slot.chargingPointInfo?.connectorType ||
         'Standard';
     
@@ -211,9 +211,10 @@ const extractSlotInfo = (slot: any) => {
     const pricePerKwh = 
         slot.pricePerKwh || 
         slot.PricePerKwh || 
-        slot.connectorType?.pricePerKwh || 
         slot.connectorType?.PricePerKwh ||
+        slot.connectorType?.pricePerKwh ||
         slot.chargingPointInfo?.pricePerKwh ||
+        slot.chargingPointInfo?.connectorType?.PricePerKwh ||
         slot.chargingPointInfo?.connectorType?.pricePerKwh ||
         'N/A';
     
@@ -324,6 +325,11 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
     const [availableSlots, setAvailableSlots] = useState<any[]>([]);
     const [loadingSlots, setLoadingSlots] = useState(false);
     const [selectedSlot, setSelectedSlot] = useState<any>(null);
+    
+    // Available slots popup states
+    const [isSlotsPopupOpen, setIsSlotsPopupOpen] = useState(false);
+    const [filteredSlots, setFilteredSlots] = useState<any[]>([]);
+    const [loadingFilteredSlots, setLoadingFilteredSlots] = useState(false);
 
 
     //Charging Station states
@@ -693,7 +699,11 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
 
 
     // API call to find available slots
-    const callApiForFindAvailableSlots = async (stationId: string): Promise<any[] | null> => {
+    const callApiForFindAvailableSlots = async (
+        stationId: string, 
+        currentBattery?: number, 
+        targetBattery?: number
+    ): Promise<any[] | null> => {
         try {
             const userId = localStorage.getItem("userId");
             if (!userId) {
@@ -705,6 +715,10 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
             if (!currentVehicle) {
                 throw new Error("No vehicle selected");
             }
+
+            // Use provided battery levels or defaults
+            const batteryLevel = currentBattery ?? initialBatteryLevel;
+            const targetLevel = targetBattery ?? targetBatteryLevelConfig;
 
             console.log("=== Vehicle Object Debug ===");
             console.log("currentVehicle:", currentVehicle);
@@ -759,8 +773,8 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                                 userId: parseInt(userId),
                                 vehicleId: numericVehicleId,
                                 stationId: parseInt(stationId),
-                                currentBattery: 20,
-                                targetBattery: 80
+                                currentBattery: batteryLevel, // Double
+                                targetBattery: targetLevel   // Double
                             };
 
                             console.log("=== Find Available Slots Request ===");
@@ -801,8 +815,8 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                 userId: parseInt(userId),
                 vehicleId: numericVehicleId, // Use validated numeric vehicle ID
                 stationId: parseInt(stationId),
-                currentBattery: 20, // Default current battery %
-                targetBattery: 80   // Default target battery %
+                currentBattery: batteryLevel, // Current battery % - Double
+                targetBattery: targetLevel   // Target battery % - Double
             };
 
             console.log("=== Find Available Slots Request ===");
@@ -868,10 +882,10 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                 // If slots are missing connector type info, try to fetch it
                 const slotsWithConnectorInfo = await Promise.all(
                     mergedSlots.map(async (slot) => {
-                        if (!slot.connectorType && slot.chargingPointInfo?.id) {
+                        if (!slot.connectorType && slot.chargingPointInfo?.connectorTypeId) {
                             try {
-                                // Try to fetch connector type info for this charging point
-                                const connectorResponse = await fetchConnectorTypeById(slot.chargingPointInfo.id);
+                                // Try to fetch connector type info using the connector type ID
+                                const connectorResponse = await fetchConnectorTypeById(slot.chargingPointInfo.connectorTypeId.toString());
                                 if (connectorResponse) {
                                     return {
                                         ...slot,
@@ -923,22 +937,254 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
             throw new Error(language === "vi" ? "Không tìm thấy slot khả dụng" : "No available slots found");
         } catch (err: any) {
             console.error("Find available slots error:", err);
-            const msg = err?.response?.data?.message || (language === "vi" ? "Không tìm thấy slot khả dụng" : "No available slots found");
-            toast.error(msg);
+            console.error("Error response:", err?.response);
+            console.error("Error response data:", err?.response?.data);
+            console.error("Error response status:", err?.response?.status);
+            console.error("Error response headers:", err?.response?.headers);
+            
+            // Check if it's the specific "no slots available" error
+            const errorMessage = err?.response?.data?.message || "";
+            const isNoSlotsError = errorMessage.includes("Không tìm thấy khoảng thời gian") || 
+                                  errorMessage.includes("No available slots");
+            
+            if (isNoSlotsError) {
+                // Display user-friendly message
+                const userMsg = language === "vi" 
+                    ? "Hiện tại không có khung giờ trống phù hợp. Vui lòng thử lại sau hoặc chọn trạm khác." 
+                    : "No available time slots at the moment. Please try again later or select another station.";
+                toast.warning(userMsg);
+            } else {
+                // Display the actual error message
+                const msg = errorMessage || (language === "vi" ? "Đã xảy ra lỗi khi tìm kiếm slot" : "Error finding slots");
+                toast.error(msg);
+            }
             return null;
         }
     }
 
+    // API call to find available slots and filter by start time on frontend
+    const callApiForFindAvailableSlotsWithTime = async (stationId: string, startTime: string): Promise<any[] | null> => {
+        try {
+            const userId = localStorage.getItem("userId");
+            if (!userId) {
+                throw new Error("User ID not found");
+            }
+
+            // Get the actual vehicle ID from the selected vehicle
+            const currentVehicle = selectedVehicle || selectedVehicleRef.current;
+            if (!currentVehicle) {
+                throw new Error("No vehicle selected");
+            }
+
+            const actualVehicleId = currentVehicle.vehicleId || currentVehicle.VehicleId || currentVehicle.id || currentVehicle.vehicle_id;
+
+            if (!actualVehicleId) {
+                const plateNumber = currentVehicle.plateNumber;
+                if (plateNumber && vehicles.length > 0) {
+                    const fullVehicle = vehicles.find(v =>
+                        v.plateNumber && v.plateNumber.toLowerCase() === plateNumber.toLowerCase()
+                    );
+                    if (fullVehicle) {
+                        const foundVehicleId = fullVehicle.vehicleId || fullVehicle.VehicleId || fullVehicle.id || fullVehicle.vehicle_id;
+                        if (foundVehicleId) {
+                            console.log("Using found vehicle ID:", foundVehicleId);
+                        } else {
+                            throw new Error("Vehicle ID not found");
+                        }
+                    } else {
+                        throw new Error("Vehicle not found in vehicles list");
+                    }
+                } else {
+                    throw new Error("No vehicle selected");
+                }
+            }
+
+            const requestData = {
+                userId: parseInt(userId),
+                vehicleId: actualVehicleId,
+                stationId: parseInt(stationId),
+                currentBattery: parseFloat(initialBatteryLevel.toString()), // Convert to Double
+                targetBattery: parseFloat(targetBatteryLevelConfig.toString()) // Convert to Double
+            };
+
+            console.log("=== Requesting available slots (will filter by time on frontend) ===");
+            console.log("Request data:", requestData);
+
+            const response = await api.post("/api/orders/find-available-slots", requestData);
+            console.log("API response:", response.data);
+
+            if (response.data?.success && response.data?.data) {
+                const payload = response.data.data;
+                console.log("Response payload:", payload);
+
+                // Process the response similar to the original function
+                const directSlots: any[] = Array.isArray(payload?.availableSlots) ? payload.availableSlots : [];
+                const slotsFromPoints: any[] = Array.isArray(payload?.chargingPoints)
+                    ? payload.chargingPoints.flatMap((cp: any) => {
+                        if (Array.isArray(cp?.availableSlots)) {
+                            return cp.availableSlots.map((slot: any) => ({
+                                ...slot,
+                                chargingPointInfo: {
+                                    id: cp.chargingPointId,
+                                    connectorType: cp.connectorTypeName,
+                                    powerOutput: cp.chargingPower,
+                                    pricePerKwh: cp.pricePerKwh
+                                }
+                            }));
+                        }
+                        return [];
+                    })
+                    : [];
+
+                const allSlots = [...directSlots, ...slotsFromPoints];
+                console.log("All slots found:", allSlots.length);
+
+                // Filter slots that start at or after the preferred start time
+                const filteredSlots = allSlots.filter(slot => {
+                    if (slot.freeFrom) {
+                        const slotStartTime = new Date(slot.freeFrom);
+                        const preferredTime = new Date(startTime);
+                        
+                        // Debug logging
+                        console.log("=== Time Filtering Debug ===");
+                        console.log("Slot start time:", slotStartTime.toISOString());
+                        console.log("Preferred time:", preferredTime.toISOString());
+                        console.log("Slot start >= preferred:", slotStartTime >= preferredTime);
+                        
+                        // Allow slots that start within 30 minutes of the preferred time
+                        const timeDifference = Math.abs(slotStartTime.getTime() - preferredTime.getTime());
+                        const thirtyMinutes = 30 * 60 * 1000; // 30 minutes in milliseconds
+                        
+                        // Include slots that start at or after preferred time, or within 30 minutes before
+                        return slotStartTime >= preferredTime || timeDifference <= thirtyMinutes;
+                    }
+                    return true; // Include slots without time info
+                });
+
+                console.log("Filtered slots by start time:", filteredSlots.length);
+                
+                // If no slots match the time filter, return all available slots
+                if (filteredSlots.length === 0 && allSlots.length > 0) {
+                    console.log("No time-filtered slots found, returning all available slots");
+                    return allSlots;
+                }
+                
+                return filteredSlots;
+            }
+            throw new Error(language === "vi" ? "Không tìm thấy slot khả dụng" : "No available slots found");
+        } catch (err: any) {
+            console.error("Find available slots with time error:", err);
+            console.error("Error response:", err?.response);
+            console.error("Error response data:", err?.response?.data);
+            console.error("Error response status:", err?.response?.status);
+            console.error("Error response headers:", err?.response?.headers);
+            
+            // Check if it's the specific "no slots available" error
+            const errorMessage = err?.response?.data?.message || "";
+            const isNoSlotsError = errorMessage.includes("Không tìm thấy khoảng thời gian") || 
+                                  errorMessage.includes("No available slots");
+            
+            if (isNoSlotsError) {
+                // Display user-friendly message
+                const userMsg = language === "vi" 
+                    ? "Hiện tại không có khung giờ trống phù hợp. Vui lòng thử lại sau hoặc chọn trạm khác." 
+                    : "No available time slots at the moment. Please try again later or select another station.";
+                toast.warning(userMsg);
+            } else {
+                // Display the actual error message
+                const msg = errorMessage || (language === "vi" ? "Đã xảy ra lỗi khi tìm kiếm slot" : "Error finding slots");
+                toast.error(msg);
+            }
+            return null;
+        }
+    }
+
+    // Handle start time selection and show available slots popup
+    const handleStartTimeSelection = async (startTime: string) => {
+        if (!configStation) return;
+        
+        setLoadingFilteredSlots(true);
+        try {
+            // Convert time input to full datetime for today
+            const today = new Date();
+            const [hours, minutes] = startTime.split(':').map(Number);
+            const selectedDateTime = new Date(today.getFullYear(), today.getMonth(), today.getDate(), hours, minutes);
+            
+            console.log("=== Start Time Selection Debug ===");
+            console.log("Input time:", startTime);
+            console.log("Selected datetime:", selectedDateTime.toISOString());
+            console.log("Station ID:", configStation.stationId);
+            
+            const slots = await callApiForFindAvailableSlotsWithTime(
+                configStation.stationId?.toString() || '',
+                selectedDateTime.toISOString()
+            );
+            
+            if (slots && slots.length > 0) {
+                setFilteredSlots(slots);
+                setIsSlotsPopupOpen(true);
+            } else {
+                toast.warning(
+                    language === 'vi' 
+                        ? 'Không có slot khả dụng cho thời gian đã chọn' 
+                        : 'No available slots for the selected time'
+                );
+            }
+        } catch (error) {
+            console.error("Error fetching filtered slots:", error);
+            toast.error(
+                language === 'vi' 
+                    ? 'Lỗi khi tải slot khả dụng' 
+                    : 'Error loading available slots'
+            );
+        } finally {
+            setLoadingFilteredSlots(false);
+        }
+    };
+
     // API call to confirm booking
     const callApiForConfirmBooking = async (bookingData: any): Promise<any | null> => {
         try {
+            console.log("=== API CONFIRM BOOKING DEBUG ===");
+            console.log("Sending booking data:", JSON.stringify(bookingData, null, 2));
+            
             const res = await api.post("/api/orders/confirm", bookingData);
+            console.log("API response:", res);
+            
             if (res.status == 200) {
+                console.log("Booking confirmed successfully");
                 return res.data?.data || res.data;
             }
             throw new Error(language === "vi" ? "Xác nhận đặt chỗ thất bại" : "Booking confirmation failed");
         } catch (err: any) {
-            const msg = err?.response?.data?.message || (language === "vi" ? "Xác nhận đặt chỗ thất bại" : "Booking confirmation failed");
+            console.error("=== API CONFIRM BOOKING ERROR ===");
+            console.error("Error object:", err);
+            console.error("Error response:", err?.response);
+            console.error("Error response data:", err?.response?.data);
+            console.error("Error response status:", err?.response?.status);
+            
+            // Always prioritize backend error message
+            let msg = err?.response?.data?.message;
+            
+            // If no backend message, use generic messages based on status
+            if (!msg) {
+                if (err?.response?.status === 500) {
+                    msg = language === "vi" 
+                        ? "Lỗi máy chủ. Vui lòng thử lại sau." 
+                        : "Server error. Please try again later.";
+                } else if (err?.response?.status === 400) {
+                    msg = language === "vi" 
+                        ? "Dữ liệu không hợp lệ. Vui lòng kiểm tra lại." 
+                        : "Invalid data. Please check your input.";
+                } else if (err?.response?.status === 401) {
+                    msg = language === "vi" 
+                        ? "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại." 
+                        : "Session expired. Please login again.";
+                } else {
+                    msg = language === "vi" ? "Xác nhận đặt chỗ thất bại" : "Booking confirmation failed";
+                }
+            }
+            
             toast.error(msg);
             return null;
         }
@@ -5197,13 +5443,13 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                                         return;
                                     }
 
-                                    // If selected time is today, check if it's at least 2 hours from now
+                                    // If selected time is today, check if it's at least 30 minutes from now
                                     if (selectedTime.getDate() === now.getDate()) {
                                         const timeDiff = selectedTime.getTime() - now.getTime();
-                                        const hoursDiff = timeDiff / (1000 * 60 * 60);
+                                        const minutesDiff = timeDiff / (1000 * 60);
 
-                                        if (hoursDiff < 2) {
-                                            toast.error(language === 'vi' ? 'Thời gian phải ít nhất 2 tiếng sau hiện tại' : 'Time must be at least 2 hours from now');
+                                        if (minutesDiff < 30) {
+                                            toast.error(language === 'vi' ? 'Thời gian phải ít nhất 30 phút sau hiện tại' : 'Time must be at least 30 minutes from now');
                                             return;
                                         }
                                     }
@@ -5222,9 +5468,104 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                                 // Calculate estimated cost from slot data
                                 const estimatedCost = selectedSlot?.estimatedCost || 0;
                                 
-                                // Calculate start time and end time
-                                const startTime = new Date();
-                                const endTime = new Date(startTime.getTime() + (selectedSlot?.requiredMinutes || 0) * 60000);
+                                // ===== CRITICAL TIME CALCULATION WITH PROPER TIMEZONE HANDLING =====
+                                // Helper function to format time for backend (Asia/Ho_Chi_Minh timezone)
+                                const formatTimeForBackend = (date: Date): string => {
+                                    // Convert to Vietnam timezone (UTC+7)
+                                    const utcTime = date.getTime() + (date.getTimezoneOffset() * 60000);
+                                    const vietnamTime = new Date(utcTime + (7 * 3600000));
+                                    
+                                    // Format as ISO string but in Vietnam timezone
+                                    const year = vietnamTime.getFullYear();
+                                    const month = String(vietnamTime.getMonth() + 1).padStart(2, '0');
+                                    const day = String(vietnamTime.getDate()).padStart(2, '0');
+                                    const hours = String(vietnamTime.getHours()).padStart(2, '0');
+                                    const minutes = String(vietnamTime.getMinutes()).padStart(2, '0');
+                                    const seconds = String(vietnamTime.getSeconds()).padStart(2, '0');
+                                    const milliseconds = String(vietnamTime.getMilliseconds()).padStart(3, '0');
+                                    
+                                    return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}.${milliseconds}`;
+                                };
+                                
+                                // Get current time
+                                const now = new Date();
+                                const vietnamTime = new Date(now.getTime() + (now.getTimezoneOffset() * 60000) + (7 * 3600000));
+                                
+                                let finalStartTime: Date;
+                                let finalEndTime: Date;
+                                
+                                if (bookingMode === "now") {
+                                    // For "Book Now", use current Vietnam time as start time
+                                    console.log("=== BOOK NOW MODE ===");
+                                    finalStartTime = new Date(vietnamTime); // Use current Vietnam time
+                                    
+                                    // Calculate duration from selected slot
+                                    const durationMinutes = selectedSlot?.requiredMinutes || 60;
+                                    finalEndTime = new Date(finalStartTime.getTime() + durationMinutes * 60000);
+                                    
+                                    console.log("Book Now - UTC Current time:", now.toISOString());
+                                    console.log("Book Now - Vietnam Current time:", vietnamTime.toISOString());
+                                    console.log("Book Now - Start time (same as Vietnam current):", finalStartTime.toISOString());
+                                    console.log("Book Now - End time:", finalEndTime.toISOString());
+                                    console.log("Book Now - Duration (minutes):", durationMinutes);
+                                    
+                                } else if (bookingMode === "scheduled") {
+                                    // For "Scheduled", validate and use selected time
+                                    console.log("=== SCHEDULED MODE ===");
+                                    
+                                    if (!chargingStartTimeInput) {
+                                        toast.error(language === 'vi' ? 'Vui lòng chọn thời gian sạc' : 'Please select charging time');
+                                        return;
+                                    }
+                                    
+                                    // Parse selected time and create in Vietnam timezone
+                                    const [hours, minutes] = chargingStartTimeInput.split(':').map(Number);
+                                    finalStartTime = new Date(vietnamTime);
+                                    finalStartTime.setHours(hours || 0, minutes || 0, 0, 0);
+                                    
+                                    // If selected time is in the past, move to tomorrow
+                                    if (finalStartTime <= vietnamTime) {
+                                        finalStartTime.setDate(finalStartTime.getDate() + 1);
+                                    }
+                                    
+                                    // Validate: must be at least 30 minutes from now
+                                    const minStartTime = new Date(vietnamTime.getTime() + 30 * 60 * 1000);
+                                    if (finalStartTime < minStartTime) {
+                                        toast.error(
+                                            language === 'vi' 
+                                                ? 'Thời gian sạc phải sau ít nhất 30 phút từ bây giờ' 
+                                                : 'Charging time must be at least 30 minutes from now'
+                                        );
+                                        return;
+                                    }
+                                    
+                                    // Calculate end time
+                                    const durationMinutes = selectedSlot?.requiredMinutes || 60;
+                                    finalEndTime = new Date(finalStartTime.getTime() + durationMinutes * 60000);
+                                    
+                                    console.log("Scheduled - UTC Current time:", now.toISOString());
+                                    console.log("Scheduled - Vietnam Current time:", vietnamTime.toISOString());
+                                    console.log("Scheduled - Selected time input:", chargingStartTimeInput);
+                                    console.log("Scheduled - Start time:", finalStartTime.toISOString());
+                                    console.log("Scheduled - End time:", finalEndTime.toISOString());
+                                    console.log("Scheduled - Minimum start time (now + 30 min):", minStartTime.toISOString());
+                                    console.log("Scheduled - Is valid:", finalStartTime >= minStartTime);
+                                    
+                                } else {
+                                    toast.error(language === 'vi' ? 'Chế độ đặt chỗ không hợp lệ' : 'Invalid booking mode');
+                                    return;
+                                }
+                                
+                                console.log("=== FINAL BOOKING DATA ===");
+                                console.log("Booking mode:", bookingMode);
+                                console.log("UTC Current time:", now.toISOString());
+                                console.log("Vietnam Current time:", vietnamTime.toISOString());
+                                console.log("Start time (ISO):", finalStartTime.toISOString());
+                                console.log("End time (ISO):", finalEndTime.toISOString());
+                                console.log("Start time (formatted for backend):", formatTimeForBackend(finalStartTime));
+                                console.log("End time (formatted for backend):", formatTimeForBackend(finalEndTime));
+                                console.log("Time difference from UTC (minutes):", Math.round((finalStartTime.getTime() - now.getTime()) / (1000 * 60)));
+                                console.log("Time difference from Vietnam (minutes):", Math.round((finalStartTime.getTime() - vietnamTime.getTime()) / (1000 * 60)));
                                 
                                 // Calculate energy to charge (kWh) based on battery levels and vehicle capacity
                                 const selectedVehicleForBooking = selectedVehicle || selectedVehicleRef.current;
@@ -5234,30 +5575,99 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                                 // Get user ID from context or localStorage
                                 const userId = parseInt(localStorage.getItem('userId') || '0');
                                 
-                                // Extract charging point ID and connector type ID
-                                const chargingPointId = selectedSlot?.chargingPointId || selectedSlot?.chargingPointInfo?.id;
-                                const connectorTypeId = selectedSlot?.connectorType?.ConnectorTypeId || 
+                                // Extract charging point ID and connector type ID with comprehensive fallbacks
+                                const chargingPointId = selectedSlot?.chargingPointId || 
+                                                       selectedSlot?.chargingPointInfo?.id ||
+                                                       selectedSlot?.chargingPointInfo?.chargingPointId;
+                                
+                                // Try multiple ways to extract connectorTypeId
+                                let connectorTypeId = selectedSlot?.connectorType?.ConnectorTypeId || 
                                                      selectedSlot?.connectorType?.connectorTypeId ||
+                                                    selectedSlot?.connectorType?.id ||
                                                      selectedSlot?.chargingPointInfo?.connectorType?.ConnectorTypeId ||
-                                                     selectedSlot?.chargingPointInfo?.connectorType?.connectorTypeId;
+                                                    selectedSlot?.chargingPointInfo?.connectorType?.connectorTypeId ||
+                                                    selectedSlot?.chargingPointInfo?.connectorType?.id ||
+                                                    selectedSlot?.chargingPointInfo?.connectorTypeId;
+                                
+                                // If still undefined, try to get it from the connector type name mapping
+                                if (!connectorTypeId && selectedSlot?.chargingPointInfo?.connectorType) {
+                                    const connectorTypeName = selectedSlot.chargingPointInfo.connectorType;
+                                    console.log("Trying to map connector type name to ID:", connectorTypeName);
+                                    console.log("Type of connectorTypeName:", typeof connectorTypeName);
+                                    
+                                    // Map connector type names to IDs based on your database
+                                    const connectorTypeMapping: { [key: string]: number } = {
+                                        'Type 1': 1,
+                                        'Type 2': 2,
+                                        'CCS': 3,
+                                        'CHAdeMO': 4,
+                                        'Tesla Supercharger': 5,
+                                        'CCS1': 1,
+                                        'CCS2': 2,
+                                        'Type 2 Mennekes': 2,
+                                        'Type 2 AC': 2
+                                    };
+                                    
+                                    connectorTypeId = connectorTypeMapping[connectorTypeName] || 
+                                                    connectorTypeMapping[connectorTypeName.toLowerCase()];
+                                    
+                                    console.log("Mapped connectorTypeId:", connectorTypeId);
+                                }
+                                
+                                // Final fallback - use default connector type ID
+                                if (!connectorTypeId) {
+                                    console.warn("No connectorTypeId found, using default value 1");
+                                    console.warn("Selected slot data:", JSON.stringify(selectedSlot, null, 2));
+                                    connectorTypeId = 1; // Default to Type 1 connector
+                                }
+                                
+                                console.log("=== CONNECTOR TYPE ID EXTRACTION RESULT ===");
+                                console.log("Final connectorTypeId:", connectorTypeId);
+                                console.log("Type of connectorTypeId:", typeof connectorTypeId);
+                                
+                                // Ensure connectorTypeId is a valid number
+                                const finalConnectorTypeId = Number(connectorTypeId);
+                                if (isNaN(finalConnectorTypeId) || finalConnectorTypeId <= 0) {
+                                    console.warn("Invalid connectorTypeId, using default value 1");
+                                    connectorTypeId = 1;
+                                } else {
+                                    connectorTypeId = finalConnectorTypeId;
+                                }
+                                
+                                console.log("Final processed connectorTypeId:", connectorTypeId);
+                                
+                                // Determine initial status based on booking mode
+                                const initialStatus = bookingMode === "now" ? "CHARGING" : "BOOKED";
                                 
                                 const bookingData = {
                                     stationId: configStation?.stationId,
                                     vehicleId: numericVehicleId,
-                                    userId: userId, // Backend requires userId
-                                    chargingPointId: chargingPointId, // Backend requires chargingPointId
-                                    connectorTypeId: connectorTypeId, // Backend requires connectorTypeId
-                                    currentBattery: initialBatteryLevel, // Backend expects currentBattery
-                                    targetBattery: targetBatteryLevelConfig, // Backend expects targetBattery
-                                    initialBatteryLevel: initialBatteryLevel,
-                                    targetBatteryLevel: targetBatteryLevelConfig,
+                                    userId: userId,
+                                    chargingPointId: chargingPointId,
+                                    connectorTypeId: connectorTypeId,
+                                    currentBattery: parseFloat(initialBatteryLevel.toString()), // Convert to Double
+                                    targetBattery: parseFloat(targetBatteryLevelConfig.toString()), // Convert to Double
+                                    initialBatteryLevel: parseFloat(initialBatteryLevel.toString()), // Convert to Double
+                                    targetBatteryLevel: parseFloat(targetBatteryLevelConfig.toString()), // Convert to Double
                                     bookingMode: bookingMode,
-                                    startTime: startTime.toISOString(), // Backend requires startTime
-                                    chargingStartTime: bookingMode === "scheduled" ? chargingStartTimeInput : null,
-                                    endTime: endTime.toISOString(),
-                                    energyToCharge: energyToCharge, // Backend requires energyToCharge
+                                    startTime: formatTimeForBackend(finalStartTime), // Use calculated time in Vietnam timezone
+                                    endTime: formatTimeForBackend(finalEndTime),     // Use calculated time in Vietnam timezone
+                                    energyToCharge: energyToCharge,
                                     estimatedCost: estimatedCost,
-                                    selectedSlot: selectedSlot
+                                    initialStatus: initialStatus,
+                                    
+                                    // Debug info
+                                    _debug: {
+                                        utcCurrentTime: now.toISOString(),
+                                        vietnamCurrentTime: vietnamTime.toISOString(),
+                                        startTimeIso: finalStartTime.toISOString(),
+                                        endTimeIso: finalEndTime.toISOString(),
+                                        startTimeFormatted: formatTimeForBackend(finalStartTime),
+                                        endTimeFormatted: formatTimeForBackend(finalEndTime),
+                                        bookingMode: bookingMode,
+                                        timeDifferenceFromUtcMinutes: Math.round((finalStartTime.getTime() - now.getTime()) / (1000 * 60)),
+                                        timeDifferenceFromVietnamMinutes: Math.round((finalStartTime.getTime() - vietnamTime.getTime()) / (1000 * 60))
+                                    }
                                 };
                                 
                                 console.log("=== BOOKING DATA DEBUG ===");
@@ -5270,11 +5680,18 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                                 console.log("Selected slot chargingPointInfo.connectorType:", selectedSlot?.chargingPointInfo?.connectorType);
                                 console.log("Extracted connectorTypeId:", connectorTypeId);
                                 console.log("Current vehicle:", selectedVehicleForBooking);
+                                console.log("Full selectedSlot structure:", JSON.stringify(selectedSlot, null, 2));
                                 console.log("Vehicle capacity:", vehicleCapacity);
                                 console.log("Energy to charge:", energyToCharge);
                                 console.log("User ID from localStorage:", userId);
-                                console.log("Start time:", startTime.toISOString());
+                                console.log("Start time:", finalStartTime.toISOString());
                                 console.log("Booking data:", bookingData);
+                                
+                                console.log("=== FINAL VALIDATION DEBUG ===");
+                                console.log("Final connectorTypeId before validation:", connectorTypeId);
+                                console.log("Final chargingPointId before validation:", chargingPointId);
+                                console.log("Final bookingData.connectorTypeId:", bookingData.connectorTypeId);
+                                console.log("Final bookingData.chargingPointId:", bookingData.chargingPointId);
                                 
                                 // Validate required fields
                                 if (!bookingData.userId || bookingData.userId === 0) {
@@ -5291,11 +5708,14 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                                     return;
                                 }
                                 
-                                if (!bookingData.connectorTypeId) {
+                                if (!bookingData.connectorTypeId || bookingData.connectorTypeId === 0) {
                                     console.error("Connector Type ID validation failed:", bookingData.connectorTypeId);
                                     console.error("Selected slot connectorType:", selectedSlot?.connectorType);
                                     console.error("Selected slot chargingPointInfo.connectorType:", selectedSlot?.chargingPointInfo?.connectorType);
-                                    toast.error(language === 'vi' ? 'Không tìm thấy Connector Type ID' : 'Connector Type ID not found');
+                                    console.error("Full slot data for debugging:", JSON.stringify(selectedSlot, null, 2));
+                                    console.error("Raw connectorTypeId variable:", connectorTypeId);
+                                    console.error("Type of connectorTypeId:", typeof connectorTypeId);
+                                    toast.error(language === 'vi' ? 'Không tìm thấy Connector Type ID. Vui lòng thử lại.' : 'Connector Type ID not found. Please try again.');
                                     return;
                                 }
                                 
@@ -5312,6 +5732,15 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                                 }
 
                                 // Call confirm booking API
+                                console.log("=== ABOUT TO CALL API ===");
+                                console.log("Final booking data before API call:", JSON.stringify(bookingData, null, 2));
+                                console.log("=== API PAYLOAD TIME VERIFICATION ===");
+                                console.log("startTime being sent:", bookingData.startTime);
+                                console.log("endTime being sent:", bookingData.endTime);
+                                console.log("startTime as Date object:", new Date(bookingData.startTime));
+                                console.log("endTime as Date object:", new Date(bookingData.endTime));
+                                console.log("Current time for comparison:", new Date().toISOString());
+                                
                                 const result = await callApiForConfirmBooking(bookingData);
 
                                 if (result) {
@@ -5491,6 +5920,160 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                             {language === 'vi' ? 'Xác nhận' : 'Confirm'}
                         </Button>
 
+                    </div>
+                </DialogContent>
+            </Dialog>
+
+            {/* Available Slots Popup Dialog */}
+            <Dialog open={isSlotsPopupOpen} onOpenChange={setIsSlotsPopupOpen}>
+                <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
+                    <DialogHeader className="flex-shrink-0 text-center">
+                        <DialogTitle className="flex items-center justify-center space-x-2">
+                            <Clock className="w-5 h-5 text-primary" />
+                            <span>{language === 'vi' ? 'Slot khả dụng' : 'Available Slots'}</span>
+                        </DialogTitle>
+                        <DialogDescription className="text-center">
+                            {language === 'vi' 
+                                ? `Chọn slot phù hợp cho thời gian ${chargingStartTimeInput} (hoặc gần nhất)` 
+                                : `Select a suitable slot for time ${chargingStartTimeInput} (or closest available)`
+                            }
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+                        {loadingFilteredSlots ? (
+                            <div className="flex items-center justify-center py-8">
+                                <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                                <span className="ml-2 text-sm text-muted-foreground">
+                                    {language === 'vi' ? 'Đang tải slot...' : 'Loading slots...'}
+                                </span>
+                            </div>
+                        ) : filteredSlots.length > 0 ? (
+                            <div className="grid grid-cols-1 gap-3">
+                                {filteredSlots.map((slot, index) => {
+                                    const { connectorTypeName, powerOutput, pricePerKwh } = extractSlotInfo(slot);
+                                    
+                                    // Calculate charging duration
+                                    const batteryDifference = targetBatteryLevelConfig - initialBatteryLevel;
+                                    const vehicleCapacity = (selectedVehicle || selectedVehicleRef.current)?.capacity || 50;
+                                    const energyToCharge = (batteryDifference / 100) * vehicleCapacity;
+                                    const chargingDuration = slot.requiredMinutes || Math.ceil((energyToCharge / (powerOutput || 50)) * 60 * 1.15);
+                                    
+                                    // Calculate end time
+                                    const startTime = slot.freeFrom ? new Date(slot.freeFrom) : new Date();
+                                    const endTime = new Date(startTime.getTime() + chargingDuration * 60000);
+                                    
+                                    return (
+                                        <div
+                                            key={index}
+                                            className={`p-4 border rounded-lg cursor-pointer transition-all ${
+                                                selectedSlot === slot
+                                                    ? 'border-primary bg-primary/10 ring-2 ring-primary/20'
+                                                    : 'border-border hover:border-primary/50 hover:bg-accent/50'
+                                            }`}
+                                            onClick={() => {
+                                                console.log("Selected slot:", slot);
+                                                setSelectedSlot(slot);
+                                                setIsSlotsPopupOpen(false);
+                                                toast.success(
+                                                    language === 'vi' 
+                                                        ? 'Đã chọn slot thành công' 
+                                                        : 'Slot selected successfully'
+                                                );
+                                            }}
+                                        >
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex-1">
+                                                    <div className="flex items-center space-x-2 mb-2">
+                                                        <Zap className="w-4 h-4 text-primary" />
+                                                        <p className="text-sm font-medium">{connectorTypeName}</p>
+                                                        <Badge variant="outline" className="text-xs">
+                                                            {powerOutput !== 'N/A' ? `${powerOutput} kW` : 'Power N/A'}
+                                                        </Badge>
+                                                    </div>
+                                                    
+                                                    <div className="grid grid-cols-2 gap-4 text-sm">
+                                                        <div>
+                                                            <p className="text-muted-foreground">
+                                                                {language === 'vi' ? 'Thời gian bắt đầu:' : 'Start Time:'}
+                                                            </p>
+                                                            <p className="font-medium">
+                                                                {startTime.toLocaleTimeString('en-US', { 
+                                                                    hour: '2-digit', 
+                                                                    minute: '2-digit',
+                                                                    hour12: true 
+                                                                })}
+                                                            </p>
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-muted-foreground">
+                                                                {language === 'vi' ? 'Thời gian kết thúc:' : 'End Time:'}
+                                                            </p>
+                                                            <p className="font-medium">
+                                                                {endTime.toLocaleTimeString('en-US', { 
+                                                                    hour: '2-digit', 
+                                                                    minute: '2-digit',
+                                                                    hour12: true 
+                                                                })}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                    
+                                                    <div className="mt-2 flex items-center justify-between">
+                                                        <div className="text-sm">
+                                                            <p className="text-muted-foreground">
+                                                                {language === 'vi' ? 'Thời gian sạc:' : 'Charging Duration:'}
+                                                            </p>
+                                                            <p className="font-medium">
+                                                                {Math.floor(chargingDuration / 60)}h {chargingDuration % 60}m
+                                                            </p>
+                                                        </div>
+                                                        <div className="text-sm text-right">
+                                                            <p className="text-muted-foreground">
+                                                                {language === 'vi' ? 'Chi phí ước tính:' : 'Estimated Cost:'}
+                                                            </p>
+                                                            <p className="font-medium text-primary">
+                                                                {slot.estimatedCost ? `${slot.estimatedCost.toLocaleString()} VND` : 'N/A'}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                {selectedSlot === slot && (
+                                                    <CheckCircle className="w-5 h-5 text-primary flex-shrink-0" />
+                                                )}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        ) : (
+                            <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4">
+                                <div className="flex items-start space-x-3">
+                                    <Info className="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+                                    <div className="text-sm">
+                                        <p className="font-medium text-amber-700 dark:text-amber-300">
+                                            {language === 'vi' ? 'Không có slot khả dụng' : 'No available slots'}
+                                        </p>
+                                        <p className="text-amber-600 dark:text-amber-400 mt-1">
+                                            {language === 'vi' 
+                                                ? 'Không có slot phù hợp cho thời gian đã chọn.'
+                                                : 'No suitable slots available for the selected time.'
+                                            }
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="flex-shrink-0 flex space-x-2 pt-4 pb-4 px-6 border-t bg-background">
+                        <Button
+                            variant="outline"
+                            onClick={() => setIsSlotsPopupOpen(false)}
+                            className="flex-1"
+                        >
+                            {language === 'vi' ? 'Đóng' : 'Close'}
+                        </Button>
                     </div>
                 </DialogContent>
             </Dialog>
