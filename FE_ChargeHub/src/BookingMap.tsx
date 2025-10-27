@@ -306,7 +306,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
     // Charging configuration states
     const [isChargingConfigOpen, setIsChargingConfigOpen] = useState(false);
     const [configStation, setConfigStation] = useState<ChargingStation | null>(null);
-    const [initialBatteryLevel, setInitialBatteryLevel] = useState(75);
+    const [initialBatteryLevel, setInitialBatteryLevel] = useState(20);
     const [targetBatteryLevelConfig, setTargetBatteryLevelConfig] = useState(80);
     const [chargingStartTimeInput, setChargingStartTimeInput] = useState("");
     const [chargingEndTime, setChargingEndTime] = useState("");
@@ -5398,13 +5398,19 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                                         <Input
                                             type="time"
                                             value={chargingStartTimeInput}
-                                            onChange={(e) => setChargingStartTimeInput(e.target.value)}
+                                            onChange={(e) => {
+                                                setChargingStartTimeInput(e.target.value);
+                                                // Trigger slots popup when time is selected
+                                                if (e.target.value) {
+                                                    handleStartTimeSelection(e.target.value);
+                                                }
+                                            }}
                                             className="w-32 h-10 text-center text-lg font-medium border-2 border-primary rounded-lg focus:ring-2 focus:ring-primary/20"
                                             placeholder="HH:MM"
                                         />
                                         {chargingStartTimeInput && (
                                             <div className="text-xs text-muted-foreground text-center">
-                                                {language === 'vi' ? 'Thời gian phải ít nhất 2 tiếng sau hiện tại' : 'Time must be at least 2 hours from now'}
+                                                {language === 'vi' ? 'Thời gian phải ít nhất 30 phút sau hiện tại' : 'Time must be at least 30 minutes from now'}
                                             </div>
                                         )}
                                     </div>
@@ -5432,7 +5438,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                                         return;
                                     }
 
-                                    // Check if time is at least 2 hours from now
+                                    // Check if time is at least 30 minutes from now
                                     const now = new Date();
                                     const selectedTime = new Date();
                                     const [hours, minutes] = chargingStartTimeInput.split(':').map(Number);
