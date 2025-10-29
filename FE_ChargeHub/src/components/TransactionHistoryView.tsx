@@ -21,6 +21,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { useLanguage } from "../contexts/LanguageContext";
 import { useTheme } from "../contexts/ThemeContext";
+import { getTransactionHistory } from "../services/api";
 
 interface Transaction {
   id: string;
@@ -49,103 +50,166 @@ export default function TransactionHistoryView({ onBack }: TransactionHistoryVie
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [expandedTransaction, setExpandedTransaction] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [page, setPage] = useState(0);
+  const [size] = useState(10);
+  const [totalPages, setTotalPages] = useState(1);
   
   const { language, t } = useLanguage();
   const { theme } = useTheme();
 
-  // Mock data - in real app this would come from API
-  const mockTransactions: Transaction[] = [
-    {
-      id: "TXN001",
-      date: "2024-01-15",
-      time: "14:30",
-      stationName: "EV Station Central",
-      location: "123 Main St, Ho Chi Minh City",
-      amount: 125000,
-      energyConsumed: 25.5,
-      duration: 45,
-      status: "completed",
-      paymentMethod: "Credit Card",
-      transactionType: "charging"
-    },
-    {
-      id: "TXN002",
-      date: "2024-01-14",
-      time: "09:15",
-      stationName: "Green Energy Hub",
-      location: "456 Nguyen Hue Blvd, District 1",
-      amount: 89000,
-      energyConsumed: 18.2,
-      duration: 32,
-      status: "completed",
-      paymentMethod: "Wallet",
-      transactionType: "charging"
-    },
-    {
-      id: "TXN003",
-      date: "2024-01-13",
-      time: "16:45",
-      stationName: "EcoCharge Station",
-      location: "789 Le Loi St, District 3",
-      amount: 0,
-      energyConsumed: 0,
-      duration: 0,
-      status: "cancelled",
-      paymentMethod: "Credit Card",
-      transactionType: "charging"
-    },
-    {
-      id: "TXN004",
-      date: "2024-01-12",
-      time: "11:20",
-      stationName: "Premium Subscription",
-      location: "Online",
-      amount: 500000,
-      energyConsumed: 0,
-      duration: 0,
-      status: "completed",
-      paymentMethod: "Credit Card",
-      transactionType: "subscription"
-    },
-    {
-      id: "TXN005",
-      date: "2024-01-11",
-      time: "13:10",
-      stationName: "FastCharge Terminal",
-      location: "321 Dong Khoi St, District 1",
-      amount: 156000,
-      energyConsumed: 31.8,
-      duration: 28,
-      status: "completed",
-      paymentMethod: "Wallet",
-      transactionType: "charging"
-    },
-    {
-      id: "TXN006",
-      date: "2024-01-10",
-      time: "08:30",
-      stationName: "Refund Processing",
-      location: "System",
-      amount: -25000,
-      energyConsumed: 0,
-      duration: 0,
-      status: "completed",
-      paymentMethod: "Wallet",
-      transactionType: "refund"
-    }
-  ];
+  // Mock data - fallback if API không trả về
+  // const mockTransactions: Transaction[] = [
+  //   {
+  //     id: "TXN001",
+  //     date: "2024-01-15",
+  //     time: "14:30",
+  //     stationName: "EV Station Central",
+  //     location: "123 Main St, Ho Chi Minh City",
+  //     amount: 125000,
+  //     energyConsumed: 25.5,
+  //     duration: 45,
+  //     status: "completed",
+  //     paymentMethod: "Credit Card",
+  //     transactionType: "charging"
+  //   },
+  //   {
+  //     id: "TXN002",
+  //     date: "2024-01-14",
+  //     time: "09:15",
+  //     stationName: "Green Energy Hub",
+  //     location: "456 Nguyen Hue Blvd, District 1",
+  //     amount: 89000,
+  //     energyConsumed: 18.2,
+  //     duration: 32,
+  //     status: "completed",
+  //     paymentMethod: "Wallet",
+  //     transactionType: "charging"
+  //   },
+  //   {
+  //     id: "TXN003",
+  //     date: "2024-01-13",
+  //     time: "16:45",
+  //     stationName: "EcoCharge Station",
+  //     location: "789 Le Loi St, District 3",
+  //     amount: 0,
+  //     energyConsumed: 0,
+  //     duration: 0,
+  //     status: "cancelled",
+  //     paymentMethod: "Credit Card",
+  //     transactionType: "charging"
+  //   },
+  //   {
+  //     id: "TXN004",
+  //     date: "2024-01-12",
+  //     time: "11:20",
+  //     stationName: "Premium Subscription",
+  //     location: "Online",
+  //     amount: 500000,
+  //     energyConsumed: 0,
+  //     duration: 0,
+  //     status: "completed",
+  //     paymentMethod: "Credit Card",
+  //     transactionType: "subscription"
+  //   },
+  //   {
+  //     id: "TXN005",
+  //     date: "2024-01-11",
+  //     time: "13:10",
+  //     stationName: "FastCharge Terminal",
+  //     location: "321 Dong Khoi St, District 1",
+  //     amount: 156000,
+  //     energyConsumed: 31.8,
+  //     duration: 28,
+  //     status: "completed",
+  //     paymentMethod: "Wallet",
+  //     transactionType: "charging"
+  //   },
+  //   {
+  //     id: "TXN006",
+  //     date: "2024-01-10",
+  //     time: "08:30",
+  //     stationName: "Refund Processing",
+  //     location: "System",
+  //     amount: -25000,
+  //     energyConsumed: 0,
+  //     duration: 0,
+  //     status: "completed",
+  //     paymentMethod: "Wallet",
+  //     transactionType: "refund"
+  //   }
+  // ];
 
   useEffect(() => {
-    // Simulate API loading
     const loadTransactions = async () => {
-      setIsLoading(true);
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      setTransactions(mockTransactions);
-      setIsLoading(false);
+      console.log("loadTransactions");
+      try {
+        setIsLoading(true);
+        const userIdStr = localStorage.getItem("userId") || localStorage.getItem("registeredUserId");
+        const userId = userIdStr ? parseInt(userIdStr, 10) : undefined;
+        console.log("[TXN] userId", userId);
+        if (!userId || Number.isNaN(userId)) {
+          console.log('[TXN] Missing userId, skip API.');
+          // setTransactions([]);
+          // setTotalPages(1);
+          // setIsLoading(false);
+          return;
+        }
+
+
+
+        const res = await getTransactionHistory({
+          userId,
+          page,
+          size,
+          sortBy: 'createdAt',
+          sortDirection: sortOrder === 'desc' ? 'DESC' : 'ASC'
+        });
+        console.log("[TXN] res", res);
+        const payload: any = res?.data;
+        const list: any[] = Array.isArray(payload) 
+          ? payload 
+          : (payload?.content ?? payload?.transactions ?? payload?.items ?? []);
+        console.log('[TXN] payload type:', Array.isArray(payload) ? 'array' : typeof payload, 'list length:', list.length, 'totalPages:', payload?.totalPages);
+        setTotalPages((payload?.totalPages as number) || 1);
+
+        const mapped: Transaction[] = list.map((it: any) => {
+          const created = it?.createdAt || it?.date || it?.startTime || new Date().toISOString();
+          const dateObj = new Date(created);
+          const time = dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          const rawStatus = (it?.status || '').toString().toLowerCase();
+          const status: Transaction['status'] = rawStatus.includes('cancel')
+            ? 'cancelled'
+            : rawStatus.includes('complete') || rawStatus.includes('success')
+              ? 'completed'
+              : 'pending';
+
+          return {
+            id: String(it?.id ?? it?.transactionId ?? Math.random()),
+            date: created,
+            time,
+            stationName: it?.stationName ?? 'EV Station',
+            location: it?.stationAddress ?? it?.location ?? 'N/A',
+            amount: Number(it?.amount ?? it?.totalAmount ?? 0),
+            energyConsumed: Number(it?.energyConsumed ?? it?.kwh ?? 0),
+            duration: Number(it?.duration ?? it?.durationMinutes ?? 0),
+            status,
+            paymentMethod: it?.paymentMethod ?? 'Wallet',
+            transactionType: (it?.transactionType as Transaction['transactionType']) || 'charging',
+          };
+        });
+
+        console.log('[TXN] mapped length:', mapped.length);
+        setTransactions(mapped);
+      } catch (e) {
+        console.error('[TXN] error fetching transactions:', e);
+        setTransactions([]);
+      } finally {
+        setIsLoading(false);
+      }
     };
-    
+
     loadTransactions();
-  }, []);
+  }, [page, size, sortOrder]);
 
   const filteredTransactions = transactions.filter(transaction => {
     const matchesSearch = transaction.stationName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -309,9 +373,11 @@ export default function TransactionHistoryView({ onBack }: TransactionHistoryVie
                 <select
                   value={`${sortBy}-${sortOrder}`}
                   onChange={(e) => {
-                    const [field, order] = e.target.value.split('-');
+                    const parts = e.target.value.split('-');
+                    const field = parts[0] || 'date';
+                    const order = (parts[1] as "asc" | "desc") || 'desc';
                     setSortBy(field);
-                    setSortOrder(order as "asc" | "desc");
+                    setSortOrder(order);
                   }}
                   className="px-3 py-2 border border-border rounded-md bg-background text-foreground"
                 >
@@ -549,6 +615,31 @@ export default function TransactionHistoryView({ onBack }: TransactionHistoryVie
                 </div>
               </CardContent>
             </Card>
+          )}
+
+          {/* Pagination Controls */}
+          {!isLoading && (
+            <div className="flex items-center justify-center gap-4 mt-6">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={page <= 0}
+                onClick={() => setPage((p) => Math.max(0, p - 1))}
+              >
+                {language === 'vi' ? 'Trang trước' : 'Previous'}
+              </Button>
+              <span className="text-sm text-muted-foreground">
+                {language === 'vi' ? 'Trang' : 'Page'} {page + 1} / {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={page + 1 >= totalPages}
+                onClick={() => setPage((p) => (p + 1 < totalPages ? p + 1 : p))}
+              >
+                {language === 'vi' ? 'Trang sau' : 'Next'}
+              </Button>
+            </div>
           )}
         </div>
       </div>

@@ -314,6 +314,42 @@ export const getMyOrders = async (userId: number, status?: string): Promise<APIR
   return response.data;
 };
 
+// 5. Get transactions history (paginated)
+export interface TransactionHistoryParams {
+  userId: number;
+  page?: number;
+  size?: number;
+  sortBy?: string;
+  sortDirection?: 'ASC' | 'DESC';
+}
+
+export interface PaginatedResponse<T> {
+  content?: T[];
+  totalElements?: number;
+  totalPages?: number;
+  pageNumber?: number;
+  pageSize?: number;
+}
+
+export const getTransactionHistory = async ({ userId, page = 0, size = 10, sortBy = 'createdAt', sortDirection = 'DESC' }: TransactionHistoryParams): Promise<APIResponse<PaginatedResponse<any> | any[]>> => {
+  const params = new URLSearchParams();
+  params.append('userId', userId.toString());
+  params.append('page', String(page));
+  params.append('size', String(size));
+  params.append('sortBy', sortBy);
+  params.append('sortDirection', sortDirection);
+  const url = `/api/transactions/history?${params.toString()}`;
+  console.log('[API] getTransactionHistory →', url);
+  const response = await api.get<APIResponse<PaginatedResponse<any> | any[]>>(url);
+  console.log('[API] getTransactionHistory status:', response.status);
+  try {
+    const payload: any = response.data?.data;
+    const list = Array.isArray(payload) ? payload : (payload?.content ?? []);
+    console.log('[API] getTransactionHistory items:', list?.length ?? 0, 'totalPages:', payload?.totalPages ?? 'n/a');
+  } catch {}
+  return response.data;
+};
+
 // ===== AUTH API FUNCTIONS =====
 
 // Logout user
