@@ -10,7 +10,6 @@ import swp391.code.swp391.repository.SessionRepository;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -66,10 +65,9 @@ public class AnalyticsServiceImpl implements AnalyticsService {
         }
 
         // Convert to DTOs
-        List<ChargingSessionDTO> result = sessions.stream()
+        return  sessions.stream()
                 .map(this::convertToSessionDTO)
                 .collect(Collectors.toList());
-        return result;
     }
 
     @Override
