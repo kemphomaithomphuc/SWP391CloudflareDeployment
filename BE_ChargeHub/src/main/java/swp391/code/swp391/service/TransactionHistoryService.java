@@ -3,11 +3,12 @@ package swp391.code.swp391.service;
 import swp391.code.swp391.dto.TransactionDetailDTO;
 import swp391.code.swp391.dto.TransactionFilterRequest;
 import swp391.code.swp391.dto.TransactionHistoryResponse;
+import swp391.code.swp391.dto.TransactionSummaryDTO;
 
 public interface TransactionHistoryService {
 
     /**
-     * Lấy danh sách lịch sử giao dịch với filter và pagination
+     * Lấy danh sách lịch sử giao dịch
      */
     TransactionHistoryResponse getTransactionHistory(TransactionFilterRequest filter);
 
@@ -19,5 +20,10 @@ public interface TransactionHistoryService {
     /**
      * Lấy lịch sử giao dịch của một user
      */
-    TransactionHistoryResponse getUserTransactionHistory(Long userId, Integer page, Integer size);
+    TransactionHistoryResponse getUserTransactionHistory(Long userId);
+
+    /**
+     * Lấy thống kê tổng quan (summary) theo filter
+     */
+    TransactionSummaryDTO getTransactionSummary(TransactionFilterRequest filter);
 }
