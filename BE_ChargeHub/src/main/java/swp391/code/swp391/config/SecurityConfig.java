@@ -45,6 +45,7 @@ public class SecurityConfig {
             "/api/payment/**",
             "/api/staff/**",
             "/api/transactions/**",
+            "/api/admin/revenue/**",
             "/api/test/**" // them de test thoi, khong dung nua thi xoa
     };
     private final JwtDecoder jwtDecoder; // Tự động được Spring inject JwtDecoderConfig
