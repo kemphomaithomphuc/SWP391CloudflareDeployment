@@ -7,9 +7,7 @@ import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import swp391.code.swp391.entity.ChargingPoint;
 import swp391.code.swp391.entity.ChargingStation.ChargingStationStatus;
-import swp391.code.swp391.entity.User;
 
 import java.util.List;
 
@@ -42,8 +40,6 @@ public class ChargingStationDTO {
     @NotNull(message = "Number of charging points is required")
     private int chargingPointNumber;
 
-    // Cho output: list charging points
-    private List<ChargingPoint> chargingPoint;
-
-    private List<User> staff_id;
+    // Cho output: list charging points (đã được map qua DTO)
+    // Nếu cần trả về thông tin staff, hãy tạo StaffDTO riêng
 }
