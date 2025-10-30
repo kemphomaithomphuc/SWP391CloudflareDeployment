@@ -28,7 +28,9 @@ public class AuthorizationFilter extends OncePerRequestFilter {
             "/api/otp/verify/forgot-password",
             "/api/otp/reset-password",
             "/api/staff/**",
-            "/api/transactions/**"
+            "/api/transactions/**",
+            "/api/payment/**",
+            "/api/admin/revenue/**",
     };
 
     @Override
