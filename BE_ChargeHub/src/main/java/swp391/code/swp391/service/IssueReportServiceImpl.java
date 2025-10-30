@@ -54,15 +54,20 @@ public class IssueReportServiceImpl implements IssueReportService {
     }
 
     @Override
-    public void resolveIssue(Long issueId) {
+    public void updateStatusIssue(Long issueId, String status) {
         IssueReport issueReport = issueReportRepository.findById(issueId)
                 .orElseThrow(() -> new RuntimeException("Issue report not found"));
 
-        issueReport.setStatus(IssueReport.Status.RESOLVED);
+        if (status.equalsIgnoreCase("RESOLVED")) {
+            issueReport.setStatus(IssueReport.Status.RESOLVED);
+        } else if (status.equalsIgnoreCase("IN_PROGRESS")) {
+            issueReport.setStatus(IssueReport.Status.IN_PROGRESS);
+        } else {
+            throw new RuntimeException("Invalid status");
+        }
         issueReportRepository.save(issueReport);
 
-        // Optionally send notification
-        notificationService.createIssueNotification(issueReport.getStation().getStationId(), IssueEvent.STATION_ERROR_STAFF, "Issue resolved: " + issueReport.getDescription());
+        notificationService.createIssueNotification(issueReport.getStation().getStationId(), IssueEvent.STATION_ERROR_STAFF, "Issue status updated! Status: " +issueReport.getStatus().name() + " "+  issueReport.getDescription());
     }
 
     @Override
