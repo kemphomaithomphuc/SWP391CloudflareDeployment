@@ -42,4 +42,3 @@ public class UsageTrendDTO {
     private Integer peakHour; // Hour with most activity
     private String peakDayOfWeek; // Day with most activity
 }
-
