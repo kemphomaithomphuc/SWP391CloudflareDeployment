@@ -83,15 +83,15 @@ public class AuthenticationService {
                     .build();
 
         } catch (BadCredentialsException e) {
-            throw new RuntimeException("Invalid username or password"); // Xử lý lỗi xác thực
+            throw new RuntimeException("AuthenticationService_login():Invalid username or password"); // Xử lý lỗi xác thực
         } catch (Exception e) {
-            throw new RuntimeException("Authentication failed " + e.getMessage()); // Xử lý các lỗi khác
+            throw new RuntimeException("AuthenticationService_login(): Authentication failed: " + e.getMessage()); // Xử lý các lỗi khác
         }
     }
 
     public void logout(String token) {
         if (token == null || token.isEmpty()) {
-            throw new IllegalArgumentException("Invalid token");
+            throw new IllegalArgumentException("AuthenticationService_logout(): Invalid token");
         }
         jwtBlacklistService.blacklistToken(token);
     }
@@ -114,7 +114,7 @@ public class AuthenticationService {
                         "&scope=" + facebookScope
                         + "&state=" + loginType;
             default:
-                throw new IllegalArgumentException("Unsupported login type: " + loginType);
+                throw new IllegalArgumentException("AuthenticationService_social-login():Unsupported login type: " + loginType);
         }
     }
 

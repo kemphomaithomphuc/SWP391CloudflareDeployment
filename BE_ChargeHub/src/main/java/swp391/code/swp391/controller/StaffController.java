@@ -15,6 +15,7 @@ import java.util.List;
 @RequestMapping("/api/staff")
 @RequiredArgsConstructor
 @CrossOrigin(origins = "*")
+//@PreAuthorize("hasRole('STAFF')")
 public class StaffController {
 
     private final StaffService staffService;
@@ -24,7 +25,6 @@ public class StaffController {
      * Endpoint: POST /api/staff/change-charging-point
      */
     @PostMapping("/change-charging-point")
-    // @PreAuthorize("hasRole('STAFF')") // Uncomment khi có security
     public ResponseEntity<APIResponse<ChangeChargingPointResponseDTO>> changeChargingPoint(
             @Valid @RequestBody ChangeChargingPointRequestDTO request) {
 
@@ -62,7 +62,6 @@ public class StaffController {
      * Endpoint: GET /api/staff/find-alternative-points
      */
     @GetMapping("/find-alternative-points")
-    // @PreAuthorize("hasRole('STAFF')")
     public ResponseEntity<APIResponse<List<ChargingPointDTO>>> findAlternativePoints(
             @RequestParam Long orderId,
             @RequestParam Long currentChargingPointId) {

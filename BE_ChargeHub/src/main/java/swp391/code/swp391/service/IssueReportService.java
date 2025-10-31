@@ -9,7 +9,7 @@ public interface IssueReportService {
 
     Long createIssueReport(IssueReportRequestDTO dto, Long staffId);
 
-    void resolveIssue(Long issueId);
+    void updateStatusIssue(Long issueId, String status);
 
     List<IssueReportDTO> getAllIssueReports();
 }
