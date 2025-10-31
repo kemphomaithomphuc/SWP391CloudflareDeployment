@@ -17,7 +17,6 @@ import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerCo
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import swp391.code.swp391.util.JwtUtil;
 
-import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -30,8 +29,9 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
-        registry.addEndpoint("/ws").withSockJS();
-//        registry.addEndpoint("/gs-guide-websocket");
+        registry.addEndpoint("/api/notifications/connection/ws")
+                .setAllowedOriginPatterns("*") // Cho phép tất cả origins (dev), production nên chỉ định cụ thể domain FE
+                .withSockJS(); // Thêm hỗ trợ SockJS để dự phòng khi WebSocket không khả dụng
     } // WebSocket endpoint with SockJS fallback
 
     @Override
@@ -61,6 +61,7 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
                         List<GrantedAuthority> authorities = roles.stream()
                                 .map(SimpleGrantedAuthority::new)
                                 .collect(Collectors.toList());
+
                         UsernamePasswordAuthenticationToken auth =
                                 new UsernamePasswordAuthenticationToken(
                                         username,

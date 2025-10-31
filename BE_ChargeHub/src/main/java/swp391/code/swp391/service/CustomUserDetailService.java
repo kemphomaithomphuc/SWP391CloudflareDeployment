@@ -38,4 +38,16 @@ public class CustomUserDetailService implements UserDetailsService {
         }
         return new CustomUserDetails(user, username);
     }
+
+    public User getUserByUserIdentifier(String userIdentifier) {
+        User user;
+        if (jwtUtil.isValidEmail(userIdentifier)) {
+            user = userRepository.findByEmail(userIdentifier)
+                    .orElseThrow(() -> new UsernameNotFoundException("User not found with email: " + userIdentifier));
+        } else {
+            user = userRepository.findByPhone(userIdentifier)
+                    .orElseThrow(() -> new UsernameNotFoundException("User not found with phone: " + userIdentifier));
+        }
+        return user;
+    }
 }

@@ -3,6 +3,7 @@ package swp391.code.swp391.util;
 import com.nimbusds.jose.*;
 import com.nimbusds.jose.crypto.MACSigner;
 import com.nimbusds.jwt.JWTClaimsSet;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
@@ -148,7 +149,8 @@ public class JwtUtil {
         return userOptional.orElse(null);
     }
 
-    public String getTokenFromRequestHeader(String header) {
+    public String getTokenFromRequestHeader(HttpServletRequest request) {
+        String header = request.getHeader("Authorization");
         return getTokenFromHeader(header);
     }
     public String getTokenFromHeader(String header) {

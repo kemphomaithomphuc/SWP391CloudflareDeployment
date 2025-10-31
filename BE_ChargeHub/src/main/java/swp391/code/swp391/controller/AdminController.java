@@ -21,19 +21,4 @@ public class AdminController {
     private final NotificationService notificationService;
 
 
-    //test api for admin
-    @GetMapping("/unread/count")
-    public ResponseEntity<Long> getUnreadCount(HttpServletRequest request) {
-        String header = request.getHeader("Authorization");
-        String token = jwtUtil.getTokenFromRequestHeader(header);
-        Long userId;
-        try {
-            userId = jwtUtil.getUserIdByTokenDecode(token);
-        } catch (ParseException | JOSEException e) {
-            throw new RuntimeException(e);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-        return ResponseEntity.ok(notificationService.getUnreadCountForUser(userId));
-    }
 }

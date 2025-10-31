@@ -165,7 +165,6 @@ public class AuthenticationService {
                 return mapper.readValue(
                         restTemplate.getForEntity(userInfoUri, String.class).getBody(),
                         new TypeReference<>() {});
-//                break; // Unreachable code
             default:
                 throw new IllegalArgumentException("Unsupported login type: " + loginType);
         }
@@ -239,15 +238,6 @@ public class AuthenticationService {
     }
 
     // Lưu user mới hoặc liên kết tài khoản xã hội với user hiện có
-    /**
-     * Lưu user mới hoặc liên kết tài khoản xã hội với user hiện có
-     * Ưu tiên tìm user theo email, nếu không có email thì tìm theo số điện thoại
-     * Nếu tìm thấy user, liên kết social ID vào user đó
-     * Nếu không tìm thấy, tạo user mới với trạng thái ACTIVE và vai trò DRIVER
-     * @param user User chứa thông tin từ nhà cung cấp xã hội (có thể có email hoặc phone)
-     * @param loginType Loại đăng nhập xã hội (google hoặc facebook)
-     * @return ID của user đã lưu hoặc liên kết
-     */
     private Long saveOrLinkSocialAccount(User user, String loginType) {
         User existingUser = null;
 

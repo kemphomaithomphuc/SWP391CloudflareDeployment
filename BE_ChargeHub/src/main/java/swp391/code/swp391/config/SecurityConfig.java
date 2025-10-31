@@ -46,7 +46,8 @@ public class SecurityConfig {
             "/api/staff/**",
             "/api/transactions/**",
             "/api/admin/revenue/**",
-            "/api/test/**" // them de test thoi, khong dung nua thi xoa
+            "/api/test/**", // them de test thoi, khong dung nua thi xoa
+            "/api/notifications/connection/ws/**" // WebSocket endpoint
     };
     private final JwtDecoder jwtDecoder; // Tự động được Spring inject JwtDecoderConfig
     private final CustomUserDetailService userDetailsService;
