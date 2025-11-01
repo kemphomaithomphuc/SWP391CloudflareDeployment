@@ -21,6 +21,13 @@ api.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
+    // Check if it's a 403 error (user is banned)
+    if (error.response?.status === 403 && error.response?.data?.error === "User is banned") {
+      // Redirect to penalty payment page
+      window.location.href = "/penalty-payment";
+      return Promise.reject(error);
+    }
+
     // Check if it's a 401 error and we haven't already tried to refresh
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
@@ -327,6 +334,129 @@ export const cancelOrder = async (request: CancelOrderDTO): Promise<APIResponse<
   return response.data;
 };
 
+// ===== STAFF: CHANGE CHARGING POINT API FUNCTIONS =====
+export const findAlternativeChargingPoints = async (
+  orderId: number,
+  currentChargingPointId: number
+): Promise<APIResponse<ChargingPointDTO[]>> => {
+  const params = new URLSearchParams();
+  params.append('orderId', String(orderId));
+  params.append('currentChargingPointId', String(currentChargingPointId));
+  const response = await api.get<APIResponse<ChargingPointDTO[]>>(`/api/staff/find-alternative-points?${params.toString()}`);
+  return response.data;
+};
+
+export const changeChargingPoint = async (
+  payload: ChangeChargingPointRequestDTO
+): Promise<APIResponse<ChangeChargingPointResponseDTO>> => {
+  const response = await api.post<APIResponse<ChangeChargingPointResponseDTO>>('/api/staff/change-charging-point', payload);
+  return response.data;
+};
+
+// ===== STATION SCOPED QUERIES =====
+export const getStationById = async (stationId: number) => {
+  const response = await api.get(`/api/stations/${stationId}`);
+  return response.data;
+};
+
+export const getOrdersByStation = async (
+  stationId: number,
+  statuses: Array<'BOOKED' | 'CHARGING' | 'COMPLETED'> = ['BOOKED', 'CHARGING']
+): Promise<APIResponse<StationOrderItemDTO[]>> => {
+  // Fixed: Use correct endpoint /api/orders/station/{stationId} instead of /api/orders/by-station
+  const response = await api.get<APIResponse<StationOrderItemDTO[]>>(`/api/orders/station/${stationId}`);
+  return response.data;
+};
+
+// ===== SUBSCRIPTION API =====
+export interface SubscriptionResponseDTO {
+  subscriptionId: number;
+  type: 'BASIC' | 'PLUS' | 'PRO' | string;
+  startDate?: string;
+  endDate?: string;
+  // Optional fields if backend provides pricing/metadata
+  price?: number;
+  subscriptionName?: string;
+  description?: string;
+  durationDays?: number;
+  isActive?: boolean;
+  displayOrder?: number;
+}
+
+export const getAllSubscriptions = async (): Promise<APIResponse<SubscriptionResponseDTO[]>> => {
+  const response = await api.get<APIResponse<SubscriptionResponseDTO[]>>('/api/subscription');
+  return response.data;
+};
+
+export const getUserSubscription = async (userId: number): Promise<APIResponse<SubscriptionResponseDTO>> => {
+  const response = await api.get<APIResponse<SubscriptionResponseDTO>>(`/api/subscription/user/${userId}`);
+  return response.data;
+};
+
+// Update subscription plan price (admin)
+// Update subscription via controller's updateSubscription
+export interface SubscriptionRequestDTO {
+  userId?: number;
+  type?: 'BASIC' | 'PLUS' | 'PRO' | 'PREMIUM' | string;
+  startDate?: string;
+  endDate?: string;
+  subscriptionName?: string;
+  description?: string;
+  price?: number;
+  durationDays?: number;
+  isActive?: boolean;
+  displayOrder?: number;
+}
+
+export const updateSubscription = async (
+  subscriptionId: number | string,
+  request: SubscriptionRequestDTO
+): Promise<APIResponse<SubscriptionResponseDTO>> => {
+  // Backend endpoint: PUT /api/subscription/updateSubscription/{subscriptionId}
+  // Body: SubscriptionRequestDTO
+  const response = await api.put<APIResponse<SubscriptionResponseDTO>>(
+    `/api/subscription/updateSubscription/${subscriptionId}`,
+    request
+  );
+  return response.data;
+};
+
+// 5. Get transactions history (paginated)
+export interface TransactionHistoryParams {
+  userId: number;
+  page?: number;
+  size?: number;
+  sortBy?: string;
+  sortDirection?: 'ASC' | 'DESC';
+}
+
+export interface PaginatedResponse<T> {
+  content?: T[];
+  totalElements?: number;
+  totalPages?: number;
+  pageNumber?: number;
+  pageSize?: number;
+}
+
+export const getTransactionHistory = async ({ userId, page = 0, size = 10, sortBy = 'createdAt', sortDirection = 'DESC' }: TransactionHistoryParams): Promise<APIResponse<PaginatedResponse<any> | any[]>> => {
+  const params = new URLSearchParams();
+  params.append('userId', userId.toString());
+  params.append('page', String(page));
+  params.append('size', String(size));
+  params.append('sortBy', sortBy);
+  params.append('sortDirection', sortDirection);
+  const url = `/api/transactions/history?${params.toString()}`;
+  console.log('[API] getTransactionHistory →', url);
+  const response = await api.get<APIResponse<PaginatedResponse<any> | any[]>>(url);
+  console.log('[API] getTransactionHistory status:', response.status);
+  try {
+    const payload: any = response.data?.data;
+    const list = Array.isArray(payload) ? payload : (payload?.content ?? []);
+    console.log('[API] getTransactionHistory items:', list?.length ?? 0, 'totalPages:', payload?.totalPages ?? 'n/a');
+  } catch {}
+  return response.data;
+};
+
 // ===== AUTH API FUNCTIONS =====
 
 // Logout user
@@ -423,6 +553,154 @@ export const createNotification = async (notificationData: {
   type: 'booking' | 'payment' | 'issue' | 'penalty' | 'general' | 'invoice' | 'late_arrival' | 'charging_complete' | 'overstay_warning' | 'report_success' | 'booking_confirmed';
 }): Promise<Notification> => {
   const response = await api.post<Notification>('/api/notifications', notificationData);
+  return response.data;
+};
+
+// ===== PRICE FACTOR API TYPES =====
+export interface PriceFactorResponseDTO {
+  priceFactorId: number;
+  stationId: number;
+  factor: number;
+  startTime: string;
+  endTime: string;
+  description: string;
+}
+
+export interface PriceFactorRequestDTO {
+  stationId: number;
+  factor: number;
+  startTime: string;
+  endTime: string;
+  description: string;
+}
+
+export interface PriceFactorUpdateDTO {
+  factor: number;
+  startTime: string;
+  endTime: string;
+  description: string;
+}
+
+// ===== PRICE FACTOR API FUNCTIONS =====
+export const getPriceFactorsByStation = async (stationId: number): Promise<APIResponse<PriceFactorResponseDTO[]>> => {
+  const response = await api.get<APIResponse<PriceFactorResponseDTO[]>>(`/api/price-factors/station/${stationId}`);
+  return response.data;
+};
+
+export const getPriceFactorById = async (id: number): Promise<APIResponse<PriceFactorResponseDTO>> => {
+  const response = await api.get<APIResponse<PriceFactorResponseDTO>>(`/api/price-factors/${id}`);
+  return response.data;
+};
+
+export const createPriceFactor = async (request: PriceFactorRequestDTO): Promise<APIResponse<PriceFactorResponseDTO>> => {
+  const response = await api.post<APIResponse<PriceFactorResponseDTO>>('/api/price-factors', request);
+  return response.data;
+};
+
+export const updatePriceFactor = async (id: number, request: PriceFactorUpdateDTO): Promise<APIResponse<PriceFactorResponseDTO>> => {
+  const response = await api.put<APIResponse<PriceFactorResponseDTO>>(`/api/price-factors/${id}`, request);
+  return response.data;
+};
+
+export const deletePriceFactor = async (id: number): Promise<APIResponse<void>> => {
+  const response = await api.delete<APIResponse<void>>(`/api/price-factors/${id}`);
+  return response.data;
+};
+
+// ===== CHARGING STATION API TYPES =====
+export interface ChargingStationDTO {
+  stationId: number;
+  stationName: string;
+  address: string;
+  status: string;
+  latitude: number;
+  longitude: number;
+  chargingPointNumber: number;
+  chargingPoints?: ChargingPointDTO[];
+}
+
+// ===== CHARGING STATION API FUNCTIONS =====
+export const getAllChargingStations = async (): Promise<ChargingStationDTO[]> => {
+  const response = await api.get<ChargingStationDTO[]>('/api/charging-stations');
+  return response.data;
+};
+
+// ===== SUBSCRIPTION FEATURE API TYPES =====
+export interface SubscriptionFeatureResponseDTO {
+  featureId: number;
+  subscriptionId: number;
+  subscriptionName: string;
+  featureKey: string;
+  featureValue: string;
+  featureType: 'NUMERIC' | 'BOOLEAN' | 'STRING' | 'PERCENTAGE' | string;
+  displayName: string;
+  description: string;
+  createdAt: string;
+}
+
+export interface SubscriptionFeatureDTO {
+  featureId?: number;
+  subscriptionId: number;
+  featureKey: string;
+  featureValue: string;
+  featureType: 'NUMERIC' | 'BOOLEAN' | 'STRING' | 'PERCENTAGE' | string;
+  displayName?: string;
+  description?: string;
+}
+
+// ===== SUBSCRIPTION FEATURE API FUNCTIONS =====
+export const getAllSubscriptionFeatures = async (): Promise<APIResponse<SubscriptionFeatureResponseDTO[]>> => {
+  const response = await api.get<APIResponse<SubscriptionFeatureResponseDTO[]>>('/api/subscription-features');
+  return response.data;
+};
+
+export const getSubscriptionFeaturesBySubscription = async (subscriptionId: number): Promise<APIResponse<SubscriptionFeatureResponseDTO[]>> => {
+  const response = await api.get<APIResponse<SubscriptionFeatureResponseDTO[]>>(`/api/subscription-features/subscription/${subscriptionId}`);
+  return response.data;
+};
+
+export const createSubscriptionFeature = async (request: SubscriptionFeatureDTO): Promise<APIResponse<SubscriptionFeatureResponseDTO>> => {
+  const response = await api.post<APIResponse<SubscriptionFeatureResponseDTO>>('/api/subscription-features', request);
+  return response.data;
+};
+
+export const updateSubscriptionFeature = async (featureId: number, request: SubscriptionFeatureDTO): Promise<APIResponse<SubscriptionFeatureResponseDTO>> => {
+  const response = await api.put<APIResponse<SubscriptionFeatureResponseDTO>>(`/api/subscription-features/${featureId}`, request);
+  return response.data;
+};
+
+export const updateSubscriptionFeatureValue = async (featureId: number, value: string): Promise<APIResponse<SubscriptionFeatureResponseDTO>> => {
+  const response = await api.patch<APIResponse<SubscriptionFeatureResponseDTO>>(`/api/subscription-features/${featureId}/value?value=${encodeURIComponent(value)}`);
+  return response.data;
+};
+
+export const deleteSubscriptionFeature = async (featureId: number): Promise<APIResponse<void>> => {
+  const response = await api.delete<APIResponse<void>>(`/api/subscription-features/${featureId}`);
+  return response.data;
+};
+
+// ===== USER API TYPES =====
+export interface UserDTO {
+  userId: number;
+  fullName: string;
+  email?: string;
+  phoneNumber?: string;
+  status: 'ACTIVE' | 'INACTIVE' | 'BANNED';
+  violations: number;
+  avatarUrl?: string;
+  role: string;
+}
+
+// ===== USER API FUNCTIONS =====
+export const getUserProfile = async (userId: number): Promise<APIResponse<UserDTO>> => {
+  const response = await api.get<APIResponse<UserDTO>>(`/api/user/profile/${userId}`);
+  return response.data;
+};
+
+export const reportViolation = async (userId: number, reason: string): Promise<APIResponse<UserDTO>> => {
+  const response = await api.post<APIResponse<UserDTO>>(`/api/user/reportViolation`, null, {
+    params: { userId, reason }
+  });
   return response.data;
 };
 
