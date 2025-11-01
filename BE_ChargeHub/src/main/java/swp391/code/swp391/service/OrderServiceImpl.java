@@ -29,7 +29,8 @@ public class OrderServiceImpl implements OrderService {
     private static final LocalTime OPENING_TIME = LocalTime.of(0, 0);
     private static final LocalTime CLOSING_TIME = LocalTime.of(23, 30);
     private final SubscriptionService subscriptionService;
-
+    private final NotificationService notificationService;
+    
     @Transactional(readOnly = true)
     public AvailableSlotsResponseDTO findAvailableSlots(OrderRequestDTO request) {
 
@@ -263,6 +264,21 @@ public class OrderServiceImpl implements OrderService {
                 .build();
 
         order = orderRepository.save(order);
+
+        // ===== 11. TẠO NOTIFICATION CHO USER =====
+        // Tạo notification thông báo đặt chỗ thành công
+        if (order.getOrderId() != null) {
+            try {
+                notificationService.createBookingOrderNotification(
+                        order.getOrderId(),
+                        NotificationServiceImpl.NotificationEvent.BOOKING_SUCCESS,
+                        null
+                );
+            } catch (Exception e) {
+                // Log lỗi nhưng không làm fail transaction nếu notification thất bại
+                System.err.println("Lỗi khi tạo notification cho booking: " + e.getMessage());
+            }
+        }
 
         return order.getOrderId() != null ? convertToDTO(order) : null;
     }
