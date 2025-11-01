@@ -17,7 +17,6 @@ import swp391.code.swp391.entity.User;
 import swp391.code.swp391.repository.UserRepository;
 
 import java.text.ParseException;
-import java.util.Collection;
 import java.util.Date;
 import java.util.List;
 import java.util.Optional;
@@ -43,10 +42,10 @@ public class JwtUtil {
                 .claim("roles", user.getAuthorities().stream()
                         .map(GrantedAuthority::getAuthority)
                         .toList()) // Chuyển đổi GrantedAuthority thành List<String>
+                .claim("status", user.getUser().getStatus().name()) // Thêm status
                 .issueTime(issueTime) //thời gian tạo token
                 .expirationTime(expiredTime) //thời gian hết hạn token
                 .build();
-
         Payload payload = new Payload(claimsSet.toJSONObject());
 
         JWSObject jwsObject = new JWSObject(header,payload);
@@ -69,10 +68,10 @@ public class JwtUtil {
                 .claim("roles", user.getAuthorities().stream()
                         .map(GrantedAuthority::getAuthority)
                         .toList()) // Chuyển đổi GrantedAuthority thành List<String>
-                 .issueTime(issueTime) //thời gian tạo token
+                .claim("status", user.getUser().getStatus().name()) // Thêm status
+                .issueTime(issueTime) //thời gian tạo token
                 .expirationTime(expiredTime) //thời gian hết hạn token
                 .build();
-
         Payload payload = new Payload(claimsSet.toJSONObject());
 
         JWSObject jwsObject = new JWSObject(header,payload);

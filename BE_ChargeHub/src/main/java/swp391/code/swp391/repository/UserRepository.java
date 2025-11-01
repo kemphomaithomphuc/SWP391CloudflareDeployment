@@ -47,6 +47,9 @@ public interface UserRepository extends JpaRepository<User, Long> {
     User getUserByEmail(String email);
 
     List<User> findByRole(User.UserRole role);
+    
+    // Tìm user theo status
+    List<User> findByStatus(User.UserStatus status);
 
     // ============= STAFF MANAGEMENT =============
 

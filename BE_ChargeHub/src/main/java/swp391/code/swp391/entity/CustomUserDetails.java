@@ -60,6 +60,7 @@ public class CustomUserDetails implements UserDetails { //không phải entity, 
 
     @Override
     public boolean isEnabled() {
-        return true;
+        // User phải ở trạng thái ACTIVE mới được enabled
+        return user.getStatus() == User.UserStatus.ACTIVE;
     }
 }
