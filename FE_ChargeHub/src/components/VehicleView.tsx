@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "./ui/dialog";
 import { useLanguage } from "../contexts/LanguageContext";
-import { toast } from "react-hot-toast";
+import { toast } from "sonner";
 import { api } from "../services/api";
 
 // ------------------------- INTERFACES -------------------------
@@ -391,7 +391,7 @@ export default function VehicleView({ onBack }: VehicleViewProps) {
             };
 
             setVehicles((prev) => [...prev, newVeh]);
-            toast.success("Vehicle added successfully.");
+            toast.success("Xe đã được thêm thành công.");
             setNewVehicle({ plateNumber: "", brand: "" });
             setSelectedBrand("");
             setSelectedModel("");
@@ -478,12 +478,26 @@ export default function VehicleView({ onBack }: VehicleViewProps) {
                     return v;
                 })
             );
-            toast.success("Vehicle updated successfully.");
+            toast.success("Xe đã được cập nhật thành công.");
             setEditingPlate(null);
             setEditVehicle({});
         } catch (err: any) {
             console.error("Update vehicle error:", err);
-            toast.error(err.response?.data?.message ?? "Failed to update vehicle.");
+            const errorMessage = err.response?.data?.message ?? err.response?.data ?? "Failed to update vehicle.";
+            
+            // Check if it's a booking-related error
+            if (errorMessage.includes("currently booked") || errorMessage.includes("active order")) {
+                toast.error("Không thể cập nhật xe. Xe này đang được sử dụng trong một đơn đặt chỗ đang hoạt động.", {
+                    duration: 5000,
+                    style: {
+                        background: '#fee2e2',
+                        color: '#dc2626',
+                        border: '1px solid #fecaca'
+                    }
+                });
+            } else {
+                toast.error(errorMessage);
+            }
         } finally {
             setLoading(false);
         }
@@ -585,7 +599,14 @@ export default function VehicleView({ onBack }: VehicleViewProps) {
             
             if (!canDelete) {
                 toast.dismiss("checking-status");
-                toast.error("This vehicle is currently in a charging or booked order and cannot be deleted.");
+                toast.error("Không thể xóa xe. Xe này đang được sử dụng trong một đơn đặt chỗ đang hoạt động.", {
+                    duration: 5000,
+                    style: {
+                        background: '#fee2e2',
+                        color: '#dc2626',
+                        border: '1px solid #fecaca'
+                    }
+                });
                 handleCloseDeleteDialog();
                 return;
             }
@@ -601,7 +622,7 @@ export default function VehicleView({ onBack }: VehicleViewProps) {
             setVehicles((prev) => prev.filter((v) => v.plateNumber !== vehicleToDelete));
             
             toast.dismiss("deleting");
-            toast.success("Vehicle deleted successfully.");
+            toast.success("Xe đã được xóa thành công.");
             
             // Adjust current page if needed after deletion
             const newTotalPages = Math.ceil((vehicles.length - 1) / vehiclesPerPage);
@@ -614,7 +635,23 @@ export default function VehicleView({ onBack }: VehicleViewProps) {
             console.error("Delete vehicle error:", err);
             toast.dismiss("checking-status");
             toast.dismiss("deleting");
-            toast.error(err.response?.data?.message ?? "Failed to delete vehicle.");
+            
+            const errorMessage = err.response?.data?.message ?? err.response?.data ?? "Failed to delete vehicle.";
+            
+            // Check if it's a booking-related error
+            if (errorMessage.includes("currently booked") || errorMessage.includes("active order")) {
+                toast.error("Không thể xóa xe. Xe này đang được sử dụng trong một đơn đặt chỗ đang hoạt động.", {
+                    duration: 5000,
+                    style: {
+                        background: '#fee2e2',
+                        color: '#dc2626',
+                        border: '1px solid #fecaca'
+                    }
+                });
+            } else {
+                toast.error(errorMessage);
+            }
+            
             handleCloseDeleteDialog();
         } finally {
             setIsDeleting(false);

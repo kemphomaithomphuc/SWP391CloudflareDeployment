@@ -1,12 +1,15 @@
-import React, { useState } from 'react';
-import { ArrowLeft, Calendar, Clock, DollarSign, CheckCircle, Zap, Star, Shield, Crown, Sparkles, Gift, Info, ExternalLink, Check } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { ArrowLeft, Calendar, Clock, DollarSign, CheckCircle, Zap, Star, Shield, Crown, Sparkles, Gift, Info, ExternalLink, Check, CreditCard, QrCode } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
 import { Separator } from './ui/separator';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog';
 import { motion } from 'motion/react';
+import { toast } from 'sonner';
+import { getAllSubscriptions, getUserSubscription, type SubscriptionResponseDTO } from '../services/api';
 
 interface PremiumSubscriptionViewProps {
   onBack: () => void;
@@ -17,6 +20,12 @@ export default function PremiumSubscriptionView({ onBack, userType = 'driver' }:
   const { language } = useLanguage();
   const { theme } = useTheme();
   const [isUpgrading, setIsUpgrading] = useState(false);
+  const [plans, setPlans] = useState<SubscriptionResponseDTO[] | null>(null);
+  const [currentSub, setCurrentSub] = useState<SubscriptionResponseDTO | null>(null);
+  const [selectedPlan, setSelectedPlan] = useState<any>(null);
+  const [showPaymentDialog, setShowPaymentDialog] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<'vnpay' | 'wallet' | null>(null);
+  const [paymentStatus, setPaymentStatus] = useState<'pending' | 'processing' | 'success' | 'failed'>('pending');
 
   const translations = {
     header: {
@@ -86,12 +95,109 @@ export default function PremiumSubscriptionView({ onBack, userType = 'driver' }:
     }
   };
 
-  // Subscription plans data
+  // Load BE subscriptions
+  useEffect(() => {
+    (async () => {
+      try {
+        const all = await getAllSubscriptions();
+        setPlans(all?.data || []);
+        const uid = localStorage.getItem('userId');
+        if (uid) {
+          const mine = await getUserSubscription(Number(uid));
+          setCurrentSub(mine?.data || null);
+        }
+      } catch (_) {
+        // ignore
+      }
+    })();
+  }, []);
+
+  // Canonicalize BE types to exactly 3 plans: BASIC -> basic, PLUS -> plus, PRO -> premium
+  const canonicalKey = (t: string) => {
+    const k = (t || '').toUpperCase();
+    if (k === 'BASIC') return 'basic';
+    if (k === 'PLUS') return 'plus';
+    // Map PRO to Premium as requested
+    return 'premium';
+  };
+
+  const canonicalName = (key: 'basic' | 'plus' | 'premium') => {
+    if (key === 'basic') return language === 'vi' ? 'Gói Cơ Bản' : 'Basic Plan';
+    if (key === 'plus') return language === 'vi' ? 'Gói Plus' : 'Plus Plan';
+    return language === 'vi' ? 'Gói Premium' : 'Premium Plan';
+  };
+
+  // Fallback price when BE not available
+  const canonicalPrice = (key: 'basic' | 'plus' | 'premium') => {
+    if (key === 'basic') return 0;
+    if (key === 'plus') return 199000;
+    return 299000;
+  };
+
+  // Map BE subscriptions -> price by canonical key
+  const priceFromBackend = (key: 'basic' | 'plus' | 'premium') => {
+    if (!plans || plans.length === 0) return null;
+    const match = plans.find(p => canonicalKey(p.type || '') === key);
+    // Handle both number and string (BigDecimal from backend may come as string)
+    const price = match?.price;
+    if (typeof price === 'number') return price;
+    if (typeof price === 'string') {
+      const parsed = parseFloat(price);
+      return isNaN(parsed) ? null : parsed;
+    }
+    return null;
+  };
+
+  const featuresByKey = (key: 'basic' | 'plus' | 'premium') => {
+    if (userType === 'driver') {
+      if (key === 'basic') return [
+        language === 'vi' ? 'Truy cập sạc cơ bản' : 'Basic charging access',
+        language === 'vi' ? 'Tốc độ sạc tiêu chuẩn' : 'Standard charging speed',
+        language === 'vi' ? 'Hỗ trợ email' : 'Email support',
+        language === 'vi' ? 'Phân tích sử dụng cơ bản' : 'Basic usage analytics',
+      ];
+      if (key === 'plus') return [
+        language === 'vi' ? 'Truy cập sạc ưu tiên' : 'Priority charging access',
+        language === 'vi' ? 'Tốc độ sạc nhanh' : 'Fast charging speed',
+        language === 'vi' ? 'Hỗ trợ điện thoại 24/7' : '24/7 phone support',
+        language === 'vi' ? 'Phân tích nâng cao' : 'Advanced analytics',
+        language === 'vi' ? 'Tính năng nâng cao trên app' : 'Enhanced mobile app features',
+      ];
+      return [
+        language === 'vi' ? 'Truy cập sạc không giới hạn' : 'Unlimited charging access',
+        language === 'vi' ? 'Sạc siêu nhanh' : 'Ultra-fast charging',
+        language === 'vi' ? 'Hỗ trợ chuyên dụng' : 'Dedicated support',
+        language === 'vi' ? 'Báo cáo phân tích tùy chỉnh' : 'Custom analytics reports',
+        language === 'vi' ? 'Truy cập API' : 'API access',
+      ];
+    }
+    // Admin
+    if (key === 'basic') return [
+      language === 'vi' ? 'Quản lý cơ bản hệ thống' : 'Basic system management',
+      language === 'vi' ? 'Báo cáo tiêu chuẩn' : 'Standard reports',
+      language === 'vi' ? 'Hỗ trợ email' : 'Email support',
+      language === 'vi' ? 'Truy cập dashboard cơ bản' : 'Basic dashboard access',
+    ];
+    if (key === 'plus') return [
+      language === 'vi' ? 'Quản lý hệ thống đầy đủ' : 'Full system management',
+      language === 'vi' ? 'Báo cáo nâng cao' : 'Advanced reporting',
+      language === 'vi' ? 'Hỗ trợ ưu tiên 24/7' : 'Priority 24/7 support',
+      language === 'vi' ? 'Dashboard quản trị nâng cao' : 'Advanced admin dashboard',
+    ];
+    return [
+      language === 'vi' ? 'Quyền quản trị tối cao' : 'Supreme admin privileges',
+      language === 'vi' ? 'Báo cáo tùy chỉnh hoàn toàn' : 'Fully customizable reports',
+      language === 'vi' ? 'Hỗ trợ chuyên dụng 24/7' : 'Dedicated 24/7 support',
+      language === 'vi' ? 'API truy cập đầy đủ' : 'Full API access',
+    ];
+  };
+
+  // Subscription plans data (fallback static when BE not available)
   const subscriptionPlans = userType === 'driver' ? [
     {
       id: 'basic',
-      name: language === 'vi' ? 'Gói Cơ Bản' : 'Basic Plan',
-      price: 99000,
+      name: canonicalName('basic'),
+      price: canonicalPrice('basic'),
       features: language === 'vi' ? [
         'Truy cập sạc cơ bản',
         'Tốc độ sạc tiêu chuẩn', 
@@ -106,30 +212,28 @@ export default function PremiumSubscriptionView({ onBack, userType = 'driver' }:
       current: true
     },
     {
-      id: 'premium',
-      name: language === 'vi' ? 'Gói Premium' : 'Premium Plan',
-      price: 199000,
+      id: 'plus',
+      name: canonicalName('plus'),
+      price: canonicalPrice('plus'),
       features: language === 'vi' ? [
         'Truy cập sạc ưu tiên',
         'Tốc độ sạc nhanh',
         'Hỗ trợ điện thoại 24/7',
         'Phân tích nâng cao',
-        'Tính năng cao cấp trên app',
-        'Hệ thống đặt chỗ'
+        'Tính năng nâng cao trên app'
       ] : [
         'Priority charging access',
         'Fast charging speed',
         '24/7 phone support',
         'Advanced analytics',
-        'Mobile app premium features',
-        'Reservation system'
+        'Enhanced mobile app features'
       ],
       popular: true
     },
     {
-      id: 'pro',
-      name: language === 'vi' ? 'Gói Pro' : 'Pro Plan',
-      price: 299000,
+      id: 'premium',
+      name: canonicalName('premium'),
+      price: canonicalPrice('premium'),
       features: language === 'vi' ? [
         'Truy cập sạc không giới hạn',
         'Sạc siêu nhanh',
@@ -147,8 +251,8 @@ export default function PremiumSubscriptionView({ onBack, userType = 'driver' }:
   ] : [
     {
       id: 'basic',
-      name: language === 'vi' ? 'Gói Cơ Bản' : 'Basic Plan',
-      price: 99000,
+      name: canonicalName('basic'),
+      price: canonicalPrice('basic'),
       features: language === 'vi' ? [
         'Quản lý cơ bản hệ thống',
         'Báo cáo tiêu chuẩn',
@@ -163,30 +267,30 @@ export default function PremiumSubscriptionView({ onBack, userType = 'driver' }:
       current: true
     },
     {
-      id: 'premium',
-      name: language === 'vi' ? 'Gói Premium' : 'Premium Plan',
-      price: 199000,
+      id: 'plus',
+      name: canonicalName('plus'),
+      price: canonicalPrice('plus'),
       features: language === 'vi' ? [
         'Quản lý hệ thống đầy đủ',
         'Báo cáo nâng cao',
         'Hỗ trợ ưu tiên 24/7',
-        'Dashboard quản trị premium',
+        'Dashboard quản trị nâng cao',
         'Công cụ phân tích chuyên sâu',
         'Quản lý nhân viên không giới hạn'
       ] : [
         'Full system management',
         'Advanced reporting',
         'Priority 24/7 support',
-        'Premium admin dashboard',
+        'Advanced admin dashboard',
         'Deep analytics tools',
         'Unlimited staff management'
       ],
       popular: true
     },
     {
-      id: 'pro',
-      name: language === 'vi' ? 'Gói Pro' : 'Pro Plan',
-      price: 299000,
+      id: 'premium',
+      name: canonicalName('premium'),
+      price: canonicalPrice('premium'),
       features: language === 'vi' ? [
         'Quyền quản trị tối cao',
         'Báo cáo tùy chỉnh hoàn toàn',
@@ -255,14 +359,61 @@ export default function PremiumSubscriptionView({ onBack, userType = 'driver' }:
     return new Intl.NumberFormat('vi-VN').format(price) + ' ₫';
   };
 
-  const handleUpgrade = () => {
-    setIsUpgrading(true);
-    // Simulate API call
+  // Map BE -> exactly 3 unique plans
+  const mappedFromBackend = useMemo(() => {
+    const currentKey = canonicalKey(currentSub?.type || '');
+    const keys: Array<'basic'|'plus'|'premium'> = ['basic','plus','premium'];
+    return keys.map(key => ({
+      id: key,
+      name: canonicalName(key),
+      price: priceFromBackend(key) ?? canonicalPrice(key),
+      features: featuresByKey(key),
+      popular: key === 'plus',
+      current: key === currentKey,
+    }));
+  }, [plans, currentSub, language, userType]);
+
+  const handleUpgrade = (plan: any) => {
+    setSelectedPlan(plan);
+    setShowPaymentDialog(true);
+    setPaymentMethod(null);
+    setPaymentStatus('pending');
+  };
+
+  const handlePaymentConfirm = async () => {
+    if (!paymentMethod) {
+      toast.error(language === 'vi' ? 'Vui lòng chọn phương thức thanh toán' : 'Please select a payment method');
+      return;
+    }
+
+    setPaymentStatus('processing');
+    
+    // Simulate payment processing
     setTimeout(() => {
-      setIsUpgrading(false);
-      // Redirect to external pricing page
-      window.open('https://x.ai/grok', '_blank');
+      setPaymentStatus('success');
+      toast.success(language === 'vi' ? 'Thanh toán thành công! Gói đăng ký đã được kích hoạt' : 'Payment successful! Subscription activated');
+      
+      // Close dialog after 2 seconds
+      setTimeout(() => {
+        setShowPaymentDialog(false);
+        setSelectedPlan(null);
+        setPaymentStatus('pending');
+        // Refresh subscription data
+        const uid = localStorage.getItem('userId');
+        if (uid) {
+          getUserSubscription(Number(uid)).then(res => {
+            setCurrentSub(res?.data || null);
+          });
+        }
+      }, 2000);
     }, 2000);
+  };
+
+  const handlePaymentCancel = () => {
+    setShowPaymentDialog(false);
+    setSelectedPlan(null);
+    setPaymentMethod(null);
+    setPaymentStatus('pending');
   };
 
   return (
@@ -314,7 +465,9 @@ export default function PremiumSubscriptionView({ onBack, userType = 'driver' }:
                     {language === 'vi' ? 'Gói Hiện Tại' : 'Current Plan'}
                   </h3>
                   <p className="text-muted-foreground">
-                    {language === 'vi' ? 'Bạn đang sử dụng Gói Cơ Bản' : 'You are currently on the Basic Plan'}
+                    {language === 'vi' 
+                      ? `Bạn đang sử dụng ${canonicalName(canonicalKey(currentSub?.type || ''))}`
+                      : `You are currently on the ${canonicalName(canonicalKey(currentSub?.type || ''))}`}
                   </p>
                 </div>
                 <Badge className="bg-green-600 text-white">
@@ -340,7 +493,7 @@ export default function PremiumSubscriptionView({ onBack, userType = 'driver' }:
             </p>
             
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {subscriptionPlans.map((plan, index) => (
+              {(mappedFromBackend || subscriptionPlans).map((plan: any, index: number) => (
                 <motion.div
                   key={plan.id}
                   initial={{ opacity: 0, y: 20 }}
@@ -386,7 +539,7 @@ export default function PremiumSubscriptionView({ onBack, userType = 'driver' }:
 
                     <CardContent className="pt-0">
                       <ul className="space-y-3 mb-6">
-                        {plan.features.map((feature, featureIndex) => (
+                        {plan.features.map((feature: string, featureIndex: number) => (
                           <li key={featureIndex} className="flex items-start space-x-2">
                             <Check className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
                             <span className="text-sm text-muted-foreground">{feature}</span>
@@ -403,7 +556,7 @@ export default function PremiumSubscriptionView({ onBack, userType = 'driver' }:
                               : ''
                         }`}
                         disabled={plan.current}
-                        onClick={handleUpgrade}
+                        onClick={() => handleUpgrade(plan)}
                       >
                         {plan.current 
                           ? (language === 'vi' ? 'Hiện Tại' : 'Current')
@@ -494,7 +647,7 @@ export default function PremiumSubscriptionView({ onBack, userType = 'driver' }:
               
               <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
                 <Button
-                  onClick={handleUpgrade}
+                  onClick={() => handleUpgrade(mappedFromBackend?.find(p => !p.current))}
                   disabled={isUpgrading}
                   size="lg"
                   className="h-14 px-8 bg-gradient-to-r from-primary via-green-600 to-blue-600 hover:from-primary/90 hover:via-green-600/90 hover:to-blue-600/90 text-white shadow-xl text-lg"
@@ -522,6 +675,157 @@ export default function PremiumSubscriptionView({ onBack, userType = 'driver' }:
           </Card>
         </motion.div>
       </div>
+
+      {/* Payment Dialog */}
+      <Dialog open={showPaymentDialog} onOpenChange={setShowPaymentDialog}>
+        <DialogContent className="bg-card/95 backdrop-blur-sm border-border/60 max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center space-x-2">
+              <CreditCard className="w-5 h-5 text-primary" />
+              <span>
+                {language === 'vi' ? 'Thanh Toán Gói Đăng Ký' : 'Subscription Payment'}
+              </span>
+            </DialogTitle>
+            <DialogDescription>
+              {language === 'vi' 
+                ? 'Chọn phương thức thanh toán để kích hoạt gói đăng ký'
+                : 'Select payment method to activate your subscription'}
+            </DialogDescription>
+          </DialogHeader>
+
+          {paymentStatus === 'pending' && selectedPlan && (
+            <div className="space-y-6 py-4">
+              {/* Plan Summary */}
+              <Card className="bg-gradient-to-r from-primary/5 to-green-500/5 border-primary/20">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="font-semibold text-lg">{selectedPlan.name}</h3>
+                      <p className="text-sm text-muted-foreground">
+                        {language === 'vi' ? 'Gói đăng ký hàng tháng' : 'Monthly subscription'}
+                      </p>
+                    </div>
+                    <Badge className="bg-primary text-white text-lg px-4 py-1">
+                      {formatCurrency(selectedPlan.price)}
+                    </Badge>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Payment Methods */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* VNPay */}
+                <div
+                  className={`p-6 rounded-lg border-2 cursor-pointer transition-all ${
+                    paymentMethod === 'vnpay'
+                      ? 'border-primary bg-primary/5 shadow-lg'
+                      : 'border-border hover:border-primary/50'
+                  }`}
+                  onClick={() => setPaymentMethod('vnpay')}
+                >
+                  <div className="flex items-start space-x-4">
+                    <CreditCard className={`w-8 h-8 ${paymentMethod === 'vnpay' ? 'text-primary' : 'text-muted-foreground'}`} />
+                    <div className="flex-1">
+                      <h4 className="font-semibold mb-1">VNPay</h4>
+                      <p className="text-sm text-muted-foreground">
+                        {language === 'vi' ? 'Thanh toán trực tuyến' : 'Online payment'}
+                      </p>
+                    </div>
+                    {paymentMethod === 'vnpay' && (
+                      <CheckCircle className="w-5 h-5 text-primary" />
+                    )}
+                  </div>
+                </div>
+
+                {/* Wallet */}
+                <div
+                  className={`p-6 rounded-lg border-2 cursor-pointer transition-all ${
+                    paymentMethod === 'wallet'
+                      ? 'border-primary bg-primary/5 shadow-lg'
+                      : 'border-border hover:border-primary/50'
+                  }`}
+                  onClick={() => setPaymentMethod('wallet')}
+                >
+                  <div className="flex items-start space-x-4">
+                    <QrCode className={`w-8 h-8 ${paymentMethod === 'wallet' ? 'text-primary' : 'text-muted-foreground'}`} />
+                    <div className="flex-1">
+                      <h4 className="font-semibold mb-1">
+                        {language === 'vi' ? 'Ví Điện Tử' : 'Digital Wallet'}
+                      </h4>
+                      <p className="text-sm text-muted-foreground">
+                        {language === 'vi' ? 'Thanh toán bằng ví' : 'Pay with wallet'}
+                      </p>
+                    </div>
+                    {paymentMethod === 'wallet' && (
+                      <CheckCircle className="w-5 h-5 text-primary" />
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Total */}
+              <div className="flex items-center justify-between p-4 bg-muted/30 rounded-lg">
+                <span className="font-semibold text-lg">
+                  {language === 'vi' ? 'Tổng cộng' : 'Total'}
+                </span>
+                <span className="text-2xl font-bold text-primary">
+                  {formatCurrency(selectedPlan.price)}
+                </span>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex justify-end space-x-3">
+                <Button variant="outline" onClick={handlePaymentCancel}>
+                  {language === 'vi' ? 'Hủy' : 'Cancel'}
+                </Button>
+                <Button
+                  onClick={handlePaymentConfirm}
+                  disabled={!paymentMethod}
+                  className="bg-primary hover:bg-primary/90"
+                >
+                  {language === 'vi' ? 'Thanh Toán' : 'Pay Now'}
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Processing Status */}
+          {paymentStatus === 'processing' && (
+            <div className="py-12 text-center">
+              <motion.div
+                animate={{ rotate: 360 }}
+                transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                className="w-16 h-16 mx-auto mb-4"
+              >
+                <Sparkles className="w-16 h-16 text-primary" />
+              </motion.div>
+              <h3 className="text-xl font-semibold mb-2">
+                {language === 'vi' ? 'Đang xử lý thanh toán...' : 'Processing payment...'}
+              </h3>
+              <p className="text-muted-foreground">
+                {language === 'vi' ? 'Vui lòng chờ trong giây lát' : 'Please wait a moment'}
+              </p>
+            </div>
+          )}
+
+          {/* Success Status */}
+          {paymentStatus === 'success' && (
+            <div className="py-12 text-center">
+              <div className="w-20 h-20 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+                <CheckCircle className="w-12 h-12 text-green-600 dark:text-green-400" />
+              </div>
+              <h3 className="text-xl font-semibold mb-2">
+                {language === 'vi' ? 'Thanh toán thành công!' : 'Payment successful!'}
+              </h3>
+              <p className="text-muted-foreground">
+                {language === 'vi' 
+                  ? 'Gói đăng ký của bạn đã được kích hoạt'
+                  : 'Your subscription has been activated'}
+              </p>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
