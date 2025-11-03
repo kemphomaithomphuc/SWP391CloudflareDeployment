@@ -365,6 +365,21 @@ public class OrderServiceImpl implements OrderService {
 
         order = orderRepository.save(order);
 
+        // ===== 11. TẠO NOTIFICATION CHO USER =====
+        // Tạo notification thông báo đặt chỗ thành công
+        if (order.getOrderId() != null) {
+            try {
+                notificationService.createBookingOrderNotification(
+                        order.getOrderId(),
+                        NotificationServiceImpl.NotificationEvent.BOOKING_SUCCESS,
+                        null
+                );
+            } catch (Exception e) {
+                // Log lỗi nhưng không làm fail transaction nếu notification thất bại
+                System.err.println("Lỗi khi tạo notification cho booking: " + e.getMessage());
+            }
+        }
+
         return order.getOrderId() != null ? convertToDTO(order) : null;
     }
 
