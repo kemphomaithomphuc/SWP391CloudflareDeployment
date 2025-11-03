@@ -26,4 +26,5 @@ public class AvailableTimeSlotDTO {
 
     // Chi phí ước tính
     private Double estimatedCost; // VND (energyToCharge × pricePerKwh)
+    private String slotType; // "FIXED" hoặc "MINI" - THÊM MỚI
 }

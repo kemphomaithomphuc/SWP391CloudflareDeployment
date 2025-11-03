@@ -37,9 +37,9 @@ public interface ChargingPointRepository extends JpaRepository<ChargingPoint, Lo
      * Tìm và lock charging point để tránh race condition khi booking
      * Sử dụng PESSIMISTIC_WRITE lock để đảm bảo chỉ 1 transaction có thể access tại 1 thời điểm
      */
-    @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("SELECT cp FROM ChargingPoint cp WHERE cp.chargingPointId = :chargingPointId")
-    Optional<ChargingPoint> findByIdWithLock(@Param("chargingPointId") Long chargingPointId);
+//    @Lock(LockModeType.PESSIMISTIC_WRITE)
+//    @Query("SELECT cp FROM ChargingPoint cp WHERE cp.chargingPointId = :chargingPointId")
+//    Optional<ChargingPoint> findByIdWithLock(@Param("chargingPointId") Long chargingPointId);
 
     @Query("SELECT cp FROM ChargingPoint cp WHERE cp.status = 'AVAILABLE' AND cp.connectorType IS NOT NULL")
     List<ChargingPoint> findAvailableChargingPointsWithConnectors();
@@ -65,4 +65,12 @@ public interface ChargingPointRepository extends JpaRepository<ChargingPoint, Lo
 
     // Tìm tất cả charging points của một station
     List<ChargingPoint> findByStation_StationId(Long stationId);
+    /**
+     * Tìm và lock charging point để tránh race condition khi booking
+     * Sử dụng PESSIMISTIC_WRITE lock để đảm bảo chỉ 1 transaction có thể access tại 1 thời điểm
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT cp FROM ChargingPoint cp WHERE cp.chargingPointId = :chargingPointId")
+    Optional<ChargingPoint> findByIdWithLock(@Param("chargingPointId") Long chargingPointId);
+
 }

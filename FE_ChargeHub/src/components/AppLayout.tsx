@@ -432,7 +432,7 @@ export default function AppLayout({
         {/* Main Content Area */}
         <main className="flex-1 overflow-auto bg-background app-layout-main">
           <ScrollArea className="h-full scrollbar-thin">
-            <div className="main-content-area min-h-full">
+            <div className="main-content-area min-h-full pt-20">
               {children}
             </div>
           </ScrollArea>

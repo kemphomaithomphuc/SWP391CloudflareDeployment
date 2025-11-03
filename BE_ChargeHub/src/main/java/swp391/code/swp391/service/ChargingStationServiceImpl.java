@@ -246,7 +246,12 @@ public class ChargingStationServiceImpl implements ChargingStationService {
         // Thêm latitude và longitude
         dto.setLatitude(chargingStation.getLatitude());
         dto.setLongitude(chargingStation.getLongitude());
-        dto.setStaff_id(chargingStation.getStaff_id());
+
+        // Nếu cần trả về thông tin staff, tạo StaffDTO riêng và map ở đây
+        // dto.setStaffList(chargingStation.getStaff_id().stream()
+        //     .map(staff -> new StaffDTO(...))
+        //     .collect(Collectors.toList()));
+
         return dto;
     }
 }

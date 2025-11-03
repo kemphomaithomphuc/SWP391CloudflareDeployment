@@ -47,4 +47,12 @@ public interface UserRepository extends JpaRepository<User, Long> {
     User getUserByEmail(String email);
 
     List<User> findByRole(User.UserRole role);
+
+    // ============= STAFF MANAGEMENT =============
+
+    // Tìm tất cả staff tại một trạm cụ thể
+    List<User> findByStation_StationId(Long stationId);
+
+    // Tìm staff theo role và status
+    List<User> findByRoleAndStatus(User.UserRole role, User.UserStatus status);
 }
