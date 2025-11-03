@@ -11,7 +11,6 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import swp391.code.swp391.dto.APIResponse;
 import swp391.code.swp391.dto.RevenueFilterRequestDTO;
-import swp391.code.swp391.dto.RevenueFilterRequestDTO;
 import swp391.code.swp391.dto.RevenueResponseDTO;
 import swp391.code.swp391.entity.Transaction;
 import swp391.code.swp391.service.RevenueService;
