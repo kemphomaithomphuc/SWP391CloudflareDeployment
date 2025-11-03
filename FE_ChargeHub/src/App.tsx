@@ -35,6 +35,7 @@ import RevenueView from "./components/RevenueView";
 import StaffManagementView from "./components/StaffManagementView";
 import UsageAnalyticsView from "./components/UsageAnalyticsView";
 import AdminChargerPostActivatingView from "./components/AdminChargerPostActivatingView";
+import IssueResolvementView from "./components/IssueResolvementView";
 import LanguageThemeControls from "./components/LanguageThemeControls";
 import RoleSelection from "./components/RoleSelection";
 import StaffProfileSetup from "./components/StaffProfileSetup";
@@ -48,7 +49,7 @@ import PremiumSubscriptionView from "./components/PremiumSubscriptionView";
 import { access } from "fs";
 import { checkAndRefreshToken } from "./services/api";
 
-type ViewType = "login" | "register" | "roleSelection" | "profileSetup" | "vehicleSetup" | "staffProfileSetup" | "educationSetup" | "dashboard" | "staffLogin" | "staffDashboard" | "staffHome" | "adminLogin" | "adminDashboard" | "systemConfig" | "adminMap" | "revenue" | "staffManagement" | "usageAnalytics" | "booking" | "history" | "analysis" | "reportIssue" | "wallet" | "notifications" | "staffNotifications" | "postActivating" | "adminChargerPostActivating" | "myBookings" | "chargingSession" | "stationManagement" | "premiumSubscription";
+type ViewType = "login" | "register" | "roleSelection" | "profileSetup" | "vehicleSetup" | "staffProfileSetup" | "educationSetup" | "dashboard" | "staffLogin" | "staffDashboard" | "staffHome" | "adminLogin" | "adminDashboard" | "systemConfig" | "adminMap" | "revenue" | "staffManagement" | "usageAnalytics" | "booking" | "history" | "analysis" | "reportIssue" | "wallet" | "notifications" | "staffNotifications" | "postActivating" | "adminChargerPostActivating" | "myBookings" | "chargingSession" | "stationManagement" | "premiumSubscription" | "issueResolvement";
 
 function AppContent() {
   const navigate = useNavigate();
@@ -88,6 +89,7 @@ function AppContent() {
   const switchToUsageAnalytics = () => setCurrentView("usageAnalytics");
   const switchToPostActivating = () => setCurrentView("postActivating");
   const switchToAdminChargerPostActivating = () => setCurrentView("adminChargerPostActivating");
+const switchToIssueResolvement = () => setCurrentView("issueResolvement");
   const switchToMyBookings = () => setCurrentView("myBookings");
   const switchToChargingSession = (bookingId: string) => {
     setCurrentBookingId(bookingId);
@@ -323,7 +325,7 @@ function AppContent() {
         );
 
       case "adminDashboard":
-        return <AdminDashboard onLogout={switchToLogin} onSystemConfig={switchToSystemConfig} onAdminMap={switchToAdminMap} onRevenue={switchToRevenue} onStaffManagement={switchToStaffManagement} onUsageAnalytics={switchToUsageAnalytics} onAdminChargerPostActivating={switchToAdminChargerPostActivating} />;
+        return <AdminDashboard onLogout={switchToLogin} onSystemConfig={switchToSystemConfig} onAdminMap={switchToAdminMap} onRevenue={switchToRevenue} onStaffManagement={switchToStaffManagement} onUsageAnalytics={switchToUsageAnalytics} onAdminChargerPostActivating={switchToAdminChargerPostActivating} onIssueResolvement={switchToIssueResolvement} />;
 
       case "systemConfig":
         return <SystemConfigView onBack={() => setCurrentView("adminDashboard")} />;
@@ -342,6 +344,9 @@ function AppContent() {
 
       case "adminChargerPostActivating":
         return <AdminChargerPostActivatingView onBack={() => setCurrentView("adminDashboard")} />;
+
+      case "issueResolvement":
+        return <IssueResolvementView onBack={() => setCurrentView("adminDashboard")} />;
 
       case "postActivating":
         return <PostActivatingView onBack={() => setCurrentView("staffDashboard")} />;
@@ -414,8 +419,8 @@ function AppContent() {
             <Login 
               onSwitchToRegister={switchToRegister} 
               onLogin={() => setCurrentView("dashboard")}
-              onStaffLogin={switchToStaffLogin}
-              onAdminLogin={switchToAdminLogin}
+              onStaffLogin={completeStaffLogin}
+              onAdminLogin={completeAdminLogin}
               onSwitchToRoleSelection={switchToRoleSelection}
               onSwitchToVehicleSetup={switchToVehicleSetup}
             />

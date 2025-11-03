@@ -176,21 +176,20 @@ export default function Login({ onSwitchToRegister, onLogin, onStaffLogin, onAdm
                 localStorage.setItem("token", accessToken);
                 localStorage.setItem("refreshToken", refreshToken || "");
 
-                let effectiveRole = "driver";
-
                 try {
+                    // Decode role from accessToken to route appropriately
+                    const decoded: any = jwtDecode(accessToken);
+                    const effectiveRole = (decoded?.role || decoded?.authorities || "driver").toString().toLowerCase();
 
                     if (userId) {
-                        
-                        localStorage.setItem("userId", userId.toString())
-
+                        localStorage.setItem("userId", userId.toString());
                         localStorage.setItem("registeredUserId", userId.toString());
-                    };
-                    localStorage.setItem("role", effectiveRole.toLowerCase());
-                    
-                    // Check user profile to determine next step
-                    console.log("Checking user profile for userId:", userId);
-                    await getUserProfileToContinue(userId);
+                    }
+                    localStorage.setItem("role", effectiveRole);
+
+                    // Check user profile or route by role
+                    console.log("Checking user profile for userId:", userId, "role:", effectiveRole);
+                    await getUserProfileToContinue(userId as any);
                 } catch (decodeErr: any) {
                     console.error("JWT decode failed:", decodeErr);
                     localStorage.setItem("role", "driver");
@@ -237,7 +236,21 @@ export default function Login({ onSwitchToRegister, onLogin, onStaffLogin, onAdm
             if (res.status === 200 && res.data) {
                 const userProfile = res.data;
                 console.log("Fetched user profile:", userProfile);
-                // Check if user needs to complete profile setup
+                // Determine role from profile API and route accordingly
+                try {
+                    const roleFromProfile = (userProfile?.data?.role || "driver").toString().toLowerCase();
+                    localStorage.setItem("role", roleFromProfile);
+                    if (roleFromProfile === "staff") {
+                        onStaffLogin?.();
+                        return;
+                    }
+                    if (roleFromProfile === "admin") {
+                        onAdminLogin?.();
+                        return;
+                    }
+                } catch {}
+
+                // Driver flow: Check if user needs to complete profile setup
                 
                 if (!userProfile.data.dateOfBirth) {
                     console.log("User needs profile completion");
@@ -257,17 +270,7 @@ export default function Login({ onSwitchToRegister, onLogin, onStaffLogin, onAdm
                 
                 // User profile is complete, proceed with normal login flow
                 console.log("User profile is complete, proceeding with login");
-                const role = localStorage.getItem("role")?.toLowerCase() || "driver";
-                
-                // if (role === "driver") {
-                //     onLogin?.();
-                // } else if (role === "staff") {
-                //     onStaffLogin?.();
-                // } else if (role === "admin") {
-                //     onAdminLogin?.();
-                // } else {
-                //     onLogin?.();
-                // }
+                onLogin?.();
             } else {
                 console.log("Invalid profile response, proceeding with default login");
                 // Fallback to default login flow
@@ -496,7 +499,6 @@ export default function Login({ onSwitchToRegister, onLogin, onStaffLogin, onAdm
         );
     }
 
-    const handleStaffLogin = () => onStaffLogin?.();
     const handleAdminLogin = () => onAdminLogin?.();
 
     return (
@@ -644,22 +646,7 @@ export default function Login({ onSwitchToRegister, onLogin, onStaffLogin, onAdm
                                 </div>
                             </div>
 
-                            <div className="space-y-2">
-                                <Button
-                                    variant="outline"
-                                    onClick={handleStaffLogin}
-                                    className="w-full h-10 bg-secondary/30 border-border/40 hover:bg-secondary/50 hover:border-border rounded-lg transition-all duration-200 text-sm"
-                                >
-                                    {t("Sign in to staff")}
-                                </Button>
-                                <Button
-                                    variant="outline"
-                                    onClick={handleAdminLogin}
-                                    className="w-full h-10 bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-800 hover:bg-red-100 dark:hover:bg-red-950/30 hover:border-red-300 dark:hover:border-red-700 rounded-lg transition-all duration-200 text-sm text-red-700 dark:text-red-300 font-medium"
-                                >
-                                    {t("Sign in to admin")}
-                                </Button>
-                            </div>
+                            {/* Admin button removed: admin routes by role after login */}
                         </div>
                     </div>
 
