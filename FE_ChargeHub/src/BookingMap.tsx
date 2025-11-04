@@ -21,7 +21,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 
 import { Slider } from "./components/ui/slider";
 
-import { Switch } from "./components/ui/switch";
 
 import { Separator } from "./components/ui/separator";
 
@@ -47,8 +46,6 @@ import {
     Clock,
 
     Battery,
-
-    Star,
 
     Navigation,
 
@@ -196,21 +193,24 @@ const extractSlotInfo = (slot: any) => {
         slot.chargingPointInfo?.connectorType?.typeName ||
         slot.chargingPointInfo?.connectorType ||
         'Standard';
-    
-    // Try to extract power output from multiple sources
-    const powerOutput = 
-        slot.powerOutput || 
-        slot.PowerOutput || 
-        slot.connectorType?.powerOutput || 
-        slot.connectorType?.PowerOutput ||
-        slot.chargingPointInfo?.powerOutput ||
-        slot.chargingPointInfo?.connectorType?.powerOutput ||
-        'N/A';
-    
+
+    // Try to extract power output from multiple sources and coerce to number
+    const rawPowerOutput =
+        slot.powerOutput ??
+        slot.PowerOutput ??
+        slot.connectorType?.powerOutput ??
+        slot.connectorType?.PowerOutput ??
+        slot.chargingPointInfo?.powerOutput ??
+        slot.chargingPointInfo?.connectorType?.powerOutput ??
+        null;
+    const powerOutput = typeof rawPowerOutput === 'number'
+        ? rawPowerOutput
+        : (rawPowerOutput != null && !isNaN(Number(rawPowerOutput)) ? Number(rawPowerOutput) : null);
+
     // Try to extract price per kWh from multiple sources
-    const pricePerKwh = 
-        slot.pricePerKwh || 
-        slot.PricePerKwh || 
+    const pricePerKwh =
+        slot.pricePerKwh ||
+        slot.PricePerKwh ||
         slot.connectorType?.PricePerKwh ||
         slot.connectorType?.pricePerKwh ||
         slot.chargingPointInfo?.pricePerKwh ||
@@ -306,7 +306,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
     // Charging configuration states
     const [isChargingConfigOpen, setIsChargingConfigOpen] = useState(false);
     const [configStation, setConfigStation] = useState<ChargingStation | null>(null);
-    const [initialBatteryLevel, setInitialBatteryLevel] = useState(75);
+    const [initialBatteryLevel, setInitialBatteryLevel] = useState(20);
     const [targetBatteryLevelConfig, setTargetBatteryLevelConfig] = useState(80);
     const [chargingStartTimeInput, setChargingStartTimeInput] = useState("");
     const [chargingEndTime, setChargingEndTime] = useState("");
@@ -5184,8 +5184,8 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                                                                 <p className="text-sm font-medium">{connectorTypeName}</p>
                                                             </div>
                                                             <p className="text-xs text-muted-foreground mt-1">
-                                                                {powerOutput !== 'N/A' ? `${powerOutput} kW` : 'Power N/A'} • 
-                                                                {pricePerKwh !== 'N/A' ? ` ${pricePerKwh} VND/kWh` : ' Price N/A'}
+                                                                {powerOutput !== null ? `${powerOutput} kW` : 'Power N/A'} •
+                                                                {pricePerKwh !== null ? ` ${pricePerKwh} VND/kWh` : ' Price N/A'}
                                                             </p>
                                                             {/* Show time availability if connector info is not available */}
                                                             {connectorTypeName === 'Standard' && (slot.freeFrom || slot.freeTo) && (
@@ -5398,16 +5398,53 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                                         <Input
                                             type="time"
                                             value={chargingStartTimeInput}
-                                            onChange={(e) => setChargingStartTimeInput(e.target.value)}
+                                            onChange={(e) => {
+                                                setChargingStartTimeInput(e.target.value);
+                                                // Trigger slots popup when time is selected
+                                                if (e.target.value) {
+                                                    handleStartTimeSelection(e.target.value);
+                                                }
+                                            }}
                                             className="w-32 h-10 text-center text-lg font-medium border-2 border-primary rounded-lg focus:ring-2 focus:ring-primary/20"
                                             placeholder="HH:MM"
                                         />
                                         {chargingStartTimeInput && (
                                             <div className="text-xs text-muted-foreground text-center">
-                                                {language === 'vi' ? 'Thời gian phải ít nhất 2 tiếng sau hiện tại' : 'Time must be at least 2 hours from now'}
+                                                {language === 'vi' ? 'Thời gian phải ít nhất 30 phút sau hiện tại' : 'Time must be at least 30 minutes from now'}
                                             </div>
                                         )}
                                     </div>
+
+                                    {/* Show selected slot info if already selected */}
+                                    {selectedSlot && (
+                                        <div className="bg-primary/10 rounded-lg p-3 mt-2">
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex-1">
+                                                    <div className="flex items-center space-x-2">
+                                                        <Zap className="w-4 h-4 text-primary" />
+                                                        <p className="text-sm font-medium">
+                                                            {extractSlotInfo(selectedSlot).connectorTypeName}
+                                                        </p>
+                                                    </div>
+                                                    <p className="text-xs text-muted-foreground mt-1">
+                                                        {language === 'vi' ? 'Slot đã chọn' : 'Selected slot'}
+                                                    </p>
+                                                </div>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    onClick={() => {
+                                                        setSelectedSlot(null);
+                                                        if (chargingStartTimeInput) {
+                                                            handleStartTimeSelection(chargingStartTimeInput);
+                                                        }
+                                                    }}
+                                                >
+                                                    {language === 'vi' ? 'Đổi slot' : 'Change slot'}
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             )}
 
@@ -5419,10 +5456,23 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                     <div className="flex-shrink-0 flex space-x-2 pt-4 pb-4 px-6 border-t bg-background">
                         <Button
                             onClick={async () => {
-                                // Validate slot selection
-                                if (!selectedSlot) {
-                                    toast.error(language === 'vi' ? 'Vui lòng chọn slot' : 'Please select a slot');
-                                    return;
+                                // For Book Now: auto-select first available slot
+                                let slotToUse = selectedSlot;
+                                if (bookingMode === "now") {
+                                    if (availableSlots.length === 0) {
+                                        toast.error(language === 'vi' ? 'Không có slot khả dụng' : 'No available slots');
+                                        return;
+                                    }
+                                    // Auto-select first slot for Book Now
+                                    slotToUse = availableSlots[0];
+                                    console.log("Auto-selected first slot for Book Now:", slotToUse);
+                                } else {
+                                    // For Schedule: must have selected slot
+                                    if (!selectedSlot) {
+                                        toast.error(language === 'vi' ? 'Vui lòng chọn slot' : 'Please select a slot');
+                                        return;
+                                    }
+                                    slotToUse = selectedSlot;
                                 }
 
                                 // Validate time for scheduled booking
@@ -5432,7 +5482,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                                         return;
                                     }
 
-                                    // Check if time is at least 2 hours from now
+                                    // Check if time is at least 30 minutes from now
                                     const now = new Date();
                                     const selectedTime = new Date();
                                     const [hours, minutes] = chargingStartTimeInput.split(':').map(Number);
@@ -5497,15 +5547,20 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                                 if (bookingMode === "now") {
                                     // For "Book Now", use current Vietnam time as start time
                                     console.log("=== BOOK NOW MODE ===");
-                                    finalStartTime = new Date(vietnamTime); // Use current Vietnam time
-                                    
-                                    // Calculate duration from selected slot
-                                    const durationMinutes = selectedSlot?.requiredMinutes || 60;
+                                    // Server requires minimum 30 minutes lead time → apply 30m buffer
+                                    finalStartTime = new Date(vietnamTime.getTime() + 30 * 60 * 1000);
+
+                                    // Calculate duration from auto-selected slot
+                                    const rawRequired = Number(slotToUse?.requiredMinutes);
+                                    const minDuration = 30; // Backend minimum booking duration in minutes
+                                    const durationMinutes = Number.isFinite(rawRequired) && rawRequired > 0
+                                        ? Math.max(rawRequired, minDuration)
+                                        : minDuration;
                                     finalEndTime = new Date(finalStartTime.getTime() + durationMinutes * 60000);
                                     
                                     console.log("Book Now - UTC Current time:", now.toISOString());
                                     console.log("Book Now - Vietnam Current time:", vietnamTime.toISOString());
-                                    console.log("Book Now - Start time (same as Vietnam current):", finalStartTime.toISOString());
+                                    console.log("Book Now - Start time (with 30m buffer):", finalStartTime.toISOString());
                                     console.log("Book Now - End time:", finalEndTime.toISOString());
                                     console.log("Book Now - Duration (minutes):", durationMinutes);
                                     
@@ -5540,7 +5595,11 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                                     }
                                     
                                     // Calculate end time
-                                    const durationMinutes = selectedSlot?.requiredMinutes || 60;
+                                    const rawRequired = Number(slotToUse?.requiredMinutes);
+                                    const minDuration = 30; // Backend minimum booking duration in minutes
+                                    const durationMinutes = Number.isFinite(rawRequired) && rawRequired > 0
+                                        ? Math.max(rawRequired, minDuration)
+                                        : minDuration;
                                     finalEndTime = new Date(finalStartTime.getTime() + durationMinutes * 60000);
                                     
                                     console.log("Scheduled - UTC Current time:", now.toISOString());
@@ -5576,19 +5635,19 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                                 const userId = parseInt(localStorage.getItem('userId') || '0');
                                 
                                 // Extract charging point ID and connector type ID with comprehensive fallbacks
-                                const chargingPointId = selectedSlot?.chargingPointId || 
-                                                       selectedSlot?.chargingPointInfo?.id ||
-                                                       selectedSlot?.chargingPointInfo?.chargingPointId;
-                                
+                                const chargingPointId = slotToUse?.chargingPointId ||
+                                    slotToUse?.chargingPointInfo?.id ||
+                                    slotToUse?.chargingPointInfo?.chargingPointId;
+
                                 // Try multiple ways to extract connectorTypeId
-                                let connectorTypeId = selectedSlot?.connectorType?.ConnectorTypeId || 
-                                                     selectedSlot?.connectorType?.connectorTypeId ||
-                                                    selectedSlot?.connectorType?.id ||
-                                                     selectedSlot?.chargingPointInfo?.connectorType?.ConnectorTypeId ||
-                                                    selectedSlot?.chargingPointInfo?.connectorType?.connectorTypeId ||
-                                                    selectedSlot?.chargingPointInfo?.connectorType?.id ||
-                                                    selectedSlot?.chargingPointInfo?.connectorTypeId;
-                                
+                                let connectorTypeId = slotToUse?.connectorType?.ConnectorTypeId ||
+                                    slotToUse?.connectorType?.connectorTypeId ||
+                                    slotToUse?.connectorType?.id ||
+                                    slotToUse?.chargingPointInfo?.connectorType?.ConnectorTypeId ||
+                                    slotToUse?.chargingPointInfo?.connectorType?.connectorTypeId ||
+                                    slotToUse?.chargingPointInfo?.connectorType?.id ||
+                                    slotToUse?.chargingPointInfo?.connectorTypeId;
+
                                 // If still undefined, try to get it from the connector type name mapping
                                 if (!connectorTypeId && selectedSlot?.chargingPointInfo?.connectorType) {
                                     const connectorTypeName = selectedSlot.chargingPointInfo.connectorType;
@@ -5671,13 +5730,15 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                                 };
                                 
                                 console.log("=== BOOKING DATA DEBUG ===");
+                                console.log("Booking mode:", bookingMode);
                                 console.log("Selected slot:", selectedSlot);
-                                console.log("Selected slot chargingPointId:", selectedSlot?.chargingPointId);
-                                console.log("Selected slot chargingPointInfo:", selectedSlot?.chargingPointInfo);
-                                console.log("Selected slot chargingPointInfo.id:", selectedSlot?.chargingPointInfo?.id);
+                                console.log("Slot to use (auto or manual):", slotToUse);
+                                console.log("Slot chargingPointId:", slotToUse?.chargingPointId);
+                                console.log("Slot chargingPointInfo:", slotToUse?.chargingPointInfo);
+                                console.log("Slot chargingPointInfo.id:", slotToUse?.chargingPointInfo?.id);
                                 console.log("Extracted chargingPointId:", chargingPointId);
-                                console.log("Selected slot connectorType:", selectedSlot?.connectorType);
-                                console.log("Selected slot chargingPointInfo.connectorType:", selectedSlot?.chargingPointInfo?.connectorType);
+                                console.log("Slot connectorType:", slotToUse?.connectorType);
+                                console.log("Slot chargingPointInfo.connectorType:", slotToUse?.chargingPointInfo?.connectorType);
                                 console.log("Extracted connectorTypeId:", connectorTypeId);
                                 console.log("Current vehicle:", selectedVehicleForBooking);
                                 console.log("Full selectedSlot structure:", JSON.stringify(selectedSlot, null, 2));
@@ -5767,7 +5828,11 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                                 }
                             }}
                             className="flex-1"
-                            disabled={!selectedSlot || (bookingMode === "scheduled" && (!chargingStartTimeInput || targetBatteryLevelConfig <= initialBatteryLevel))}
+                            disabled={
+                                targetBatteryLevelConfig <= initialBatteryLevel ||
+                                (bookingMode === "now" && availableSlots.length === 0) ||
+                                (bookingMode === "scheduled" && (!chargingStartTimeInput || !selectedSlot))
+                            }
                         >
                             <CheckCircle className="w-4 h-4 mr-2" />
                             {language === 'vi' ? 'Xác nhận' : 'Confirm'}
@@ -5953,12 +6018,16 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                                 {filteredSlots.map((slot, index) => {
                                     const { connectorTypeName, powerOutput, pricePerKwh } = extractSlotInfo(slot);
                                     
-                                    // Calculate charging duration
+                                    // Calculate charging duration: prefer backend requiredMinutes if available
                                     const batteryDifference = targetBatteryLevelConfig - initialBatteryLevel;
                                     const vehicleCapacity = (selectedVehicle || selectedVehicleRef.current)?.capacity || 50;
                                     const energyToCharge = (batteryDifference / 100) * vehicleCapacity;
-                                    const chargingDuration = slot.requiredMinutes || Math.ceil((energyToCharge / (powerOutput || 50)) * 60 * 1.15);
-                                    
+                                    const backendRequired = Number(slot?.requiredMinutes);
+                                    const numericPower = (typeof powerOutput === 'number' && powerOutput > 0) ? powerOutput : 22; // default 22kW if unknown
+                                    const chargingDuration = (Number.isFinite(backendRequired) && backendRequired > 0)
+                                        ? backendRequired
+                                        : Math.ceil((energyToCharge / numericPower) * 60);
+
                                     // Calculate end time
                                     const startTime = slot.freeFrom ? new Date(slot.freeFrom) : new Date();
                                     const endTime = new Date(startTime.getTime() + chargingDuration * 60000);
@@ -5988,7 +6057,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                                                         <Zap className="w-4 h-4 text-primary" />
                                                         <p className="text-sm font-medium">{connectorTypeName}</p>
                                                         <Badge variant="outline" className="text-xs">
-                                                            {powerOutput !== 'N/A' ? `${powerOutput} kW` : 'Power N/A'}
+                                                            {powerOutput !== null ? `${powerOutput} kW` : 'Power N/A'}
                                                         </Badge>
                                                     </div>
                                                     
@@ -5998,10 +6067,10 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                                                                 {language === 'vi' ? 'Thời gian bắt đầu:' : 'Start Time:'}
                                                             </p>
                                                             <p className="font-medium">
-                                                                {startTime.toLocaleTimeString('en-US', { 
-                                                                    hour: '2-digit', 
+                                                                {startTime.toLocaleTimeString('en-US', {
+                                                                    hour: '2-digit',
                                                                     minute: '2-digit',
-                                                                    hour12: true 
+                                                                    hour12: true
                                                                 })}
                                                             </p>
                                                         </div>

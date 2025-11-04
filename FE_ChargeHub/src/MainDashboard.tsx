@@ -506,7 +506,7 @@ export default function MainDashboard({ onLogout, onBooking, onHistory, onAnalys
 
                   <div 
                     className="bg-card rounded-2xl p-6 border border-border hover:shadow-lg hover:border-primary/50 transition-all cursor-pointer"
-                    onClick={() => setActiveSection("subscription")}
+                    onClick={onPremiumSubscription}
                   >
                     <CreditCard className="w-8 h-8 text-primary mb-4" />
                     <h3 className="font-semibold text-foreground mb-2">
