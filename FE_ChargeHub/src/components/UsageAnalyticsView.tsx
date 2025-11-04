@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { ArrowLeft, RefreshCw, TrendingUp, Clock, BarChart3, Filter, ChevronDown } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { ArrowLeft, RefreshCw, TrendingUp, Clock, BarChart3, Filter } from 'lucide-react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
@@ -9,6 +9,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import AdminLanguageThemeControls from './AdminLanguageThemeControls';
+import axios from 'axios';
 
 // Mock data for station frequency analysis
 const stationFrequencyData = [
@@ -79,33 +80,7 @@ const stationFrequencyData = [
   }
 ];
 
-// Mock data for peak hours analysis
-const peakHoursData = [
-  { hour: '00:00', sessions: 12, avgDuration: 45 },
-  { hour: '01:00', sessions: 8, avgDuration: 50 },
-  { hour: '02:00', sessions: 5, avgDuration: 55 },
-  { hour: '03:00', sessions: 3, avgDuration: 60 },
-  { hour: '04:00', sessions: 4, avgDuration: 58 },
-  { hour: '05:00', sessions: 8, avgDuration: 48 },
-  { hour: '06:00', sessions: 25, avgDuration: 35 },
-  { hour: '07:00', sessions: 45, avgDuration: 30 },
-  { hour: '08:00', sessions: 68, avgDuration: 28 },
-  { hour: '09:00', sessions: 52, avgDuration: 32 },
-  { hour: '10:00', sessions: 38, avgDuration: 40 },
-  { hour: '11:00', sessions: 42, avgDuration: 38 },
-  { hour: '12:00', sessions: 55, avgDuration: 35 },
-  { hour: '13:00', sessions: 48, avgDuration: 37 },
-  { hour: '14:00', sessions: 35, avgDuration: 42 },
-  { hour: '15:00', sessions: 40, avgDuration: 38 },
-  { hour: '16:00', sessions: 65, avgDuration: 30 },
-  { hour: '17:00', sessions: 85, avgDuration: 25 },
-  { hour: '18:00', sessions: 95, avgDuration: 22 },
-  { hour: '19:00', sessions: 78, avgDuration: 28 },
-  { hour: '20:00', sessions: 62, avgDuration: 35 },
-  { hour: '21:00', sessions: 45, avgDuration: 40 },
-  { hour: '22:00', sessions: 32, avgDuration: 42 },
-  { hour: '23:00', sessions: 20, avgDuration: 45 }
-];
+// peak hours data sẽ lấy từ API và xử lý vào state
 
 // Mock data for trend analysis
 const trendAnalysisData = {
@@ -129,14 +104,60 @@ interface UsageAnalyticsViewProps {
   onBack: () => void;
 }
 
-export default function UsageAnalyticsView({ onBack }: UsageAnalyticsViewProps) {
+interface PeakHour {
+  hour: number;
+  timeRange: string;
+  sessionCount: number;
+  totalEnergy: number;
+  averageEnergy: number;
+  totalRevenue: number;
+  peakLevel: string;
+  percentageOfDaily: number;
+}
+
+interface Trend {
+  date: string;
+  period: string;
+  totalSessions: number;
+  totalEnergy: number;
+  totalRevenue: number;
+  averageSessionDuration: number;
+  averageEnergyPerSession: number;
+  uniqueUsers: number;
+  peakHour: number;
+}
+
+interface DashBoard {
+  sessionId: number;
+  userId: number;
+  userName: number;
+  stationId: number;
+  stationName: string;
+  chargingPointId: number;
+  connectorType: string;
+  startTime: string;
+  endTime: string;
+  energyConsumed: number;
+  totalCost: number;
+  status: string;
+  duration: number;
+  vehicleModel: string;
+}
+
+export default function UsageAnalyticsView({ onBack }: Readonly<UsageAnalyticsViewProps>) {
   const { language } = useLanguage();
   const { theme } = useTheme();
   const [selectedLocation, setSelectedLocation] = useState('all');
   const [selectedTimeRange, setSelectedTimeRange] = useState('week');
   const [selectedStation, setSelectedStation] = useState('ST001');
-  const [trendPeriod, setTrendPeriod] = useState('week');
+  // removed legacy trendPeriod (mock)
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [peakChartData, setPeakChartData] = useState<Array<{ timeRange: string; sessions: number; totalEnergy: number; averageEnergy: number }>>([]);
+  const [topTimeRange, setTopTimeRange] = useState<string>('');
+  const [topSessions, setTopSessions] = useState<number>(0);
+  const [trendRaw, setTrendRaw] = useState<Trend[]>([]);
+  const [trendFilter, setTrendFilter] = useState<'yesterday' | 'lastWeek' | 'lastMonth' | 'lastYear'>('lastWeek');
+  const [trendFiltered, setTrendFiltered] = useState<Trend[]>([]);
 
   const isVietnamese = language === 'vi';
 
@@ -196,25 +217,284 @@ export default function UsageAnalyticsView({ onBack }: UsageAnalyticsViewProps) 
     setTimeout(() => setIsRefreshing(false), 2000);
   };
 
-  // Filter stations by location
-  const filteredStations = selectedLocation === 'all' 
-    ? stationFrequencyData 
-    : stationFrequencyData.filter(station => station.location === selectedLocation);
+  // Dashboard stations derived from analyzeDashboard
+  type StationAgg = {
+    stationId: number;
+    stationName: string;
+    totalSessions: number;
+    totalEnergy: number;
+    totalRevenue: number;
+    uniqueUsers: number;
+    connectorTypes: string[];
+    averageSessionDuration: number;
+    lastActive: string;
+  };
+  const [dashboardStations, setDashboardStations] = useState<StationAgg[]>([]);
 
-  // Sort stations by total sessions
+  // Filter by stationName from dashboardStations
+  const filteredStations = selectedLocation === 'all'
+    ? dashboardStations
+    : dashboardStations.filter(st => st.stationName === selectedLocation);
+
+  // Sort by totalSessions desc
   const sortedStations = [...filteredStations].sort((a, b) => b.totalSessions - a.totalSessions);
 
-  // Get selected station data for peak hours
-  const selectedStationData = stationFrequencyData.find(station => station.id === selectedStation);
+  // For header subtitle in Peak Hours, use the first selected station (if any)
+  const selectedStationData = sortedStations[0];
 
-  // Get trend data based on selected period
-  const currentTrendData = trendPeriod === 'week' ? trendAnalysisData.weekOverWeek : trendAnalysisData.monthOverMonth;
+  // Removed mock trend aggregation; using real trendFiltered data below
+  
+  //call Api
+  const analyzePeakHour = async() : Promise<PeakHour[] | null> => {
+    const token = localStorage.getItem("token");
+    try {
+      const res = await axios.get("http://localhost:8080/api/analytics/peak-hours", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      })
+      if (res.status === 200) {
+        const raw = (res.data?.data ?? res.data) as any[];
+        return raw.map((peakHour) => ({
+          hour: Number(peakHour.hour ?? 0),
+          timeRange: String(peakHour.timeRange ?? ''),
+          sessionCount: Number(peakHour.sessionCount ?? 0),
+          totalEnergy: Number(peakHour.totalEnergy ?? 0),
+          averageEnergy: Number(peakHour.averageEnergy ?? 0),
+          totalRevenue: Number(peakHour.totalRevenue ?? 0),
+          peakLevel: String(peakHour.peakLevel ?? ''),
+          percentageOfDaily: Number(peakHour.percentageOfDaily ?? 0)
+        })) as PeakHour[]
+      }
+    } catch (err: any) {
+      // eslint-disable-next-line no-console
+      console.error('analyzePeakHour failed', err);
+      return null;
+    }
+    return null;
+  }
 
-  // Calculate summary statistics
-  const avgGrowthRate = currentTrendData.reduce((sum, item) => sum + item.growth, 0) / currentTrendData.length;
-  const totalCurrentPeriod = currentTrendData.reduce((sum, item) => sum + item.currentWeek || item.currentYear, 0);
-  const totalPreviousPeriod = currentTrendData.reduce((sum, item) => sum + item.previousWeek || item.previousYear, 0);
-  const totalIncrease = ((totalCurrentPeriod - totalPreviousPeriod) / totalPreviousPeriod * 100);
+  // Build dashboard station aggregates from recentSessions
+  useEffect(() => {
+    let isMounted = true;
+    (async () => {
+      const recent = await analyzeDashboard();
+      if (!isMounted || !recent) return;
+      const byStation = new Map<number, {
+        stationName: string;
+        totalSessions: number;
+        totalEnergy: number;
+        totalRevenue: number;
+        userIds: Set<number>;
+        connectorTypes: Set<string>;
+        durationSum: number;
+        count: number;
+        lastActive: string;
+      }>();
+      for (const s of recent) {
+        const cur = byStation.get(s.stationId) ?? {
+          stationName: s.stationName,
+          totalSessions: 0,
+          totalEnergy: 0,
+          totalRevenue: 0,
+          userIds: new Set<number>(),
+          connectorTypes: new Set<string>(),
+          durationSum: 0,
+          count: 0,
+          lastActive: ''
+        };
+        cur.totalSessions += 1;
+        cur.totalEnergy += Number(s.energyConsumed || 0);
+        cur.totalRevenue += Number(s.totalCost || 0);
+        cur.userIds.add(Number(s.userId || 0));
+        if (s.connectorType) cur.connectorTypes.add(String(s.connectorType));
+        cur.durationSum += Number(s.duration || 0);
+        cur.count += 1;
+        const endTime = String(s.endTime || s.startTime || '');
+        if (!cur.lastActive || (endTime && new Date(endTime) > new Date(cur.lastActive))) {
+          cur.lastActive = endTime;
+        }
+        byStation.set(s.stationId, cur);
+      }
+      const agg: StationAgg[] = Array.from(byStation.entries()).map(([stationId, v]) => ({
+        stationId,
+        stationName: v.stationName,
+        totalSessions: v.totalSessions,
+        totalEnergy: Number(v.totalEnergy.toFixed(2)),
+        totalRevenue: Number(v.totalRevenue.toFixed(2)),
+        uniqueUsers: v.userIds.size,
+        connectorTypes: Array.from(v.connectorTypes),
+        averageSessionDuration: v.count ? Number((v.durationSum / v.count).toFixed(1)) : 0,
+        lastActive: v.lastActive
+      }));
+      setDashboardStations(agg);
+    })();
+    return () => { isMounted = false };
+  }, []);
+
+  const analyzeTrend = async() : Promise<Trend[] | null> => {
+    const token = localStorage.getItem("token");
+    try {
+      const res = await axios.get("http://localhost:8080/api/analytics/trends", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      if (res.status === 200) {
+        const raw = (res.data?.data ?? res.data) as any[];
+        return raw.map((trend) => ({
+          date: String(trend.date),
+          period: String(trend.period ?? ''),
+          totalSessions: Number(trend.totalSessions ?? 0),
+          totalEnergy: Number(trend.totalEnergy ?? 0),
+          totalRevenue: Number(trend.totalRevenue ?? 0),
+          averageSessionDuration: Number(trend.averageSessionDuration ?? 0),
+          averageEnergyPerSession: Number(trend.averageEnergyPerSession ?? 0),
+          uniqueUsers: Number(trend.uniqueUsers ?? 0),
+          peakHour: Number(trend.peakHour ?? 0)
+        })) as Trend[]
+      }
+    } catch (err: any) {
+      // eslint-disable-next-line no-console
+      console.error('analyzeTrend failed', err);
+    }
+    return null;
+  }
+
+  const analyzeDashboard = async() : Promise<DashBoard[] | null> => {
+    const token = localStorage.getItem("token");
+    try {
+      const res = await axios.get("http://localhost:8080/api/analytics/dashboard", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      })
+      if (res.status === 200) {
+        const data = res.data?.data ?? res.data;
+        const recent = Array.isArray(data?.recentSessions) ? data.recentSessions : [];
+        const mapped: DashBoard[] = recent.map((s: any) => ({
+          sessionId: Number(s.sessionId ?? 0),
+          userId: Number(s.userId ?? 0),
+          userName: String(s.userName ?? ''),
+          stationId: Number(s.stationId ?? 0),
+          stationName: String(s.stationName ?? ''),
+          chargingPointId: Number(s.chargingPointId ?? 0),
+          connectorType: String(s.connectorType ?? ''),
+          startTime: String(s.startTime ?? ''),
+          endTime: String(s.endTime ?? ''),
+          energyConsumed: Number(s.energyConsumed ?? 0),
+          totalCost: Number(s.totalCost ?? 0),
+          status: String(s.status ?? ''),
+          duration: Number(s.duration ?? 0),
+          vehicleModel: String(s.vehicleModel ?? '')
+        }));
+        return mapped;
+      }
+    } catch (err: any) {
+      // eslint-disable-next-line no-console
+      console.error('analyzeDashboard failed', err);
+      return null;
+    }
+    return null;
+  }
+
+  const filterTrendsByDate = (data: Trend[], key: 'yesterday' | 'lastWeek' | 'lastMonth' | 'lastYear'): Trend[] => {
+    const today = new Date();
+    let start: Date;
+    switch (key) {
+      case 'yesterday': {
+        const d = new Date(today);
+        d.setDate(d.getDate() - 1);
+        start = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+        const end = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1);
+        return data.filter(t => {
+          const td = new Date(t.date);
+          return td >= start && td < end;
+        }).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+      }
+      case 'lastWeek': {
+        start = new Date(today);
+        start.setDate(start.getDate() - 7);
+        break;
+      }
+      case 'lastMonth': {
+        start = new Date(today);
+        start.setMonth(start.getMonth() - 1);
+        break;
+      }
+      case 'lastYear': {
+        start = new Date(today);
+        start.setFullYear(start.getFullYear() - 1);
+        break;
+      }
+      default: {
+        start = new Date(today);
+        start.setDate(start.getDate() - 7);
+      }
+    }
+    return data
+      .filter(t => new Date(t.date) >= start)
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  };
+
+  useEffect(() => {
+    let isMounted = true;
+    (async () => {
+      const peak = await analyzePeakHour();
+      if (!isMounted || !peak) return;
+      // Gộp theo timeRange để lấy tần suất (sessions) và năng lượng
+      const byRange = new Map<string, { sessions: number; totalEnergy: number; avgSum: number; count: number }>();
+      for (const p of peak) {
+        const key = p.timeRange || '';
+        const cur = byRange.get(key) ?? { sessions: 0, totalEnergy: 0, avgSum: 0, count: 0 };
+        cur.sessions += Number(p.sessionCount || 0);
+        cur.totalEnergy += Number(p.totalEnergy || 0);
+        cur.avgSum += Number(p.averageEnergy || 0);
+        cur.count += 1;
+        byRange.set(key, cur);
+      }
+      const chart = Array.from(byRange.entries()).map(([timeRange, v]) => ({
+        timeRange,
+        sessions: v.sessions,
+        totalEnergy: Number(v.totalEnergy.toFixed(2)),
+        averageEnergy: v.count ? Number((v.avgSum / v.count).toFixed(2)) : 0,
+      })).sort((a, b) => a.timeRange.localeCompare(b.timeRange));
+
+      // timeRange xuất hiện nhiều nhất theo sessions
+      let top = '';
+      let topSess = 0;
+      for (const item of chart) {
+        if (item.sessions > topSess) {
+          topSess = item.sessions;
+          top = item.timeRange;
+        }
+      }
+      setPeakChartData(chart);
+      setTopTimeRange(top);
+      setTopSessions(topSess);
+    })();
+    return () => { isMounted = false };
+  }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+    (async () => {
+      const t = await analyzeTrend();
+      if (!isMounted || !t) return;
+      const sorted = [...t].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+      setTrendRaw(sorted);
+      setTrendFiltered(filterTrendsByDate(sorted, trendFilter));
+    })();
+    return () => { isMounted = false };
+  }, []);
+
+  useEffect(() => {
+    if (!trendRaw.length) return;
+    setTrendFiltered(filterTrendsByDate(trendRaw, trendFilter));
+  }, [trendFilter, trendRaw]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-blue-950">
@@ -265,66 +545,36 @@ export default function UsageAnalyticsView({ onBack }: UsageAnalyticsViewProps) 
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div>
                 <label className="block text-sm font-medium mb-2 text-blue-900 dark:text-blue-100">
-                  {translations.location}
+                  {translations.station}
                 </label>
                 <Select value={selectedLocation} onValueChange={setSelectedLocation}>
-                  <SelectTrigger className="border-blue-200 dark:border-blue-800">
+                  <SelectTrigger className="border-blue-200 dark:border-blue-800" aria-label="Station Filter">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">{translations.allLocations}</SelectItem>
-                    <SelectItem value="hanoi">{translations.hanoi}</SelectItem>
-                    <SelectItem value="hcm">{translations.hcm}</SelectItem>
-                    <SelectItem value="danang">{translations.danang}</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-2 text-blue-900 dark:text-blue-100">
-                  {translations.timeRange}
-                </label>
-                <Select value={selectedTimeRange} onValueChange={setSelectedTimeRange}>
-                  <SelectTrigger className="border-blue-200 dark:border-blue-800">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="week">{translations.lastWeek}</SelectItem>
-                    <SelectItem value="month">{translations.lastMonth}</SelectItem>
-                    <SelectItem value="quarter">{translations.last3Months}</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-2 text-blue-900 dark:text-blue-100">
-                  {translations.station} ({translations.peakHours})
-                </label>
-                <Select value={selectedStation} onValueChange={setSelectedStation}>
-                  <SelectTrigger className="border-blue-200 dark:border-blue-800">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {stationFrequencyData.map((station) => (
-                      <SelectItem key={station.id} value={station.id}>
-                        {station.name}
-                      </SelectItem>
+                    {dashboardStations.map(st => (
+                      <SelectItem key={st.stationId} value={st.stationName}>{st.stationName}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
 
+              
+
               <div>
                 <label className="block text-sm font-medium mb-2 text-blue-900 dark:text-blue-100">
-                  {translations.trendAnalysis}
+                  Analytics Period
                 </label>
-                <Select value={trendPeriod} onValueChange={setTrendPeriod}>
-                  <SelectTrigger className="border-blue-200 dark:border-blue-800">
+                <Select value={trendFilter} onValueChange={(v: 'yesterday' | 'lastWeek' | 'lastMonth' | 'lastYear') => setTrendFilter(v)}>
+                  <SelectTrigger className="border-blue-200 dark:border-blue-800" aria-label="Analytics Period">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="week">{translations.weekOverWeek}</SelectItem>
-                    <SelectItem value="month">{translations.monthOverMonth}</SelectItem>
+                    <SelectItem value="yesterday">Yesterday</SelectItem>
+                    <SelectItem value="lastWeek">Last Week</SelectItem>
+                    <SelectItem value="lastMonth">Last Month</SelectItem>
+                    <SelectItem value="lastYear">Last Year</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -334,7 +584,7 @@ export default function UsageAnalyticsView({ onBack }: UsageAnalyticsViewProps) 
 
         {/* Main Analytics Sections */}
         <div className="space-y-6">
-          {/* 1. Station Frequency Section */}
+          {/* 1. Station Frequency Section (from analyzeDashboard) */}
           <Card className="border-blue-200 dark:border-blue-800">
             <CardHeader>
               <CardTitle className="text-blue-900 dark:text-blue-100 flex items-center gap-2">
@@ -348,24 +598,17 @@ export default function UsageAnalyticsView({ onBack }: UsageAnalyticsViewProps) 
             <CardContent>
               <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
                 {sortedStations.map((station, index) => (
-                  <div key={station.id} className="p-4 bg-blue-50 dark:bg-blue-900/30 rounded-lg border border-blue-200 dark:border-blue-700">
+                  <div key={station.stationId} className="p-4 bg-blue-50 dark:bg-blue-900/30 rounded-lg border border-blue-200 dark:border-blue-700">
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
                           <span className="text-lg font-bold text-blue-900 dark:text-blue-100">#{index + 1}</span>
-                          <Badge variant={
-                            station.status === 'online' ? 'default' :
-                            station.status === 'offline' ? 'destructive' : 'secondary'
-                          }>
-                            {isVietnamese ? 
-                              (station.status === 'online' ? 'Hoạt động' : 
-                               station.status === 'offline' ? 'Ngoại tuyến' : 'Bảo trì') :
-                              station.status
-                            }
-                          </Badge>
+                          <Badge variant="secondary">{station.stationName}</Badge>
                         </div>
-                        <h4 className="font-semibold text-blue-900 dark:text-blue-100 mb-1">{station.name}</h4>
-                        <p className="text-xs text-blue-600 dark:text-blue-400 mb-2">{station.address}</p>
+                        <h4 className="font-semibold text-blue-900 dark:text-blue-100 mb-1">{station.stationName}</h4>
+                        {station.lastActive && (
+                          <p className="text-xs text-blue-600 dark:text-blue-400 mb-2">Last active: {new Date(station.lastActive).toLocaleString()}</p>
+                        )}
                       </div>
                     </div>
 
@@ -376,41 +619,35 @@ export default function UsageAnalyticsView({ onBack }: UsageAnalyticsViewProps) 
                       </div>
 
                       <div className="flex justify-between items-center">
-                        <span className="text-sm text-blue-700 dark:text-blue-300">{translations.chargers}</span>
-                        <span className="font-medium text-blue-900 dark:text-blue-100">{station.chargerCount}</span>
+                        <span className="text-sm text-blue-700 dark:text-blue-300">Total Energy</span>
+                        <span className="font-medium text-blue-900 dark:text-blue-100">{station.totalEnergy.toLocaleString()}</span>
                       </div>
 
                       <div className="flex justify-between items-center">
-                        <span className="text-sm text-blue-700 dark:text-blue-300">{translations.averageTime}</span>
-                        <span className="font-medium text-blue-900 dark:text-blue-100">{station.averageSessionTime}min</span>
+                        <span className="text-sm text-blue-700 dark:text-blue-300">Revenue</span>
+                        <span className="font-medium text-blue-900 dark:text-blue-100">{station.totalRevenue.toLocaleString()}</span>
                       </div>
 
-                      <div>
-                        <div className="flex justify-between items-center mb-1">
-                          <span className="text-sm text-blue-700 dark:text-blue-300">{translations.utilizationRate}</span>
-                          <span className="font-medium text-blue-900 dark:text-blue-100">{station.utilizationRate}%</span>
-                        </div>
-                        <Progress value={station.utilizationRate} className="h-2" />
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-blue-700 dark:text-blue-300">Unique Users</span>
+                        <span className="font-medium text-blue-900 dark:text-blue-100">{station.uniqueUsers}</span>
                       </div>
 
                       <div>
                         <p className="text-xs text-blue-600 dark:text-blue-400 mb-1">{translations.connectorTypes}</p>
                         <div className="flex flex-wrap gap-1">
-                          {station.connectorTypes.map((type) => (
-                            <Badge key={type} variant="outline" className="text-xs">
-                              {type}
-                            </Badge>
-                          ))}
+                          {station.connectorTypes.length > 0 ? (
+                            station.connectorTypes.map((type) => (
+                              <Badge key={type} variant="outline" className="text-xs">{type}</Badge>
+                            ))
+                          ) : (
+                            <Badge variant="outline" className="text-xs">N/A</Badge>
+                          )}
                         </div>
                       </div>
-
-                      <div className="pt-2 border-t border-blue-200 dark:border-blue-700">
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm text-blue-700 dark:text-blue-300">{translations.weeklyGrowth}</span>
-                          <span className={`font-medium ${station.weeklyGrowth >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                            {station.weeklyGrowth >= 0 ? '+' : ''}{station.weeklyGrowth}%
-                          </span>
-                        </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-blue-700 dark:text-blue-300">Avg. Session Time</span>
+                        <span className="font-medium text-blue-900 dark:text-blue-100">{station.averageSessionDuration} min</span>
                       </div>
                     </div>
                   </div>
@@ -427,21 +664,20 @@ export default function UsageAnalyticsView({ onBack }: UsageAnalyticsViewProps) 
                 {translations.peakHours}
               </CardTitle>
               <p className="text-sm text-blue-600 dark:text-blue-400">
-                {translations.peakHoursAnalysis}: {selectedStationData?.name}
+                {translations.peakHoursAnalysis}: {selectedStationData?.stationName}
               </p>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Peak Hours Chart */}
+                {/* Peak Hours Chart - Sessions by timeRange */}
                 <div>
                   <h4 className="font-medium text-blue-900 dark:text-blue-100 mb-4">{translations.chargingSessions}</h4>
                   <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={peakHoursData}>
+                    <BarChart data={peakChartData}>
                       <CartesianGrid strokeDasharray="3 3" stroke={theme === 'dark' ? '#1e40af' : '#93c5fd'} />
                       <XAxis 
-                        dataKey="hour" 
+                        dataKey="timeRange" 
                         stroke={theme === 'dark' ? '#60a5fa' : '#1e40af'}
-                        interval={2}
                       />
                       <YAxis stroke={theme === 'dark' ? '#60a5fa' : '#1e40af'} />
                       <Tooltip 
@@ -452,21 +688,24 @@ export default function UsageAnalyticsView({ onBack }: UsageAnalyticsViewProps) 
                           color: theme === 'dark' ? '#ffffff' : '#1e40af'
                         }}
                       />
-                      <Bar dataKey="sessions" fill="#2563eb" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="sessions" radius={[4, 4, 0, 0]}>
+                        {peakChartData.map((entry) => (
+                          <Cell key={`cell-${entry.timeRange}`} fill={entry.timeRange === topTimeRange ? '#1d4ed8' : '#2563eb'} />
+                        ))}
+                      </Bar>
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
 
-                {/* Session Duration Chart */}
+                {/* Energy Chart - Total Energy with Average Energy overlay */}
                 <div>
-                  <h4 className="font-medium text-blue-900 dark:text-blue-100 mb-4">{translations.sessionDuration}</h4>
+                  <h4 className="font-medium text-blue-900 dark:text-blue-100 mb-4">Energy</h4>
                   <ResponsiveContainer width="100%" height={300}>
-                    <LineChart data={peakHoursData}>
+                    <LineChart data={peakChartData}>
                       <CartesianGrid strokeDasharray="3 3" stroke={theme === 'dark' ? '#1e40af' : '#93c5fd'} />
                       <XAxis 
-                        dataKey="hour" 
+                        dataKey="timeRange" 
                         stroke={theme === 'dark' ? '#60a5fa' : '#1e40af'}
-                        interval={2}
                       />
                       <YAxis stroke={theme === 'dark' ? '#60a5fa' : '#1e40af'} />
                       <Tooltip 
@@ -477,12 +716,14 @@ export default function UsageAnalyticsView({ onBack }: UsageAnalyticsViewProps) 
                           color: theme === 'dark' ? '#ffffff' : '#1e40af'
                         }}
                       />
+                      {/* totalEnergy as bars behind the line for a richer look */}
+                      <Bar dataKey="totalEnergy" fill="#22c55e" radius={[4, 4, 0, 0]} />
                       <Line 
                         type="monotone" 
-                        dataKey="avgDuration" 
-                        stroke="#3b82f6" 
+                        dataKey="averageEnergy" 
+                        stroke="#16a34a" 
                         strokeWidth={3}
-                        dot={{ fill: '#3b82f6', strokeWidth: 2, r: 4 }}
+                        dot={{ fill: '#16a34a', strokeWidth: 2, r: 4 }}
                       />
                     </LineChart>
                   </ResponsiveContainer>
@@ -492,21 +733,31 @@ export default function UsageAnalyticsView({ onBack }: UsageAnalyticsViewProps) 
               {/* Peak Hours Summary */}
               <div className="mt-6 grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div className="text-center p-3 bg-blue-50 dark:bg-blue-900/30 rounded-lg">
-                  <p className="text-2xl font-bold text-blue-900 dark:text-blue-100">18:00</p>
-                  <p className="text-sm text-blue-600 dark:text-blue-400">Peak Hour</p>
+                  <p className="text-2xl font-bold text-blue-900 dark:text-blue-100">{topTimeRange || '-'}</p>
+                  <p className="text-sm text-blue-600 dark:text-blue-400">Peak Range</p>
                 </div>
                 <div className="text-center p-3 bg-blue-50 dark:bg-blue-900/30 rounded-lg">
-                  <p className="text-2xl font-bold text-blue-900 dark:text-blue-100">95</p>
+                  <p className="text-2xl font-bold text-blue-900 dark:text-blue-100">{topSessions}</p>
                   <p className="text-sm text-blue-600 dark:text-blue-400">Max Sessions</p>
                 </div>
-                <div className="text-center p-3 bg-blue-50 dark:bg-blue-900/30 rounded-lg">
-                  <p className="text-2xl font-bold text-blue-900 dark:text-blue-100">22</p>
-                  <p className="text-sm text-blue-600 dark:text-blue-400">Min Duration (min)</p>
-                </div>
-                <div className="text-center p-3 bg-blue-50 dark:bg-blue-900/30 rounded-lg">
-                  <p className="text-2xl font-bold text-blue-900 dark:text-blue-100">37</p>
-                  <p className="text-sm text-blue-600 dark:text-blue-400">Avg Duration (min)</p>
-                </div>
+                {(() => {
+                  const avgEnergy = peakChartData.length
+                    ? (peakChartData.reduce((s, i) => s + i.averageEnergy, 0) / peakChartData.length)
+                    : 0;
+                  const totalEnergy = peakChartData.reduce((s, i) => s + i.totalEnergy, 0);
+                  return (
+                    <>
+                      <div className="text-center p-3 bg-blue-50 dark:bg-blue-900/30 rounded-lg">
+                        <p className="text-2xl font-bold text-blue-900 dark:text-blue-100">{totalEnergy.toFixed(0)}</p>
+                        <p className="text-sm text-blue-600 dark:text-blue-400">Total Energy</p>
+                      </div>
+                      <div className="text-center p-3 bg-blue-50 dark:bg-blue-900/30 rounded-lg">
+                        <p className="text-2xl font-bold text-blue-900 dark:text-blue-100">{avgEnergy.toFixed(1)}</p>
+                        <p className="text-sm text-blue-600 dark:text-blue-400">Avg Energy</p>
+                      </div>
+                    </>
+                  );
+                })()}
               </div>
             </CardContent>
           </Card>
@@ -518,88 +769,94 @@ export default function UsageAnalyticsView({ onBack }: UsageAnalyticsViewProps) 
                 <TrendingUp className="h-5 w-5" />
                 {translations.trendAnalysis}
               </CardTitle>
-              <p className="text-sm text-blue-600 dark:text-blue-400">
-                {trendPeriod === 'week' ? translations.weekOverWeek : translations.monthOverMonth} comparison
-              </p>
+              <p className="text-sm text-blue-600 dark:text-blue-400">{`Period: ${trendFilter}`}</p>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Trend Chart */}
-                <div className="lg:col-span-2">
-                  <ResponsiveContainer width="100%" height={350}>
-                    <BarChart data={currentTrendData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke={theme === 'dark' ? '#1e40af' : '#93c5fd'} />
-                      <XAxis dataKey="period" stroke={theme === 'dark' ? '#60a5fa' : '#1e40af'} />
-                      <YAxis stroke={theme === 'dark' ? '#60a5fa' : '#1e40af'} />
-                      <Tooltip 
-                        contentStyle={{
-                          backgroundColor: theme === 'dark' ? '#1e3a8a' : '#dbeafe',
-                          border: `1px solid ${theme === 'dark' ? '#3b82f6' : '#2563eb'}`,
-                          borderRadius: '8px',
-                          color: theme === 'dark' ? '#ffffff' : '#1e40af'
-                        }}
-                      />
-                      <Bar 
-                        dataKey={trendPeriod === 'week' ? 'currentWeek' : 'currentYear'} 
-                        fill="#2563eb" 
-                        name={translations.currentPeriod}
-                        radius={[4, 4, 0, 0]}
-                      />
-                      <Bar 
-                        dataKey={trendPeriod === 'week' ? 'previousWeek' : 'previousYear'} 
-                        fill="#93c5fd" 
-                        name={translations.previousPeriod}
-                        radius={[4, 4, 0, 0]}
-                      />
-                    </BarChart>
-                  </ResponsiveContainer>
+                {/* Charts area */}
+                <div className="lg:col-span-2 space-y-6">
+                  {/* Sessions over Date */}
+                  <div className="p-4 bg-blue-50/50 dark:bg-blue-900/20 rounded-lg">
+                    <h4 className="font-medium text-blue-900 dark:text-blue-100 mb-3">Total Sessions</h4>
+                    <ResponsiveContainer width="100%" height={260}>
+                      <LineChart data={trendFiltered}>
+                        <CartesianGrid strokeDasharray="3 3" stroke={theme === 'dark' ? '#1e40af' : '#93c5fd'} />
+                        <XAxis dataKey="date" stroke={theme === 'dark' ? '#60a5fa' : '#1e40af'} />
+                        <YAxis stroke={theme === 'dark' ? '#60a5fa' : '#1e40af'} />
+                        <Tooltip contentStyle={{ backgroundColor: theme === 'dark' ? '#1e3a8a' : '#dbeafe', border: `1px solid ${theme === 'dark' ? '#3b82f6' : '#2563eb'}`, borderRadius: '8px', color: theme === 'dark' ? '#ffffff' : '#1e40af' }} />
+                        <Line type="monotone" dataKey="totalSessions" stroke="#2563eb" strokeWidth={3} dot={{ r: 2 }} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+
+                  {/* Energy over Date */}
+                  <div className="p-4 bg-blue-50/50 dark:bg-blue-900/20 rounded-lg">
+                    <h4 className="font-medium text-blue-900 dark:text-blue-100 mb-3">Total Energy</h4>
+                    <ResponsiveContainer width="100%" height={260}>
+                      <BarChart data={trendFiltered}>
+                        <CartesianGrid strokeDasharray="3 3" stroke={theme === 'dark' ? '#1e40af' : '#93c5fd'} />
+                        <XAxis dataKey="date" stroke={theme === 'dark' ? '#60a5fa' : '#1e40af'} />
+                        <YAxis stroke={theme === 'dark' ? '#60a5fa' : '#1e40af'} />
+                        <Tooltip contentStyle={{ backgroundColor: theme === 'dark' ? '#1e3a8a' : '#dbeafe', border: `1px solid ${theme === 'dark' ? '#3b82f6' : '#2563eb'}`, borderRadius: '8px', color: theme === 'dark' ? '#ffffff' : '#1e40af' }} />
+                        <Bar dataKey="totalEnergy" fill="#22c55e" radius={[4,4,0,0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+
+                  {/* Unique Users over Date */}
+                  <div className="p-4 bg-blue-50/50 dark:bg-blue-900/20 rounded-lg">
+                    <h4 className="font-medium text-blue-900 dark:text-blue-100 mb-3">Unique Users</h4>
+                    <ResponsiveContainer width="100%" height={220}>
+                      <LineChart data={trendFiltered}>
+                        <CartesianGrid strokeDasharray="3 3" stroke={theme === 'dark' ? '#1e40af' : '#93c5fd'} />
+                        <XAxis dataKey="date" stroke={theme === 'dark' ? '#60a5fa' : '#1e40af'} />
+                        <YAxis stroke={theme === 'dark' ? '#60a5fa' : '#1e40af'} />
+                        <Tooltip contentStyle={{ backgroundColor: theme === 'dark' ? '#1e3a8a' : '#dbeafe', border: `1px solid ${theme === 'dark' ? '#3b82f6' : '#2563eb'}`, borderRadius: '8px', color: theme === 'dark' ? '#ffffff' : '#1e40af' }} />
+                        <Line type="monotone" dataKey="uniqueUsers" stroke="#8b5cf6" strokeWidth={3} dot={{ r: 2 }} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
                 </div>
 
-                {/* Summary Statistics */}
+                {/* Summary / KPIs */}
                 <div className="space-y-4">
                   <div>
                     <h4 className="font-medium text-blue-900 dark:text-blue-100 mb-3">{translations.summary}</h4>
                   </div>
 
-                  <div className="p-4 bg-blue-50 dark:bg-blue-900/30 rounded-lg">
-                    <p className="text-sm text-blue-600 dark:text-blue-400 mb-1">{translations.avgGrowthRate}</p>
-                    <p className={`text-xl font-bold ${avgGrowthRate >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                      {avgGrowthRate >= 0 ? '+' : ''}{avgGrowthRate.toFixed(1)}%
-                    </p>
-                  </div>
-
-                  <div className="p-4 bg-blue-50 dark:bg-blue-900/30 rounded-lg">
-                    <p className="text-sm text-blue-600 dark:text-blue-400 mb-1">{translations.totalIncrease}</p>
-                    <p className={`text-xl font-bold ${totalIncrease >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                      {totalIncrease >= 0 ? '+' : ''}{totalIncrease.toFixed(1)}%
-                    </p>
-                  </div>
-
-                  <div className="p-4 bg-blue-50 dark:bg-blue-900/30 rounded-lg">
-                    <p className="text-sm text-blue-600 dark:text-blue-400 mb-1">{translations.currentPeriod}</p>
-                    <p className="text-xl font-bold text-blue-900 dark:text-blue-100">
-                      {totalCurrentPeriod.toLocaleString()}
-                    </p>
-                  </div>
-
-                  <div className="p-4 bg-blue-50 dark:bg-blue-900/30 rounded-lg">
-                    <p className="text-sm text-blue-600 dark:text-blue-400 mb-1">{translations.previousPeriod}</p>
-                    <p className="text-xl font-bold text-blue-900 dark:text-blue-100">
-                      {totalPreviousPeriod.toLocaleString()}
-                    </p>
-                  </div>
-
-                  {/* Growth Rate for each period */}
-                  <div className="space-y-2">
-                    {currentTrendData.map((item, index) => (
-                      <div key={index} className="flex justify-between items-center p-2 bg-blue-50 dark:bg-blue-900/30 rounded">
-                        <span className="text-sm text-blue-700 dark:text-blue-300">{item.period}</span>
-                        <span className={`text-sm font-medium ${item.growth >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                          {item.growth >= 0 ? '+' : ''}{item.growth}%
-                        </span>
-                      </div>
-                    ))}
-                  </div>
+                  {(() => {
+                    const len = trendFiltered.length;
+                    const first = len > 0 ? trendFiltered[0] : undefined;
+                    const last = len > 1 ? trendFiltered[len - 1] : first;
+                    const sessionGrowth = first && last && first.totalSessions !== 0
+                      ? ((last.totalSessions - first.totalSessions) / first.totalSessions) * 100
+                      : 0;
+                    const revenueGrowth = first && last && first.totalRevenue !== 0
+                      ? ((last.totalRevenue - first.totalRevenue) / first.totalRevenue) * 100
+                      : 0;
+                    const avgSessionDuration = len ? (trendFiltered.reduce((s, i) => s + i.averageSessionDuration, 0) / len) : 0;
+                    const avgEnergyPerSession = len ? (trendFiltered.reduce((s, i) => s + i.averageEnergyPerSession, 0) / len) : 0;
+                    return (
+                      <>
+                        <div className="p-4 bg-blue-50 dark:bg-blue-900/30 rounded-lg">
+                          <p className="text-sm text-blue-600 dark:text-blue-400 mb-1">Session Growth Rate</p>
+                          <p className={`text-xl font-bold ${sessionGrowth >= 0 ? 'text-green-600' : 'text-red-600'}`}>{sessionGrowth >= 0 ? '+' : ''}{sessionGrowth.toFixed(1)}%</p>
+                        </div>
+                        <div className="p-4 bg-blue-50 dark:bg-blue-900/30 rounded-lg">
+                          <p className="text-sm text-blue-600 dark:text-blue-400 mb-1">Revenue Growth Rate</p>
+                          <p className={`text-xl font-bold ${revenueGrowth >= 0 ? 'text-green-600' : 'text-red-600'}`}>{revenueGrowth >= 0 ? '+' : ''}{revenueGrowth.toFixed(1)}%</p>
+                        </div>
+                        <div className="p-4 bg-blue-50 dark:bg-blue-900/30 rounded-lg">
+                          <p className="text-sm text-blue-600 dark:text-blue-400 mb-1">Avg Session Duration</p>
+                          <p className="text-xl font-bold text-blue-900 dark:text-blue-100">{avgSessionDuration.toFixed(1)}</p>
+                        </div>
+                        <div className="p-4 bg-blue-50 dark:bg-blue-900/30 rounded-lg">
+                          <p className="text-sm text-blue-600 dark:text-blue-400 mb-1">Avg Energy / Session</p>
+                          <p className="text-xl font-bold text-blue-900 dark:text-blue-100">{avgEnergyPerSession.toFixed(2)}</p>
+                        </div>
+                      </>
+                    );
+                  })()}
                 </div>
               </div>
             </CardContent>

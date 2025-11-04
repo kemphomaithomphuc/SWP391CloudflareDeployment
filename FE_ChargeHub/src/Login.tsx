@@ -177,21 +177,20 @@ export default function Login({ onSwitchToRegister, onLogin, onStaffLogin, onAdm
                 localStorage.setItem("token", accessToken);
                 localStorage.setItem("refreshToken", refreshToken || "");
 
-                let effectiveRole = "driver";
-
                 try {
+                    // Decode role from accessToken to route appropriately
+                    const decoded: any = jwtDecode(accessToken);
+                    const effectiveRole = (decoded?.role || decoded?.authorities || "driver").toString().toLowerCase();
 
                     if (userId) {
-                        
-                        localStorage.setItem("userId", userId.toString())
-
+                        localStorage.setItem("userId", userId.toString());
                         localStorage.setItem("registeredUserId", userId.toString());
-                    };
-                    localStorage.setItem("role", effectiveRole.toLowerCase());
-                    
-                    // Check user profile to determine next step
-                    console.log("Checking user profile for userId:", userId);
-                    await getUserProfileToContinue(userId);
+                    }
+                    localStorage.setItem("role", effectiveRole);
+
+                    // Check user profile or route by role
+                    console.log("Checking user profile for userId:", userId, "role:", effectiveRole);
+                    await getUserProfileToContinue(userId as any);
                 } catch (decodeErr: any) {
                     console.error("JWT decode failed:", decodeErr);
                     localStorage.setItem("role", "driver");
@@ -238,6 +237,21 @@ export default function Login({ onSwitchToRegister, onLogin, onStaffLogin, onAdm
             if (res.status === 200 && res.data) {
                 const userProfile = res.data;
                 console.log("Fetched user profile:", userProfile);
+                // Determine role from profile API and route accordingly
+                try {
+                    const roleFromProfile = (userProfile?.data?.role || "driver").toString().toLowerCase();
+                    localStorage.setItem("role", roleFromProfile);
+                    if (roleFromProfile === "staff") {
+                        onStaffLogin?.();
+                        return;
+                    }
+                    if (roleFromProfile === "admin") {
+                        onAdminLogin?.();
+                        return;
+                    }
+                } catch {}
+
+                // Driver flow: Check if user needs to complete profile setup
                 
                 // Store user profile data in localStorage
                 if (userProfile.data) {
@@ -281,17 +295,7 @@ export default function Login({ onSwitchToRegister, onLogin, onStaffLogin, onAdm
                 
                 // User profile is complete, proceed with normal login flow
                 console.log("User profile is complete, proceeding with login");
-                const role = localStorage.getItem("role")?.toLowerCase() || "driver";
-                
-                // if (role === "driver") {
-                //     onLogin?.();
-                // } else if (role === "staff") {
-                //     onStaffLogin?.();
-                // } else if (role === "admin") {
-                //     onAdminLogin?.();
-                // } else {
-                //     onLogin?.();
-                // }
+                onLogin?.();
             } else {
                 console.log("Invalid profile response, proceeding with default login");
                 // Fallback to default login flow
@@ -654,7 +658,7 @@ export default function Login({ onSwitchToRegister, onLogin, onStaffLogin, onAdm
                                 </div>
                             </div>
 
-                            {/* Admin button removed: admins are auto-redirected after login based on role */}
+                            {/* Admin button removed: admin routes by role after login */}
                         </div>
                     </div>
 
