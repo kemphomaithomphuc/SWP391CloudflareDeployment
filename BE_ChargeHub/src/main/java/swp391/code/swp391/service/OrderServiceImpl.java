@@ -27,6 +27,7 @@ public class OrderServiceImpl implements OrderService {
     private final UserRepository userRepository;
     private final ChargingPointRepository chargingPointRepository;
     private final SubscriptionService subscriptionService;
+    private final NotificationService notificationService;
 
     // ========== CẤU HÌNH SLOT ==========
     private static final int SLOT_DURATION_MINUTES = 120; // 2 giờ mỗi slot
