@@ -74,7 +74,14 @@ public class SessionServiceImplTest {
         ChargingPoint point = new ChargingPoint();
         point.setChargingPointId(1L);
         point.setConnectorType(ccs);
+        point.setStatus(ChargingPoint.ChargingPointStatus.AVAILABLE);
         order.setChargingPoint(point);
+
+        // Mock the station
+        ChargingStation station = new ChargingStation();
+        station.setLatitude(10.1);
+        station.setLongitude(20.1);
+        point.setStation(station);
 
         Vehicle vehicle = new Vehicle();
         vehicle.setId(vehicleId);
@@ -92,7 +99,7 @@ public class SessionServiceImplTest {
         when(sessionRepository.save(any(Session.class))).thenReturn(mockSession);
 
         // Act
-        Long sessionId = sessionService.startSession(userId, orderId, vehicleId);
+        Long sessionId = sessionService.startSession(userId, orderId, vehicleId, 10.0, 20.0);
 
         // Assert
         assertNotNull(sessionId);
@@ -109,7 +116,7 @@ public class SessionServiceImplTest {
         when(userRepository.findById(userId)).thenReturn(Optional.empty());
 
         // Act & Assert
-        RuntimeException exception = assertThrows(RuntimeException.class, () -> sessionService.startSession(userId, orderId, vehicleId));
+        RuntimeException exception = assertThrows(RuntimeException.class, () -> sessionService.startSession(userId, orderId, vehicleId, 10.0, 20.0));
         assertEquals("User not found", exception.getMessage());
     }
 
@@ -125,7 +132,7 @@ public class SessionServiceImplTest {
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
 
         // Act & Assert
-        RuntimeException exception = assertThrows(RuntimeException.class, () -> sessionService.startSession(userId, orderId, vehicleId));
+        RuntimeException exception = assertThrows(RuntimeException.class, () -> sessionService.startSession(userId, orderId, vehicleId, 10.0, 20.0));
         assertEquals("Invalid user account or role", exception.getMessage());
     }
 
@@ -142,7 +149,7 @@ public class SessionServiceImplTest {
         when(orderRepository.findByOrderId(orderId)).thenReturn(null);
 
         // Act & Assert
-        RuntimeException exception = assertThrows(RuntimeException.class, () -> sessionService.startSession(userId, orderId, vehicleId));
+        RuntimeException exception = assertThrows(RuntimeException.class, () -> sessionService.startSession(userId, orderId, vehicleId, 10.0, 20.0));
         assertEquals("Order not found", exception.getMessage());
     }
 
@@ -163,7 +170,7 @@ public class SessionServiceImplTest {
         when(orderRepository.findByOrderId(orderId)).thenReturn(order);
 
         // Act & Assert
-        RuntimeException exception = assertThrows(RuntimeException.class, () -> sessionService.startSession(userId, orderId, vehicleId));
+        RuntimeException exception = assertThrows(RuntimeException.class, () -> sessionService.startSession(userId, orderId, vehicleId, 10.0, 20.0));
         assertEquals("User not authorized for this order", exception.getMessage());
     }
 
@@ -185,7 +192,7 @@ public class SessionServiceImplTest {
         when(orderRepository.findByOrderId(orderId)).thenReturn(order);
 
         // Act & Assert
-        RuntimeException exception = assertThrows(RuntimeException.class, () -> sessionService.startSession(userId, orderId, vehicleId));
+        RuntimeException exception = assertThrows(RuntimeException.class, () -> sessionService.startSession(userId, orderId, vehicleId, 10.0, 20.0));
         assertEquals("Order not in BOOKED status", exception.getMessage());
     }
 
@@ -209,7 +216,7 @@ public class SessionServiceImplTest {
         when(feeRepository.save(any(Fee.class))).thenReturn(new Fee());
 
         // Act & Assert
-        RuntimeException exception = assertThrows(RuntimeException.class, () -> sessionService.startSession(userId, orderId, vehicleId));
+        RuntimeException exception = assertThrows(RuntimeException.class, () -> sessionService.startSession(userId, orderId, vehicleId, 10.0, 20.0));
         assertEquals("Out of booking time slot - Order canceled with penalty", exception.getMessage());
         verify(orderRepository).save(order);
         verify(feeRepository).save(any(Fee.class));
@@ -239,7 +246,7 @@ public class SessionServiceImplTest {
         when(chargingPointRepository.findById(1L)).thenReturn(Optional.empty());
 
         // Act & Assert
-        RuntimeException exception = assertThrows(RuntimeException.class, () -> sessionService.startSession(userId, orderId, vehicleId));
+        RuntimeException exception = assertThrows(RuntimeException.class, () -> sessionService.startSession(userId, orderId, vehicleId, 10.0, 20.0));
         assertEquals("Charging point not found", exception.getMessage());
     }
 
@@ -264,7 +271,14 @@ public class SessionServiceImplTest {
         ChargingPoint point = new ChargingPoint();
         point.setChargingPointId(1L);
         point.setConnectorType(ccs);
+        point.setStatus(ChargingPoint.ChargingPointStatus.AVAILABLE);
         order.setChargingPoint(point);
+
+        // Mock the station
+        ChargingStation station = new ChargingStation();
+        station.setLatitude(10.1);
+        station.setLongitude(20.1);
+        point.setStation(station);
 
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
         when(orderRepository.findByOrderId(orderId)).thenReturn(order);
@@ -272,7 +286,7 @@ public class SessionServiceImplTest {
         when(vehicleRepository.findById(vehicleId)).thenReturn(Optional.empty());
 
         // Act & Assert
-        RuntimeException exception = assertThrows(RuntimeException.class, () -> sessionService.startSession(userId, orderId, vehicleId));
+        RuntimeException exception = assertThrows(RuntimeException.class, () -> sessionService.startSession(userId, orderId, vehicleId, 10.0, 20.0));
         assertEquals("Vehicle not found", exception.getMessage());
     }
 
@@ -297,11 +311,18 @@ public class SessionServiceImplTest {
         ChargingPoint point = new ChargingPoint();
         point.setChargingPointId(1L);
         point.setConnectorType(ccs);
+        point.setStatus(ChargingPoint.ChargingPointStatus.AVAILABLE);
         order.setChargingPoint(point);
 
         Vehicle vehicle = new Vehicle();
         vehicle.setId(vehicleId);
         vehicle.setCarModel(null);
+
+        // Mock the station
+        ChargingStation station = new ChargingStation();
+        station.setLatitude(10.1);
+        station.setLongitude(20.1);
+        point.setStation(station);
 
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
         when(orderRepository.findByOrderId(orderId)).thenReturn(order);
@@ -309,7 +330,7 @@ public class SessionServiceImplTest {
         when(vehicleRepository.findById(vehicleId)).thenReturn(Optional.of(vehicle));
 
         // Act & Assert
-        RuntimeException exception = assertThrows(RuntimeException.class, () -> sessionService.startSession(userId, orderId, vehicleId));
+        RuntimeException exception = assertThrows(RuntimeException.class, () -> sessionService.startSession(userId, orderId, vehicleId, 10.0, 20.0));
         assertEquals("Vehicle car model or connector types not found", exception.getMessage());
     }
 
@@ -337,6 +358,7 @@ public class SessionServiceImplTest {
         ChargingPoint point = new ChargingPoint();
         point.setChargingPointId(1L);
         point.setConnectorType(ccs);
+        point.setStatus(ChargingPoint.ChargingPointStatus.AVAILABLE);
         order.setChargingPoint(point);
 
         Vehicle vehicle = new Vehicle();
@@ -345,13 +367,19 @@ public class SessionServiceImplTest {
         carModel.setConnectorTypes(List.of(chademo)); // Mismatch
         vehicle.setCarModel(carModel);
 
+        // Mock the station
+        ChargingStation station = new ChargingStation();
+        station.setLatitude(10.1);
+        station.setLongitude(20.1);
+        point.setStation(station);
+
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
         when(orderRepository.findByOrderId(orderId)).thenReturn(order);
         when(chargingPointRepository.findById(1L)).thenReturn(Optional.of(point));
         when(vehicleRepository.findById(vehicleId)).thenReturn(Optional.of(vehicle));
 
         // Act & Assert
-        RuntimeException exception = assertThrows(RuntimeException.class, () -> sessionService.startSession(userId, orderId, vehicleId));
+        RuntimeException exception = assertThrows(RuntimeException.class, () -> sessionService.startSession(userId, orderId, vehicleId, 10.0, 20.0));
         assertEquals("Vehicle connector type mismatch", exception.getMessage());
     }
 

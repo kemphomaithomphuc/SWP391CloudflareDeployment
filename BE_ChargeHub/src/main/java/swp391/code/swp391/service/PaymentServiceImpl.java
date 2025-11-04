@@ -35,6 +35,7 @@ public class PaymentServiceImpl implements PaymentService {
     private final NotificationService notificationService;
     private final VNPayService vnPayService;
     private final JavaMailSender mailSender;
+    private final PenaltyService penaltyService;
 
     @Value("${spring.mail.username}")
     private String fromEmail;
@@ -44,7 +45,7 @@ public class PaymentServiceImpl implements PaymentService {
         log.info("Đang tính toán số tiền thanh toán cho session: {}, user: {}", sessionId, userId);
 
         Session session = sessionRepository.findById(sessionId)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy phiên sạc với ID: " + sessionId));
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy phien sạc với ID: " + sessionId));
 
         // Kiểm tra session đã hoàn thành chưa
         if (session.getStatus() != Session.SessionStatus.COMPLETED) {
@@ -219,8 +220,8 @@ public class PaymentServiceImpl implements PaymentService {
 
         List<FeeDetailDTO> feeDetails = fees.stream()
                 .map(fee -> FeeDetailDTO.builder()
-                        .type(fee.getType())
-                        .amount(BigDecimal.valueOf(fee.getAmount()))
+                        .feeType(fee.getType())
+                        .amount(fee.getAmount())
                         .description(fee.getDescription())
                         .build())
                 .collect(Collectors.toList());
@@ -264,7 +265,7 @@ public class PaymentServiceImpl implements PaymentService {
 
         // Kiểm tra session
         Session session = sessionRepository.findById(request.getSessionId())
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy phiên sạc"));
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy phien sạc"));
 
         if (session.getStatus() != Session.SessionStatus.COMPLETED) {
             throw new RuntimeException("Phiên sạc chưa hoàn thành, không thể thanh toán");
@@ -351,16 +352,8 @@ public class PaymentServiceImpl implements PaymentService {
             feeRepository.save(fee);
         });
 
-        // Gửi notification
-        notificationService.createPaymentNotification(
-                userId,
-                NotificationServiceImpl.PaymentEvent.PAYMENT_SUCCESS,
-                amount.doubleValue(),
-                "Thanh toán bằng tiền mặt thành công"
-        );
-
-        // Gửi hóa đơn qua email
-        sendInvoiceEmail(transaction.getTransactionId());
+        // Gọi completePayment để thực hiện logic chung (auto-unlock, notifications, etc.)
+        completePayment(transaction.getTransactionId());
 
         PaymentDetailDTO paymentDetail = getPaymentDetail(sessionId, userId);
 
@@ -393,6 +386,25 @@ public class PaymentServiceImpl implements PaymentService {
             fee.setIsPaid(true);
             feeRepository.save(fee);
         });
+
+        // ============ TỰ ĐỘNG MỞ KHÓA TÀI KHOẢN ============
+        Long userId = transaction.getUser().getUserId();
+
+        // Kiểm tra và tự động mở khóa tài khoản nếu user đã thanh toán hết phí
+        if (penaltyService.canUnlockUser(userId)) {
+            boolean unlocked = penaltyService.unlockUserAfterPayment(userId);
+            if (unlocked) {
+                log.info("Auto-unlocked user account after payment: {}", userId);
+
+                // Gửi thông báo về việc mở khóa
+                notificationService.createGeneralNotification(
+                        List.of(userId),
+                        "Tài khoản đã được mở khóa",
+                        "Tài khoản của bạn đã được mở khóa tự động sau khi thanh toán phí phạt. " +
+                        "Bạn có thể tiếp tục sử dụng dịch vụ."
+                );
+            }
+        }
 
         // Gửi notification
         notificationService.createPaymentNotification(
