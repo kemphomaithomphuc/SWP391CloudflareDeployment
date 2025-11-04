@@ -5,6 +5,7 @@ import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
 import { Label } from "./components/ui/label";
 import { Separator } from "./components/ui/separator";
+import PasswordInput from "./components/ui/PasswordInput";
 import { Zap } from "lucide-react";
 import { useLanguage } from "./contexts/LanguageContext";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "./components/ui/dialog";
@@ -14,7 +15,7 @@ import { api } from "./services/api";
 interface LoginProps {
     onSwitchToRegister: () => void;
     onLogin?: () => void;
-    onStaffLogin?: () => void;
+    onStaffLogin?: () => void; // used for auto-redirect after role detection (no separate staff login button)
     onAdminLogin?: () => void;
     onSwitchToRoleSelection? : () => void;
     onSwitchToVehicleSetup?: () => void;
@@ -59,7 +60,7 @@ export default function Login({ onSwitchToRegister, onLogin, onStaffLogin, onAdm
         return /^\d{6}$/.test(otpValue);
     };
 
-    //handle Google
+    //handle social
     useEffect(() => {
         const url = new URL(window.location.href);
         const code = url.searchParams.get("code");
@@ -252,6 +253,19 @@ export default function Login({ onSwitchToRegister, onLogin, onStaffLogin, onAdm
 
                 // Driver flow: Check if user needs to complete profile setup
                 
+                // Store user profile data in localStorage
+                if (userProfile.data) {
+                    if (userProfile.data.fullName) {
+                        localStorage.setItem("fullName", userProfile.data.fullName);
+                        console.log("Stored fullName:", userProfile.data.fullName);
+                    }
+                    if (userProfile.data.email) {
+                        localStorage.setItem("email", userProfile.data.email);
+                        console.log("Stored email:", userProfile.data.email);
+                    }
+                }
+                
+                // Check if user needs to complete profile setup
                 if (!userProfile.data.dateOfBirth) {
                     console.log("User needs profile completion");
                     onSwitchToRoleSelection?.();
@@ -263,9 +277,20 @@ export default function Login({ onSwitchToRegister, onLogin, onStaffLogin, onAdm
                     return;
                 } 
                 else {
-                    console.log("User needs vehicle setup");
-                    onLogin?.(); //Muốn sang dashboard thì chỉnh thành onLogin
-                    return;
+                    // Decide dashboard by role; store stationId for staff
+                    const role = (userProfile.data.role || localStorage.getItem("role") || "driver").toLowerCase();
+                    if (role === "staff") {
+                        const stationId = userProfile.data.station?.stationId || userProfile.data.stationId;
+                        if (stationId) localStorage.setItem("stationId", String(stationId));
+                        onStaffLogin?.();
+                        return;
+                    } else if (role === "admin") {
+                        onAdminLogin?.();
+                        return;
+                    } else {
+                        onLogin?.();
+                        return;
+                    }
                 }
                 
                 // User profile is complete, proceed with normal login flow
@@ -275,15 +300,9 @@ export default function Login({ onSwitchToRegister, onLogin, onStaffLogin, onAdm
                 console.log("Invalid profile response, proceeding with default login");
                 // Fallback to default login flow
                 const role = localStorage.getItem("role")?.toLowerCase() || "driver";
-                if (role === "driver") {
-                    onLogin?.();
-                } else if (role === "staff") {
-                    onStaffLogin?.();
-                } else if (role === "admin") {
-                    onAdminLogin?.();
-                } else {
-                    onLogin?.();
-                }
+                if (role === "staff") onStaffLogin?.();
+                else if (role === "admin") onAdminLogin?.();
+                else onLogin?.();
             }
         } catch (err: any) {
             console.error("Error getting user profile:", err);
@@ -291,15 +310,9 @@ export default function Login({ onSwitchToRegister, onLogin, onStaffLogin, onAdm
             
             // Fallback to default login flow when profile check fails
             const role = localStorage.getItem("role")?.toLowerCase() || "driver";
-            if (role === "driver") {
-                onLogin?.();
-            } else if (role === "staff") {
-                onStaffLogin?.();
-            } else if (role === "admin") {
-                onAdminLogin?.();
-            } else {
-                onLogin?.();
-            }
+            if (role === "staff") onStaffLogin?.();
+            else if (role === "admin") onAdminLogin?.();
+            else onLogin?.();
         } finally {
             setLoading(false);
         }
@@ -565,9 +578,8 @@ export default function Login({ onSwitchToRegister, onLogin, onStaffLogin, onAdm
 
                                 <div className="space-y-2">
                                     <Label htmlFor="password" className="text-foreground/90 font-medium">{t("Password")}</Label>
-                                    <Input
+                                    <PasswordInput
                                         id="password"
-                                        type="password"
                                         value={password}
                                         onChange={(e) => setPassword(e.target.value)}
                                         placeholder={t("Password")}

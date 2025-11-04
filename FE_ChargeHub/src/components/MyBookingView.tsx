@@ -1,16 +1,26 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Calendar, Clock, MapPin, Zap, Battery, CheckCircle, XCircle, AlertTriangle, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Calendar, Clock, MapPin, Zap, Battery, QrCode, Phone, Navigation, MoreHorizontal, CheckCircle, XCircle, AlertTriangle, RefreshCw } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useBooking, Booking } from '../contexts/BookingContext';
+import PenaltyFeeDisplay from './PenaltyFeeDisplay';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from './ui/alert-dialog';
-import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from './ui/pagination';
 import { toast } from 'sonner';
-import axios from 'axios';
+import { Separator } from './ui/separator';
+import api, { cancelOrder, CancelOrderDTO } from "../services/api";
+import {
+    Pagination,
+    PaginationContent,
+    PaginationItem,
+    PaginationLink,
+    PaginationNext,
+    PaginationPrevious
+} from "./ui/pagination";
 
 interface MyBookingViewProps {
   onBack: () => void;
@@ -74,11 +84,11 @@ export default function MyBookingView({ onBack, onStartCharging }: MyBookingView
         console.log("No token or userId found");
         return;
       }
-
+      
       console.log("Fetching user orders for userId:", userId);
       console.log("Token:", token);
-      
-      const response = await axios.get(`http://localhost:8080/api/orders/my-orders?userId=${userId}`, {
+
+      const response = await api.get(`api/orders/my-orders?userId=${userId}`, {
         headers: {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -88,16 +98,41 @@ export default function MyBookingView({ onBack, onStartCharging }: MyBookingView
       console.log("Orders API response:", response.data);
       console.log("Response status:", response.status);
       console.log("Response headers:", response.headers);
+      console.log("Full response.data:", JSON.stringify(response.data, null, 2));
 
       if (response.status === 200 && response.data?.success) {
         const orders: OrderResponseDTO[] = response.data.data || [];
         console.log("Found orders:", orders);
         console.log("Orders length:", orders.length);
+        console.log("Raw orders data:", JSON.stringify(orders, null, 2));
+
+        // Always set the orders, even if empty
+        setApiOrders(orders);
         
         if (orders.length > 0) {
-          setApiOrders(orders);
           // Convert API data to Booking format
-          const convertedBookings: Booking[] = orders.map(order => ({
+          const convertedBookings: Booking[] = orders.map(order => {
+            // Map API status to Booking status
+            let bookingStatus: Booking['status'];
+            switch (order.status) {
+              case 'BOOKED':
+                bookingStatus = 'confirmed';
+                break;
+              case 'CHARGING':
+                bookingStatus = 'active';
+                break;
+              case 'COMPLETED':
+                bookingStatus = 'completed';
+                break;
+              case 'CANCELED':
+                bookingStatus = 'cancelled';
+                break;
+              default:
+                bookingStatus = 'confirmed';
+                break;
+            }
+
+            return {
             id: order.orderId.toString(),
             stationName: order.stationName,
             stationAddress: order.stationAddress,
@@ -109,12 +144,31 @@ export default function MyBookingView({ onBack, onStartCharging }: MyBookingView
             power: order.chargingPower,
             currentBattery: 0, // Not available in API response
             targetBattery: 0, // Not available in API response
-            status: order.status.toLowerCase() as Booking['status'],
+              status: bookingStatus,
             createdAt: order.createdAt
-          }));
+            };
+          });
           
           console.log("Converted bookings:", convertedBookings);
+          console.log("Booking statuses:", convertedBookings.map(b => ({ id: b.id, status: b.status })));
+          
+          // Debug: Show status mapping
+          console.log("=== STATUS MAPPING VERIFICATION ===");
+          orders.forEach(order => {
+            const convertedBooking = convertedBookings.find(b => b.id === order.orderId.toString());
+            console.log(`Order ${order.orderId}: API status "${order.status}" -> Booking status "${convertedBooking?.status}"`);
+          });
+          
           setApiBookings(convertedBookings);
+          
+          // Additional debug: Show the mapping
+          console.log("=== STATUS MAPPING DEBUG ===");
+          orders.forEach(order => {
+            console.log(`Order ${order.orderId}: ${order.status} -> ${convertedBookings.find(b => b.id === order.orderId.toString())?.status}`);
+          });
+          
+          // Show success message
+          console.log("✅ Successfully loaded and converted", orders.length, "orders");
         } else {
           console.log("No orders found in database");
           setApiBookings([]);
@@ -124,9 +178,18 @@ export default function MyBookingView({ onBack, onStartCharging }: MyBookingView
         setApiBookings([]);
         setApiOrders([]);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error fetching user orders:", error);
-      setError("Failed to load bookings");
+      if (error.response?.status === 401) {
+        setError("Please log in again to view your bookings");
+        localStorage.removeItem("token");
+        localStorage.removeItem("refreshToken");
+        localStorage.removeItem("userId");
+      } else if (error.response?.status === 500) {
+        setError("Server error. Please try again later.");
+      } else {
+        setError("Failed to load bookings. Please check your connection.");
+      }
       setApiBookings([]);
       setApiOrders([]);
     } finally {
@@ -136,6 +199,7 @@ export default function MyBookingView({ onBack, onStartCharging }: MyBookingView
 
   // Load orders on component mount
   useEffect(() => {
+    console.log("Component mounted, fetching user orders...");
     fetchUserOrders();
   }, []);
 
@@ -143,6 +207,7 @@ export default function MyBookingView({ onBack, onStartCharging }: MyBookingView
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (!document.hidden) {
+        console.log("Component became visible, refreshing data...");
         fetchUserOrders();
       }
     };
@@ -153,6 +218,7 @@ export default function MyBookingView({ onBack, onStartCharging }: MyBookingView
 
   // Refresh function
   const refreshData = () => {
+    console.log("Manual refresh triggered");
     fetchUserOrders();
   };
 
@@ -243,9 +309,58 @@ export default function MyBookingView({ onBack, onStartCharging }: MyBookingView
       : `$${amount.toFixed(2)}`;
   };
 
-  const handleCancelBooking = (bookingId: string)=> {
-    updateBookingStatus(bookingId, 'cancelled');
-    toast.success(language === 'vi' ? 'Đã hủy đặt chỗ thành công' : 'Booking cancelled successfully');
+  const handleCancelBooking = async (orderId: number) => {
+    try {
+      const token = localStorage.getItem("token");
+      const userId = localStorage.getItem("userId");
+      
+      if (!token || !userId) {
+        toast.error(language === 'vi' ? 'Vui lòng đăng nhập để hủy đặt chỗ' : 'Please login to cancel booking');
+        return;
+      }
+
+      console.log("=== CANCEL ORDER DEBUG ===");
+      console.log("Canceling order ID:", orderId);
+      console.log("User ID:", userId);
+
+      const cancelRequest: CancelOrderDTO = {
+        orderId: orderId,
+        userId: parseInt(userId),
+        reason: language === 'vi' ? 'Người dùng hủy đặt chỗ' : 'User cancelled booking'
+      };
+
+      console.log("Cancel request:", cancelRequest);
+
+      const response = await cancelOrder(cancelRequest);
+      
+      if (response.success) {
+        console.log("Cancel order successful:", response.data);
+        toast.success(language === 'vi' ? 'Đã hủy đặt chỗ thành công' : 'Booking cancelled successfully');
+        
+        // Refresh the orders list
+        await fetchUserOrders();
+      } else {
+        console.error("Cancel order failed:", response.message);
+        toast.error(response.message || (language === 'vi' ? 'Hủy đặt chỗ thất bại' : 'Failed to cancel booking'));
+      }
+    } catch (error: any) {
+      console.error("=== CANCEL ORDER ERROR ===");
+      console.error("Error:", error);
+      console.error("Error response:", error?.response);
+      console.error("Error response data:", error?.response?.data);
+      
+      let errorMessage = language === 'vi' ? 'Hủy đặt chỗ thất bại' : 'Failed to cancel booking';
+      
+      if (error?.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error?.response?.status === 401) {
+        errorMessage = language === 'vi' ? 'Phiên đăng nhập đã hết hạn' : 'Session expired';
+      } else if (error?.response?.status === 500) {
+        errorMessage = language === 'vi' ? 'Lỗi máy chủ' : 'Server error';
+      }
+      
+      toast.error(errorMessage);
+    }
   };
 
   const handleStartCharging = async (orderId: number) => {
@@ -302,7 +417,7 @@ export default function MyBookingView({ onBack, onStartCharging }: MyBookingView
         vehicleId: 3
       };
 
-      const response = await axios.post(`http://localhost:8080/api/sessions/start`, sessionData, {
+      const response = await api.post(`/api/sessions/start`, sessionData, {
         headers: {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -402,11 +517,9 @@ export default function MyBookingView({ onBack, onStartCharging }: MyBookingView
   const now = new Date();
   
   const apiUpcomingOrders = apiOrders.filter(order => {
-    const startTime = new Date(order.startTime);
-    const isExpired = isOrderExpired(order.startTime);
-    
-    // Only show BOOKED orders that haven't expired
-    return order.status === 'BOOKED' && !isExpired;
+    // Show all BOOKED orders regardless of time
+    // BOOKED orders should always be in Upcoming until they become CHARGING, COMPLETED, or CANCELED
+    return order.status === 'BOOKED';
   }).sort((a, b) => {
     const aCanStart = isTimeToStartCharging(a.startTime);
     const bCanStart = isTimeToStartCharging(b.startTime);
@@ -427,18 +540,182 @@ export default function MyBookingView({ onBack, onStartCharging }: MyBookingView
   });
   
   const apiHistoryOrders = apiOrders.filter(order => {
-    const endTime = new Date(order.endTime);
-    const isExpired = isOrderExpired(order.startTime);
-    const isPastEndTime = endTime <= now;
-    
-    // Include COMPLETED, CANCELED orders OR expired BOOKED orders
-    return ['COMPLETED', 'CANCELED'].includes(order.status) || 
-           (order.status === 'BOOKED' && (isPastEndTime || isExpired));
+    // Only include orders that are actually COMPLETED or CANCELED
+    // BOOKED orders should stay in Upcoming even if their time has passed
+    return ['COMPLETED', 'CANCELED'].includes(order.status);
   });
 
   // Check if there's an active charging session
   const hasActiveSession = apiActiveOrders.length > 0;
   const activeSession = apiActiveOrders[0]; // Get the first (and should be only) active session
+
+  // Debug: Log current state
+  console.log("=== MY BOOKING VIEW DEBUG ===");
+  console.log("apiOrders length:", apiOrders.length);
+  console.log("apiBookings length:", apiBookings.length);
+  console.log("apiOrders:", apiOrders);
+  console.log("apiBookings:", apiBookings);
+  console.log("upcomingBookings length:", upcomingBookings.length);
+  console.log("activeBookings length:", activeBookings.length);
+  console.log("historyBookings length:", historyBookings.length);
+  console.log("apiUpcomingOrders length:", apiUpcomingOrders.length);
+  console.log("apiActiveOrders length:", apiActiveOrders.length);
+  console.log("apiHistoryOrders length:", apiHistoryOrders.length);
+  
+  // Debug: Show which tab each order appears in
+  console.log("=== TAB ASSIGNMENT VERIFICATION ===");
+  console.log("Upcoming tab orders:", apiUpcomingOrders.map(o => ({ id: o.orderId, status: o.status })));
+  console.log("Active tab orders:", apiActiveOrders.map(o => ({ id: o.orderId, status: o.status })));
+  console.log("History tab orders:", apiHistoryOrders.map(o => ({ id: o.orderId, status: o.status })));
+
+  // Function to verify database data directly
+  const verifyDatabaseData = async () => {
+    try {
+      console.log("=== VERIFYING DATABASE DATA ===");
+      const token = localStorage.getItem("token");
+      const userId = localStorage.getItem("userId");
+      
+      if (!token || !userId) {
+        console.error("No token or userId found");
+        return;
+      }
+
+      console.log("Fetching fresh data from database...");
+      const response = await api.get(`api/orders/my-orders?userId=${userId}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      console.log("Fresh API response:", response.data);
+      console.log("Response status:", response.status);
+      console.log("Response success:", response.data?.success);
+      console.log("Raw data array:", response.data?.data);
+      
+      if (response.data?.data) {
+        console.log("Database orders count:", response.data.data.length);
+        response.data.data.forEach((order: any, index: number) => {
+          console.log(`Database Order ${index + 1}:`, {
+            orderId: order.orderId,
+            status: order.status,
+            stationName: order.stationName,
+            startTime: order.startTime,
+            endTime: order.endTime,
+            createdAt: order.createdAt
+          });
+        });
+        
+        // Compare with current displayed data
+        console.log("=== COMPARISON WITH DISPLAYED DATA ===");
+        console.log("Database orders:", response.data.data.length);
+        console.log("Currently displayed orders:", apiOrders.length);
+        
+        if (response.data.data.length !== apiOrders.length) {
+          console.warn("⚠️ Count mismatch between database and displayed data");
+          console.log("Database order IDs:", response.data.data.map((o: any) => o.orderId));
+          console.log("Displayed order IDs:", apiOrders.map(o => o.orderId));
+        }
+        
+        // Check for missing orders
+        const dbOrderIds = response.data.data.map((o: any) => o.orderId);
+        const displayedOrderIds = apiOrders.map(o => o.orderId);
+        const missingOrders = dbOrderIds.filter((id: any) => !displayedOrderIds.includes(id));
+        const extraOrders = displayedOrderIds.filter((id: any) => !dbOrderIds.includes(id));
+        
+        if (missingOrders.length > 0) {
+          console.warn("⚠️ Missing orders in display:", missingOrders);
+        }
+        if (extraOrders.length > 0) {
+          console.warn("⚠️ Extra orders in display:", extraOrders);
+        }
+      }
+    } catch (error) {
+      console.error("Error verifying database data:", error);
+    }
+  };
+
+  // Debug button to log current state
+  const handleDebugClick = () => {
+    console.log("=== DEBUG BUTTON CLICKED ===");
+    console.log("Current apiOrders:", JSON.stringify(apiOrders, null, 2));
+    console.log("Current apiBookings:", JSON.stringify(apiBookings, null, 2));
+    console.log("Current apiUpcomingOrders:", JSON.stringify(apiUpcomingOrders, null, 2));
+    console.log("Current apiActiveOrders:", JSON.stringify(apiActiveOrders, null, 2));
+    console.log("Current apiHistoryOrders:", JSON.stringify(apiHistoryOrders, null, 2));
+    
+    // Show summary
+    console.log("=== SUMMARY ===");
+    console.log(`Total orders: ${apiOrders.length}`);
+    console.log(`Upcoming: ${apiUpcomingOrders.length}`);
+    console.log(`Active: ${apiActiveOrders.length}`);
+    console.log(`History: ${apiHistoryOrders.length}`);
+    
+    // Show status mapping
+    console.log("=== STATUS MAPPING ===");
+    apiOrders.forEach(order => {
+      console.log(`Order ${order.orderId}: ${order.status}`);
+    });
+    
+    // Show filtering logic
+    console.log("=== FILTERING LOGIC ===");
+    console.log("Upcoming filter: BOOKED (all BOOKED orders)");
+    console.log("Active filter: CHARGING");
+    console.log("History filter: COMPLETED || CANCELED");
+    
+    // Show time-based filtering
+    console.log("=== TIME-BASED FILTERING ===");
+    const now = new Date();
+    apiOrders.forEach(order => {
+      const startTime = new Date(order.startTime);
+      const endTime = new Date(order.endTime);
+      const isExpired = isOrderExpired(order.startTime);
+      const isPastEndTime = endTime <= now;
+      console.log(`Order ${order.orderId}: start=${startTime.toISOString()}, end=${endTime.toISOString()}, expired=${isExpired}, pastEnd=${isPastEndTime}`);
+    });
+    
+    // Show which tab each order should appear in
+    console.log("=== TAB ASSIGNMENT ===");
+    apiOrders.forEach(order => {
+      const startTime = new Date(order.startTime);
+      const endTime = new Date(order.endTime);
+      const isExpired = isOrderExpired(order.startTime);
+      const isPastEndTime = endTime <= now;
+      
+      let tab = "Unknown";
+      if (order.status === 'BOOKED') {
+        tab = "Upcoming";
+      } else if (order.status === 'CHARGING') {
+        tab = "Active";
+      } else if (['COMPLETED', 'CANCELED'].includes(order.status)) {
+        tab = "History";
+      }
+      
+      console.log(`Order ${order.orderId}: ${order.status} -> ${tab}`);
+    });
+    
+    // Show raw vs processed data comparison
+    console.log("=== RAW VS PROCESSED DATA COMPARISON ===");
+    console.log("Raw API orders:", apiOrders);
+    console.log("Processed bookings:", apiBookings);
+    console.log("Filtered upcoming orders:", apiUpcomingOrders);
+    console.log("Filtered active orders:", apiActiveOrders);
+    console.log("Filtered history orders:", apiHistoryOrders);
+    
+    // Show data integrity check
+    console.log("=== DATA INTEGRITY CHECK ===");
+    console.log("Total API orders:", apiOrders.length);
+    console.log("Total processed bookings:", apiBookings.length);
+    console.log("Total filtered orders:", apiUpcomingOrders.length + apiActiveOrders.length + apiHistoryOrders.length);
+    
+    if (apiOrders.length !== apiBookings.length) {
+      console.warn("⚠️ Mismatch: API orders count != processed bookings count");
+    }
+    
+    if (apiOrders.length !== (apiUpcomingOrders.length + apiActiveOrders.length + apiHistoryOrders.length)) {
+      console.warn("⚠️ Mismatch: Some orders are not being filtered into any tab");
+    }
+  };
 
 
   // Card for raw API orders to show all details
@@ -450,39 +727,61 @@ export default function MyBookingView({ onBack, onStartCharging }: MyBookingView
     const isExpired = isOrderExpired(order.startTime);
     const timeInfo = getTimeToStartCharging(order.startTime);
     
-    // Determine status badge color and icon
+    // Determine status badge color and icon based on actual order status
     const getStatusInfo = () => {
-      if (isExpired) {
+      // Check actual order status first
+      if (order.status === 'COMPLETED') {
+        return {
+          color: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300',
+          icon: <CheckCircle className="w-4 h-4 text-emerald-500" />,
+          text: language === 'vi' ? 'Hoàn thành' : 'Completed'
+        };
+      } else if (order.status === 'CANCELED') {
         return {
           color: 'bg-red-50 text-red-700 border-red-200 dark:bg-red-950 dark:text-red-300',
           icon: <XCircle className="w-4 h-4 text-red-500" />,
-          text: language === 'vi' ? 'Đã hết hạn' : 'Expired'
+          text: language === 'vi' ? 'Đã hủy' : 'Cancelled'
         };
-      } else if (startTime > now) {
-        return {
-          color: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300',
-          icon: <Clock className="w-4 h-4 text-blue-500" />,
-          text: language === 'vi' ? 'Sắp tới' : 'Upcoming'
-        };
-      } else if (startTime <= now && endTime > now) {
+      } else if (order.status === 'CHARGING') {
         return {
           color: 'bg-green-50 text-green-700 border-green-200 dark:bg-green-950 dark:text-green-300',
           icon: <Zap className="w-4 h-4 text-green-500" />,
           text: language === 'vi' ? 'Đang sạc' : 'Active'
         };
-      } else if (startTime <= now && canStartCharging) {
-        // Within 15-minute window after start time but not yet in active charging period
+      } else if (order.status === 'BOOKED') {
+        // BOOKED status means upcoming
         return {
-          color: 'bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950 dark:text-orange-300',
-          icon: <Clock className="w-4 h-4 text-orange-500" />,
-          text: language === 'vi' ? 'Có thể bắt đầu' : 'Ready to Start'
+          color: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300',
+          icon: <Clock className="w-4 h-4 text-blue-500" />,
+          text: language === 'vi' ? 'Sắp tới' : 'Upcoming'
         };
       } else {
-        return {
-          color: 'bg-gray-50 text-gray-700 border-gray-200 dark:bg-gray-950 dark:text-gray-300',
-          icon: <CheckCircle className="w-4 h-4 text-gray-500" />,
-          text: language === 'vi' ? 'Hoàn thành' : 'Completed'
-        };
+        // Fallback to time-based logic for unknown statuses
+        if (isExpired) {
+          return {
+            color: 'bg-red-50 text-red-700 border-red-200 dark:bg-red-950 dark:text-red-300',
+            icon: <XCircle className="w-4 h-4 text-red-500" />,
+            text: language === 'vi' ? 'Đã hết hạn' : 'Expired'
+          };
+        } else if (startTime > now) {
+          return {
+            color: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300',
+            icon: <Clock className="w-4 h-4 text-blue-500" />,
+            text: language === 'vi' ? 'Sắp tới' : 'Upcoming'
+          };
+        } else if (startTime <= now && endTime > now) {
+          return {
+            color: 'bg-green-50 text-green-700 border-green-200 dark:bg-green-950 dark:text-green-300',
+            icon: <Zap className="w-4 h-4 text-green-500" />,
+            text: language === 'vi' ? 'Đang sạc' : 'Active'
+          };
+        } else {
+          return {
+            color: 'bg-gray-50 text-gray-700 border-gray-200 dark:bg-gray-950 dark:text-gray-300',
+            icon: <CheckCircle className="w-4 h-4 text-gray-500" />,
+            text: language === 'vi' ? 'Hoàn thành' : 'Completed'
+          };
+        }
       }
     };
 
@@ -524,33 +823,38 @@ export default function MyBookingView({ onBack, onStartCharging }: MyBookingView
       }`}>
         <CardContent className="p-6">
           <div className="flex items-start justify-between mb-4">
-            <div className="flex-1">
+          <div className="flex-1">
               <div className="flex items-center gap-3 mb-2">
                 <h3 className="font-semibold text-lg">{order.stationName}</h3>
                 <Badge variant="outline" className={`${statusInfo.color} flex items-center gap-1 px-3 py-1`}>
                   {statusInfo.icon}
                   {statusInfo.text}
-                </Badge>
-                {canStartCharging && (
-                  <Badge variant="default" className="bg-green-500 text-white flex items-center gap-1 px-3 py-1 animate-pulse">
-                    <Zap className="w-3 h-3" />
-                    {language === 'vi' ? 'Sẵn sàng sạc' : 'Ready to Charge'}
-                  </Badge>
+              </Badge>
+                {/* Only show time-based badges for BOOKED status */}
+                {order.status === 'BOOKED' && (
+                  <>
+                    {canStartCharging && (
+                      <Badge variant="default" className="bg-green-500 text-white flex items-center gap-1 px-3 py-1 animate-pulse">
+                        <Zap className="w-3 h-3" />
+                        {language === 'vi' ? 'Sẵn sàng sạc' : 'Ready to Charge'}
+                      </Badge>
+                    )}
+                    {!canStartCharging && !isExpired && (
+                      <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950 dark:text-orange-300 flex items-center gap-1 px-3 py-1">
+                        <Clock className="w-3 h-3" />
+                        {timeInfo.isEarly 
+                          ? (language === 'vi' ? `Còn ${timeInfo.timeRemaining} phút` : `${timeInfo.timeRemaining} min left`)
+                          : (language === 'vi' ? 'Đã hết hạn' : 'Expired')
+                        }
+                      </Badge>
+                    )}
+                  </>
                 )}
-                {!canStartCharging && !isExpired && (
-                  <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950 dark:text-orange-300 flex items-center gap-1 px-3 py-1">
-                    <Clock className="w-3 h-3" />
-                    {timeInfo.isEarly 
-                      ? (language === 'vi' ? `Còn ${timeInfo.timeRemaining} phút` : `${timeInfo.timeRemaining} min left`)
-                      : (language === 'vi' ? 'Đã hết hạn' : 'Expired')
-                    }
-                  </Badge>
-                )}
-              </div>
+            </div>
               <div className="flex items-center gap-2 text-muted-foreground text-sm mb-3">
-                <MapPin className="w-4 h-4" />
+              <MapPin className="w-4 h-4" />
                 <span className="font-medium">{order.stationAddress}</span>
-              </div>
+            </div>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                 <div className="space-y-2">
@@ -558,36 +862,36 @@ export default function MyBookingView({ onBack, onStartCharging }: MyBookingView
                     <Calendar className="w-4 h-4 text-blue-500" />
                     <span className="font-medium">{language === 'vi' ? 'Bắt đầu' : 'Start'}:</span>
                     <span>{formatIsoToDateTime(order.startTime)}</span>
-                  </div>
+              </div>
                   <div className="flex items-center gap-2">
                     <Clock className="w-4 h-4 text-orange-500" />
                     <span className="font-medium">{language === 'vi' ? 'Kết thúc' : 'End'}:</span>
                     <span>{formatIsoToDateTime(order.endTime)}</span>
-                  </div>
-                </div>
+              </div>
+            </div>
                 
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">
                     <Zap className="w-4 h-4 text-yellow-500" />
                     <span className="font-medium">{order.chargingPower}kW • {order.connectorType}</span>
-                  </div>
+          </div>
                   <div className="flex items-center gap-2">
                     <Battery className="w-4 h-4 text-blue-500" />
                     <span className="font-medium">{Math.abs(order.energyToCharge)} kWh</span>
+                    </div>
+                    </div>
+                    </div>
                   </div>
-                </div>
-              </div>
-            </div>
-            
+
             <div className="text-right ml-4">
               <div className="bg-primary/10 rounded-lg p-3">
                 <div className="text-xs text-muted-foreground mb-1">{language === 'vi' ? 'Giá/kWh' : 'Price/kWh'}</div>
                 <div className="font-bold text-lg text-primary">{formatCurrency(order.pricePerKwh)}</div>
                 <div className="text-xs text-muted-foreground mt-1">{language === 'vi' ? 'Tổng cộng' : 'Total'}</div>
                 <div className="font-semibold text-primary">{formatCurrency(Math.abs(order.estimatedCost))}</div>
-              </div>
-            </div>
-          </div>
+                    </div>
+                    </div>
+                  </div>
 
           <div className="flex items-center justify-between text-sm pt-3 border-t border-border">
             <div className="text-xs text-muted-foreground">
@@ -596,78 +900,118 @@ export default function MyBookingView({ onBack, onStartCharging }: MyBookingView
             <div className="flex items-center gap-2">
               <div className="text-xs text-muted-foreground">
                 ID: #{order.orderId}
-              </div>
+                  </div>
               {/* Show different buttons based on order status and active session */}
               {order.status === 'CHARGING' ? (
                 // Active charging session - show "View Charging" button
-                <Button 
+                          <Button
                   onClick={handleViewCharging}
-                  size="sm" 
+                            size="sm"
                   className="h-7 px-3 text-xs bg-blue-500 hover:bg-blue-600 text-white shadow-md"
-                >
+                          >
                   <Zap className="w-3 h-3 mr-1" />
                   {language === 'vi' ? 'Xem sạc' : 'View Charging'}
-                </Button>
-              ) : (startTime > now || (startTime <= now && canStartCharging)) && !isExpired ? (
-                // Upcoming session - show "Start Charging" button (disabled if active session exists)
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button 
-                      onClick={handleStartChargingClick}
-                      disabled={!canStartCharging || hasActiveSession}
-                      size="sm" 
-                      className={`h-7 px-3 text-xs ${
-                        canStartCharging && !hasActiveSession
-                          ? 'bg-green-500 hover:bg-green-600 text-white shadow-md' 
-                          : 'bg-gray-300 text-gray-500 cursor-not-allowed opacity-60'
-                      }`}
-                    >
-                      <Zap className="w-3 h-3 mr-1" />
-                      {hasActiveSession 
-                        ? (language === 'vi' ? 'Có phiên sạc khác' : 'Other session active')
-                        : (language === 'vi' ? 'Bắt đầu sạc' : 'Start Charging')
-                      }
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>
-                        {language === 'vi' ? 'Xác nhận bắt đầu sạc' : 'Confirm Start Charging'}
-                      </AlertDialogTitle>
-                      <AlertDialogDescription>
+                          </Button>
+              ) : order.status === 'BOOKED' ? (
+                // BOOKED orders - show "Start Charging" and "Cancel" buttons (regardless of time)
+                <div className="flex items-center gap-2">
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button 
+                        onClick={handleStartChargingClick}
+                        disabled={!canStartCharging || hasActiveSession}
+                        size="sm" 
+                        className={`h-7 px-3 text-xs ${
+                          canStartCharging && !hasActiveSession
+                            ? 'bg-green-500 hover:bg-green-600 text-white shadow-md' 
+                            : 'bg-gray-300 text-gray-500 cursor-not-allowed opacity-60'
+                        }`}
+                      >
+                        <Zap className="w-3 h-3 mr-1" />
                         {hasActiveSession 
-                          ? (language === 'vi' 
-                              ? 'Bạn đã có một phiên sạc đang hoạt động. Vui lòng kết thúc phiên sạc hiện tại trước khi bắt đầu phiên sạc mới.'
-                              : 'You already have an active charging session. Please end the current session before starting a new one.'
-                            )
-                          : (language === 'vi' 
-                              ? `Bạn có chắc chắn muốn bắt đầu phiên sạc tại ${order.stationName}?`
-                              : `Are you sure you want to start charging session at ${order.stationName}?`
-                            )
+                          ? (language === 'vi' ? 'Có phiên sạc khác' : 'Other session active')
+                          : (language === 'vi' ? 'Bắt đầu sạc' : 'Start Charging')
                         }
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>
-                        {language === 'vi' ? 'Hủy' : 'Cancel'}
-                      </AlertDialogCancel>
-                      {!hasActiveSession && (
-                        <AlertDialogAction 
-                          onClick={() => handleStartCharging(order.orderId)}
-                          className="bg-primary hover:bg-primary/90"
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>
+                          {language === 'vi' ? 'Xác nhận bắt đầu sạc' : 'Confirm Start Charging'}
+                        </AlertDialogTitle>
+                        <AlertDialogDescription>
+                          {hasActiveSession 
+                            ? (language === 'vi' 
+                                ? 'Bạn đã có một phiên sạc đang hoạt động. Vui lòng kết thúc phiên sạc hiện tại trước khi bắt đầu phiên sạc mới.'
+                                : 'You already have an active charging session. Please end the current session before starting a new one.'
+                              )
+                            : (language === 'vi' 
+                                ? `Bạn có chắc chắn muốn bắt đầu phiên sạc tại ${order.stationName}?`
+                                : `Are you sure you want to start charging session at ${order.stationName}?`
+                              )
+                          }
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>
+                          {language === 'vi' ? 'Hủy' : 'Cancel'}
+                        </AlertDialogCancel>
+                        {!hasActiveSession && (
+                          <AlertDialogAction
+                            onClick={() => handleStartCharging(order.orderId)}
+                            className="bg-primary hover:bg-primary/90"
+                          >
+                            {language === 'vi' ? 'Xác nhận' : 'Confirm'}
+                          </AlertDialogAction>
+                        )}
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+
+                  {/* Cancel Order Button */}
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button 
+                        variant="outline"
+                        size="sm" 
+                        className="h-7 px-3 text-xs bg-red-50 hover:bg-red-100 text-red-700 border-red-200 hover:border-red-300"
+                      >
+                        <XCircle className="w-3 h-3 mr-1" />
+                        {language === 'vi' ? 'Hủy đặt chỗ' : 'Cancel Booking'}
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>
+                          {language === 'vi' ? 'Xác nhận hủy đặt chỗ' : 'Confirm Cancel Booking'}
+                        </AlertDialogTitle>
+                        <AlertDialogDescription>
+                          {language === 'vi' 
+                            ? `Bạn có chắc chắn muốn hủy đặt chỗ tại ${order.stationName}? Hành động này không thể hoàn tác.`
+                            : `Are you sure you want to cancel the booking at ${order.stationName}? This action cannot be undone.`
+                          }
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>
+                          {language === 'vi' ? 'Không' : 'No'}
+                        </AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={() => handleCancelBooking(order.orderId)}
+                          className="bg-red-500 hover:bg-red-600 text-white"
                         >
-                          {language === 'vi' ? 'Xác nhận' : 'Confirm'}
+                          {language === 'vi' ? 'Hủy đặt chỗ' : 'Cancel Booking'}
                         </AlertDialogAction>
-                      )}
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </div>
               ) : null}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    );
+                      </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
   };
 
   const EmptyState = ({ message }: { message: string }) => (
@@ -737,11 +1081,63 @@ export default function MyBookingView({ onBack, onStartCharging }: MyBookingView
                     ({language === 'vi' ? 'Dữ liệu thực từ database' : 'Real data from database'})
                   </span>
                 )}
+                {apiOrders.length === 0 && !loading && (
+                  <span className="ml-2 text-orange-600 dark:text-orange-400">
+                    ({language === 'vi' ? 'Không có dữ liệu' : 'No data'})
+                  </span>
+                )}
+                {loading && (
+                  <span className="ml-2 text-blue-600 dark:text-blue-400">
+                    ({language === 'vi' ? 'Đang tải...' : 'Loading...'})
+                  </span>
+                )}
               </p>
             </div>
           </div>
         </div>
       </div>
+
+      {/* Status Summary */}
+      {apiOrders.length > 0 && (
+        <div className="max-w-4xl mx-auto px-4 py-2">
+          <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
+            <div className="flex items-center gap-4 text-sm">
+              <div className="flex items-center gap-2">
+                <span className="text-blue-600 dark:text-blue-400 font-medium">
+                  {language === 'vi' ? 'Tổng đặt chỗ:' : 'Total Bookings:'}
+                </span>
+                <span className="bg-blue-100 dark:bg-blue-900 px-2 py-1 rounded text-blue-800 dark:text-blue-200">
+                  {apiOrders.length}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-green-600 dark:text-green-400 font-medium">
+                  {language === 'vi' ? 'Sắp tới:' : 'Upcoming:'}
+                </span>
+                <span className="bg-green-100 dark:bg-green-900 px-2 py-1 rounded text-green-800 dark:text-green-200">
+                  {apiUpcomingOrders.length}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-orange-600 dark:text-orange-400 font-medium">
+                  {language === 'vi' ? 'Đang sạc:' : 'Active:'}
+                </span>
+                <span className="bg-orange-100 dark:bg-orange-900 px-2 py-1 rounded text-orange-800 dark:text-orange-200">
+                  {apiActiveOrders.length}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-gray-600 dark:text-gray-400 font-medium">
+                  {language === 'vi' ? 'Lịch sử:' : 'History:'}
+                </span>
+                <span className="bg-gray-100 dark:bg-gray-900 px-2 py-1 rounded text-gray-800 dark:text-gray-200">
+                  {apiHistoryOrders.length}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Content */}
       <div className="max-w-4xl mx-auto p-4">
@@ -750,24 +1146,29 @@ export default function MyBookingView({ onBack, onStartCharging }: MyBookingView
             <TabsTrigger value="upcoming" className="flex items-center gap-2">
               <Clock className="w-4 h-4" />
               {translations.upcoming}
-              {upcomingBookings.length > 0 && (
+              {apiUpcomingOrders.length > 0 && (
                 <Badge variant="secondary" className="ml-1 h-5 w-5 text-xs p-0 flex items-center justify-center">
-                  {upcomingBookings.length}
+                  {apiUpcomingOrders.length}
                 </Badge>
               )}
             </TabsTrigger>
             <TabsTrigger value="active" className="flex items-center gap-2">
               <Zap className="w-4 h-4" />
               {translations.active}
-              {activeBookings.length > 0 && (
+              {apiActiveOrders.length > 0 && (
                 <Badge variant="secondary" className="ml-1 h-5 w-5 text-xs p-0 flex items-center justify-center">
-                  {activeBookings.length}
+                  {apiActiveOrders.length}
                 </Badge>
               )}
             </TabsTrigger>
             <TabsTrigger value="history" className="flex items-center gap-2">
               <CheckCircle className="w-4 h-4" />
               {translations.history}
+              {apiHistoryOrders.length > 0 && (
+                <Badge variant="secondary" className="ml-1 h-5 w-5 text-xs p-0 flex items-center justify-center">
+                  {apiHistoryOrders.length}
+                </Badge>
+              )}
             </TabsTrigger>
           </TabsList>
 

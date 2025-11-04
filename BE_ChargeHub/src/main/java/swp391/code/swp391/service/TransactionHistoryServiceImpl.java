@@ -2,10 +2,6 @@ package swp391.code.swp391.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import swp391.code.swp391.dto.*;
@@ -13,7 +9,10 @@ import swp391.code.swp391.entity.*;
 import swp391.code.swp391.repository.*;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 @Service
@@ -31,38 +30,33 @@ public class TransactionHistoryServiceImpl implements TransactionHistoryService 
     @Override
     @Transactional(readOnly = true)
     public TransactionHistoryResponse getTransactionHistory(TransactionFilterRequest filter) {
-        log.info("Lấy lịch sử giao dịch với filter: {}", filter);
+        log.info("Lấy lịch sử giao dịch (không phân trang) với filter: {}", filter);
 
-        // Tạo Pageable
-        int page = filter.getPage() != null ? filter.getPage() : 0;
-        int size = filter.getSize() != null ? filter.getSize() : 10;
+        List<Transaction> transactions = findTransactionsByFilter(filter);
+
+        // Sắp xếp nếu cần
         String sortBy = filter.getSortBy() != null ? filter.getSortBy() : "createdAt";
         String sortDirection = filter.getSortDirection() != null ? filter.getSortDirection() : "DESC";
 
-        Sort sort = sortDirection.equalsIgnoreCase("ASC")
-                ? Sort.by(sortBy).ascending()
-                : Sort.by(sortBy).descending();
+        Comparator<Transaction> comparator = switch (sortBy) {
+            case "amount" -> Comparator.comparing(Transaction::getAmount, Comparator.nullsLast(Double::compareTo));
+            case "paymentTime" -> Comparator.comparing(Transaction::getPaymentTime, Comparator.nullsLast(LocalDateTime::compareTo));
+            default -> Comparator.comparing(Transaction::getCreatedAt, Comparator.nullsLast(LocalDateTime::compareTo));
+        };
 
-        Pageable pageable = PageRequest.of(page, size, sort);
+        if ("DESC".equalsIgnoreCase(sortDirection)) {
+            comparator = comparator.reversed();
+        }
 
-        // Tìm transactions theo filter
-        Page<Transaction> transactionPage = findTransactionsByFilter(filter, pageable);
-
-        // Convert sang DTO
-        List<TransactionHistoryDTO> historyDTOs = transactionPage.getContent().stream()
+        List<TransactionHistoryDTO> historyDTOs = transactions.stream()
+                .filter(Objects::nonNull)
+                .sorted(comparator)
                 .map(this::convertToHistoryDTO)
                 .collect(Collectors.toList());
 
-        // Tính thống kê
-        TransactionHistoryResponse.TransactionSummary summary = calculateSummary(filter);
-
         return TransactionHistoryResponse.builder()
                 .transactions(historyDTOs)
-                .currentPage(page)
-                .totalPages(transactionPage.getTotalPages())
-                .totalElements(transactionPage.getTotalElements())
-                .pageSize(size)
-                .summary(summary)
+                .totalElements(historyDTOs.size())
                 .build();
     }
 
@@ -87,71 +81,87 @@ public class TransactionHistoryServiceImpl implements TransactionHistoryService 
 
     @Override
     @Transactional(readOnly = true)
-    public TransactionHistoryResponse getUserTransactionHistory(Long userId, Integer page, Integer size) {
+    public TransactionHistoryResponse getUserTransactionHistory(Long userId) {
         log.info("Lấy lịch sử giao dịch của user: {}", userId);
-
         TransactionFilterRequest filter = TransactionFilterRequest.builder()
                 .userId(userId)
-                .page(page != null ? page : 0)
-                .size(size != null ? size : 10)
                 .sortBy("createdAt")
                 .sortDirection("DESC")
                 .build();
-
         return getTransactionHistory(filter);
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public TransactionSummaryDTO getTransactionSummary(TransactionFilterRequest filter) {
+        log.info("Tính summary cho giao dịch với filter: {}", filter);
+
+        List<Transaction> transactions = findTransactionsByFilter(filter);
+
+        long totalCount = transactions.size();
+
+        BigDecimal totalAmount = transactions.stream()
+                .map(t -> BigDecimal.valueOf(t.getAmount()))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        BigDecimal totalSuccess = transactions.stream()
+                .filter(t -> t.getStatus() == Transaction.Status.SUCCESS)
+                .map(t -> BigDecimal.valueOf(t.getAmount()))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        BigDecimal totalFailed = transactions.stream()
+                .filter(t -> t.getStatus() == Transaction.Status.FAILED)
+                .map(t -> BigDecimal.valueOf(t.getAmount()))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        BigDecimal totalPending = transactions.stream()
+                .filter(t -> t.getStatus() == Transaction.Status.PENDING)
+                .map(t -> BigDecimal.valueOf(t.getAmount()))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        return TransactionSummaryDTO.builder()
+                .totalTransactions(totalCount)
+                .totalAmount(totalAmount)
+                .totalSuccess(totalSuccess)
+                .totalFailed(totalFailed)
+                .totalPending(totalPending)
+                .build();
+    }
+
     /**
-     * Tìm transactions theo các điều kiện filter
+     * Tìm transactions theo các điều kiện filter (sử dụng in-memory filtering)
      */
-    private Page<Transaction> findTransactionsByFilter(TransactionFilterRequest filter, Pageable pageable) {
-        // Nếu có userId
-        if (filter.getUserId() != null) {
-            User user = userRepository.findById(filter.getUserId())
-                    .orElseThrow(() -> new RuntimeException("Không tìm thấy user"));
+    private List<Transaction> findTransactionsByFilter(TransactionFilterRequest filter) {
+        List<Transaction> all = transactionRepository.findAll();
 
-            // Nếu có cả status và paymentMethod
-            if (filter.getStatus() != null && filter.getPaymentMethod() != null) {
-                return transactionRepository.findByUserAndStatusAndPaymentMethod(
-                        user, filter.getStatus(), filter.getPaymentMethod(), pageable);
-            }
-            // Nếu chỉ có status
-            else if (filter.getStatus() != null) {
-                return transactionRepository.findByUserAndStatus(user, filter.getStatus(), pageable);
-            }
-            // Nếu chỉ có paymentMethod
-            else if (filter.getPaymentMethod() != null) {
-                return transactionRepository.findByUserAndPaymentMethod(user, filter.getPaymentMethod(), pageable);
-            }
-            // Nếu có date range
-            else if (filter.getFromDate() != null && filter.getToDate() != null) {
-                return transactionRepository.findByUserAndCreatedAtBetween(
-                        user, filter.getFromDate(), filter.getToDate(), pageable);
-            }
-            // Chỉ filter theo user
-            else {
-                return transactionRepository.findByUser(user, pageable);
-            }
-        }
-
-        // Nếu filter theo status
-        if (filter.getStatus() != null) {
-            return transactionRepository.findByStatus(filter.getStatus(), pageable);
-        }
-
-        // Nếu filter theo paymentMethod
-        if (filter.getPaymentMethod() != null) {
-            return transactionRepository.findByPaymentMethod(filter.getPaymentMethod(), pageable);
-        }
-
-        // Nếu filter theo date range
-        if (filter.getFromDate() != null && filter.getToDate() != null) {
-            return transactionRepository.findByCreatedAtBetween(
-                    filter.getFromDate(), filter.getToDate(), pageable);
-        }
-
-        // Mặc định: lấy tất cả
-        return transactionRepository.findAll(pageable);
+        return all.stream()
+                .filter(t -> {
+                    if (filter.getUserId() != null && (t.getUser() == null || !t.getUser().getUserId().equals(filter.getUserId()))) {
+                        return false;
+                    }
+                    if (filter.getStatus() != null && t.getStatus() != filter.getStatus()) {
+                        return false;
+                    }
+                    if (filter.getPaymentMethod() != null && t.getPaymentMethod() != filter.getPaymentMethod()) {
+                        return false;
+                    }
+                    if (filter.getFromDate() != null && (t.getCreatedAt() == null || t.getCreatedAt().isBefore(filter.getFromDate()))) {
+                        return false;
+                    }
+                    if (filter.getToDate() != null && (t.getCreatedAt() == null || t.getCreatedAt().isAfter(filter.getToDate()))) {
+                        return false;
+                    }
+                    if (filter.getStationId() != null) {
+                        Session s = t.getSession();
+                        if (s == null || s.getOrder() == null || s.getOrder().getChargingPoint() == null
+                                || s.getOrder().getChargingPoint().getStation() == null
+                                || !filter.getStationId().equals(s.getOrder().getChargingPoint().getStation().getStationId())) {
+                            return false;
+                        }
+                    }
+                    return true;
+                })
+                .collect(Collectors.toList());
     }
 
     /**
@@ -179,9 +189,9 @@ public class TransactionHistoryServiceImpl implements TransactionHistoryService 
                 .status(transaction.getStatus())
                 .createdAt(transaction.getCreatedAt())
                 .paymentTime(transaction.getPaymentTime())
-                .userId(user.getUserId())
-                .userName(user.getFullName())
-                .userEmail(user.getEmail())
+                .userId(user != null ? user.getUserId() : null)
+                .userName(user != null ? user.getFullName() : null)
+                .userEmail(user != null ? user.getEmail() : null)
                 .sessionId(session != null ? session.getSessionId() : null)
                 .sessionStartTime(session != null ? session.getStartTime() : null)
                 .sessionEndTime(session != null ? session.getEndTime() : null)
@@ -235,13 +245,13 @@ public class TransactionHistoryServiceImpl implements TransactionHistoryService 
                 .status(transaction.getStatus())
                 .createdAt(transaction.getCreatedAt())
                 .paymentTime(transaction.getPaymentTime())
-                .userId(user.getUserId())
-                .userName(user.getFullName())
-                .userEmail(user.getEmail())
-                .userPhone(user.getPhone())
-                .sessionId(session.getSessionId())
-                .sessionStartTime(session.getStartTime())
-                .sessionEndTime(session.getEndTime())
+                .userId(user != null ? user.getUserId() : null)
+                .userName(user != null ? user.getFullName() : null)
+                .userEmail(user != null ? user.getEmail() : null)
+                .userPhone(user != null ? user.getPhone() : null)
+                .sessionId(session != null ? session.getSessionId() : null)
+                .sessionStartTime(session != null ? session.getStartTime() : null)
+                .sessionEndTime(session != null ? session.getEndTime() : null)
                 .powerConsumed(paymentDetail.getPowerConsumed())
                 .baseCost(paymentDetail.getBaseCost())
                 .stationId(session.getOrder().getChargingPoint().getStation().getStationId())
@@ -259,49 +269,6 @@ public class TransactionHistoryServiceImpl implements TransactionHistoryService 
                 .vehiclePlateNumber(vehiclePlateNumber)
                 .vehicleBrand(vehicleBrand)
                 .vehicleModel(vehicleModel)
-                .build();
-    }
-
-    /**
-     * Tính thống kê tổng quan
-     */
-    private TransactionHistoryResponse.TransactionSummary calculateSummary(TransactionFilterRequest filter) {
-        List<Transaction> allTransactions;
-
-        if (filter.getUserId() != null) {
-            User user = userRepository.findById(filter.getUserId()).orElse(null);
-            allTransactions = user != null ? transactionRepository.findByUserOrderByTransactionIdDesc(user) : List.of();
-        } else {
-            allTransactions = transactionRepository.findAll();
-        }
-
-        long totalCount = allTransactions.size();
-
-        BigDecimal totalAmount = allTransactions.stream()
-                .map(t -> BigDecimal.valueOf(t.getAmount()))
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-        BigDecimal totalSuccess = allTransactions.stream()
-                .filter(t -> t.getStatus() == Transaction.Status.SUCCESS)
-                .map(t -> BigDecimal.valueOf(t.getAmount()))
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-        BigDecimal totalFailed = allTransactions.stream()
-                .filter(t -> t.getStatus() == Transaction.Status.FAILED)
-                .map(t -> BigDecimal.valueOf(t.getAmount()))
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-        BigDecimal totalPending = allTransactions.stream()
-                .filter(t -> t.getStatus() == Transaction.Status.PENDING)
-                .map(t -> BigDecimal.valueOf(t.getAmount()))
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-        return TransactionHistoryResponse.TransactionSummary.builder()
-                .totalTransactions(totalCount)
-                .totalAmount(totalAmount)
-                .totalSuccess(totalSuccess)
-                .totalFailed(totalFailed)
-                .totalPending(totalPending)
                 .build();
     }
 }

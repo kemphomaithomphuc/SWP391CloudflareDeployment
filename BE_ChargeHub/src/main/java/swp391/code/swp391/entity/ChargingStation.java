@@ -1,5 +1,6 @@
 package swp391.code.swp391.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -10,6 +11,7 @@ import java.util.List;
 
 @Entity
 @Table(name = "charging_stations")
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -29,7 +31,7 @@ public class ChargingStation {
     private double longitude; //Vi tri kinh do
 
     @OneToMany(mappedBy = "station", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    @JsonManagedReference
+    @JsonManagedReference("station-points")
     private List<ChargingPoint> chargingPoint;
 
     public enum ChargingStationStatus {
@@ -42,5 +44,6 @@ public class ChargingStation {
     private int chargingPointNumber;
 
     @OneToMany(mappedBy = "station")
+    @JsonManagedReference("station-staff")
     private List<User> staff_id;
 }

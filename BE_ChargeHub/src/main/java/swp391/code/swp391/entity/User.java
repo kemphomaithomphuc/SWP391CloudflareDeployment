@@ -1,5 +1,7 @@
 package swp391.code.swp391.entity;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -12,6 +14,7 @@ import java.util.List;
 
 @Entity
 @Table(name = "users")
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 @NoArgsConstructor
 @AllArgsConstructor
 @Data
@@ -56,6 +59,7 @@ public class User {
 
     @ManyToOne
     @JoinColumn(name = "station_id")
+    @JsonBackReference("station-staff")
     private ChargingStation station;
 
 

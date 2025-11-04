@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useRef, useCallback, useMemo } from 'react';
 import { getNotifications, getUnreadNotificationCount, markNotificationAsRead, markAllNotificationsAsRead, createNotification, Notification as APINotification } from '../services/api';
 import { toast } from 'sonner';
 
@@ -29,9 +29,10 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const prevUnreadRef = useRef<number>(0);
 
   // Load notifications from API
-  const refreshNotifications = async () => {
+  const refreshNotifications = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -69,36 +70,42 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  // Get unread count from API
-  const getUnreadCount = async () => {
+  // Get unread count from API (for polling - lightweight, only updates count)
+  // Use functional setState to access current state without dependency
+  const getUnreadCount = useCallback(async () => {
     try {
       // Check if user is authenticated before making API call
       const token = localStorage.getItem('token');
       if (!token) {
         setUnreadCount(0);
+        prevUnreadRef.current = 0;
         return;
       }
       
-      // Instead of relying on API count, calculate from actual notifications
-      const fetchedNotifications = await getNotifications();
-      const localCount = fetchedNotifications.filter(n => !n.isRead).length;
+      // Only fetch count, don't update full notifications list to avoid re-renders
+      const apiCount = await getUnreadNotificationCount();
+      const previousCount = prevUnreadRef.current;
       
-      console.log("=== FRONTEND NOTIFICATION COUNT DEBUG ===");
-      console.log("Total notifications fetched:", fetchedNotifications.length);
-      console.log("Unread notifications (local calculation):", localCount);
-      
-      // Also get API count for comparison
-      try {
-        const apiCount = await getUnreadNotificationCount();
-        console.log("API count:", apiCount);
-        console.log("Difference:", localCount - apiCount);
-      } catch (apiErr) {
-        console.log("API count failed, using local calculation");
-      }
-      
-      setUnreadCount(localCount);
+      // Use functional setState to get current value without dependency
+      setUnreadCount(currentCount => {
+        // Only update if count actually changed
+        if (apiCount !== currentCount) {
+          // Show toast if new notifications arrived (count increased)
+          if (apiCount > previousCount && previousCount > 0) {
+            const newNum = apiCount - previousCount;
+            toast.success(
+              newNum === 1 ? 'Bạn có 1 thông báo mới' : `Bạn có ${newNum} thông báo mới`
+            );
+          }
+          
+          // Update previous count for next comparison
+          prevUnreadRef.current = apiCount;
+          return apiCount;
+        }
+        return currentCount; // No change, return current value
+      });
     } catch (err: any) {
       console.error('Error getting unread count:', err);
       
@@ -106,17 +113,17 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
       if (err.response?.status === 401) {
         console.log('401 error in unread count - user will be redirected to login');
         setUnreadCount(0);
+        prevUnreadRef.current = 0;
         return;
       }
       
       // Don't show error toast for unread count as it's not critical
-      // Reset to 0 if there's an error
-      setUnreadCount(0);
+      // Don't reset count on error to avoid UI flicker
     }
-  };
+  }, []); // No dependencies - stable function
 
   // Mark notification as read
-  const markAsRead = async (notificationId: number) => {
+  const markAsRead = useCallback(async (notificationId: number) => {
     try {
       // Check if user is authenticated before making API call
       const token = localStorage.getItem('token');
@@ -144,10 +151,10 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
       console.error('Error marking notification as read:', err);
       toast.error('Failed to mark notification as read');
     }
-  };
+  }, []);
 
   // Mark all notifications as read
-  const markAllAsRead = async () => {
+  const markAllAsRead = useCallback(async () => {
     try {
       // Check if user is authenticated before making API call
       const token = localStorage.getItem('token');
@@ -171,10 +178,10 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
       console.error('Error marking all notifications as read:', err);
       toast.error('Failed to mark all notifications as read');
     }
-  };
+  }, []);
 
   // Create a new notification
-  const createNotificationHandler = async (notificationData: {
+  const createNotificationHandler = useCallback(async (notificationData: {
     title: string;
     content: string;
     type: 'booking' | 'payment' | 'issue' | 'penalty' | 'general' | 'invoice' | 'late_arrival' | 'charging_complete' | 'overstay_warning' | 'report_success' | 'booking_confirmed';
@@ -200,23 +207,43 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
       console.error('Error creating notification:', err);
       toast.error('Failed to create notification');
     }
-  };
+  }, []);
 
   // Load notifications on mount
   useEffect(() => {
     refreshNotifications();
-  }, []);
+  }, [refreshNotifications]);
 
-  // Set up polling for unread count (every 30 seconds)
+  // Initialize previous unread count when notifications first load
   useEffect(() => {
+    if (notifications.length > 0 && prevUnreadRef.current === 0 && unreadCount > 0) {
+      prevUnreadRef.current = unreadCount;
+    }
+  }, [notifications.length, unreadCount]); // Update when notifications first arrive
+
+  // Set up polling for unread count (every 10 seconds)
+  // Only poll when user is authenticated (has token)
+  // getUnreadCount is stable (no dependencies), so we can include it safely
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      return;
+    }
+
+    // Create interval only if token exists
     const interval = setInterval(() => {
-      getUnreadCount();
-    }, 30000); // Poll every 30 seconds
+      const currentToken = localStorage.getItem('token');
+      // Only poll if token still exists
+      if (currentToken) {
+        getUnreadCount();
+      }
+    }, 10000);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [getUnreadCount]); // Safe because getUnreadCount is stable (no deps)
 
-  const value: NotificationContextType = {
+  // Memoize context value to prevent unnecessary re-renders
+  const value: NotificationContextType = useMemo(() => ({
     notifications,
     unreadCount,
     loading,
@@ -226,7 +253,7 @@ export function NotificationProvider({ children }: NotificationProviderProps) {
     markAllAsRead,
     getUnreadCount,
     createNotification: createNotificationHandler,
-  };
+  }), [notifications, unreadCount, loading, error, refreshNotifications, markAsRead, markAllAsRead, getUnreadCount, createNotificationHandler]);
 
   return (
     <NotificationContext.Provider value={value}>

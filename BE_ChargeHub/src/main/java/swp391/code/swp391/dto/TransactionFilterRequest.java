@@ -33,10 +33,6 @@ public class TransactionFilterRequest {
     // Filter theo trạm sạc
     private Long stationId;
 
-    // Pagination
-    private Integer page; // Trang hiện tại (bắt đầu từ 0)
-    private Integer size; // Số lượng records mỗi trang
-
     // Sort
     private String sortBy; // Field để sort (ví dụ: "createdAt", "amount")
     private String sortDirection; // "ASC" hoặc "DESC"

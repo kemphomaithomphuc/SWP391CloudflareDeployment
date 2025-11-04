@@ -45,6 +45,7 @@ public class SecurityConfig {
             "/api/payment/**",
             "/api/staff/**",
             "/api/transactions/**",
+            "/api/admin/revenue/**",
             "/api/test/**" // them de test thoi, khong dung nua thi xoa
     };
     private final JwtDecoder jwtDecoder; // Tự động được Spring inject JwtDecoderConfig
@@ -69,7 +70,8 @@ public class SecurityConfig {
                         .requestMatchers(PUBLIC_URLS).permitAll()
                         .requestMatchers("/api/admin/**").hasRole(User.UserRole.ADMIN.name())
                         .requestMatchers("/api/staff/**").hasAnyRole( "STAFF", "ADMIN")
-                        .requestMatchers("/api/issue-reports/**").hasAnyRole( "STAFF", "ADMIN")
+                        .requestMatchers("/api/staff-management/**").hasAnyRole( "STAFF", "ADMIN")
+                        .requestMatchers("/api/analytics/**").hasAnyRole( "STAFF", "ADMIN")
                         .anyRequest().authenticated()
                 );
         return http.build();
