@@ -35,6 +35,7 @@ import RevenueView from "./components/RevenueView";
 import StaffManagementView from "./components/StaffManagementView";
 import UsageAnalyticsView from "./components/UsageAnalyticsView";
 import AdminChargerPostActivatingView from "./components/AdminChargerPostActivatingView";
+import IssueResolvementView from "./components/IssueResolvementView";
 import LanguageThemeControls from "./components/LanguageThemeControls";
 import RoleSelection from "./components/RoleSelection";
 import StaffProfileSetup from "./components/StaffProfileSetup";
@@ -49,7 +50,7 @@ import PenaltyPaymentView from "./components/PenaltyPaymentView";
 import { access } from "fs";
 import { checkAndRefreshToken } from "./services/api";
 
-type ViewType = "login" | "register" | "roleSelection" | "profileSetup" | "vehicleSetup" | "staffProfileSetup" | "educationSetup" | "dashboard" | "staffLogin" | "staffDashboard" | "staffHome" | "adminLogin" | "adminDashboard" | "systemConfig" | "adminMap" | "revenue" | "staffManagement" | "usageAnalytics" | "booking" | "history" | "analysis" | "reportIssue" | "wallet" | "notifications" | "staffNotifications" | "postActivating" | "adminChargerPostActivating" | "myBookings" | "chargingSession" | "stationManagement" | "premiumSubscription" | "penaltyPayment";
+type ViewType = "login" | "register" | "roleSelection" | "profileSetup" | "vehicleSetup" | "staffProfileSetup" | "educationSetup" | "dashboard" | "staffLogin" | "staffDashboard" | "staffHome" | "adminLogin" | "adminDashboard" | "systemConfig" | "adminMap" | "revenue" | "staffManagement" | "usageAnalytics" | "booking" | "history" | "analysis" | "reportIssue" | "wallet" | "notifications" | "staffNotifications" | "postActivating" | "adminChargerPostActivating" | "myBookings" | "chargingSession" | "stationManagement" | "premiumSubscription" | "issueResolvement";
 
 function AppContent() {
   const navigate = useNavigate();
@@ -71,32 +72,33 @@ function AppContent() {
     console.log("Switching to roleSelection view");
     navigate('/roleSelection');
   };
-  const switchToProfileSetup = () => navigate('/profileSetup');
-  const switchToVehicleSetup = () => navigate('/vehicleSetup');
-  const switchToStaffProfileSetup = () => navigate('/staffProfileSetup');
-  const switchToEducationSetup = () => navigate('/educationSetup');
-  const completeSetup = () => navigate('/login');
-  const completeStaffSetup = () => navigate('/staffDashboard');
-  const switchToStaffLogin = () => navigate('/staffLogin');
-  const completeStaffLogin = () => navigate('/staffDashboard');
-  const switchToStaffHome = () => navigate('/staffHome');
-  const switchToAdminLogin = () => navigate('/adminLogin');
-  const completeAdminLogin = () => navigate('/adminDashboard');
-  const switchToBooking = () => navigate('/booking');
-  const switchToHistory = () => navigate('/history');
-  const switchToAnalysis = () => navigate('/analysis');
-  const switchToReportIssue = () => navigate('/reportIssue');
-  const switchToWallet = () => navigate('/wallet');
-  const switchToNotifications = () => navigate('/notifications');
-  const switchToStaffNotifications = () => navigate('/staffNotifications');
-  const switchToSystemConfig = () => navigate('/systemConfig');
-  const switchToAdminMap = () => navigate('/adminMap');
-  const switchToRevenue = () => navigate('/revenue');
-  const switchToStaffManagement = () => navigate('/staffManagement');
-  const switchToUsageAnalytics = () => navigate('/usageAnalytics');
-  const switchToPostActivating = () => navigate('/postActivating');
-  const switchToAdminChargerPostActivating = () => navigate('/adminChargerPostActivating');
-  const switchToMyBookings = () => navigate('/myBookings');
+  const switchToProfileSetup = () => setCurrentView("profileSetup");
+  const switchToVehicleSetup = () => setCurrentView("vehicleSetup");
+  const switchToStaffProfileSetup = () => setCurrentView("staffProfileSetup");
+  const switchToEducationSetup = () => setCurrentView("educationSetup");
+  const completeSetup = () => setCurrentView("login");
+  const completeStaffSetup = () => setCurrentView("staffDashboard");
+  const switchToStaffLogin = () => setCurrentView("staffLogin");
+  const completeStaffLogin = () => setCurrentView("staffDashboard");
+  const switchToStaffHome = () => setCurrentView("staffHome");
+  const switchToAdminLogin = () => setCurrentView("adminLogin");
+  const completeAdminLogin = () => setCurrentView("adminDashboard");
+  const switchToBooking = () => setCurrentView("booking");
+  const switchToHistory = () => setCurrentView("history");
+  const switchToAnalysis = () => setCurrentView("analysis");
+  const switchToReportIssue = () => setCurrentView("reportIssue");
+  const switchToWallet = () => setCurrentView("wallet");
+  const switchToNotifications = () => setCurrentView("notifications");
+  const switchToStaffNotifications = () => setCurrentView("staffNotifications");
+  const switchToSystemConfig = () => setCurrentView("systemConfig");
+  const switchToAdminMap = () => setCurrentView("adminMap");
+  const switchToRevenue = () => setCurrentView("revenue");
+  const switchToStaffManagement = () => setCurrentView("staffManagement");
+  const switchToUsageAnalytics = () => setCurrentView("usageAnalytics");
+  const switchToPostActivating = () => setCurrentView("postActivating");
+  const switchToAdminChargerPostActivating = () => setCurrentView("adminChargerPostActivating");
+const switchToIssueResolvement = () => setCurrentView("issueResolvement");
+  const switchToMyBookings = () => setCurrentView("myBookings");
   const switchToChargingSession = (bookingId: string) => {
     setCurrentBookingId(bookingId);
     navigate('/chargingSession');
@@ -344,7 +346,7 @@ function AppContent() {
         );
 
       case "adminDashboard":
-        return <AdminDashboard onLogout={switchToLogin} onSystemConfig={switchToSystemConfig} onAdminMap={switchToAdminMap} onRevenue={switchToRevenue} onStaffManagement={switchToStaffManagement} onUsageAnalytics={switchToUsageAnalytics} onAdminChargerPostActivating={switchToAdminChargerPostActivating} />;
+        return <AdminDashboard onLogout={switchToLogin} onSystemConfig={switchToSystemConfig} onAdminMap={switchToAdminMap} onRevenue={switchToRevenue} onStaffManagement={switchToStaffManagement} onUsageAnalytics={switchToUsageAnalytics} onAdminChargerPostActivating={switchToAdminChargerPostActivating} onIssueResolvement={switchToIssueResolvement} />;
 
       case "systemConfig":
         return <SystemConfigView onBack={() => navigate("/adminDashboard")} />;
@@ -363,6 +365,9 @@ function AppContent() {
 
       case "adminChargerPostActivating":
         return <AdminChargerPostActivatingView onBack={() => navigate("/adminDashboard")} />;
+
+      case "issueResolvement":
+        return <IssueResolvementView onBack={() => setCurrentView("adminDashboard")} />;
 
       case "postActivating":
         return <PostActivatingView onBack={() => navigate("/staffDashboard")} />;
@@ -435,10 +440,9 @@ function AppContent() {
           <>
             <Login 
               onSwitchToRegister={switchToRegister} 
-              onLogin={() => navigate("/dashboard")}
-              // Redirect staff/admin directly after role detection
-              onStaffLogin={() => navigate("/staffDashboard")}
-              onAdminLogin={() => navigate("/adminDashboard")}
+              onLogin={() => setCurrentView("dashboard")}
+              onStaffLogin={completeStaffLogin}
+              onAdminLogin={completeAdminLogin}
               onSwitchToRoleSelection={switchToRoleSelection}
               onSwitchToVehicleSetup={switchToVehicleSetup}
             />

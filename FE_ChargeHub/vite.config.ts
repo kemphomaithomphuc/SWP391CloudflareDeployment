@@ -50,10 +50,15 @@
     },
     build: {
       target: 'esnext',
-      outDir: 'build',
+      outDir: 'dist',
     },
     server: {
+      host: true,
       port: 3000,
       open: true,
+      allowedHosts: ['.trycloudflare.com'],
+    },
+    preview: {
+      allowedHosts: ['.trycloudflare.com'],
     },
   });

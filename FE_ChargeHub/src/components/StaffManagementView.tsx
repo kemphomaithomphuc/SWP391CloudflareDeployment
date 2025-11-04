@@ -1,7 +1,7 @@
-import { useState } from 'react';
-import { ArrowLeft, Search, Filter, Users2, Mail, Calendar, MapPin, Eye, Edit, Trash2, UserPlus, Download } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { ArrowLeft, Search, Users2, Mail, Calendar, MapPin, Eye, Edit, MinusCircle } from 'lucide-react';
 import { Button } from './ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Input } from './ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Badge } from './ui/badge';
@@ -9,82 +9,111 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
 import { Label } from './ui/label';
-import { Textarea } from './ui/textarea';
-import { toast } from "sonner@2.0.3";
+import { toast } from "sonner";
 import { Toaster } from './ui/sonner';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useTheme } from '../contexts/ThemeContext';
 import AdminLanguageThemeControls from './AdminLanguageThemeControls';
+import axios from 'axios';
 
-// Mock staff data
-const staffData = [
-  {
-    id: 'STF001',
-    name: 'Nguyễn Văn An',
-    email: 'nguyen.van.an@chargehub.com',
-    birthDate: '1990-05-15',
-    station: 'ChargeHub Center',
-    position: 'Technician',
-    status: 'active',
-    joinDate: '2023-01-15',
-    avatar: null,
-  },
-  {
-    id: 'STF002',
-    name: 'Trần Thị Bình',
-    email: 'tran.thi.binh@chargehub.com',
-    birthDate: '1988-12-03',
-    station: 'ChargeHub Mall',
-    position: 'Supervisor',
-    status: 'active',
-    joinDate: '2022-08-20',
-    avatar: null,
-  },
-  {
-    id: 'STF003',
-    name: 'Lê Minh Cường',
-    email: 'le.minh.cuong@chargehub.com',
-    birthDate: '1992-07-28',
-    station: 'ChargeHub Airport',
-    position: 'Technician',
-    status: 'active',
-    joinDate: '2023-03-10',
-    avatar: null,
-  },
-  {
-    id: 'STF004',
-    name: 'Phạm Thu Dung',
-    email: 'pham.thu.dung@chargehub.com',
-    birthDate: '1985-11-12',
-    station: 'ChargeHub Center',
-    position: 'Manager',
-    status: 'active',
-    joinDate: '2021-05-01',
-    avatar: null,
-  },
-  {
-    id: 'STF005',
-    name: 'Hoàng Quang Em',
-    email: 'hoang.quang.em@chargehub.com',
-    birthDate: '1993-04-22',
-    station: 'ChargeHub Mall',
-    position: 'Technician',
-    status: 'inactive',
-    joinDate: '2023-06-15',
-    avatar: null,
-  },
-  {
-    id: 'STF006',
-    name: 'Vũ Thị Phương',
-    email: 'vu.thi.phuong@chargehub.com',
-    birthDate: '1987-09-08',
-    station: 'ChargeHub Airport',
-    position: 'Supervisor',
-    status: 'active',
-    joinDate: '2022-12-05',
-    avatar: null,
-  },
-];
+type ChargingPoint = unknown;
+interface ConnectorType {
+
+    type: string;
+
+    available: number;
+
+    total: number;
+
+    power: string;
+
+    connectorTypeId?: number;
+
+    typeName?: string;
+
+    powerOutput?: number;
+
+    pricePerKwh?: number;
+
+    vehicles?: any[];
+
+}
+
+
+interface ChargingStation {
+
+    id: string;
+
+    name: string;
+
+    address: string;
+
+    latitude: number;
+
+    longitude: number;
+
+    status: string;
+
+    totalPoints: number;
+
+    availablePoints: number;
+
+    connectorTypes: ConnectorType[];
+
+    chargingPoints?: ChargingPoint[];
+
+    chargingPointNumber?: number;
+
+    pricing: {
+
+        standard: number;
+
+        fast: number;
+
+        rapid: number;
+
+    };
+
+    operatingHours: string;
+
+    contactPhone: string;
+
+    contactEmail: string;
+
+    lastMAINTENANCE: string;
+
+    nextMAINTENANCE: string;
+
+    revenue: {
+
+        daily: number;
+
+        monthly: number;
+
+    };
+
+    // API fields
+
+    stationId?: string;
+
+    stationName?: string;
+
+    numberOfPort?: number;
+
+}
+// UI staff type and initial empty list
+interface StaffUI {
+  id: string;
+  name: string;
+  email: string;
+  birthDate: string;
+  station: string;
+  position: string; // role from API: ADMIN | STAFF | DRIVER
+  statusRaw: 'ACTIVE' | 'INACTIVE' | 'BANNED';
+  joinDate: string;
+  avatar: string | null;
+}
+const initialStaff: StaffUI[] = [];
 
 const stations = [
   { id: 'all', name: 'All Stations', nameVi: 'Tất cả trạm' },
@@ -94,20 +123,35 @@ const stations = [
 ];
 
 const positions = [
-  { id: 'all', name: 'All Positions', nameVi: 'Tất cả vị trí' },
-  { id: 'manager', name: 'Manager', nameVi: 'Quản lý' },
-  { id: 'supervisor', name: 'Supervisor', nameVi: 'Giám sát' },
-  { id: 'technician', name: 'Technician', nameVi: 'Kỹ thuật viên' },
+  { id: 'all', name: 'All Roles', nameVi: 'Tất cả vai trò' },
+  { id: 'ADMIN', name: 'Admin', nameVi: 'Quản trị' },
+  { id: 'STAFF', name: 'Staff', nameVi: 'Nhân viên' },
+  { id: 'DRIVER', name: 'Driver', nameVi: 'Tài xế' },
 ];
 
 const statusOptions = [
   { id: 'all', name: 'All Status', nameVi: 'Tất cả trạng thái' },
-  { id: 'active', name: 'Active', nameVi: 'Hoạt động' },
-  { id: 'inactive', name: 'Inactive', nameVi: 'Ngưng hoạt động' },
+  { id: 'ACTIVE', name: 'Active', nameVi: 'Hoạt động' },
+  { id: 'INACTIVE', name: 'Inactive', nameVi: 'Ngưng hoạt động' },
+  { id: 'BANNED', name: 'Banned', nameVi: 'Cấm' },
 ];
 
 interface StaffManagementViewProps {
   onBack: () => void;
+}
+
+interface Staff{
+  userId: string;
+  fullName: string;
+  email: string;
+  phone: string;
+  dateOfBirth: string;
+  address: string;
+  role: string;
+  status: string;
+  stationId: string;
+  stationName: string;
+  stationAddress: string;
 }
 
 export default function StaffManagementView({ onBack }: StaffManagementViewProps) {
@@ -117,14 +161,23 @@ export default function StaffManagementView({ onBack }: StaffManagementViewProps
   const [selectedStation, setSelectedStation] = useState('all');
   const [selectedPosition, setSelectedPosition] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
-  const [selectedStaff, setSelectedStaff] = useState<typeof staffData[0] | null>(null);
-  const [staffList, setStaffList] = useState(staffData);
+  const [selectedStaff, setSelectedStaff] = useState<StaffUI | null>(null);
+  const [staffList, setStaffList] = useState<StaffUI[]>(initialStaff);
+  const [stationsCount, setStationsCount] = useState<number>(0);
+  const [stationsList, setStationsList] = useState<ChargingStation[]>([]);
+  const [stationOptions, setStationOptions] = useState<Array<{ id: string; name: string; nameVi: string }>>([
+    { id: 'all', name: 'All Stations', nameVi: 'Tất cả trạm' },
+  ]);
+  const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
+  const [assignTargetStaff, setAssignTargetStaff] = useState<StaffUI | null>(null);
+  const [assignSelectedStationId, setAssignSelectedStationId] = useState<string>('');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [editingStaff, setEditingStaff] = useState<typeof staffData[0] | null>(null);
-  const [deletingStaff, setDeletingStaff] = useState<typeof staffData[0] | null>(null);
-  
+  const [editingStaff, setEditingStaff] = useState<StaffUI | null>(null);
+  const [deletingStaff, setDeletingStaff] = useState<StaffUI | null>(null);
+  const [staffFullName, setStaffFullName] = useState("");
+  const [staffStatus, setStaffStatus] = useState("");
   // Form states
   const [formData, setFormData] = useState({
     name: '',
@@ -132,7 +185,7 @@ export default function StaffManagementView({ onBack }: StaffManagementViewProps
     birthDate: '',
     station: '',
     position: '',
-    status: 'active' as 'active' | 'inactive'
+    status: 'ACTIVE' as 'ACTIVE' | 'INACTIVE' | 'BANNED'
   });
 
   const isVietnamese = language === 'vi';
@@ -175,17 +228,14 @@ export default function StaffManagementView({ onBack }: StaffManagementViewProps
     const matchesSearch = staff.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          staff.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          staff.id.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStation = selectedStation === 'all' || 
-                          staff.station.toLowerCase().includes(selectedStation === 'center' ? 'center' : 
-                                                               selectedStation === 'mall' ? 'mall' : 
-                                                               selectedStation === 'airport' ? 'airport' : '');
-    const matchesPosition = selectedPosition === 'all' || staff.position.toLowerCase() === selectedPosition;
-    const matchesStatus = selectedStatus === 'all' || staff.status === selectedStatus;
+    const matchesStation = selectedStation === 'all' || staff.station === selectedStation;
+    const matchesPosition = selectedPosition === 'all' || staff.position === selectedPosition;
+    const matchesStatus = selectedStatus === 'all' || staff.statusRaw === selectedStatus;
 
     return matchesSearch && matchesStation && matchesPosition && matchesStatus;
   });
 
-  const activeStaffCount = staffList.filter(staff => staff.status === 'active').length;
+  const activeStaffCount = staffList.filter(staff => staff.statusRaw === 'ACTIVE').length;
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -194,13 +244,12 @@ export default function StaffManagementView({ onBack }: StaffManagementViewProps
       : date.toLocaleDateString('en-US');
   };
 
-  const getPositionTranslation = (position: string) => {
-    const positionMap: { [key: string]: string } = {
-      'Manager': isVietnamese ? 'Quản lý' : 'Manager',
-      'Supervisor': isVietnamese ? 'Giám sát' : 'Supervisor',
-      'Technician': isVietnamese ? 'Kỹ thuật viên' : 'Technician',
-    };
-    return positionMap[position] || position;
+  const getPositionTranslation = (role: string) => {
+    const r = role.toUpperCase();
+    if (r === 'ADMIN') return isVietnamese ? 'Quản trị' : 'Admin';
+    if (r === 'STAFF') return isVietnamese ? 'Nhân viên' : 'Staff';
+    if (r === 'DRIVER') return isVietnamese ? 'Tài xế' : 'Driver';
+    return role;
   };
 
   const getStationTranslation = (stationName: string) => {
@@ -217,7 +266,7 @@ export default function StaffManagementView({ onBack }: StaffManagementViewProps
     const csvContent = "data:text/csv;charset=utf-8," 
       + "ID,Name,Email,Birth Date,Station,Position,Status,Join Date\n"
       + filteredStaff.map(staff => 
-          `${staff.id},${staff.name},${staff.email},${staff.birthDate},${staff.station},${staff.position},${staff.status},${staff.joinDate}`
+          `${staff.id},${staff.name},${staff.email},${staff.birthDate},${staff.station},${staff.position},${staff.statusRaw},${staff.joinDate}`
         ).join("\n");
     
     const encodedUri = encodeURI(csvContent);
@@ -238,12 +287,182 @@ export default function StaffManagementView({ onBack }: StaffManagementViewProps
       birthDate: '',
       station: '',
       position: '',
-      status: 'active'
+      status: 'ACTIVE'
     });
   };
 
+  const fetchChargingStations = async (): Promise<ChargingStation[] | null> => {
+    const token = localStorage.getItem("token");
+          try {
+  
+              const res = await axios.get("http://localhost:8080/api/charging-stations",{
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+  
+  
+  
+              if (res.status === 200) {
+  
+                  console.log("API Response:", res.data);
+  
+                  return (res.data as any[]).map(station => ({
+                      id: String(station.stationId),
+                      stationId: String(station.stationId),
+                      stationName: station.stationName,
+                      address: station.address,
+                      latitude: station.latitude,
+                      longitude: station.longitude,
+                      numberOfPort: station.numberOfPort,
+                      status: station.status,
+                      chargingPoints: station.chargingPoints,
+                      chargingPointNumber: station.chargingPointNumber,
+                  })) as ChargingStation[];
+  
+              }
+  
+  
+  
+              throw new Error("Không thể lấy danh sách trạm sạc");
+  
+          } catch (err: any) {
+  
+              const msg =
+  
+                  err?.response?.data?.message || "Lấy danh sách trạm thất bại. Vui lòng thử lại.";
+  
+              toast.error(msg);
+  
+              return null;
+  
+          }
+  
+      };
+  
+  const getAvailableStaffs = async() : Promise<Staff[]|null> => {
+    const token = localStorage.getItem("token");
+    try {
+      const res = await axios.get("http://localhost:8080/api/staff-management/available",
+        {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+    console.log(res.data);
+    if (res.status === 200) {
+      const list = Array.isArray(res.data?.data) ? res.data.data : Array.isArray(res.data) ? res.data : [];
+      return (list as any[]).map((staff) => ({
+        userId: staff.userId,
+        fullName: staff.fullName,
+        email: staff.email ?? "",
+        phone: staff.phone ?? "",
+        dateOfBirth: staff.dateOfBirth ?? "",
+        address: staff.address ?? "",
+        role: staff.role ?? "",
+        status: staff.status ?? "ACTIVE",
+        stationId: staff.stationId ?? "",
+        stationName: staff.stationName ?? "",
+        stationAddress: staff.stationAddress ?? staff.stationName ?? ""  
+      
+      })) as Staff[]
+    } 
+  } catch (err: any) {
+
+    }
+    return null;
+  }
+
+  const assignStaffToStation = async (stationId: string, userId: string): Promise<boolean> => {
+    const token = localStorage.getItem("token");
+    try {
+      const payload = { userId, stationId: Number(stationId) };
+      const res = await axios.post("http://localhost:8080/api/staff-management/assign", payload, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      return res.status === 200 || res.status === 204;
+    } catch (err: any) {
+      toast.error(isVietnamese ? 'Gán trạm thất bại' : 'Assign failed');
+      return false;
+    }
+  }
+
+  const updateStaffStatus = async (fullName: string ,status: string, userId: string): Promise<boolean> => {
+    const token = localStorage.getItem("token");
+    try {
+      const payload = {
+        fullName: fullName,
+        status: status
+      }
+      const res = await axios.put(`http://localhost:8080/api/staff-management/staff/${userId}`, payload,
+        {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      }
+      );
+      return res.status === 200 || res.status === 204;
+
+    } catch {
+      return false;
+    }
+  }
+
+  const removeStaffFromStation = async(stationId: string, userId: string): Promise<boolean> => {
+    const token = localStorage.getItem("token");
+    try {
+      const res = await axios.delete(`http://localhost:8080/api/staff-management/stations/${stationId}/staff/${userId}`,{
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      return res.status === 200 || res.status === 204;
+    } catch (err: any) {
+      return false;
+    }
+  }
+  
+
+  useEffect(() => {
+    (async () => {
+      const [staffs, stations] = await Promise.all([getAvailableStaffs(), fetchChargingStations()]);
+      if (stations) {
+        setStationsCount(stations.length);
+        const opts = stations.map(s => ({
+          id: String(s.stationName ?? s.id ?? ''),
+          name: String(s.stationName ?? s.id ?? ''),
+          nameVi: String(s.stationName ?? s.id ?? ''),
+        })).filter(o => o.name);
+        setStationOptions([{ id: 'all', name: 'All Stations', nameVi: 'Tất cả trạm' }, ...opts]);
+        setStationsList(stations);
+      }
+      if (staffs) {
+        const mapped: StaffUI[] = staffs.map(s => ({
+          id: String(s.userId ?? ''),
+          name: s.fullName ?? '',
+          email: s.email ?? '',
+          birthDate: s.dateOfBirth ?? '',
+          station: s.stationName ?? '',
+          position: String(s.role ?? '').toUpperCase(),
+          statusRaw: (String(s.status ?? 'ACTIVE').toUpperCase() as 'ACTIVE'|'INACTIVE'|'BANNED'),
+          joinDate: '',
+          avatar: null,
+        }));
+        setStaffList(mapped);
+      }
+    })();
+  }, []);
+
   const generateStaffId = () => {
-    const existingIds = staffList.map(s => parseInt(s.id.replace('STF', '')));
+    const existingIds = staffList.map(s => Number.parseInt(s.id.replace('STF', '')));
     const maxId = Math.max(...existingIds);
     return `STF${String(maxId + 1).padStart(3, '0')}`;
   };
@@ -254,15 +473,15 @@ export default function StaffManagementView({ onBack }: StaffManagementViewProps
       return;
     }
 
-    const newStaff = {
+    const newStaff: StaffUI = {
       id: generateStaffId(),
       name: formData.name,
       email: formData.email,
       birthDate: formData.birthDate,
       station: formData.station,
       position: formData.position,
-      status: formData.status,
-      joinDate: new Date().toISOString().split('T')[0],
+      statusRaw: formData.status,
+      joinDate: new Date().toISOString().slice(0, 10),
       avatar: null,
     };
 
@@ -272,31 +491,45 @@ export default function StaffManagementView({ onBack }: StaffManagementViewProps
     toast.success(isVietnamese ? "Đã thêm nhân viên thành công" : "Staff member added successfully");
   };
 
-  const handleEditStaff = () => {
-    if (!editingStaff || !formData.name || !formData.email || !formData.birthDate || !formData.station || !formData.position) {
-      toast.error(isVietnamese ? "Vui lòng điền đầy đủ thông tin" : "Please fill in all required fields");
-      return;
+  const handleEditStaff = async () => {
+    if (!editingStaff) return;
+    const fullNameToUpdate = formData.name?.trim() || editingStaff.name;
+    const statusToUpdate = formData.status;
+
+    const ok = await updateStaffStatus(fullNameToUpdate, statusToUpdate, editingStaff.id);
+    if (ok) {
+      setStaffList(prev => prev.map(s => s.id === editingStaff.id ? { ...s, name: fullNameToUpdate, statusRaw: statusToUpdate } : s));
+      toast.success(isVietnamese ? "Cập nhật trạng thái thành công" : "Updated successfully");
+      setEditingStaff(null);
+      setIsEditDialogOpen(false);
+    } else {
+      toast.error(isVietnamese ? "Cập nhật thất bại" : "Update failed");
     }
-
-    setStaffList(prev => prev.map(staff => 
-      staff.id === editingStaff.id 
-        ? { ...staff, ...formData }
-        : staff
-    ));
-
-    setEditingStaff(null);
-    resetForm();
-    setIsEditDialogOpen(false);
-    toast.success(isVietnamese ? "Đã cập nhật nhân viên thành công" : "Staff member updated successfully");
   };
 
-  const handleDeleteStaff = () => {
+  const handleDeleteStaff = async () => {
     if (!deletingStaff) return;
-
-    setStaffList(prev => prev.filter(staff => staff.id !== deletingStaff.id));
-    setDeletingStaff(null);
-    setIsDeleteDialogOpen(false);
-    toast.success(isVietnamese ? "Đã xóa nhân viên thành công" : "Staff member deleted successfully");
+    // Ưu tiên dùng stationId đã xác định khi mở dialog (nếu có)
+    let stationIdToUse = (window as any)._deleteStationId as string | undefined;
+    if (!stationIdToUse) {
+      const latestStations = await fetchChargingStations();
+      const station = (latestStations || stationsList).find(s => (s.stationName || s.name) === deletingStaff.station);
+      if (station?.stationId) stationIdToUse = String(station.stationId);
+    }
+    if (!stationIdToUse) {
+      toast.error(isVietnamese ? 'Không tìm thấy trạm của nhân viên' : 'Station not found for staff');
+      return;
+    }
+    const ok = await removeStaffFromStation(stationIdToUse, deletingStaff.id);
+    if (ok) {
+      setStaffList(prev => prev.map(s => s.id === deletingStaff.id ? { ...s, station: '' } : s));
+      setDeletingStaff(null);
+      setIsDeleteDialogOpen(false);
+      (window as any)._deleteStationId = undefined;
+      toast.success(isVietnamese ? 'Đã gỡ nhân viên khỏi trạm' : 'Removed from station');
+    } else {
+      toast.error(isVietnamese ? 'Thao tác thất bại' : 'Operation failed');
+    }
   };
 
   const openAddDialog = () => {
@@ -304,7 +537,7 @@ export default function StaffManagementView({ onBack }: StaffManagementViewProps
     setIsAddDialogOpen(true);
   };
 
-  const openEditDialog = (staff: typeof staffData[0]) => {
+  const openEditDialog = (staff: StaffUI) => {
     setEditingStaff(staff);
     setFormData({
       name: staff.name,
@@ -312,14 +545,22 @@ export default function StaffManagementView({ onBack }: StaffManagementViewProps
       birthDate: staff.birthDate,
       station: staff.station,
       position: staff.position,
-      status: staff.status
+      status: staff.statusRaw
     });
     setIsEditDialogOpen(true);
   };
 
-  const openDeleteDialog = (staff: typeof staffData[0]) => {
+  const openDeleteDialog = (staff: StaffUI) => {
     setDeletingStaff(staff);
     setIsDeleteDialogOpen(true);
+    // Xác định station ngay khi mở dialog
+    void (async () => {
+      const latestStations = await fetchChargingStations();
+      const station = (latestStations || stationsList).find(s => (s.stationName || s.name) === staff.station);
+      if (station?.stationId) {
+        (window as any)._deleteStationId = String(station.stationId);
+      }
+    })();
   };
 
   return (
@@ -403,7 +644,7 @@ export default function StaffManagementView({ onBack }: StaffManagementViewProps
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-red-700 dark:text-red-300">Stations</p>
-                  <p className="text-2xl font-bold text-red-800 dark:text-red-200">3</p>
+                  <p className="text-2xl font-bold text-red-800 dark:text-red-200">{stationsCount}</p>
                 </div>
                 <MapPin className="h-8 w-8 text-blue-600 dark:text-blue-400" />
               </div>
@@ -430,12 +671,12 @@ export default function StaffManagementView({ onBack }: StaffManagementViewProps
 
               {/* Filters */}
               <div className="flex flex-col sm:flex-row gap-4">
-                <Select value={selectedStation} onValueChange={setSelectedStation}>
+                <Select value={selectedStation} onValueChange={(value: string) => setSelectedStation(value)}>
                   <SelectTrigger className="w-full sm:w-48 border-red-200 dark:border-red-800 focus:ring-red-500">
                     <SelectValue placeholder={translations.filterByStation} />
                   </SelectTrigger>
                   <SelectContent>
-                    {stations.map((station) => (
+                    {stationOptions.map((station) => (
                       <SelectItem key={station.id} value={station.id}>
                         {isVietnamese ? station.nameVi : station.name}
                       </SelectItem>
@@ -443,7 +684,7 @@ export default function StaffManagementView({ onBack }: StaffManagementViewProps
                   </SelectContent>
                 </Select>
 
-                <Select value={selectedPosition} onValueChange={setSelectedPosition}>
+                <Select value={selectedPosition} onValueChange={(value: string) => setSelectedPosition(value)}>
                   <SelectTrigger className="w-full sm:w-48 border-red-200 dark:border-red-800 focus:ring-red-500">
                     <SelectValue placeholder={translations.filterByPosition} />
                   </SelectTrigger>
@@ -456,7 +697,7 @@ export default function StaffManagementView({ onBack }: StaffManagementViewProps
                   </SelectContent>
                 </Select>
 
-                <Select value={selectedStatus} onValueChange={setSelectedStatus}>
+                <Select value={selectedStatus} onValueChange={(value: string) => setSelectedStatus(value)}>
                   <SelectTrigger className="w-full sm:w-48 border-red-200 dark:border-red-800 focus:ring-red-500">
                     <SelectValue placeholder={translations.filterByStatus} />
                   </SelectTrigger>
@@ -468,25 +709,6 @@ export default function StaffManagementView({ onBack }: StaffManagementViewProps
                     ))}
                   </SelectContent>
                 </Select>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex gap-2">
-                <Button
-                  onClick={openAddDialog}
-                  className="bg-red-600 hover:bg-red-700 text-white"
-                >
-                  <UserPlus className="mr-2 h-4 w-4" />
-                  {translations.addStaff}
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={handleExport}
-                  className="border-red-300 text-red-600 hover:bg-red-50 dark:border-red-700 dark:text-red-400 dark:hover:bg-red-950/30"
-                >
-                  <Download className="mr-2 h-4 w-4" />
-                  {translations.exportData}
-                </Button>
               </div>
             </div>
           </CardContent>
@@ -551,10 +773,16 @@ export default function StaffManagementView({ onBack }: StaffManagementViewProps
                         </div>
                       </TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-2">
-                          <MapPin className="h-4 w-4 text-muted-foreground" />
-                          {getStationTranslation(staff.station)}
-                        </div>
+                        {staff.station ? (
+                          <div className="flex items-center gap-2">
+                            <MapPin className="h-4 w-4 text-muted-foreground" />
+                            {getStationTranslation(staff.station)}
+                          </div>
+                        ) : (
+                          <Badge variant="secondary" className="bg-gray-100 text-gray-700 dark:bg-gray-900 dark:text-gray-300">
+                            {isVietnamese ? 'Chưa có trạm làm việc' : 'No assigned station'}
+                          </Badge>
+                        )}
                       </TableCell>
                       <TableCell>
                         <Badge variant="secondary" className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
@@ -563,13 +791,16 @@ export default function StaffManagementView({ onBack }: StaffManagementViewProps
                       </TableCell>
                       <TableCell>
                         <Badge 
-                          variant={staff.status === 'active' ? 'default' : 'secondary'}
-                          className={staff.status === 'active' 
-                            ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' 
-                            : 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200'
+                          variant={staff.statusRaw === 'ACTIVE' ? 'default' : 'secondary'}
+                          className={
+                            staff.statusRaw === 'ACTIVE'
+                              ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                              : staff.statusRaw === 'BANNED'
+                                ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+                                : 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200'
                           }
                         >
-                          {staff.status === 'active' ? translations.active : translations.inactive}
+                          {staff.statusRaw === 'ACTIVE' ? translations.active : staff.statusRaw === 'BANNED' ? 'Banned' : translations.inactive}
                         </Badge>
                       </TableCell>
                       <TableCell>
@@ -613,17 +844,18 @@ export default function StaffManagementView({ onBack }: StaffManagementViewProps
                                       <p className="font-medium text-muted-foreground">{translations.birthDate}:</p>
                                       <p>{formatDate(selectedStaff.birthDate)}</p>
                                     </div>
-                                    <div>
-                                      <p className="font-medium text-muted-foreground">{translations.joinDate}:</p>
-                                      <p>{formatDate(selectedStaff.joinDate)}</p>
-                                    </div>
+                                    {/* Join date hidden - not provided by API */}
                                     <div className="col-span-2">
                                       <p className="font-medium text-muted-foreground">{translations.email}:</p>
                                       <p>{selectedStaff.email}</p>
                                     </div>
                                     <div>
                                       <p className="font-medium text-muted-foreground">{translations.station}:</p>
-                                      <p>{getStationTranslation(selectedStaff.station)}</p>
+                                      <p>
+                                        {selectedStaff.station
+                                          ? getStationTranslation(selectedStaff.station)
+                                          : (isVietnamese ? 'Chưa có trạm làm việc' : 'No assigned station')}
+                                      </p>
                                     </div>
                                     <div>
                                       <p className="font-medium text-muted-foreground">{translations.position}:</p>
@@ -637,6 +869,20 @@ export default function StaffManagementView({ onBack }: StaffManagementViewProps
                           <Button
                             variant="ghost"
                             size="sm"
+                            disabled={Boolean(staff.station)}
+                            onClick={() => {
+                              setAssignTargetStaff(staff);
+                              setAssignSelectedStationId('');
+                              setIsAssignDialogOpen(true);
+                            }}
+                            className={"hover:bg-green-50 dark:hover:bg-green-950/30 " + (staff.station ? "text-muted-foreground" : "text-green-600")}
+                            title={staff.station ? (isVietnamese ? 'Đã có trạm' : 'Already assigned') : (isVietnamese ? 'Gán trạm làm việc' : 'Assign station')}
+                          >
+                            <MapPin className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
                             onClick={() => openEditDialog(staff)}
                             className="text-orange-600 hover:text-orange-700 hover:bg-orange-50 dark:text-orange-400 dark:hover:text-orange-300 dark:hover:bg-orange-950/30"
                           >
@@ -645,10 +891,12 @@ export default function StaffManagementView({ onBack }: StaffManagementViewProps
                           <Button
                             variant="ghost"
                             size="sm"
+                            disabled={!staff.station}
                             onClick={() => openDeleteDialog(staff)}
-                            className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-950/30"
+                            className={"hover:bg-red-50 dark:hover:bg-red-950/30 " + (!staff.station ? "text-muted-foreground" : "text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300")}
+                            title={staff.station ? (isVietnamese ? 'Gỡ khỏi trạm' : 'Unassign from station') : (isVietnamese ? 'Chưa có trạm để gỡ' : 'No station to unassign')}
                           >
-                            <Trash2 className="h-4 w-4" />
+                            <MinusCircle className="h-4 w-4" />
                           </Button>
                         </div>
                       </TableCell>
@@ -667,6 +915,61 @@ export default function StaffManagementView({ onBack }: StaffManagementViewProps
             )}
           </CardContent>
         </Card>
+
+        {/* Assign Station Dialog */}
+        <Dialog open={isAssignDialogOpen} onOpenChange={setIsAssignDialogOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="text-red-800 dark:text-red-200">
+                {isVietnamese ? 'Gán trạm làm việc' : 'Assign Station'}
+              </DialogTitle>
+              <DialogDescription>
+                {assignTargetStaff ? `${assignTargetStaff.name} - ${assignTargetStaff.id}` : ''}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label>{translations.station}</Label>
+                <Select value={assignSelectedStationId} onValueChange={(value: string) => setAssignSelectedStationId(value)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder={isVietnamese ? 'Chọn trạm' : 'Select station'} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {stationsList.map((s) => (
+                      <SelectItem key={String(s.id ?? s.stationId)} value={String(s.stationId ?? s.id)}>
+                        <div className="flex flex-col">
+                          <span className="font-medium text-sm">{s.stationName || s.name}</span>
+                          <span className="text-xs text-muted-foreground">{s.address}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setIsAssignDialogOpen(false)}>
+                  {isVietnamese ? 'Hủy' : 'Cancel'}
+                </Button>
+                <Button
+                  disabled={!assignTargetStaff || !assignSelectedStationId}
+                  onClick={async () => {
+                    if (!assignTargetStaff || !assignSelectedStationId) return;
+                    const ok = await assignStaffToStation(assignSelectedStationId, assignTargetStaff.id);
+                    if (ok) {
+                      const chosen = stationsList.find(s => String(s.stationId ?? s.id) === assignSelectedStationId);
+                      setStaffList(prev => prev.map(s => s.id === assignTargetStaff.id ? { ...s, station: String(chosen?.stationName || chosen?.name || '') } : s));
+                      setIsAssignDialogOpen(false);
+                      toast.success(isVietnamese ? 'Đã gán trạm làm việc' : 'Assigned successfully');
+                    }
+                  }}
+                  className="bg-green-600 hover:bg-green-700"
+                >
+                  {isVietnamese ? 'Xác nhận' : 'Confirm'}
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
 
         {/* Add Staff Dialog */}
         <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
@@ -710,7 +1013,7 @@ export default function StaffManagementView({ onBack }: StaffManagementViewProps
               </div>
               <div>
                 <Label htmlFor="add-station">{translations.station}</Label>
-                <Select value={formData.station} onValueChange={(value) => setFormData(prev => ({ ...prev, station: value }))}>
+                <Select value={formData.station} onValueChange={(value: string) => setFormData(prev => ({ ...prev, station: value }))}>
                   <SelectTrigger>
                     <SelectValue placeholder={isVietnamese ? "Chọn trạm" : "Select station"} />
                   </SelectTrigger>
@@ -723,7 +1026,7 @@ export default function StaffManagementView({ onBack }: StaffManagementViewProps
               </div>
               <div>
                 <Label htmlFor="add-position">{translations.position}</Label>
-                <Select value={formData.position} onValueChange={(value) => setFormData(prev => ({ ...prev, position: value }))}>
+                <Select value={formData.position} onValueChange={(value: string) => setFormData(prev => ({ ...prev, position: value }))}>
                   <SelectTrigger>
                     <SelectValue placeholder={isVietnamese ? "Chọn vị trí" : "Select position"} />
                   </SelectTrigger>
@@ -736,13 +1039,14 @@ export default function StaffManagementView({ onBack }: StaffManagementViewProps
               </div>
               <div>
                 <Label htmlFor="add-status">{translations.status}</Label>
-                <Select value={formData.status} onValueChange={(value: 'active' | 'inactive') => setFormData(prev => ({ ...prev, status: value }))}>
+                <Select value={formData.status} onValueChange={(value: any) => setFormData(prev => ({ ...prev, status: value as 'ACTIVE' | 'INACTIVE' | 'BANNED' }))}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="active">{translations.active}</SelectItem>
-                    <SelectItem value="inactive">{translations.inactive}</SelectItem>
+                    <SelectItem value="ACTIVE">{translations.active}</SelectItem>
+                    <SelectItem value="INACTIVE">{translations.inactive}</SelectItem>
+                    <SelectItem value="BANNED">Banned</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -780,59 +1084,15 @@ export default function StaffManagementView({ onBack }: StaffManagementViewProps
                 />
               </div>
               <div>
-                <Label htmlFor="edit-email">{translations.email}</Label>
-                <Input
-                  id="edit-email"
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
-                  placeholder={isVietnamese ? "Nhập email" : "Enter email"}
-                />
-              </div>
-              <div>
-                <Label htmlFor="edit-birthDate">{translations.birthDate}</Label>
-                <Input
-                  id="edit-birthDate"
-                  type="date"
-                  value={formData.birthDate}
-                  onChange={(e) => setFormData(prev => ({ ...prev, birthDate: e.target.value }))}
-                />
-              </div>
-              <div>
-                <Label htmlFor="edit-station">{translations.station}</Label>
-                <Select value={formData.station} onValueChange={(value) => setFormData(prev => ({ ...prev, station: value }))}>
-                  <SelectTrigger>
-                    <SelectValue placeholder={isVietnamese ? "Chọn trạm" : "Select station"} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="ChargeHub Center">ChargeHub Center</SelectItem>
-                    <SelectItem value="ChargeHub Mall">ChargeHub Mall</SelectItem>
-                    <SelectItem value="ChargeHub Airport">ChargeHub Airport</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label htmlFor="edit-position">{translations.position}</Label>
-                <Select value={formData.position} onValueChange={(value) => setFormData(prev => ({ ...prev, position: value }))}>
-                  <SelectTrigger>
-                    <SelectValue placeholder={isVietnamese ? "Chọn vị trí" : "Select position"} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Manager">Manager</SelectItem>
-                    <SelectItem value="Supervisor">Supervisor</SelectItem>
-                    <SelectItem value="Technician">Technician</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
                 <Label htmlFor="edit-status">{translations.status}</Label>
-                <Select value={formData.status} onValueChange={(value: 'active' | 'inactive') => setFormData(prev => ({ ...prev, status: value }))}>
+                <Select value={formData.status} onValueChange={(value: any) => setFormData(prev => ({ ...prev, status: value as 'ACTIVE'|'INACTIVE'|'BANNED' }))}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="active">{translations.active}</SelectItem>
-                    <SelectItem value="inactive">{translations.inactive}</SelectItem>
+                    <SelectItem value="ACTIVE">{translations.active}</SelectItem>
+                    <SelectItem value="INACTIVE">{translations.inactive}</SelectItem>
+                    <SelectItem value="BANNED">Banned</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
