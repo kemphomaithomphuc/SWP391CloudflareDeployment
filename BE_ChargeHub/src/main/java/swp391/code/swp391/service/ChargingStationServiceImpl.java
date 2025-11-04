@@ -220,6 +220,11 @@ public class ChargingStationServiceImpl implements ChargingStationService {
         return chargingStationRepository.existsByStationName(stationName);
     }
 
+    @Override
+    public Long findStationIdByName(String stationName) {
+        return chargingStationRepository.findStationIdByName(stationName);
+    }
+
     // Helper methods
     private ChargingStation convertToEntity(ChargingStationDTO chargingStationDTO) {
         ChargingStation chargingStation = new ChargingStation();
