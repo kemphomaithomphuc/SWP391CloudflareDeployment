@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ArrowLeft, Search, Users2, Mail, Calendar, MapPin, Eye, Edit, Trash2, UserPlus, Download } from 'lucide-react';
 import { Button } from './ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Input } from './ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Badge } from './ui/badge';
@@ -9,12 +9,21 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
 import { Label } from './ui/label';
-import { Textarea } from './ui/textarea';
 import { toast } from 'sonner';
 import { Toaster } from './ui/sonner';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useTheme } from '../contexts/ThemeContext';
 import AdminLanguageThemeControls from './AdminLanguageThemeControls';
+import { 
+  getAvailableStaff, 
+  getStaffByStation, 
+  assignStaffToStation, 
+  unassignStaffFromStation,
+  getAllChargingStations,
+  updateUserStatus,
+  type StaffDTO,
+  type ChargingStationDTO
+} from '../services/api';
 
 // Staff type definition
 interface StaffMember {
@@ -29,82 +38,6 @@ interface StaffMember {
     avatar: null | string;
 }
 
-// Mock staff data
-const staffData: StaffMember[] = [
-    {
-        id: 'STF001',
-        name: 'Nguyễn Văn An',
-        email: 'nguyen.van.an@chargehub.com',
-        birthDate: '1990-05-15',
-        station: 'ChargeHub Center',
-        position: 'Technician',
-        status: 'active' as const,
-        joinDate: '2023-01-15',
-        avatar: null,
-    },
-    {
-        id: 'STF002',
-        name: 'Trần Thị Bình',
-        email: 'tran.thi.binh@chargehub.com',
-        birthDate: '1988-12-03',
-        station: 'ChargeHub Mall',
-        position: 'Supervisor',
-        status: 'active' as const,
-        joinDate: '2022-08-20',
-        avatar: null,
-    },
-    {
-        id: 'STF003',
-        name: 'Lê Minh Cường',
-        email: 'le.minh.cuong@chargehub.com',
-        birthDate: '1992-07-28',
-        station: 'ChargeHub Airport',
-        position: 'Technician',
-        status: 'active' as const,
-        joinDate: '2023-03-10',
-        avatar: null,
-    },
-    {
-        id: 'STF004',
-        name: 'Phạm Thu Dung',
-        email: 'pham.thu.dung@chargehub.com',
-        birthDate: '1985-11-12',
-        station: 'ChargeHub Center',
-        position: 'Manager',
-        status: 'active' as const,
-        joinDate: '2021-05-01',
-        avatar: null,
-    },
-    {
-        id: 'STF005',
-        name: 'Hoàng Quang Em',
-        email: 'hoang.quang.em@chargehub.com',
-        birthDate: '1993-04-22',
-        station: 'ChargeHub Mall',
-        position: 'Technician',
-        status: 'inactive' as const,
-        joinDate: '2023-06-15',
-        avatar: null,
-    },
-    {
-        id: 'STF006',
-        name: 'Vũ Thị Phương',
-        email: 'vu.thi.phuong@chargehub.com',
-        birthDate: '1987-09-08',
-        station: 'ChargeHub Airport',
-        position: 'Supervisor',
-        status: 'active' as const,
-        joinDate: '2022-12-05',
-        avatar: null,
-    },
-];
-
-const stations = [
-    { id: 'all', name: 'All Stations', nameVi: 'Tất cả trạm' },
-    { id: 'center', name: 'ChargeHub Center', nameVi: 'ChargeHub Trung tâm' },
-    { id: 'mall', name: 'ChargeHub Mall', nameVi: 'ChargeHub TTTM' },
-    { id: 'airport', name: 'ChargeHub Airport', nameVi: 'ChargeHub Sân bay' },
-];
 
 const positions = [
     { id: 'all', name: 'All Positions', nameVi: 'Tất cả vị trí' },
@@ -131,12 +64,78 @@ export default function StaffManagementView({ onBack }: StaffManagementViewProps
     const [selectedPosition, setSelectedPosition] = useState('all');
     const [selectedStatus, setSelectedStatus] = useState('all');
     const [selectedStaff, setSelectedStaff] = useState<StaffMember | null>(null);
-    const [staffList, setStaffList] = useState<StaffMember[]>(staffData);
+    const [staffList, setStaffList] = useState<StaffMember[]>([]);
+    const [loading, setLoading] = useState(false);
+    const [stations, setStations] = useState<ChargingStationDTO[]>([]);
     const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
     const [editingStaff, setEditingStaff] = useState<StaffMember | null>(null);
     const [deletingStaff, setDeletingStaff] = useState<StaffMember | null>(null);
+    
+    // Load stations on mount
+    useEffect(() => {
+      loadStations();
+      loadStaff(); // Load all available staff initially
+    }, []);
+    
+    // Reload staff when station selection changes
+    useEffect(() => {
+      loadStaff();
+    }, [selectedStation]);
+    
+    const loadStations = async () => {
+      try {
+        const stationList = await getAllChargingStations();
+        setStations(stationList || []);
+      } catch (error) {
+        console.error('Error loading stations:', error);
+      }
+    };
+    
+    const loadStaff = async () => {
+      setLoading(true);
+      try {
+        let response;
+        if (selectedStation === 'all') {
+          // Load all available staff
+          response = await getAvailableStaff();
+        } else {
+          // Extract stationId from selected station
+          const station = stations.find(s => s.stationId.toString() === selectedStation);
+          if (station) {
+            response = await getStaffByStation(station.stationId);
+          } else {
+            response = await getAvailableStaff();
+          }
+        }
+        
+        if (response && response.success && response.data) {
+          // Transform StaffDTO to StaffMember
+          const transformedStaff: StaffMember[] = response.data.map((staff: StaffDTO): StaffMember => {
+            const currentDate: string = new Date().toISOString().split('T')[0];
+            return {
+              id: `STF${String(staff.userId).padStart(3, '0')}`,
+              name: staff.fullName,
+              email: staff.email || '',
+              birthDate: staff.dateOfBirth || '',
+              station: staff.stationName || 'Unassigned',
+              position: staff.role === 'STAFF' ? 'Technician' : 'Manager',
+              status: staff.status === 'ACTIVE' ? 'active' as const : 'inactive' as const,
+              joinDate: currentDate,
+              avatar: null
+            };
+          });
+          setStaffList(transformedStaff);
+        }
+      } catch (error) {
+        console.error('Error loading staff:', error);
+        toast.error(language === 'vi' ? 'Lỗi khi tải danh sách nhân viên' : 'Error loading staff list');
+        setStaffList([]); // Clear list on error
+      } finally {
+        setLoading(false);
+      }
+    };
 
     // Form states
     const [formData, setFormData] = useState({
@@ -268,6 +267,7 @@ export default function StaffManagementView({ onBack }: StaffManagementViewProps
             return;
         }
 
+        const currentDate: string = new Date().toISOString().split('T')[0];
         const newStaff: StaffMember = {
             id: generateStaffId(),
             name: formData.name,
@@ -276,7 +276,7 @@ export default function StaffManagementView({ onBack }: StaffManagementViewProps
             station: formData.station,
             position: formData.position,
             status: formData.status,
-            joinDate: new Date().toISOString().split('T')[0] || '',
+            joinDate: currentDate,
             avatar: null,
         };
 
@@ -424,8 +424,8 @@ export default function StaffManagementView({ onBack }: StaffManagementViewProps
                         <CardContent className="p-6">
                             <div className="flex items-center justify-between">
                                 <div>
-                                    <p className="text-sm font-medium text-red-700 dark:text-red-300">Stations</p>
-                                    <p className="text-2xl font-bold text-red-800 dark:text-red-200">3</p>
+                                    <p className="text-sm font-medium text-red-700 dark:text-red-300">{isVietnamese ? 'Trạm sạc' : 'Stations'}</p>
+                                    <p className="text-2xl font-bold text-red-800 dark:text-red-200">{stations.length}</p>
                                 </div>
                                 <MapPin className="h-8 w-8 text-blue-600 dark:text-blue-400" />
                             </div>
@@ -457,9 +457,12 @@ export default function StaffManagementView({ onBack }: StaffManagementViewProps
                                         <SelectValue placeholder={translations.filterByStation} />
                                     </SelectTrigger>
                                     <SelectContent>
+                                        <SelectItem value="all">
+                                          {isVietnamese ? 'Tất cả trạm' : 'All Stations'}
+                                        </SelectItem>
                                         {stations.map((station) => (
-                                            <SelectItem key={station.id} value={station.id}>
-                                                {isVietnamese ? station.nameVi : station.name}
+                                            <SelectItem key={station.stationId} value={station.stationId.toString()}>
+                                                {station.stationName}
                                             </SelectItem>
                                         ))}
                                     </SelectContent>
@@ -538,7 +541,18 @@ export default function StaffManagementView({ onBack }: StaffManagementViewProps
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {filteredStaff.map((staff, index) => (
+                                    {loading ? (
+                                        <TableRow>
+                                            <TableCell colSpan={8} className="text-center py-12">
+                                                <div className="flex flex-col items-center space-y-4">
+                                                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600"></div>
+                                                    <p className="text-muted-foreground">
+                                                        {isVietnamese ? 'Đang tải dữ liệu...' : 'Loading data...'}
+                                                    </p>
+                                                </div>
+                                            </TableCell>
+                                        </TableRow>
+                                    ) : filteredStaff.map((staff, index) => (
                                         <TableRow
                                             key={staff.id}
                                             className="border-red-100 dark:border-red-900 hover:bg-red-50/30 dark:hover:bg-red-950/10"

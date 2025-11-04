@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ArrowLeft, RefreshCw, TrendingUp, Clock, BarChart3, Filter, ChevronDown } from 'lucide-react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
@@ -9,6 +9,8 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import AdminLanguageThemeControls from './AdminLanguageThemeControls';
+import { getPeakHours, type PeakHourDTO } from '../services/api';
+import { toast } from 'sonner';
 
 // Mock data for station frequency analysis
 const stationFrequencyData = [
@@ -79,8 +81,8 @@ const stationFrequencyData = [
   }
 ];
 
-// Mock data for peak hours analysis
-const peakHoursData = [
+// Mock data fallback for peak hours analysis
+const mockPeakHoursData = [
   { hour: '00:00', sessions: 12, avgDuration: 45 },
   { hour: '01:00', sessions: 8, avgDuration: 50 },
   { hour: '02:00', sessions: 5, avgDuration: 55 },
@@ -137,8 +139,56 @@ export default function UsageAnalyticsView({ onBack }: UsageAnalyticsViewProps) 
   const [selectedStation, setSelectedStation] = useState('ST001');
   const [trendPeriod, setTrendPeriod] = useState('week');
   const [isRefreshing, setIsRefreshing] = useState(false);
+  
+  // Peak hours state
+  const [peakHoursData, setPeakHoursData] = useState<any[]>([]);
+  const [loadingPeakHours, setLoadingPeakHours] = useState(false);
+  const [useMockData, setUseMockData] = useState(true); // Fallback to mock if API fails
 
   const isVietnamese = language === 'vi';
+  
+  // Load peak hours from API
+  useEffect(() => {
+    if (selectedStation && selectedStation !== 'all') {
+      loadPeakHours();
+    }
+  }, [selectedStation]);
+  
+  const loadPeakHours = async () => {
+    setLoadingPeakHours(true);
+    try {
+      // Calculate date range (last 30 days)
+      const endDate = new Date().toISOString().split('T')[0];
+      const startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+      
+      // Extract station ID from selectedStation (format: 'ST001' -> try to parse)
+      const stationIdMatch = selectedStation.match(/\d+/);
+      const stationId = stationIdMatch ? parseInt(stationIdMatch[0]) : undefined;
+      
+      const response = await getPeakHours(startDate, endDate, stationId);
+      
+      if (response.success && response.data && response.data.length > 0) {
+        // Transform API data to chart format
+        const chartData = response.data.map((item: PeakHourDTO) => ({
+          hour: item.timeRange.split(' - ')[0] || `${String(item.hour).padStart(2, '0')}:00`,
+          sessions: item.sessionCount,
+          avgDuration: item.averageEnergy > 0 ? Math.round((item.averageEnergy / 22) * 60) : 30, // Estimate duration
+          energy: item.totalEnergy,
+          revenue: item.totalRevenue
+        }));
+        setPeakHoursData(chartData);
+        setUseMockData(false);
+      } else {
+        // No data from API, use mock
+        setUseMockData(true);
+      }
+    } catch (error) {
+      console.error('Error loading peak hours:', error);
+      setUseMockData(true); // Fallback to mock data
+    } finally {
+      setLoadingPeakHours(false);
+    }
+  };
 
   const translations = {
     title: isVietnamese ? 'Phân Tích Sử Dụng' : 'Usage Analytics',
@@ -434,9 +484,17 @@ export default function UsageAnalyticsView({ onBack }: UsageAnalyticsViewProps) 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Peak Hours Chart */}
                 <div>
-                  <h4 className="font-medium text-blue-900 dark:text-blue-100 mb-4">{translations.chargingSessions}</h4>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={peakHoursData}>
+                  <h4 className="font-medium text-blue-900 dark:text-blue-100 mb-4">
+                    {translations.chargingSessions}
+                    {!useMockData && <Badge variant="outline" className="ml-2 text-xs">Real Data</Badge>}
+                  </h4>
+                  {loadingPeakHours ? (
+                    <div className="h-[300px] flex items-center justify-center">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                    </div>
+                  ) : (
+                    <ResponsiveContainer width="100%" height={300}>
+                      <BarChart data={useMockData ? mockPeakHoursData : peakHoursData}>
                       <CartesianGrid strokeDasharray="3 3" stroke={theme === 'dark' ? '#1e40af' : '#93c5fd'} />
                       <XAxis 
                         dataKey="hour" 
@@ -455,13 +513,19 @@ export default function UsageAnalyticsView({ onBack }: UsageAnalyticsViewProps) 
                       <Bar dataKey="sessions" fill="#2563eb" radius={[4, 4, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
+                  )}
                 </div>
 
                 {/* Session Duration Chart */}
                 <div>
                   <h4 className="font-medium text-blue-900 dark:text-blue-100 mb-4">{translations.sessionDuration}</h4>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <LineChart data={peakHoursData}>
+                  {loadingPeakHours ? (
+                    <div className="h-[300px] flex items-center justify-center">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                    </div>
+                  ) : (
+                    <ResponsiveContainer width="100%" height={300}>
+                      <LineChart data={useMockData ? mockPeakHoursData : peakHoursData}>
                       <CartesianGrid strokeDasharray="3 3" stroke={theme === 'dark' ? '#1e40af' : '#93c5fd'} />
                       <XAxis 
                         dataKey="hour" 
@@ -486,6 +550,7 @@ export default function UsageAnalyticsView({ onBack }: UsageAnalyticsViewProps) 
                       />
                     </LineChart>
                   </ResponsiveContainer>
+                  )}
                 </div>
               </div>
 
