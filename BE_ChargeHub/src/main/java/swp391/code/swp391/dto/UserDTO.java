@@ -25,6 +25,10 @@ public class UserDTO {
     private User.UserStatus status;
     private int violations;
 
+    // Station info for staff
+    private Long stationId;
+    private String stationName;
+
     // Danh sách xe của user
     private List<VehicleResponseDTO> vehicles;
 

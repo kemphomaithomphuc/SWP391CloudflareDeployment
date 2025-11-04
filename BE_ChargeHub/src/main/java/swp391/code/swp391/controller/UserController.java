@@ -22,11 +22,7 @@ public class UserController {
     private final UserServiceImpl userServiceImpl;
     private final VehicleServiceImpl vehicleServiceImpl;
 
-    /**
-     * 1. XEM THÔNG TIN USER
-     * GET /api/user/profile/{id}
-     * GET /api/user/profile/{id}?include=vehicles
-     */
+
     @GetMapping("/profile/{id}")
     public ResponseEntity<APIResponse<UserDTO>> viewUserProfile(
             @PathVariable Long id,

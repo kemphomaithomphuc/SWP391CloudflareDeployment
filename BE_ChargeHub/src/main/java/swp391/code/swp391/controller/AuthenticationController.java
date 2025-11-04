@@ -55,7 +55,7 @@ public class AuthenticationController {
     @PostMapping("/logout")
     public ResponseEntity<APIResponse<String>> logout(HttpServletRequest request) {
         try {
-            String token = extractTokenFromHeader(request);
+            String token = jwtUtil.getTokenFromRequestHeader(request);
             if (token == null) {
                 return ResponseEntity.badRequest().body(APIResponse.error("No token provided"));
             }
@@ -88,19 +88,14 @@ public class AuthenticationController {
                     .body(APIResponse.error("Login failed: " + e.getMessage()));
         }
     }
-    private String extractTokenFromHeader(HttpServletRequest request) {
-        String authHeader = request.getHeader("Authorization");
-        if (authHeader != null && authHeader.startsWith("Bearer ")) {
-            return authHeader.substring(7); // Bỏ "Bearer "
-        }
-        return null;
-    }
+
+
 
     // Lấy userId của user hiện tại từ token
     @PostMapping("/me")
     public ResponseEntity<APIResponse<Long> > getCurrentUserId(HttpServletRequest request) {
         try {
-            String token = extractTokenFromHeader(request);
+            String token = jwtUtil.getTokenFromRequestHeader(request);
             if (token == null) {
                 return ResponseEntity.badRequest().body(APIResponse.error("No token provided"));
             }

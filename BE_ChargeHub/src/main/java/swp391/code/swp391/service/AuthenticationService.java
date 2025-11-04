@@ -15,6 +15,7 @@ import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 import swp391.code.swp391.dto.LoginRequestDTO;
@@ -83,15 +84,15 @@ public class AuthenticationService {
                     .build();
 
         } catch (BadCredentialsException e) {
-            throw new RuntimeException("Invalid username or password"); // Xử lý lỗi xác thực
+            throw new RuntimeException("AuthenticationService_login():Invalid username or password"); // Xử lý lỗi xác thực
         } catch (Exception e) {
-            throw new RuntimeException("Authentication failed " + e.getMessage()); // Xử lý các lỗi khác
+            throw new RuntimeException("AuthenticationService_login(): Authentication failed: " + e.getMessage()); // Xử lý các lỗi khác
         }
     }
 
     public void logout(String token) {
         if (token == null || token.isEmpty()) {
-            throw new IllegalArgumentException("Invalid token");
+            throw new IllegalArgumentException("AuthenticationService_logout(): Invalid token");
         }
         jwtBlacklistService.blacklistToken(token);
     }
@@ -114,7 +115,7 @@ public class AuthenticationService {
                         "&scope=" + facebookScope
                         + "&state=" + loginType;
             default:
-                throw new IllegalArgumentException("Unsupported login type: " + loginType);
+                throw new IllegalArgumentException("AuthenticationService_social-login():Unsupported login type: " + loginType);
         }
     }
 
@@ -165,7 +166,6 @@ public class AuthenticationService {
                 return mapper.readValue(
                         restTemplate.getForEntity(userInfoUri, String.class).getBody(),
                         new TypeReference<>() {});
-//                break; // Unreachable code
             default:
                 throw new IllegalArgumentException("Unsupported login type: " + loginType);
         }
@@ -230,6 +230,7 @@ public class AuthenticationService {
         return customUserDetails;
     }
 
+    @Transactional
     public LoginResponseDTO generateTokenForSocialUser(String code, String loginType){
         CustomUserDetails customUserDetails = processSocialLogin(code, loginType);
         return LoginResponseDTO.builder()

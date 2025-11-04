@@ -1,5 +1,6 @@
 package swp391.code.swp391.controller;
 
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -40,7 +41,8 @@ public class PriceFactorController {
     }
 
     @PostMapping
-    public ResponseEntity<APIResponse<PriceFactorResponseDTO>> createPriceFactor(@RequestBody PriceFactorRequestDTO requestDTO) {
+    public ResponseEntity<APIResponse<PriceFactorResponseDTO>> createPriceFactor(
+            @Valid @RequestBody PriceFactorRequestDTO requestDTO) {
         PriceFactorResponseDTO created = priceFactorService.createPriceFactor(requestDTO);
         return new ResponseEntity<>(APIResponse.<PriceFactorResponseDTO>builder()
                 .success(true)
@@ -52,7 +54,7 @@ public class PriceFactorController {
     @PutMapping("/{id}")
     public ResponseEntity<APIResponse<PriceFactorResponseDTO>> updatePriceFactor(
             @PathVariable Long id,
-            @RequestBody PriceFactorUpdateDTO updateDTO) {
+            @Valid @RequestBody PriceFactorUpdateDTO updateDTO) {
         PriceFactorResponseDTO updated = priceFactorService.updatePriceFactor(id, updateDTO);
         return ResponseEntity.ok(APIResponse.<PriceFactorResponseDTO>builder()
                 .success(true)

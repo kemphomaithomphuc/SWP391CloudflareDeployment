@@ -46,4 +46,7 @@ public class ChargingStation {
     @OneToMany(mappedBy = "station")
     @JsonManagedReference("station-staff")
     private List<User> staff_id;
+
+    @Column(name = "staff_id")
+    private Long staffId;
 }

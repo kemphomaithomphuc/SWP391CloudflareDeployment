@@ -27,6 +27,7 @@ public class OrderServiceImpl implements OrderService {
     private final UserRepository userRepository;
     private final ChargingPointRepository chargingPointRepository;
     private final SubscriptionService subscriptionService;
+    private final NotificationService notificationService;
 
     // ========== CẤU HÌNH SLOT ==========
     private static final int SLOT_DURATION_MINUTES = 120; // 2 giờ mỗi slot
@@ -364,6 +365,21 @@ public class OrderServiceImpl implements OrderService {
                 .build();
 
         order = orderRepository.save(order);
+
+        // ===== 11. TẠO NOTIFICATION CHO USER =====
+        // Tạo notification thông báo đặt chỗ thành công
+        if (order.getOrderId() != null) {
+            try {
+                notificationService.createBookingOrderNotification(
+                        order.getOrderId(),
+                        NotificationServiceImpl.NotificationEvent.BOOKING_SUCCESS,
+                        null
+                );
+            } catch (Exception e) {
+                // Log lỗi nhưng không làm fail transaction nếu notification thất bại
+                System.err.println("Lỗi khi tạo notification cho booking: " + e.getMessage());
+            }
+        }
 
         return order.getOrderId() != null ? convertToDTO(order) : null;
     }

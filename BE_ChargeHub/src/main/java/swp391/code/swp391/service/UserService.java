@@ -4,6 +4,7 @@ import swp391.code.swp391.dto.UserDTO;
 import swp391.code.swp391.entity.User;
 import swp391.code.swp391.dto.UpdateUserDTO;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface UserService {
@@ -87,6 +88,16 @@ public interface UserService {
     User changeUserStatus(Long userId, User.UserStatus newStatus);
 
     /**
+     * Admin cập nhật ROLE và STATUS của driver.
+     * CHỈ update 2 fields này, không động vào thông tin cá nhân
+     * @param userId ID của user cần update
+     * @param updateDTO DTO chứa role và status mới
+     * @return User object đã cập nhật
+     * @throws RuntimeException nếu không tìm thấy user hoặc role/status không hợp lệ
+     */
+    User adminUpdateDriverRoleAndStatus(Long userId, UpdateUserDTO updateDTO);
+
+    /**
      * Xóa user theo ID.
      * @param id ID của user
      * @throws RuntimeException nếu không tìm thấy user
@@ -105,4 +116,5 @@ public interface UserService {
 
     void unbanUser(Long id);
 
+    List<UserDTO> getAllDriver();
 }

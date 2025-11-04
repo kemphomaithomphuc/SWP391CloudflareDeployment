@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.*;
 import swp391.code.swp391.service.PasswordResetTokenService;
 import swp391.code.swp391.service.UserServiceImpl;
 
+import java.util.Map;
 import java.util.Optional;
 
 @RestController
@@ -173,7 +174,7 @@ public class OTPController {
                 return ResponseEntity.ok(new OTPResponse(
                         true,
                         "Xác thực OTP thành công",
-                        resetToken // Trả về resetToken thay vì email
+                        resetToken // Trả về token để đặt lại mật khẩu
                 ));
             } else {
                 return ResponseEntity.badRequest().body(new OTPResponse(
