@@ -1,4 +1,4 @@
-package swp391.code.swp391.service;
+package swp391.code.swp391.scheduler;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -31,7 +31,7 @@ public class SessionProgressScheduler {
      * Auto-push session progress every 10 seconds for all CHARGING sessions
      * Pure WebSocket push - no client polling required
      */
-    @Scheduled(fixedRate = 10000) // 10 seconds
+    @Scheduled(fixedRate = 1000*10) // 10 seconds
     public void pushActiveSessionsProgress() {
         try {
             // Find all active charging sessions
