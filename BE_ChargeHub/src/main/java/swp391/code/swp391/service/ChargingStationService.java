@@ -57,4 +57,7 @@ public interface ChargingStationService {
 
     // Kiểm tra tên station đã tồn tại
     boolean isStationNameExists(String stationName);
+
+    // Tìm stationId theo tên station
+    Long findStationIdByName(String stationName);
 }

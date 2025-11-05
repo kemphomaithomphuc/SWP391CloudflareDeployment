@@ -67,4 +67,7 @@ public interface ChargingStationRepository extends JpaRepository<ChargingStation
     @Query("SELECT s FROM ChargingStation s WHERE :staffId MEMBER OF s.staff_id")
     List<ChargingStation> findByStaffIdContains(@Param("staffId") Long staffId);
 
+    // Tìm stationId theo tên station
+    @Query("SELECT cs.stationId FROM ChargingStation cs WHERE cs.stationName = :stationName")
+    Long findStationIdByName(@Param("stationName") String stationName);
 }
