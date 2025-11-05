@@ -8,7 +8,11 @@ import { useLanguage } from "../contexts/LanguageContext";
 
 export default function AdminLanguageThemeControls() {
   const { theme, toggleTheme } = useTheme();
-  const { language, toggleLanguage } = useLanguage();
+  const { language, setLanguage } = useLanguage();
+  
+  const toggleLanguage = () => {
+    setLanguage(language === 'en' ? 'vi' : 'en');
+  };
 
   return (
     <div className="flex items-center space-x-4">
