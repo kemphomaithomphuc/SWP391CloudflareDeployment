@@ -71,18 +71,6 @@ export default function AdminDashboard({ onLogout, onSystemConfig, onAdminMap, o
         console.log("Usage Analytics button clicked");
         onUsageAnalytics();
     };
-  const handleGridButtonClick = (buttonName: string) => {
-    console.log(`${buttonName} button clicked`);
-    if (buttonName === 'SystemConfig') {
-      onSystemConfig();
-    } else if (buttonName === 'Map') {
-      onAdminMap();
-    } else if (buttonName === 'Revenue') {
-      onRevenue();
-    } else if (buttonName === 'StaffManagement') {
-      onStaffManagement();
-    } else if (buttonName === 'IssueResolvement') {
-      onIssueResolvement();
 
     const handleLogout = async () => {
         try {
