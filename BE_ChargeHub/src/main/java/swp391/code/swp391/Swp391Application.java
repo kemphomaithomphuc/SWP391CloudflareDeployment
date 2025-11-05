@@ -10,7 +10,6 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 @EnableScheduling
 @EnableJpaRepositories(basePackages = "swp391.code.swp391.repository")
 @EntityScan(basePackages = "swp391.code.swp391.entity")
-@EnableScheduling // Enable scheduled tasks for PenaltyScheduler
 public class Swp391Application {
 
     public static void main(String[] args) {

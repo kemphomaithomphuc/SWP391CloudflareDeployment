@@ -41,6 +41,9 @@ public class PenaltyIntegrationTest {
     @Autowired
     private FeeRepository feeRepository;
 
+    @Autowired
+    private TransactionRepository transactionRepository;
+
     private User testUser;
     private Order testOrder1;
     private Order testOrder2;
@@ -50,6 +53,7 @@ public class PenaltyIntegrationTest {
     void setUp() {
         // Cleanup
         feeRepository.deleteAll();
+        transactionRepository.deleteAll();
         sessionRepository.deleteAll();
         orderRepository.deleteAll();
         userRepository.deleteAll();
