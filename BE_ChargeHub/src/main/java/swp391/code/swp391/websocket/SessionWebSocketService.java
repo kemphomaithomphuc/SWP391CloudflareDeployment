@@ -11,11 +11,6 @@ import swp391.code.swp391.entity.User;
 public class SessionWebSocketService {
 
     private final SimpMessagingTemplate simpMessagingTemplate;
-
-    /**
-     * Send session progress DTO to a specific user (personal queue).
-     * Uses user's email or phone as the websocket principal name (same as NotificationService)
-     */
     public void sendSessionProgressToUser(User user, SessionProgressDTO dto) {
         if (user == null) return;
         String username = user.getEmail() != null ? user.getEmail() : user.getPhone();
