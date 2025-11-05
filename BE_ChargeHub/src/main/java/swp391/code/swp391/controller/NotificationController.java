@@ -63,8 +63,7 @@ public class NotificationController {
 
     @PutMapping("/mark-all-read")
     public ResponseEntity<Void> markAllAsRead(HttpServletRequest request) {
-        String header = request.getHeader("Authorization");
-        String token = jwtUtil.getTokenFromRequestHeader(header);
+        String token = jwtUtil.getTokenFromRequestHeader(request);
         Long userId;
         try {
             userId = jwtUtil.getUserIdByTokenDecode(token);

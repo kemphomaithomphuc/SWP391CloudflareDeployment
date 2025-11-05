@@ -2,7 +2,6 @@ package swp391.code.swp391.controller;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import swp391.code.swp391.dto.APIResponse;
 import swp391.code.swp391.dto.IssueReportDTO;
@@ -20,7 +19,6 @@ public class IssueReportController {
     private final IssueReportService issueReportService;
     private final JwtUtil jwtUtil;
 
-//    @PreAuthorize("hasRole('STAFF') or hasRole('ADMIN')")
     @PostMapping()
     public ResponseEntity<APIResponse<Long>> createIssueReport(@RequestBody IssueReportRequestDTO issueReportRequestDTO) {
 
@@ -33,15 +31,16 @@ public class IssueReportController {
         }
     }
 
-    @PutMapping("/{issueId}/resolve")
-    public ResponseEntity<APIResponse<Void>> resolveIssue(@PathVariable Long issueId) {
+    @PutMapping("/{issueId}/{status}")
+    public ResponseEntity<APIResponse<Void>> updateStatusIssue(@PathVariable Long issueId, @PathVariable String status) {
         try {
-            issueReportService.resolveIssue(issueId);
-            return ResponseEntity.ok(APIResponse.success("Issue resolved successfully", null));
+            issueReportService.updateStatusIssue(issueId, status);
+            return ResponseEntity.ok(APIResponse.success("Issue status updated successfully", null));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(APIResponse.error("Failed to resolve issue: " + e.getMessage()));
+            return ResponseEntity.badRequest().body(APIResponse.error("Failed to update issue status: " + e.getMessage()));
         }
     }
+
 
     @GetMapping()
     public ResponseEntity<APIResponse<List<IssueReportDTO>>> getAllIssueReports() {

@@ -6,6 +6,9 @@ import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import swp391.code.swp391.dto.APIResponse;
 
+import java.util.HashMap;
+import java.util.Map;
+
 @ControllerAdvice
 public class GlobalExceptionHandler {
 
@@ -15,6 +18,21 @@ public class GlobalExceptionHandler {
                 APIResponse.builder()
                         .success(false)
                         .message(ex.getMessage())
+                        .build()
+        );
+    }
+
+    @ExceptionHandler(UserStatusException.class)
+    public ResponseEntity<APIResponse<Object>> handleUserStatusException(UserStatusException ex) {
+        Map<String, Object> errorData = new HashMap<>();
+        errorData.put("status", ex.getUserStatus().name());
+        errorData.put("reason", ex.getReason());
+
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(
+                APIResponse.builder()
+                        .success(false)
+                        .message(ex.getMessage())
+                        .data(errorData)
                         .build()
         );
     }

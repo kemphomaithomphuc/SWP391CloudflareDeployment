@@ -648,6 +648,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
         try {
             const res = await api.get("/api/charging-stations");
             if (res.status == 200) {
+                console.log(res.data);
                 return (res.data as any[]).map(station => ({
                     stationId: station.stationId,
                     stationName: station.stationName,

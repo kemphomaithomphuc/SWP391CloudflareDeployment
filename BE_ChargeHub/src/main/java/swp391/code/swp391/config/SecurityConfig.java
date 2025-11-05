@@ -45,12 +45,15 @@ public class SecurityConfig {
             "/api/payment/**",
             "/api/staff/**",
             "/api/transactions/**",
-            "/api/test/**" // them de test thoi, khong dung nua thi xoa
+            "/api/admin/revenue/**",
+            "/api/test/**", // them de test thoi, khong dung nua thi xoa
+            "/api/notifications/connection/ws/**" // WebSocket endpoint
     };
     private final JwtDecoder jwtDecoder; // Tự động được Spring inject JwtDecoderConfig
     private final CustomUserDetailService userDetailsService;
     private final JwtBlacklistFilter jwtBlacklistFilter;
     private final AuthorizationFilter authorizeationFilter;
+    private final swp391.code.swp391.filter.UserStatusFilter userStatusFilter;
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
@@ -58,7 +61,8 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .cors(Customizer.withDefaults())
                 .addFilterBefore(jwtBlacklistFilter, BearerTokenAuthenticationFilter.class)
-                .addFilterAfter(authorizeationFilter,BearerTokenAuthenticationFilter.class)
+                .addFilterAfter(userStatusFilter, BearerTokenAuthenticationFilter.class)
+                .addFilterAfter(authorizeationFilter, BearerTokenAuthenticationFilter.class)
                 .oauth2ResourceServer((oauth2) -> oauth2
                         .jwt(jwtConfigurer -> jwtConfigurer.decoder(jwtDecoder)
                                 .jwtAuthenticationConverter(jwtAuthenticationConverter())
@@ -69,7 +73,8 @@ public class SecurityConfig {
                         .requestMatchers(PUBLIC_URLS).permitAll()
                         .requestMatchers("/api/admin/**").hasRole(User.UserRole.ADMIN.name())
                         .requestMatchers("/api/staff/**").hasAnyRole( "STAFF", "ADMIN")
-                        .requestMatchers("/api/issue-reports/**").hasAnyRole( "STAFF", "ADMIN")
+                        .requestMatchers("/api/staff-management/**").hasAnyRole( "STAFF", "ADMIN")
+                        .requestMatchers("/api/analytics/**").hasAnyRole( "STAFF", "ADMIN")
                         .anyRequest().authenticated()
                 );
         return http.build();

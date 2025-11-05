@@ -1050,7 +1050,7 @@ export default function MyBookingView({ onBack, onStartCharging }: MyBookingView
     <div className="min-h-screen bg-gradient-to-br from-green-50 via-blue-50 to-purple-50 dark:from-gray-950 dark:via-blue-950 dark:to-green-950">
       {/* Header */}
       <div className="sticky top-0 z-10 bg-white/80 dark:bg-gray-950/80 backdrop-blur-sm border-b border-border">
-        <div className="max-w-4xl mx-auto px-4 py-4">
+        <div className="w-full px-0 py-4">
           <div className="flex items-center gap-4">
             <Button 
               variant="ghost" 
@@ -1059,6 +1059,9 @@ export default function MyBookingView({ onBack, onStartCharging }: MyBookingView
               className="p-2 hover:bg-primary/10 rounded-full"
             >
               <ArrowLeft className="w-5 h-5" />
+              <span className="ml-1 text-sm text-muted-foreground">
+                {language === 'vi' ? 'Về Dashboard' : 'Back to Dashboard'}
+              </span>
             </Button>
             <Button 
               variant="ghost" 

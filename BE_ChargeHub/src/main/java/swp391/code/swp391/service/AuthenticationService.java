@@ -83,15 +83,15 @@ public class AuthenticationService {
                     .build();
 
         } catch (BadCredentialsException e) {
-            throw new RuntimeException("Invalid username or password"); // Xử lý lỗi xác thực
+            throw new RuntimeException("AuthenticationService_login():Invalid username or password"); // Xử lý lỗi xác thực
         } catch (Exception e) {
-            throw new RuntimeException("Authentication failed " + e.getMessage()); // Xử lý các lỗi khác
+            throw new RuntimeException("AuthenticationService_login(): Authentication failed: " + e.getMessage()); // Xử lý các lỗi khác
         }
     }
 
     public void logout(String token) {
         if (token == null || token.isEmpty()) {
-            throw new IllegalArgumentException("Invalid token");
+            throw new IllegalArgumentException("AuthenticationService_logout(): Invalid token");
         }
         jwtBlacklistService.blacklistToken(token);
     }
@@ -114,7 +114,7 @@ public class AuthenticationService {
                         "&scope=" + facebookScope
                         + "&state=" + loginType;
             default:
-                throw new IllegalArgumentException("Unsupported login type: " + loginType);
+                throw new IllegalArgumentException("AuthenticationService_social-login():Unsupported login type: " + loginType);
         }
     }
 
@@ -165,7 +165,6 @@ public class AuthenticationService {
                 return mapper.readValue(
                         restTemplate.getForEntity(userInfoUri, String.class).getBody(),
                         new TypeReference<>() {});
-//                break; // Unreachable code
             default:
                 throw new IllegalArgumentException("Unsupported login type: " + loginType);
         }
@@ -239,15 +238,6 @@ public class AuthenticationService {
     }
 
     // Lưu user mới hoặc liên kết tài khoản xã hội với user hiện có
-    /**
-     * Lưu user mới hoặc liên kết tài khoản xã hội với user hiện có
-     * Ưu tiên tìm user theo email, nếu không có email thì tìm theo số điện thoại
-     * Nếu tìm thấy user, liên kết social ID vào user đó
-     * Nếu không tìm thấy, tạo user mới với trạng thái ACTIVE và vai trò DRIVER
-     * @param user User chứa thông tin từ nhà cung cấp xã hội (có thể có email hoặc phone)
-     * @param loginType Loại đăng nhập xã hội (google hoặc facebook)
-     * @return ID của user đã lưu hoặc liên kết
-     */
     private Long saveOrLinkSocialAccount(User user, String loginType) {
         User existingUser = null;
 

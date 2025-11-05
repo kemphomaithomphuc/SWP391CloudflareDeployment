@@ -311,7 +311,7 @@ export default function MainDashboard({ onLogout, onBooking, onHistory, onAnalys
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col">
         {/* Header */}
-        <div className="bg-card shadow-sm border-b border-border p-4">
+        <div className="bg-card shadow-sm border-b border-border p-4 fixed top-0 left-0 right-0 z-50">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
               {/* Hamburger Menu Button */}
@@ -425,7 +425,7 @@ export default function MainDashboard({ onLogout, onBooking, onHistory, onAnalys
                 </div>
               </div>
 
-              {/* Stats Cards - Simple Design */}
+              {/* Stats Cards - Simple Design
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-16">
                 <div className="bg-card rounded-2xl p-6 border border-border hover:shadow-lg transition-shadow text-center">
                   <div className="w-12 h-12 bg-primary/20 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -456,7 +456,7 @@ export default function MainDashboard({ onLogout, onBooking, onHistory, onAnalys
                     {language === 'vi' ? 'Đánh giá trung bình' : 'Average Rating'}
                   </p>
                 </div>
-              </div>
+              </div> */}
 
               {/* Quick Actions - Simplified */}
               <div className="mb-16">

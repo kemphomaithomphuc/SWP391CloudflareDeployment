@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import api from "../services/api";
 import { useTheme } from "../contexts/ThemeContext";
 import { useLanguage } from "../contexts/LanguageContext";
 import { Button } from "./ui/button";
@@ -11,170 +12,496 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { 
   ArrowLeft,
   Settings,
-  MapPin,
   Clock,
-  DollarSign,
-  AlertTriangle,
-  Users,
-  Save,
-  Plus,
-  Edit,
-  Trash2,
-  Zap,
-  Calendar,
   CreditCard,
-  Timer,
-  Car
+  Plus,
+  Save,
+  Edit,
+  Trash2
 } from "lucide-react";
 import AdminLanguageThemeControls from "./AdminLanguageThemeControls";
+import { 
+  getAllSubscriptions, 
+  type SubscriptionResponseDTO, 
+  updateSubscription,
+  getAllChargingStations,
+  type ChargingStationDTO,
+  getPriceFactorsByStation,
+  type PriceFactorResponseDTO,
+  createPriceFactor,
+  updatePriceFactor,
+  deletePriceFactor,
+  getAllSubscriptionFeatures,
+  type SubscriptionFeatureResponseDTO,
+  createSubscriptionFeature,
+  updateSubscriptionFeature,
+  deleteSubscriptionFeature,
+  getSubscriptionFeaturesBySubscription
+} from "../services/api";
+import { toast } from "sonner";
 
 interface SystemConfigViewProps {
   onBack: () => void;
 }
 
-// Mock stations data
-const stations = [
-  { id: "alpha", name: "ChargeHub Station Alpha", address: "123 Nguyen Hue, District 1, Ho Chi Minh City", currentPrice: 3500 },
-  { id: "beta", name: "ChargeHub Station Beta", address: "456 Le Loi, District 3, Ho Chi Minh City", currentPrice: 3200 },
-  { id: "gamma", name: "ChargeHub Station Gamma", address: "789 Dong Khoi, District 1, Ho Chi Minh City", currentPrice: 3800 },
-  { id: "delta", name: "ChargeHub Station Delta", address: "321 Vo Van Tan, District 3, Ho Chi Minh City", currentPrice: 3300 },
-  { id: "echo", name: "ChargeHub Station Echo", address: "654 Hai Ba Trung, District 1, Ho Chi Minh City", currentPrice: 3600 }
-];
-
-// Mock peak hours data
-const peakHours = [
-  { id: "morning", label: "Morning Peak", labelVi: "Giờ Cao Điểm Sáng", hours: "7:00 - 9:00", multiplier: 1.5 },
-  { id: "evening", label: "Evening Peak", labelVi: "Giờ Cao Điểm Tối", hours: "17:00 - 19:00", multiplier: 1.8 },
-  { id: "weekend", label: "Weekend Peak", labelVi: "Cuối Tuần", hours: "Sat-Sun 10:00 - 14:00", multiplier: 1.3 }
-];
-
-// Mock subscription plans
-const subscriptionPlans = [
-  { 
-    id: "basic", 
-    name: "Basic Plan", 
-    nameVi: "Gói Cơ Bản", 
-    price: 99000, 
-    discount: 5,
-    features: {
-      en: ["Basic charging access", "Standard charging speed", "Email support", "Basic usage analytics"],
-      vi: ["Truy cập sạc cơ bản", "Tốc độ sạc tiêu chuẩn", "Hỗ trợ email", "Phân tích sử dụng cơ bản"]
-    }
-  },
-  { 
-    id: "standard", 
-    name: "Premium Plan", 
-    nameVi: "Gói Premium", 
-    price: 199000, 
-    discount: 10,
-    features: {
-      en: ["Extended booking (24h vs 2h)", "Discounted rates (15-20% off)", "No booking/cancellation fees", "Priority charging access", "24/7 phone support", "Advanced analytics"],
-      vi: ["Đặt chỗ mở rộng (24h thay vì 2h)", "Giá ưu đãi (giảm 15-20%)", "Miễn phí đặt chỗ/hủy", "Truy cập sạc ưu tiên", "Hỗ trợ điện thoại 24/7", "Phân tích nâng cao"]
-    }
-  },
-  { 
-    id: "premium", 
-    name: "Pro Plan", 
-    nameVi: "Gói Pro", 
-    price: 299000, 
-    discount: 15,
-    features: {
-      en: ["Unlimited charging access", "Ultra-fast charging priority", "Dedicated support manager", "Custom analytics reports", "API access", "White-label solutions", "Enterprise features"],
-      vi: ["Truy cập sạc không giới hạn", "Ưu tiên sạc siêu nhanh", "Quản lý hỗ trợ chuyên dụng", "Báo cáo phân tích tùy chỉnh", "Truy cập API", "Giải pháp white-label", "Tính năng doanh nghiệp"]
-    }
-  }
-];
-
 export default function SystemConfigView({ onBack }: SystemConfigViewProps) {
   const { theme } = useTheme();
   const { language, t } = useLanguage();
   
-  // Station pricing states
-  const [selectedStation, setSelectedStation] = useState("");
-  const [newPrice, setNewPrice] = useState("");
+  // ========== PEAK HOURS (PRICE FACTOR) STATES ==========
+  const [stations, setStations] = useState<ChargingStationDTO[]>([]);
+  const [priceFactors, setPriceFactors] = useState<PriceFactorResponseDTO[]>([]);
+  const [loadingStations, setLoadingStations] = useState(false);
+  const [loadingPriceFactors, setLoadingPriceFactors] = useState(false);
   
-  // Peak hours states
-  const [selectedPeakHour, setSelectedPeakHour] = useState("");
-  const [newMultiplier, setNewMultiplier] = useState("");
+  // Selected station for viewing price factors
+  const [selectedStationId, setSelectedStationId] = useState<number | null>(null);
   
-  // Penalty fees states
-  const [parkingPenalty, setParkingPenalty] = useState("5000"); // VND per hour
-  const [latePenalty, setLatePenalty] = useState("10000"); // VND per 15 minutes
+  // Create/Edit price factor
+  const [isCreatingPriceFactor, setIsCreatingPriceFactor] = useState(false);
+  const [editingPriceFactor, setEditingPriceFactor] = useState<PriceFactorResponseDTO | null>(null);
   
-  // Subscription states
+  // Form fields
+  const [newFactor, setNewFactor] = useState("");
+  const [newStartTime, setNewStartTime] = useState("");
+  const [newStartDate, setNewStartDate] = useState("");
+  const [newEndTime, setNewEndTime] = useState("");
+  const [newEndDate, setNewEndDate] = useState("");
+  const [newDescription, setNewDescription] = useState("");
+  
+  // ========== SUBSCRIPTION STATES ==========
   const [selectedPlan, setSelectedPlan] = useState("");
   const [newPlanPrice, setNewPlanPrice] = useState("");
-  const [newPlanDiscount, setNewPlanDiscount] = useState("");
+  const [plans, setPlans] = useState<SubscriptionResponseDTO[] | null>(null);
+  const [loadingPlans, setLoadingPlans] = useState(false);
 
-  // New penalty rule states
-  const [isAddingPenaltyRule, setIsAddingPenaltyRule] = useState(false);
-  const [newRuleName, setNewRuleName] = useState("");
-  const [newRuleCategory, setNewRuleCategory] = useState("");
-  const [newRuleDescription, setNewRuleDescription] = useState("");
-  const [newRuleAmount, setNewRuleAmount] = useState("");
-  const [newRuleUnit, setNewRuleUnit] = useState("");
-  const [newRuleStatus, setNewRuleStatus] = useState("active");
-  const [newRuleNotes, setNewRuleNotes] = useState("");
+  // ========== SUBSCRIPTION FEATURE STATES ==========
+  const [features, setFeatures] = useState<SubscriptionFeatureResponseDTO[]>([]);
+  const [loadingFeatures, setLoadingFeatures] = useState(false);
+  const [selectedFeaturePlan, setSelectedFeaturePlan] = useState<number | null>(null);
+  
+  // Create/Edit feature
+  const [isCreatingFeature, setIsCreatingFeature] = useState(false);
+  const [editingFeature, setEditingFeature] = useState<SubscriptionFeatureResponseDTO | null>(null);
+  
+  // Feature form fields
+  const [newFeatureKey, setNewFeatureKey] = useState("");
+  const [newFeatureValue, setNewFeatureValue] = useState("");
+  const [newFeatureType, setNewFeatureType] = useState<"NUMERIC" | "BOOLEAN" | "STRING" | "PERCENTAGE">("NUMERIC");
+  const [newFeatureDisplayName, setNewFeatureDisplayName] = useState("");
+  const [newFeatureDescription, setNewFeatureDescription] = useState("");
 
+  // Fetch stations on mount
+  useEffect(() => {
+    const fetchStations = async () => {
+      try {
+        setLoadingStations(true);
+        const stationList = await getAllChargingStations();
+        setStations(stationList || []);
+        // Auto-select first station if available
+        if (stationList && stationList.length > 0 && stationList[0]) {
+          setSelectedStationId(stationList[0].stationId);
+        }
+      } catch (error) {
+        console.error("Error fetching stations:", error);
+        toast.error(language === 'vi' ? 'Không thể tải danh sách trạm' : 'Failed to load stations');
+      } finally {
+        setLoadingStations(false);
+      }
+    };
+    fetchStations();
+  }, []);
+
+  // Fetch price factors when station is selected
+  useEffect(() => {
+    if (!selectedStationId) return;
+    
+    const fetchPriceFactors = async () => {
+      try {
+        setLoadingPriceFactors(true);
+        const response = await getPriceFactorsByStation(selectedStationId);
+        setPriceFactors(response?.data || []);
+      } catch (error) {
+        console.error("Error fetching price factors:", error);
+        toast.error(language === 'vi' ? 'Không thể tải yếu tố giá' : 'Failed to load price factors');
+        setPriceFactors([]);
+    } finally {
+        setLoadingPriceFactors(false);
+      }
+    };
+    
+    fetchPriceFactors();
+  }, [selectedStationId]);
+
+  // Fetch subscriptions on mount
+  useEffect(() => {
+    const fetchSubscriptions = async () => {
+      try {
+        setLoadingPlans(true);
+        const res = await getAllSubscriptions();
+        setPlans(res?.data || []);
+        // Auto-select first plan for features if available
+        if (res?.data && res.data.length > 0 && res.data[0]) {
+          setSelectedFeaturePlan(res.data[0].subscriptionId);
+        }
+      } catch (error) {
+        console.error("Error fetching subscriptions:", error);
+        setPlans(null);
+    } finally {
+        setLoadingPlans(false);
+      }
+    };
+    fetchSubscriptions();
+  }, []);
+
+  // Fetch subscription features when plan is selected
+  useEffect(() => {
+    if (!selectedFeaturePlan) return;
+    
+    const fetchFeatures = async () => {
+      try {
+        setLoadingFeatures(true);
+        const response = await getSubscriptionFeaturesBySubscription(selectedFeaturePlan);
+        setFeatures(response?.data || []);
+      } catch (error) {
+        console.error("Error fetching subscription features:", error);
+        toast.error(language === 'vi' ? 'Không thể tải tính năng gói cước' : 'Failed to load subscription features');
+        setFeatures([]);
+      } finally {
+        setLoadingFeatures(false);
+      }
+    };
+    
+    fetchFeatures();
+  }, [selectedFeaturePlan]);
+
+  // Format currency
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('vi-VN').format(amount) + ' VND';
   };
 
-  const handleStationPriceUpdate = () => {
-    if (!selectedStation || !newPrice) return;
-    
-    // In real app, update station price via API
-    console.log(`Updating station ${selectedStation} price to ${newPrice} VND/kWh`);
-    
-    // Reset form
-    setSelectedStation("");
-    setNewPrice("");
+  // Format date time for display
+  const formatDateTime = (dateTime: string) => {
+    const date = new Date(dateTime);
+    return new Intl.DateTimeFormat('vi-VN', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    }).format(date);
   };
 
-  const handlePeakHourUpdate = () => {
-    if (!selectedPeakHour || !newMultiplier) return;
-    
-    // In real app, update peak hour multiplier via API
-    console.log(`Updating peak hour ${selectedPeakHour} multiplier to ${newMultiplier}`);
-    
-    // Reset form
-    setSelectedPeakHour("");
-    setNewMultiplier("");
+  // Handle create price factor
+  const handleCreatePriceFactor = async () => {
+    if (!selectedStationId || !newFactor || !newStartDate || !newStartTime || !newEndDate || !newEndTime) {
+      toast.error(language === 'vi' ? 'Vui lòng điền đầy đủ thông tin' : 'Please fill all fields');
+      return;
+    }
+
+    try {
+      const startDateTime = `${newStartDate}T${newStartTime}:00`;
+      const endDateTime = `${newEndDate}T${newEndTime}:00`;
+      
+      await createPriceFactor({
+        stationId: selectedStationId,
+        factor: parseFloat(newFactor),
+        startTime: startDateTime,
+        endTime: endDateTime,
+        description: newDescription || ""
+      });
+
+      toast.success(language === 'vi' ? 'Tạo yếu tố giá thành công' : 'Price factor created successfully');
+      
+      // Reset form
+      setNewFactor("");
+      setNewStartDate("");
+      setNewStartTime("");
+      setNewEndDate("");
+      setNewEndTime("");
+      setNewDescription("");
+      setIsCreatingPriceFactor(false);
+      
+      // Refresh price factors
+      const response = await getPriceFactorsByStation(selectedStationId);
+      setPriceFactors(response?.data || []);
+    } catch (error: any) {
+      const errorMessage = error?.response?.data?.message || 
+                          error?.message || 
+                          (language === 'vi' ? 'Không thể tạo yếu tố giá' : 'Failed to create price factor');
+      toast.error(errorMessage);
+      console.error("Error creating price factor:", error);
+    }
   };
 
-  const handlePenaltyUpdate = () => {
-    // In real app, update penalty fees via API
-    console.log(`Updating penalties - Parking: ${parkingPenalty} VND/hour, Late: ${latePenalty} VND/15min`);
+  // Handle update price factor
+  const handleUpdatePriceFactor = async () => {
+    if (!editingPriceFactor || !newFactor || !newStartDate || !newStartTime || !newEndDate || !newEndTime) {
+      toast.error(language === 'vi' ? 'Vui lòng điền đầy đủ thông tin' : 'Please fill all fields');
+      return;
+    }
+
+    try {
+      const startDateTime = `${newStartDate}T${newStartTime}:00`;
+      const endDateTime = `${newEndDate}T${newEndTime}:00`;
+      
+      await updatePriceFactor(editingPriceFactor.priceFactorId, {
+        factor: parseFloat(newFactor),
+        startTime: startDateTime,
+        endTime: endDateTime,
+        description: newDescription || ""
+      });
+
+      toast.success(language === 'vi' ? 'Cập nhật yếu tố giá thành công' : 'Price factor updated successfully');
+      
+      // Reset form
+      setEditingPriceFactor(null);
+      setNewFactor("");
+      setNewStartDate("");
+      setNewStartTime("");
+      setNewEndDate("");
+      setNewEndTime("");
+      setNewDescription("");
+      
+      // Refresh price factors
+      const response = await getPriceFactorsByStation(selectedStationId!);
+      setPriceFactors(response?.data || []);
+    } catch (error: any) {
+      const errorMessage = error?.response?.data?.message || 
+                          error?.message || 
+                          (language === 'vi' ? 'Không thể cập nhật yếu tố giá' : 'Failed to update price factor');
+      toast.error(errorMessage);
+      console.error("Error updating price factor:", error);
+    }
   };
 
-  const handleSubscriptionUpdate = () => {
-    if (!selectedPlan || !newPlanPrice || !newPlanDiscount) return;
-    
-    // In real app, update subscription plan via API
-    console.log(`Updating plan ${selectedPlan} - Price: ${newPlanPrice} VND, Discount: ${newPlanDiscount}%`);
-    
-    // Reset form
-    setSelectedPlan("");
-    setNewPlanPrice("");
-    setNewPlanDiscount("");
+  // Handle delete price factor
+  const handleDeletePriceFactor = async (priceFactorId: number) => {
+    if (!confirm(language === 'vi' ? 'Bạn có chắc chắn muốn xóa yếu tố giá này?' : 'Are you sure you want to delete this price factor?')) {
+      return;
+    }
+
+    try {
+      await deletePriceFactor(priceFactorId);
+      toast.success(language === 'vi' ? 'Xóa yếu tố giá thành công' : 'Price factor deleted successfully');
+      
+      // Refresh price factors
+      const response = await getPriceFactorsByStation(selectedStationId!);
+      setPriceFactors(response?.data || []);
+    } catch (error: any) {
+      const errorMessage = error?.response?.data?.message || 
+                          error?.message || 
+                          (language === 'vi' ? 'Không thể xóa yếu tố giá' : 'Failed to delete price factor');
+      toast.error(errorMessage);
+      console.error("Error deleting price factor:", error);
+    }
   };
 
-  const handleCreatePenaltyRule = () => {
-    if (!newRuleName || !newRuleCategory || !newRuleAmount || !newRuleUnit) return;
+  // Handle edit price factor - populate form
+  const handleEditPriceFactor = (factor: PriceFactorResponseDTO) => {
+    setEditingPriceFactor(factor);
+    setNewFactor(factor.factor.toString());
+    setNewDescription(factor.description || "");
     
-    // In real app, create new penalty rule via API
-    console.log(`Creating penalty rule: ${newRuleName} - Category: ${newRuleCategory} - Amount: ${newRuleAmount} ${newRuleUnit}`);
+    // Parse datetime
+    const startDate = new Date(factor.startTime);
+    const endDate = new Date(factor.endTime);
     
-    // Reset form and close dialog
-    setNewRuleName("");
-    setNewRuleCategory("");
-    setNewRuleDescription("");
-    setNewRuleAmount("");
-    setNewRuleUnit("");
-    setNewRuleStatus("active");
-    setNewRuleNotes("");
-    setIsAddingPenaltyRule(false);
+    const startDateStr = startDate.toISOString().split('T')[0];
+    const startTimeStr = startDate.toTimeString().slice(0, 5);
+    const endDateStr = endDate.toISOString().split('T')[0];
+    const endTimeStr = endDate.toTimeString().slice(0, 5);
+    
+    setNewStartDate(startDateStr || "");
+    setNewStartTime(startTimeStr || "");
+    setNewEndDate(endDateStr || "");
+    setNewEndTime(endTimeStr || "");
   };
+
+  // Handle cancel edit/create
+  const handleCancelForm = () => {
+    setIsCreatingPriceFactor(false);
+    setEditingPriceFactor(null);
+    setNewFactor("");
+    setNewStartDate("");
+    setNewStartTime("");
+    setNewEndDate("");
+    setNewEndTime("");
+    setNewDescription("");
+  };
+
+  // Handle cancel feature edit/create
+  const handleCancelFeatureForm = () => {
+    setIsCreatingFeature(false);
+    setEditingFeature(null);
+    setNewFeatureKey("");
+    setNewFeatureValue("");
+    setNewFeatureType("NUMERIC");
+    setNewFeatureDisplayName("");
+    setNewFeatureDescription("");
+  };
+
+  // Handle create feature
+  const handleCreateFeature = async () => {
+    if (!selectedFeaturePlan || !newFeatureKey || !newFeatureValue) {
+      toast.error(language === 'vi' ? 'Vui lòng điền đầy đủ thông tin' : 'Please fill all required fields');
+      return;
+    }
+
+    try {
+      const featureData: any = {
+        subscriptionId: selectedFeaturePlan,
+        featureKey: newFeatureKey,
+        featureValue: newFeatureValue,
+        featureType: newFeatureType
+      };
+      
+      if (newFeatureDisplayName) featureData.displayName = newFeatureDisplayName;
+      if (newFeatureDescription) featureData.description = newFeatureDescription;
+      
+      await createSubscriptionFeature(featureData);
+
+      toast.success(language === 'vi' ? 'Tạo tính năng thành công' : 'Feature created successfully');
+      
+      // Reset form
+      handleCancelFeatureForm();
+      
+      // Refresh features
+      const response = await getSubscriptionFeaturesBySubscription(selectedFeaturePlan);
+      setFeatures(response?.data || []);
+    } catch (error: any) {
+      const errorMessage = error?.response?.data?.message || 
+                          error?.message || 
+                          (language === 'vi' ? 'Không thể tạo tính năng' : 'Failed to create feature');
+      toast.error(errorMessage);
+      console.error("Error creating feature:", error);
+    }
+  };
+
+  // Handle update feature
+  const handleUpdateFeature = async () => {
+    if (!editingFeature || !newFeatureKey || !newFeatureValue) {
+      toast.error(language === 'vi' ? 'Vui lòng điền đầy đủ thông tin' : 'Please fill all required fields');
+      return;
+    }
+
+    try {
+      const featureData: any = {
+        subscriptionId: selectedFeaturePlan!,
+        featureKey: newFeatureKey,
+        featureValue: newFeatureValue,
+        featureType: newFeatureType
+      };
+      
+      if (newFeatureDisplayName) featureData.displayName = newFeatureDisplayName;
+      if (newFeatureDescription) featureData.description = newFeatureDescription;
+      
+      await updateSubscriptionFeature(editingFeature.featureId, featureData);
+
+      toast.success(language === 'vi' ? 'Cập nhật tính năng thành công' : 'Feature updated successfully');
+      
+      // Reset form
+      handleCancelFeatureForm();
+      
+      // Refresh features
+      const response = await getSubscriptionFeaturesBySubscription(selectedFeaturePlan!);
+      setFeatures(response?.data || []);
+    } catch (error: any) {
+      const errorMessage = error?.response?.data?.message || 
+                          error?.message || 
+                          (language === 'vi' ? 'Không thể cập nhật tính năng' : 'Failed to update feature');
+      toast.error(errorMessage);
+      console.error("Error updating feature:", error);
+    }
+  };
+
+  // Handle delete feature
+  const handleDeleteFeature = async (featureId: number) => {
+    if (!confirm(language === 'vi' ? 'Bạn có chắc chắn muốn xóa tính năng này?' : 'Are you sure you want to delete this feature?')) {
+      return;
+    }
+
+    try {
+      await deleteSubscriptionFeature(featureId);
+      toast.success(language === 'vi' ? 'Xóa tính năng thành công' : 'Feature deleted successfully');
+      
+      // Refresh features
+      const response = await getSubscriptionFeaturesBySubscription(selectedFeaturePlan!);
+      setFeatures(response?.data || []);
+    } catch (error: any) {
+      const errorMessage = error?.response?.data?.message || 
+                          error?.message || 
+                          (language === 'vi' ? 'Không thể xóa tính năng' : 'Failed to delete feature');
+      toast.error(errorMessage);
+      console.error("Error deleting feature:", error);
+    }
+  };
+
+  // Handle edit feature - populate form
+  const handleEditFeature = (feature: SubscriptionFeatureResponseDTO) => {
+    setEditingFeature(feature);
+    setNewFeatureKey(feature.featureKey);
+    setNewFeatureValue(feature.featureValue);
+    setNewFeatureType(feature.featureType as "NUMERIC" | "BOOLEAN" | "STRING" | "PERCENTAGE");
+    setNewFeatureDisplayName(feature.displayName || "");
+    setNewFeatureDescription(feature.description || "");
+  };
+
+  // Handle subscription update
+  const handleSubscriptionUpdate = async () => {
+    if (!selectedPlan || !newPlanPrice || !plans || plans.length === 0) {
+      toast.error(language === 'vi' ? 'Vui lòng chọn gói và nhập giá mới' : 'Please select a plan and enter new price');
+      return;
+    }
+    
+    // Find subscription by plan type (BASIC, PLUS, PREMIUM)
+    const subscription = plans.find(p => 
+      (p.type || "").toUpperCase() === selectedPlan.toUpperCase()
+    );
+    
+    if (!subscription || !subscription.subscriptionId) {
+      toast.error(language === 'vi' ? `Không tìm thấy gói cước với loại: ${selectedPlan}` : `Subscription not found for plan type: ${selectedPlan}`);
+      return;
+    }
+    
+    try {
+      const response = await updateSubscription(subscription.subscriptionId, {
+        price: Number(newPlanPrice)
+      });
+      
+      // Check if update was successful
+      if (response?.success) {
+        // Show success toast with backend message
+        toast.success(response.message || (language === 'vi' ? 'Cập nhật gói cước thành công' : 'Subscription updated successfully'));
+        
+        // Refresh plans list after update
+        const res = await getAllSubscriptions();
+        setPlans(res?.data || []);
+        setSelectedPlan("");
+        setNewPlanPrice("");
+      } else {
+        // Show error toast if success is false
+        toast.error(response.message || (language === 'vi' ? 'Cập nhật gói cước thất bại' : 'Failed to update subscription'));
+      }
+    } catch (error: any) {
+      // Handle error response
+      const errorMessage = error?.response?.data?.message || 
+                          error?.message || 
+                          (language === 'vi' ? 'Có lỗi xảy ra khi cập nhật gói cước' : 'An error occurred while updating subscription');
+      toast.error(errorMessage);
+      console.error("Error updating subscription:", error);
+    }
+  };
+
+  const displayPlans = useMemo(() => {
+    if (plans && plans.length > 0) {
+      return plans.map(p => ({
+        id: String(p.subscriptionId ?? p.type ?? ""),
+        name: (p.type || "").toUpperCase(),
+      }));
+    }
+    return [];
+  }, [plans]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-secondary/20 to-accent/30">
@@ -217,19 +544,11 @@ export default function SystemConfigView({ onBack }: SystemConfigViewProps) {
 
       {/* Main Content */}
       <div className="container mx-auto px-4 py-8 max-w-6xl">
-        <Tabs defaultValue="station-pricing" className="space-y-8">
-          <TabsList className="grid w-full grid-cols-4 bg-card/80 backdrop-blur-sm">
-            <TabsTrigger value="station-pricing" className="flex items-center space-x-2">
-              <MapPin className="w-4 h-4" />
-              <span>{t('station_pricing')}</span>
-            </TabsTrigger>
+        <Tabs defaultValue="peak-hours" className="space-y-8">
+          <TabsList className="grid w-full grid-cols-2 bg-card/80 backdrop-blur-sm">
             <TabsTrigger value="peak-hours" className="flex items-center space-x-2">
               <Clock className="w-4 h-4" />
               <span>{t('peak_hours')}</span>
-            </TabsTrigger>
-            <TabsTrigger value="penalties" className="flex items-center space-x-2">
-              <AlertTriangle className="w-4 h-4" />
-              <span>{t('penalties')}</span>
             </TabsTrigger>
             <TabsTrigger value="subscriptions" className="flex items-center space-x-2">
               <CreditCard className="w-4 h-4" />
@@ -237,86 +556,7 @@ export default function SystemConfigView({ onBack }: SystemConfigViewProps) {
             </TabsTrigger>
           </TabsList>
 
-          {/* Station Pricing Tab */}
-          <TabsContent value="station-pricing" className="space-y-6">
-            <Card className="bg-card/80 backdrop-blur-sm border-border/60">
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <MapPin className="w-5 h-5 text-primary" />
-                  <span>{t('station_pricing_management')}</span>
-                </CardTitle>
-                <CardDescription>
-                  {t('set_pricing_stations')}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                {/* Current Station Prices */}
-                <div className="space-y-4">
-                  <h4 className="font-medium">
-                    {t('current_pricing')}
-                  </h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {stations.map((station) => (
-                      <Card key={station.id} className="bg-muted/30">
-                        <CardContent className="p-4">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <p className="font-medium">{station.name}</p>
-                              <p className="text-sm text-muted-foreground">{station.address}</p>
-                            </div>
-                            <div className="text-right">
-                              <p className="font-semibold text-primary">
-                                {formatCurrency(station.currentPrice)}/kWh
-                              </p>
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Update Station Price */}
-                <div className="bg-muted/20 rounded-lg p-6 space-y-4">
-                  <h4 className="font-medium">
-                    {t('update_station_price')}
-                  </h4>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <Select value={selectedStation} onValueChange={setSelectedStation}>
-                      <SelectTrigger className="bg-input-background border-border/60">
-                        <SelectValue placeholder={t('select_station')} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {stations.map((station) => (
-                          <SelectItem key={station.id} value={station.id}>
-                            <div>
-                              <p className="font-medium">{station.name}</p>
-                              <p className="text-xs text-muted-foreground">
-                                {t('current')}: {formatCurrency(station.currentPrice)}/kWh
-                              </p>
-                            </div>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <Input
-                      type="number"
-                      placeholder={t('new_price_kwh')}
-                      value={newPrice}
-                      onChange={(e) => setNewPrice(e.target.value)}
-                      className="bg-input-background border-border/60"
-                    />
-                    <Button onClick={handleStationPriceUpdate} disabled={!selectedStation || !newPrice}>
-                      <Save className="w-4 h-4 mr-2" />
-                      {t('update_price')}
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Peak Hours Tab */}
+          {/* Peak Hours (Price Factor) Tab */}
           <TabsContent value="peak-hours" className="space-y-6">
             <Card className="bg-card/80 backdrop-blur-sm border-border/60">
               <CardHeader>
@@ -329,323 +569,205 @@ export default function SystemConfigView({ onBack }: SystemConfigViewProps) {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
-                {/* Current Peak Hours */}
+                {/* Station Selection */}
                 <div className="space-y-4">
                   <h4 className="font-medium">
-                    {t('current_peak_hours')}
+                    {language === 'vi' ? 'Chọn trạm sạc' : 'Select Charging Station'}
                   </h4>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    {peakHours.map((peak) => (
-                      <Card key={peak.id} className="bg-muted/30">
-                        <CardContent className="p-4">
-                          <div className="text-center space-y-2">
-                            <h5 className="font-medium">
-                              {language === 'en' ? peak.label : peak.labelVi}
-                            </h5>
-                            <p className="text-sm text-muted-foreground">{peak.hours}</p>
-                            <Badge variant="secondary" className="font-semibold">
-                              {peak.multiplier}x {t('multiplier')}
-                            </Badge>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Update Peak Hour */}
-                <div className="bg-muted/20 rounded-lg p-6 space-y-4">
-                  <h4 className="font-medium">
-                    {t('update_peak_multiplier')}
-                  </h4>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <Select value={selectedPeakHour} onValueChange={setSelectedPeakHour}>
+                  <Select 
+                    value={selectedStationId?.toString() || ""} 
+                    onValueChange={(value: string) => setSelectedStationId(parseInt(value))}
+                  >
                       <SelectTrigger className="bg-input-background border-border/60">
-                        <SelectValue placeholder={t('select_peak_hour')} />
+                      <SelectValue placeholder={language === 'vi' ? 'Chọn trạm...' : 'Select station...'} />
                       </SelectTrigger>
                       <SelectContent>
-                        {peakHours.map((peak) => (
-                          <SelectItem key={peak.id} value={peak.id}>
+                      {stations.map((station) => (
+                        <SelectItem key={station.stationId} value={station.stationId.toString()}>
                             <div>
-                              <p className="font-medium">
-                                {language === 'en' ? peak.label : peak.labelVi}
-                              </p>
-                              <p className="text-xs text-muted-foreground">
-                                {peak.hours} - {t('current')}: {peak.multiplier}x
-                              </p>
+                            <p className="font-medium">{station.stationName}</p>
+                            <p className="text-xs text-muted-foreground">{station.address}</p>
                             </div>
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
-                    <Input
-                      type="number"
-                      step="0.1"
-                      placeholder={t('new_multiplier')}
-                      value={newMultiplier}
-                      onChange={(e) => setNewMultiplier(e.target.value)}
-                      className="bg-input-background border-border/60"
-                    />
-                    <Button onClick={handlePeakHourUpdate} disabled={!selectedPeakHour || !newMultiplier}>
-                      <Save className="w-4 h-4 mr-2" />
-                      {t('update_multiplier')}
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Penalties Tab */}
-          <TabsContent value="penalties" className="space-y-6">
-            <Card className="bg-card/80 backdrop-blur-sm border-border/60">
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <AlertTriangle className="w-5 h-5 text-primary" />
-                  <span>{t('penalty_fees_management')}</span>
-                </CardTitle>
-                <CardDescription>
-                  {t('configure_penalty_fees')}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Parking Without Charging Penalty */}
-                  <Card className="bg-muted/30">
-                    <CardContent className="p-6">
-                      <div className="flex items-center space-x-3 mb-4">
-                        <div className="w-10 h-10 bg-orange-500/10 rounded-lg flex items-center justify-center">
-                          <Car className="w-5 h-5 text-orange-500" />
-                        </div>
-                        <div>
-                          <h4 className="font-medium">
-                            {t('parking_without_charging')}
-                          </h4>
-                          <p className="text-sm text-muted-foreground">
-                            {t('fee_per_hour_parking')}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="space-y-3">
-                        <Input
-                          type="number"
-                          value={parkingPenalty}
-                          onChange={(e) => setParkingPenalty(e.target.value)}
-                          className="bg-input-background border-border/60"
-                          placeholder="VND per hour"
-                        />
-                        <p className="text-sm text-muted-foreground">
-                          {t('current')}: {formatCurrency(parseInt(parkingPenalty || "0"))}/{t('hour')}
-                        </p>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  {/* Late Arrival Penalty */}
-                  <Card className="bg-muted/30">
-                    <CardContent className="p-6">
-                      <div className="flex items-center space-x-3 mb-4">
-                        <div className="w-10 h-10 bg-red-500/10 rounded-lg flex items-center justify-center">
-                          <Timer className="w-5 h-5 text-red-500" />
-                        </div>
-                        <div>
-                          <h4 className="font-medium">
-                            {t('late_arrival_penalty')}
-                          </h4>
-                          <p className="text-sm text-muted-foreground">
-                            {t('fee_per_15_minutes_late')}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="space-y-3">
-                        <Input
-                          type="number"
-                          value={latePenalty}
-                          onChange={(e) => setLatePenalty(e.target.value)}
-                          className="bg-input-background border-border/60"
-                          placeholder="VND per 15 minutes"
-                        />
-                        <p className="text-sm text-muted-foreground">
-                          {t('current')}: {formatCurrency(parseInt(latePenalty || "0"))}/15{t('min')}
-                        </p>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-
-                <div className="flex flex-col space-y-4">
-                  <div className="flex justify-center">
-                    <Button onClick={handlePenaltyUpdate} className="w-full max-w-md">
-                      <Save className="w-4 h-4 mr-2" />
-                      {t('update_penalty_fees')}
-                    </Button>
                   </div>
 
-                  {/* Add New Penalty Rule Section */}
-                  <div className="bg-muted/20 rounded-lg p-6 space-y-4">
+                {/* Current Price Factors */}
+                {selectedStationId && (
+                  <div className="space-y-4">
                     <div className="flex items-center justify-between">
-                      <div>
                         <h4 className="font-medium">
-                          {t('penalty_rules_list')}
+                        {language === 'vi' ? 'Yếu tố giá hiện tại' : 'Current Price Factors'}
                         </h4>
-                        <p className="text-sm text-muted-foreground">
-                          {t('manage_existing_rules')}
-                        </p>
-                      </div>
-                      <Dialog open={isAddingPenaltyRule} onOpenChange={setIsAddingPenaltyRule}>
+                      <Dialog open={isCreatingPriceFactor || !!editingPriceFactor} onOpenChange={(open: boolean) => !open && handleCancelForm()}>
                         <DialogTrigger asChild>
-                          <Button>
+                          <Button onClick={() => setIsCreatingPriceFactor(true)}>
                             <Plus className="w-4 h-4 mr-2" />
-                            {t('add_new_penalty_rule')}
+                            {language === 'vi' ? 'Thêm yếu tố giá' : 'Add Price Factor'}
                           </Button>
                         </DialogTrigger>
                         <DialogContent className="bg-card/80 backdrop-blur-sm border-border/60 max-w-2xl">
                           <DialogHeader>
                             <DialogTitle className="flex items-center space-x-2">
-                              <AlertTriangle className="w-5 h-5 text-orange-500" />
-                              <span>{t('new_penalty_rule')}</span>
+                              <Clock className="w-5 h-5 text-primary" />
+                              <span>
+                                {editingPriceFactor 
+                                  ? (language === 'vi' ? 'Chỉnh sửa yếu tố giá' : 'Edit Price Factor')
+                                  : (language === 'vi' ? 'Yếu tố giá mới' : 'New Price Factor')
+                                }
+                              </span>
                             </DialogTitle>
                             <DialogDescription>
-                              {t('create_custom_penalty')}
+                              {language === 'vi' ? 'Thiết lập hệ số giá theo thời gian' : 'Set price multiplier by time'}
                             </DialogDescription>
                           </DialogHeader>
                           
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 py-4">
-                            {/* Rule Name */}
+                            {/* Factor */}
                             <div className="space-y-2">
                               <label className="text-sm font-medium">
-                                {t('rule_name')}
-                              </label>
-                              <Input
-                                value={newRuleName}
-                                onChange={(e) => setNewRuleName(e.target.value)}
-                                placeholder={t('enter_rule_name')}
-                                className="bg-input-background border-border/60"
-                              />
-                            </div>
-
-                            {/* Rule Category */}
-                            <div className="space-y-2">
-                              <label className="text-sm font-medium">
-                                {t('rule_category')}
-                              </label>
-                              <Select value={newRuleCategory} onValueChange={setNewRuleCategory}>
-                                <SelectTrigger className="bg-input-background border-border/60">
-                                  <SelectValue placeholder={t('select_category')} />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="parking">{t('parking_violations')}</SelectItem>
-                                  <SelectItem value="charging">{t('charging_violations')}</SelectItem>
-                                  <SelectItem value="time">{t('time_violations')}</SelectItem>
-                                  <SelectItem value="equipment">{t('equipment_misuse')}</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </div>
-
-                            {/* Penalty Amount */}
-                            <div className="space-y-2">
-                              <label className="text-sm font-medium">
-                                {t('penalty_amount')}
+                                {language === 'vi' ? 'Hệ số giá' : 'Price Factor'}
                               </label>
                               <Input
                                 type="number"
-                                value={newRuleAmount}
-                                onChange={(e) => setNewRuleAmount(e.target.value)}
-                                placeholder={t('enter_penalty_amount')}
+                                step="0.1"
+                                value={newFactor}
+                                onChange={(e) => setNewFactor(e.target.value)}
+                                placeholder="e.g. 1.5"
                                 className="bg-input-background border-border/60"
                               />
                             </div>
 
-                            {/* Penalty Unit */}
+                            {/* Description */}
                             <div className="space-y-2">
                               <label className="text-sm font-medium">
-                                {t('penalty_unit')}
+                                {language === 'vi' ? 'Mô tả' : 'Description'}
                               </label>
-                              <Select value={newRuleUnit} onValueChange={setNewRuleUnit}>
-                                <SelectTrigger className="bg-input-background border-border/60">
-                                  <SelectValue placeholder={t('penalty_unit')} />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="fixed">{t('fixed_amount')}</SelectItem>
-                                  <SelectItem value="per_hour">{t('per_hour')}</SelectItem>
-                                  <SelectItem value="per_15_min">{t('per_15_minutes')}</SelectItem>
-                                  <SelectItem value="per_violation">{t('per_violation')}</SelectItem>
-                                </SelectContent>
-                              </Select>
+                              <Input
+                                value={newDescription}
+                                onChange={(e) => setNewDescription(e.target.value)}
+                                placeholder={language === 'vi' ? 'Nhập mô tả...' : 'Enter description...'}
+                                className="bg-input-background border-border/60"
+                              />
                             </div>
 
-                            {/* Rule Status */}
+                            {/* Start Date */}
                             <div className="space-y-2">
                               <label className="text-sm font-medium">
-                                {t('rule_status')}
-                              </label>
-                              <Select value={newRuleStatus} onValueChange={setNewRuleStatus}>
-                                <SelectTrigger className="bg-input-background border-border/60">
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="active">{t('active')}</SelectItem>
-                                  <SelectItem value="pending">{t('pending')}</SelectItem>
-                                  <SelectItem value="draft">{t('draft')}</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </div>
-
-                            {/* Effective Date */}
-                            <div className="space-y-2">
-                              <label className="text-sm font-medium">
-                                {t('effective_date')}
+                                {language === 'vi' ? 'Ngày bắt đầu' : 'Start Date'}
                               </label>
                               <Input
                                 type="date"
+                                value={newStartDate}
+                                onChange={(e) => setNewStartDate(e.target.value)}
                                 className="bg-input-background border-border/60"
                               />
                             </div>
+
+                            {/* Start Time */}
+                            <div className="space-y-2">
+                              <label className="text-sm font-medium">
+                                {language === 'vi' ? 'Giờ bắt đầu' : 'Start Time'}
+                              </label>
+                              <Input
+                                type="time"
+                                value={newStartTime}
+                                onChange={(e) => setNewStartTime(e.target.value)}
+                                className="bg-input-background border-border/60"
+                              />
+                            </div>
+
+                            {/* End Date */}
+                            <div className="space-y-2">
+                              <label className="text-sm font-medium">
+                                {language === 'vi' ? 'Ngày kết thúc' : 'End Date'}
+                              </label>
+                              <Input
+                                type="date"
+                                value={newEndDate}
+                                onChange={(e) => setNewEndDate(e.target.value)}
+                                className="bg-input-background border-border/60"
+                              />
                           </div>
 
-                          {/* Violation Description */}
+                            {/* End Time */}
                           <div className="space-y-2">
                             <label className="text-sm font-medium">
-                              {t('violation_description')}
+                                {language === 'vi' ? 'Giờ kết thúc' : 'End Time'}
                             </label>
-                            <textarea
-                              value={newRuleDescription}
-                              onChange={(e) => setNewRuleDescription(e.target.value)}
-                              placeholder={t('describe_violation')}
-                              className="w-full h-20 px-3 py-2 bg-input-background border border-border/60 rounded-lg text-sm resize-none"
+                              <Input
+                                type="time"
+                                value={newEndTime}
+                                onChange={(e) => setNewEndTime(e.target.value)}
+                                className="bg-input-background border-border/60"
                             />
                           </div>
-
-                          {/* Additional Notes */}
-                          <div className="space-y-2">
-                            <label className="text-sm font-medium">
-                              {t('additional_notes')} ({t('optional')})
-                            </label>
-                            <textarea
-                              value={newRuleNotes}
-                              onChange={(e) => setNewRuleNotes(e.target.value)}
-                              placeholder={t('optional_notes')}
-                              className="w-full h-16 px-3 py-2 bg-input-background border border-border/60 rounded-lg text-sm resize-none"
-                            />
                           </div>
 
                           <div className="flex justify-end space-x-3">
-                            <Button variant="outline" onClick={() => setIsAddingPenaltyRule(false)}>
-                              {t('cancel')}
+                            <Button variant="outline" onClick={handleCancelForm}>
+                              {language === 'vi' ? 'Hủy' : 'Cancel'}
                             </Button>
                             <Button 
-                              onClick={handleCreatePenaltyRule}
-                              disabled={!newRuleName || !newRuleCategory || !newRuleAmount || !newRuleUnit}
+                              onClick={editingPriceFactor ? handleUpdatePriceFactor : handleCreatePriceFactor}
+                              disabled={!newFactor || !newStartDate || !newStartTime || !newEndDate || !newEndTime}
                             >
                               <Save className="w-4 h-4 mr-2" />
-                              {t('create_rule')}
+                              {language === 'vi' ? 'Lưu' : 'Save'}
                             </Button>
                           </div>
                         </DialogContent>
                       </Dialog>
                     </div>
+
+                    {loadingPriceFactors ? (
+                      <div className="text-center py-8 text-muted-foreground">
+                        {language === 'vi' ? 'Đang tải...' : 'Loading...'}
+                      </div>
+                    ) : priceFactors.length === 0 ? (
+                      <div className="text-center py-8 text-muted-foreground">
+                        {language === 'vi' ? 'Chưa có yếu tố giá nào cho trạm này' : 'No price factors for this station'}
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {priceFactors.map((factor) => (
+                          <Card key={factor.priceFactorId} className="bg-muted/30">
+                            <CardContent className="p-4">
+                                <div className="space-y-3">
+                                  <div>
+                                    <h5 className="font-medium">{factor.description || (language === 'vi' ? 'Yếu tố giá' : 'Price Factor')}</h5>
+                                    <p className="text-sm text-muted-foreground">
+                                      {formatDateTime(factor.startTime)} - {formatDateTime(factor.endTime)}
+                                    </p>
+                                  </div>
+                                  <div className="flex items-center space-x-2">
+                                  <Button 
+                                    size="sm" 
+                                    variant="outline"
+                                    onClick={() => handleEditPriceFactor(factor)}
+                                  >
+                                    <Edit className="w-4 h-4 mr-1" />
+                                    {language === 'vi' ? 'Sửa' : 'Edit'}
+                                  </Button>
+                                  <Button 
+                                    size="sm" 
+                                    variant="destructive"
+                                    onClick={() => handleDeletePriceFactor(factor.priceFactorId)}
+                                  >
+                                    <Trash2 className="w-4 h-4 mr-1" />
+                                    {language === 'vi' ? 'Xóa' : 'Delete'}
+                                  </Button>
                   </div>
                 </div>
+                            </CardContent>
+                          </Card>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
@@ -663,34 +785,38 @@ export default function SystemConfigView({ onBack }: SystemConfigViewProps) {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
-                {/* Current Subscription Plans */}
+                {/* Current Subscription Plans (live from BE if available) */}
                 <div className="space-y-4">
                   <h4 className="font-medium">
                     {t('current_subscription_plans')}
                   </h4>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    {subscriptionPlans.map((plan) => (
-                      <Card key={plan.id} className="bg-muted/30">
+                    {plans && plans.length > 0 ? (
+                      plans.map((plan: any) => (
+                        <Card key={plan.subscriptionId} className="bg-muted/30">
                         <CardContent className="p-4">
                           <div className="text-center space-y-3">
                             <h5 className="font-medium">
-                              {language === 'en' ? plan.name : plan.nameVi}
+                                {plan.type ? plan.type.toUpperCase() : plan.subscriptionName || 'N/A'}
                             </h5>
                             <div className="space-y-1">
-                              <p className="font-semibold text-primary">
-                                {formatCurrency(plan.price)}/{t('month')}
-                              </p>
-                              <Badge variant="secondary">
-                                {plan.discount}% {t('discount')}
-                              </Badge>
+                                {plan.price && (
+                                  <p className="font-semibold text-primary">
+                                    {formatCurrency(plan.price)}/{t('month')}
+                                  </p>
+                              )}
                             </div>
                           </div>
                         </CardContent>
                       </Card>
-                    ))}
+                      ))
+                    ) : (
+                      <div className="col-span-3 text-center text-muted-foreground">
+                        {language === 'vi' ? 'Đang tải gói cước...' : 'Loading subscription plans...'}
                   </div>
+                    )}
                 </div>
-
+                </div>
                 {/* Update Subscription Plan */}
                 <div className="bg-muted/20 rounded-lg p-6 space-y-4">
                   <h4 className="font-medium">
@@ -702,18 +828,43 @@ export default function SystemConfigView({ onBack }: SystemConfigViewProps) {
                         <SelectValue placeholder={t('select_plan')} />
                       </SelectTrigger>
                       <SelectContent>
-                        {subscriptionPlans.map((plan) => (
-                          <SelectItem key={plan.id} value={plan.id}>
-                            <div>
-                              <p className="font-medium">
-                                {language === 'en' ? plan.name : plan.nameVi}
-                              </p>
-                              <p className="text-xs text-muted-foreground">
-                                {formatCurrency(plan.price)} - {plan.discount}% {t('discount')}
-                              </p>
-                            </div>
-                          </SelectItem>
-                        ))}
+                        {/* Show plans from backend */}
+                        {plans && plans.length > 0 ? (
+                          plans.map((plan) => (
+                            <SelectItem 
+                              key={plan.subscriptionId} 
+                              value={(plan.type || "").toUpperCase()}
+                            >
+                              <div>
+                                <p className="font-medium">{(plan.type || "").toUpperCase()}</p>
+                                {plan.subscriptionId && (
+                                  <p className="text-xs text-muted-foreground">
+                                    ID: {plan.subscriptionId}
+                                  </p>
+                                )}
+                              </div>
+                            </SelectItem>
+                          ))
+                        ) : (
+                          <>
+                            {/* Fallback to hardcoded plans if backend data not available */}
+                            <SelectItem value={"BASIC"}>
+                              <div>
+                                <p className="font-medium">BASIC</p>
+                              </div>
+                            </SelectItem>
+                            <SelectItem value={"PLUS"}>
+                              <div>
+                                <p className="font-medium">PLUS</p>
+                              </div>
+                            </SelectItem>
+                            <SelectItem value={"PREMIUM"}>
+                              <div>
+                                <p className="font-medium">PREMIUM</p>
+                              </div>
+                            </SelectItem>
+                          </>
+                        )}
                       </SelectContent>
                     </Select>
                     <Input
@@ -723,19 +874,227 @@ export default function SystemConfigView({ onBack }: SystemConfigViewProps) {
                       onChange={(e) => setNewPlanPrice(e.target.value)}
                       className="bg-input-background border-border/60"
                     />
-                    <Input
-                      type="number"
-                      placeholder={t('discount_percent')}
-                      value={newPlanDiscount}
-                      onChange={(e) => setNewPlanDiscount(e.target.value)}
-                      className="bg-input-background border-border/60"
-                    />
-                    <Button onClick={handleSubscriptionUpdate} disabled={!selectedPlan || !newPlanPrice || !newPlanDiscount}>
+                    <Button onClick={handleSubscriptionUpdate} disabled={!selectedPlan || !newPlanPrice}>
                       <Save className="w-4 h-4 mr-2" />
                       {t('update_plan')}
                     </Button>
                   </div>
                 </div>
+
+                {/* Subscription Features Management */}
+                <Card className="bg-card/80 backdrop-blur-sm border-border/60">
+                  <CardHeader>
+                    <CardTitle className="flex items-center space-x-2">
+                      <Settings className="w-5 h-5 text-primary" />
+                      <span>{language === 'vi' ? 'Quản lý Tính năng Gói cước' : 'Subscription Features Management'}</span>
+                    </CardTitle>
+                    <CardDescription>
+                      {language === 'vi' ? 'Cấu hình tính năng cho từng gói cước' : 'Configure features for each subscription plan'}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    {/* Plan Selection */}
+                    <div className="space-y-4">
+                      <h4 className="font-medium">
+                        {language === 'vi' ? 'Chọn gói cước' : 'Select Subscription Plan'}
+                      </h4>
+                      <Select 
+                        value={selectedFeaturePlan?.toString() || ""} 
+                        onValueChange={(value: string) => setSelectedFeaturePlan(parseInt(value))}
+                      >
+                        <SelectTrigger className="bg-input-background border-border/60">
+                          <SelectValue placeholder={language === 'vi' ? 'Chọn gói...' : 'Select plan...'} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {plans && plans.length > 0 ? (
+                            plans.map((plan) => (
+                              <SelectItem key={plan.subscriptionId} value={plan.subscriptionId.toString()}>
+                                <div>
+                                  <p className="font-medium">{plan.type ? plan.type.toUpperCase() : plan.subscriptionName || 'N/A'}</p>
+                                  {plan.price && (
+                                    <p className="text-xs text-muted-foreground">
+                                      {formatCurrency(plan.price)}/month
+                                    </p>
+                                  )}
+                                </div>
+                              </SelectItem>
+                            ))
+                          ) : (
+                            <SelectItem value="" disabled>
+                              <span className="text-muted-foreground">{language === 'vi' ? 'Không có gói nào' : 'No plans available'}</span>
+                            </SelectItem>
+                          )}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Current Features */}
+                    {selectedFeaturePlan && (
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                          <h4 className="font-medium">
+                            {language === 'vi' ? 'Tính năng hiện tại' : 'Current Features'}
+                          </h4>
+                          <Dialog open={isCreatingFeature || !!editingFeature} onOpenChange={(open: boolean) => !open && handleCancelFeatureForm()}>
+                            <DialogTrigger asChild>
+                              <Button onClick={() => setIsCreatingFeature(true)}>
+                                <Plus className="w-4 h-4 mr-2" />
+                                {language === 'vi' ? 'Thêm tính năng' : 'Add Feature'}
+                              </Button>
+                            </DialogTrigger>
+                            <DialogContent className="bg-card/80 backdrop-blur-sm border-border/60 max-w-2xl">
+                              <DialogHeader>
+                                <DialogTitle className="flex items-center space-x-2">
+                                  <Settings className="w-5 h-5 text-primary" />
+                                  <span>
+                                    {editingFeature 
+                                      ? (language === 'vi' ? 'Chỉnh sửa tính năng' : 'Edit Feature')
+                                      : (language === 'vi' ? 'Tính năng mới' : 'New Feature')
+                                    }
+                                  </span>
+                                </DialogTitle>
+                                <DialogDescription>
+                                  {language === 'vi' ? 'Thêm hoặc chỉnh sửa tính năng cho gói cước' : 'Add or edit feature for subscription plan'}
+                                </DialogDescription>
+                              </DialogHeader>
+                              
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 py-4">
+                                {/* Feature Key */}
+                                <div className="space-y-2">
+                                  <label className="text-sm font-medium">
+                                    {language === 'vi' ? 'Mã tính năng' : 'Feature Key'}
+                                  </label>
+                                  <Input
+                                    value={newFeatureKey}
+                                    onChange={(e) => setNewFeatureKey(e.target.value)}
+                                    placeholder="e.g. ADVANCE_BOOKING_DAYS"
+                                    className="bg-input-background border-border/60"
+                                  />
+                                </div>
+
+                                {/* Feature Type */}
+                                <div className="space-y-2">
+                                  <label className="text-sm font-medium">
+                                    {language === 'vi' ? 'Loại' : 'Type'}
+                                  </label>
+                                  <Select value={newFeatureType} onValueChange={(value: "NUMERIC" | "BOOLEAN" | "STRING" | "PERCENTAGE") => setNewFeatureType(value)}>
+                                    <SelectTrigger className="bg-input-background border-border/60">
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="NUMERIC">NUMERIC</SelectItem>
+                                      <SelectItem value="BOOLEAN">BOOLEAN</SelectItem>
+                                      <SelectItem value="STRING">STRING</SelectItem>
+                                      <SelectItem value="PERCENTAGE">PERCENTAGE</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+
+                                {/* Feature Value */}
+                                <div className="space-y-2">
+                                  <label className="text-sm font-medium">
+                                    {language === 'vi' ? 'Giá trị' : 'Value'}
+                                  </label>
+                                  <Input
+                                    value={newFeatureValue}
+                                    onChange={(e) => setNewFeatureValue(e.target.value)}
+                                    placeholder="e.g. 7, true, 10%"
+                                    className="bg-input-background border-border/60"
+                                  />
+                                </div>
+
+                                {/* Display Name */}
+                                <div className="space-y-2">
+                                  <label className="text-sm font-medium">
+                                    {language === 'vi' ? 'Tên hiển thị' : 'Display Name'}
+                                  </label>
+                                  <Input
+                                    value={newFeatureDisplayName}
+                                    onChange={(e) => setNewFeatureDisplayName(e.target.value)}
+                                    placeholder={language === 'vi' ? 'Tên hiển thị...' : 'Display name...'}
+                                    className="bg-input-background border-border/60"
+                                  />
+                                </div>
+
+                                {/* Description */}
+                                <div className="space-y-2 md:col-span-2">
+                                  <label className="text-sm font-medium">
+                                    {language === 'vi' ? 'Mô tả' : 'Description'}
+                                  </label>
+                                  <textarea
+                                    value={newFeatureDescription}
+                                    onChange={(e) => setNewFeatureDescription(e.target.value)}
+                                    placeholder={language === 'vi' ? 'Mô tả chi tiết...' : 'Detailed description...'}
+                                    className="w-full h-20 px-3 py-2 bg-input-background border border-border/60 rounded-lg text-sm resize-none"
+                                  />
+                                </div>
+                              </div>
+
+                              <div className="flex justify-end space-x-3">
+                                <Button variant="outline" onClick={handleCancelFeatureForm}>
+                                  {language === 'vi' ? 'Hủy' : 'Cancel'}
+                                </Button>
+                                <Button 
+                                  onClick={editingFeature ? handleUpdateFeature : handleCreateFeature}
+                                  disabled={!newFeatureKey || !newFeatureValue}
+                                >
+                                  <Save className="w-4 h-4 mr-2" />
+                                  {language === 'vi' ? 'Lưu' : 'Save'}
+                                </Button>
+                              </div>
+                            </DialogContent>
+                          </Dialog>
+                        </div>
+
+                        {loadingFeatures ? (
+                          <div className="text-center py-8 text-muted-foreground">
+                            {language === 'vi' ? 'Đang tải...' : 'Loading...'}
+                          </div>
+                        ) : features.length === 0 ? (
+                          <div className="text-center py-8 text-muted-foreground">
+                            {language === 'vi' ? 'Chưa có tính năng nào cho gói này' : 'No features for this plan'}
+                          </div>
+                        ) : (
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {features.map((feature) => (
+                              <Card key={feature.featureId} className="bg-muted/30">
+                                <CardContent className="p-4">
+                                  <div className="space-y-3">
+                                    <div>
+                                      <div>
+                                        <h5 className="font-medium">{feature.displayName || feature.featureKey}</h5>
+                                        <p className="text-sm text-muted-foreground">{feature.description || feature.featureKey}</p>
+                                        <Badge variant="outline" className="mt-1">{feature.featureType}</Badge>
+                                      </div>
+                                    </div>
+                                    <div className="flex items-center space-x-2">
+                                      <Button 
+                                        size="sm" 
+                                        variant="outline"
+                                        onClick={() => handleEditFeature(feature)}
+                                      >
+                                        <Edit className="w-4 h-4 mr-1" />
+                                        {language === 'vi' ? 'Sửa' : 'Edit'}
+                                      </Button>
+                                      <Button 
+                                        size="sm" 
+                                        variant="destructive"
+                                        onClick={() => handleDeleteFeature(feature.featureId)}
+                                      >
+                                        <Trash2 className="w-4 h-4 mr-1" />
+                                        {language === 'vi' ? 'Xóa' : 'Delete'}
+                    </Button>
+                  </div>
+                </div>
+                                </CardContent>
+                              </Card>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
               </CardContent>
             </Card>
           </TabsContent>

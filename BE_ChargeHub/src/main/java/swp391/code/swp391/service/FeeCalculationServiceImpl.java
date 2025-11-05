@@ -40,7 +40,7 @@ public class FeeCalculationServiceImpl implements FeeCalculationService {
 
         Fee fee = new Fee();
         fee.setSession(session);
-        fee.setType(Fee.Type.CHARGING);
+        fee.setType(Fee.Type.OVERTIME); // AC3: OVERTIME type
         fee.setAmount(amount.doubleValue()); // Convert to Double for existing entity
         fee.setDescription(String.format(
                 "Phí sạc quá giờ: %d phút × %s VNĐ/phút",

@@ -5,6 +5,7 @@ import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
 import { Label } from "./components/ui/label";
 import { Separator } from "./components/ui/separator";
+import PasswordInput from "./components/ui/PasswordInput";
 import { Zap } from "lucide-react";
 import { useLanguage } from "./contexts/LanguageContext";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "./components/ui/dialog";
@@ -14,7 +15,7 @@ import { api } from "./services/api";
 interface LoginProps {
     onSwitchToRegister: () => void;
     onLogin?: () => void;
-    onStaffLogin?: () => void;
+    onStaffLogin?: () => void; // used for auto-redirect after role detection (no separate staff login button)
     onAdminLogin?: () => void;
     onSwitchToRoleSelection? : () => void;
     onSwitchToVehicleSetup?: () => void;
@@ -59,7 +60,7 @@ export default function Login({ onSwitchToRegister, onLogin, onStaffLogin, onAdm
         return /^\d{6}$/.test(otpValue);
     };
 
-    //handle Google
+    //handle social
     useEffect(() => {
         const url = new URL(window.location.href);
         const code = url.searchParams.get("code");
@@ -176,21 +177,20 @@ export default function Login({ onSwitchToRegister, onLogin, onStaffLogin, onAdm
                 localStorage.setItem("token", accessToken);
                 localStorage.setItem("refreshToken", refreshToken || "");
 
-                let effectiveRole = "driver";
-
                 try {
+                    // Decode role from accessToken to route appropriately
+                    const decoded: any = jwtDecode(accessToken);
+                    const effectiveRole = (decoded?.role || decoded?.authorities || "driver").toString().toLowerCase();
 
                     if (userId) {
-                        
-                        localStorage.setItem("userId", userId.toString())
-
+                        localStorage.setItem("userId", userId.toString());
                         localStorage.setItem("registeredUserId", userId.toString());
-                    };
-                    localStorage.setItem("role", effectiveRole.toLowerCase());
-                    
-                    // Check user profile to determine next step
-                    console.log("Checking user profile for userId:", userId);
-                    await getUserProfileToContinue(userId);
+                    }
+                    localStorage.setItem("role", effectiveRole);
+
+                    // Check user profile or route by role
+                    console.log("Checking user profile for userId:", userId, "role:", effectiveRole);
+                    await getUserProfileToContinue(userId as any);
                 } catch (decodeErr: any) {
                     console.error("JWT decode failed:", decodeErr);
                     localStorage.setItem("role", "driver");
@@ -237,8 +237,35 @@ export default function Login({ onSwitchToRegister, onLogin, onStaffLogin, onAdm
             if (res.status === 200 && res.data) {
                 const userProfile = res.data;
                 console.log("Fetched user profile:", userProfile);
-                // Check if user needs to complete profile setup
+                // Determine role from profile API and route accordingly
+                try {
+                    const roleFromProfile = (userProfile?.data?.role || "driver").toString().toLowerCase();
+                    localStorage.setItem("role", roleFromProfile);
+                    if (roleFromProfile === "staff") {
+                        onStaffLogin?.();
+                        return;
+                    }
+                    if (roleFromProfile === "admin") {
+                        onAdminLogin?.();
+                        return;
+                    }
+                } catch {}
+
+                // Driver flow: Check if user needs to complete profile setup
                 
+                // Store user profile data in localStorage
+                if (userProfile.data) {
+                    if (userProfile.data.fullName) {
+                        localStorage.setItem("fullName", userProfile.data.fullName);
+                        console.log("Stored fullName:", userProfile.data.fullName);
+                    }
+                    if (userProfile.data.email) {
+                        localStorage.setItem("email", userProfile.data.email);
+                        console.log("Stored email:", userProfile.data.email);
+                    }
+                }
+                
+                // Check if user needs to complete profile setup
                 if (!userProfile.data.dateOfBirth) {
                     console.log("User needs profile completion");
                     onSwitchToRoleSelection?.();
@@ -250,37 +277,32 @@ export default function Login({ onSwitchToRegister, onLogin, onStaffLogin, onAdm
                     return;
                 } 
                 else {
-                    console.log("User needs vehicle setup");
-                    onLogin?.(); //Muốn sang dashboard thì chỉnh thành onLogin
-                    return;
+                    // Decide dashboard by role; store stationId for staff
+                    const role = (userProfile.data.role || localStorage.getItem("role") || "driver").toLowerCase();
+                    if (role === "staff") {
+                        const stationId = userProfile.data.station?.stationId || userProfile.data.stationId;
+                        if (stationId) localStorage.setItem("stationId", String(stationId));
+                        onStaffLogin?.();
+                        return;
+                    } else if (role === "admin") {
+                        onAdminLogin?.();
+                        return;
+                    } else {
+                        onLogin?.();
+                        return;
+                    }
                 }
                 
                 // User profile is complete, proceed with normal login flow
                 console.log("User profile is complete, proceeding with login");
-                const role = localStorage.getItem("role")?.toLowerCase() || "driver";
-                
-                // if (role === "driver") {
-                //     onLogin?.();
-                // } else if (role === "staff") {
-                //     onStaffLogin?.();
-                // } else if (role === "admin") {
-                //     onAdminLogin?.();
-                // } else {
-                //     onLogin?.();
-                // }
+                onLogin?.();
             } else {
                 console.log("Invalid profile response, proceeding with default login");
                 // Fallback to default login flow
                 const role = localStorage.getItem("role")?.toLowerCase() || "driver";
-                if (role === "driver") {
-                    onLogin?.();
-                } else if (role === "staff") {
-                    onStaffLogin?.();
-                } else if (role === "admin") {
-                    onAdminLogin?.();
-                } else {
-                    onLogin?.();
-                }
+                if (role === "staff") onStaffLogin?.();
+                else if (role === "admin") onAdminLogin?.();
+                else onLogin?.();
             }
         } catch (err: any) {
             console.error("Error getting user profile:", err);
@@ -288,15 +310,9 @@ export default function Login({ onSwitchToRegister, onLogin, onStaffLogin, onAdm
             
             // Fallback to default login flow when profile check fails
             const role = localStorage.getItem("role")?.toLowerCase() || "driver";
-            if (role === "driver") {
-                onLogin?.();
-            } else if (role === "staff") {
-                onStaffLogin?.();
-            } else if (role === "admin") {
-                onAdminLogin?.();
-            } else {
-                onLogin?.();
-            }
+            if (role === "staff") onStaffLogin?.();
+            else if (role === "admin") onAdminLogin?.();
+            else onLogin?.();
         } finally {
             setLoading(false);
         }
@@ -496,7 +512,6 @@ export default function Login({ onSwitchToRegister, onLogin, onStaffLogin, onAdm
         );
     }
 
-    const handleStaffLogin = () => onStaffLogin?.();
     const handleAdminLogin = () => onAdminLogin?.();
 
     return (
@@ -563,9 +578,8 @@ export default function Login({ onSwitchToRegister, onLogin, onStaffLogin, onAdm
 
                                 <div className="space-y-2">
                                     <Label htmlFor="password" className="text-foreground/90 font-medium">{t("Password")}</Label>
-                                    <Input
+                                    <PasswordInput
                                         id="password"
-                                        type="password"
                                         value={password}
                                         onChange={(e) => setPassword(e.target.value)}
                                         placeholder={t("Password")}
@@ -644,22 +658,7 @@ export default function Login({ onSwitchToRegister, onLogin, onStaffLogin, onAdm
                                 </div>
                             </div>
 
-                            <div className="space-y-2">
-                                <Button
-                                    variant="outline"
-                                    onClick={handleStaffLogin}
-                                    className="w-full h-10 bg-secondary/30 border-border/40 hover:bg-secondary/50 hover:border-border rounded-lg transition-all duration-200 text-sm"
-                                >
-                                    {t("Sign in to staff")}
-                                </Button>
-                                <Button
-                                    variant="outline"
-                                    onClick={handleAdminLogin}
-                                    className="w-full h-10 bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-800 hover:bg-red-100 dark:hover:bg-red-950/30 hover:border-red-300 dark:hover:border-red-700 rounded-lg transition-all duration-200 text-sm text-red-700 dark:text-red-300 font-medium"
-                                >
-                                    {t("Sign in to admin")}
-                                </Button>
-                            </div>
+                            {/* Admin button removed: admin routes by role after login */}
                         </div>
                     </div>
 

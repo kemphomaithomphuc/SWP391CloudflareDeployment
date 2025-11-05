@@ -1,15 +1,16 @@
 package swp391.code.swp391.entity;
 
 import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.util.List;
 
 @Entity
 @Table(name="charging_points")
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
@@ -20,7 +21,7 @@ public class ChargingPoint {
     private Long chargingPointId;
 
     @ManyToOne
-    @JsonBackReference
+    @JsonBackReference("station-points")
     private ChargingStation station;
 
     @ManyToOne
