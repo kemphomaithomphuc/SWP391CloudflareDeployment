@@ -1,10 +1,12 @@
 package swp391.code.swp391.entity;
 
 import jakarta.persistence.*;
+import lombok.Data;
 import org.springframework.boot.autoconfigure.web.WebProperties;
 
 @Entity
 @Table
+@Data
 public class SystemConfig {
 
     @Id
@@ -14,7 +16,7 @@ public class SystemConfig {
     @Column(nullable = false, unique = true)
     private String configKey;
 
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "TEXT")
     private String configValue;
 
     @Column(nullable = false)

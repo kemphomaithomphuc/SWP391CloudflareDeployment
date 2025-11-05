@@ -1,6 +1,9 @@
 package swp391.code.swp391.service;
 
+import com.itextpdf.io.font.PdfEncodings;
 import com.itextpdf.kernel.colors.DeviceRgb;
+import com.itextpdf.kernel.font.PdfFont;
+import com.itextpdf.kernel.font.PdfFontFactory;
 import com.itextpdf.kernel.pdf.PdfDocument;
 import com.itextpdf.kernel.pdf.PdfWriter;
 import com.itextpdf.layout.Document;
@@ -321,12 +324,18 @@ public class RevenueServiceImpl implements RevenueService {
             PdfDocument pdfDoc = new PdfDocument(writer);
             Document document = new Document(pdfDoc);
 
+            // Nạp font Times New Roman
+            String fontPath = "src/main/resources/font/times.ttf";
+            PdfFont font = PdfFontFactory.createFont(fontPath);
+            // Set font cho file pdf
+            document.setFont(font);
+
             // Màu sắc
             DeviceRgb primaryColor = new DeviceRgb(220, 53, 69); // Red
             DeviceRgb headerBg = new DeviceRgb(248, 249, 250); // Light gray
 
             // Tiêu đề
-            Paragraph title = new Paragraph("BAO CAO DOANH THU")
+            Paragraph title = new Paragraph("BÁO CÁO DOANH THU")
                     .setFontSize(20)
                     .setBold()
                     .setTextAlignment(TextAlignment.CENTER)
@@ -335,7 +344,7 @@ public class RevenueServiceImpl implements RevenueService {
 
             // Kỳ báo cáo
             if (filter.getFromDate() != null && filter.getToDate() != null) {
-                String period = String.format("Tu: %s - Den: %s",
+                String period = String.format("Từ: %s - Đến: %s",
                         filter.getFromDate().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")),
                         filter.getToDate().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")));
                 Paragraph periodPara = new Paragraph(period)
@@ -346,7 +355,7 @@ public class RevenueServiceImpl implements RevenueService {
             }
 
             // 1. Tổng quan
-            document.add(new Paragraph("TONG QUAN")
+            document.add(new Paragraph("TỔNG QUAN")
                     .setFontSize(14)
                     .setBold()
                     .setFontColor(primaryColor)
@@ -356,32 +365,32 @@ public class RevenueServiceImpl implements RevenueService {
                     .useAllAvailableWidth();
 
             // Doanh thu
-            addPdfSummaryRow(summaryTable, "Tong doanh thu", formatMoney(report.getSummary().getTotalRevenue()), headerBg);
-            addPdfSummaryRow(summaryTable, "Doanh thu thanh cong", formatMoney(report.getSummary().getTotalSuccessRevenue()), null);
-            addPdfSummaryRow(summaryTable, "Doanh thu cho xu ly", formatMoney(report.getSummary().getTotalPendingRevenue()), headerBg);
-            addPdfSummaryRow(summaryTable, "Doanh thu that bai", formatMoney(report.getSummary().getTotalFailedRevenue()), null);
+            addPdfSummaryRow(summaryTable, "Tổng doanh thu", formatMoney(report.getSummary().getTotalRevenue()), headerBg);
+            addPdfSummaryRow(summaryTable, "Doanh thu thành công", formatMoney(report.getSummary().getTotalSuccessRevenue()), null);
+            addPdfSummaryRow(summaryTable, "Doanh thu chờ xử lý", formatMoney(report.getSummary().getTotalPendingRevenue()), headerBg);
+            addPdfSummaryRow(summaryTable, "Doanh thu thất bại", formatMoney(report.getSummary().getTotalFailedRevenue()), null);
 
             // Thêm dòng trống
             addPdfSummaryRow(summaryTable, "", "", null);
 
             // Số lượng giao dịch
-            addPdfSummaryRow(summaryTable, "Tong so giao dich", report.getSummary().getTotalTransactions().toString(), headerBg);
-            addPdfSummaryRow(summaryTable, "Giao dich thanh cong", report.getSummary().getSuccessfulTransactions().toString(), null);
-            addPdfSummaryRow(summaryTable, "Giao dich cho xu ly", report.getSummary().getPendingTransactions().toString(), headerBg);
-            addPdfSummaryRow(summaryTable, "Giao dich that bai", report.getSummary().getFailedTransactions().toString(), null);
+            addPdfSummaryRow(summaryTable, "Tổng số giao dịch", report.getSummary().getTotalTransactions().toString(), headerBg);
+            addPdfSummaryRow(summaryTable, "Giao dịch thành công", report.getSummary().getSuccessfulTransactions().toString(), null);
+            addPdfSummaryRow(summaryTable, "Giao dịch chờ xử lý", report.getSummary().getPendingTransactions().toString(), headerBg);
+            addPdfSummaryRow(summaryTable, "Giao dịch thất bại", report.getSummary().getFailedTransactions().toString(), null);
 
             // Thêm dòng trống
             addPdfSummaryRow(summaryTable, "", "", null);
 
             // Thống kê khác
-            addPdfSummaryRow(summaryTable, "Gia tri TB/giao dich", formatMoney(report.getSummary().getAverageTransactionAmount()), headerBg);
-            addPdfSummaryRow(summaryTable, "Ty le tang truong", report.getSummary().getGrowthRate().toString() + "%", null);
+            addPdfSummaryRow(summaryTable, "Giá trị TB/giao dịch", formatMoney(report.getSummary().getAverageTransactionAmount()), headerBg);
+            addPdfSummaryRow(summaryTable, "Tỷ lệ tăng trưởng", report.getSummary().getGrowthRate().toString() + "%", null);
 
             document.add(summaryTable);
 
             // 2. Biểu đồ theo thời gian
             if (!report.getChartData().isEmpty()) {
-                document.add(new Paragraph("DOANH THU THEO THOI GIAN")
+                document.add(new Paragraph("DOANH THU THEO THỜI GIAN")
                         .setFontSize(14)
                         .setBold()
                         .setFontColor(primaryColor)
@@ -391,9 +400,9 @@ public class RevenueServiceImpl implements RevenueService {
                         .useAllAvailableWidth();
 
                 // Header
-                chartTable.addHeaderCell(createPdfHeaderCell("Ky"));
+                chartTable.addHeaderCell(createPdfHeaderCell("Thời gian"));
                 chartTable.addHeaderCell(createPdfHeaderCell("Doanh thu (VND)"));
-                chartTable.addHeaderCell(createPdfHeaderCell("So giao dich"));
+                chartTable.addHeaderCell(createPdfHeaderCell("Số giao dịch"));
 
                 // Data
                 for (RevenueResponseDTO.RevenueChartData data : report.getChartData()) {
@@ -407,7 +416,7 @@ public class RevenueServiceImpl implements RevenueService {
 
             // 3. Doanh thu theo trạm
             if (!report.getRevenueByStation().isEmpty()) {
-                document.add(new Paragraph("DOANH THU THEO TRAM")
+                document.add(new Paragraph("DOANH THU THEO TRẠM")
                         .setFontSize(14)
                         .setBold()
                         .setFontColor(primaryColor)
@@ -418,11 +427,11 @@ public class RevenueServiceImpl implements RevenueService {
 
                 // Header
                 stationTable.addHeaderCell(createPdfHeaderCell("ID"));
-                stationTable.addHeaderCell(createPdfHeaderCell("Ten tram"));
-                stationTable.addHeaderCell(createPdfHeaderCell("Dia chi"));
+                stationTable.addHeaderCell(createPdfHeaderCell("Tên trạm"));
+                stationTable.addHeaderCell(createPdfHeaderCell("Địa chỉ"));
                 stationTable.addHeaderCell(createPdfHeaderCell("Doanh thu"));
-                stationTable.addHeaderCell(createPdfHeaderCell("So GD"));
-                stationTable.addHeaderCell(createPdfHeaderCell("TB/giao dich"));
+                stationTable.addHeaderCell(createPdfHeaderCell("Số giao dịch"));
+                stationTable.addHeaderCell(createPdfHeaderCell("TB/giao dịch"));
 
                 // Data
                 for (RevenueResponseDTO.RevenueByStation station : report.getRevenueByStation()) {
@@ -439,7 +448,7 @@ public class RevenueServiceImpl implements RevenueService {
 
             // 4. Doanh thu theo phương thức thanh toán
             if (!report.getRevenueByPaymentMethod().isEmpty()) {
-                document.add(new Paragraph("DOANH THU THEO PHUONG THUC THANH TOAN")
+                document.add(new Paragraph("DOANH THU THEO PHƯƠNG THỨC THANH TOÁN")
                         .setFontSize(14)
                         .setBold()
                         .setFontColor(primaryColor)
@@ -449,7 +458,7 @@ public class RevenueServiceImpl implements RevenueService {
                         .useAllAvailableWidth();
 
                 // Header
-                paymentTable.addHeaderCell(createPdfHeaderCell("Phuong thuc"));
+                paymentTable.addHeaderCell(createPdfHeaderCell("Phương thức"));
                 paymentTable.addHeaderCell(createPdfHeaderCell("Doanh thu (VND)"));
 
                 // Data
@@ -462,7 +471,7 @@ public class RevenueServiceImpl implements RevenueService {
             }
 
             // Footer
-            document.add(new Paragraph("\nNgay xuat bao cao: " +
+            document.add(new Paragraph("\nNgày xuất báo cáo: " +
                     LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss")))
                     .setFontSize(10)
                     .setTextAlignment(TextAlignment.RIGHT)
@@ -535,7 +544,7 @@ public class RevenueServiceImpl implements RevenueService {
     }
 
     private void createSummarySheet(Workbook workbook, RevenueResponseDTO.RevenueSummary summary, RevenueFilterRequestDTO filter) {
-        Sheet sheet = workbook.createSheet("Tong quan");
+        Sheet sheet = workbook.createSheet("Tổng quan");
 
         // Tạo header style
         CellStyle headerStyle = createExcelHeaderStyle(workbook);
@@ -546,14 +555,14 @@ public class RevenueServiceImpl implements RevenueService {
         // Tiêu đề
         Row titleRow = sheet.createRow(rowNum++);
         org.apache.poi.ss.usermodel.Cell titleCell = titleRow.createCell(0);
-        titleCell.setCellValue("BAO CAO DOANH THU");
+        titleCell.setCellValue("BÁO CÁO DOANH THU");
         titleCell.setCellStyle(headerStyle);
 
         // Khoảng thời gian
         rowNum++;
         if (filter.getFromDate() != null && filter.getToDate() != null) {
             Row periodRow = sheet.createRow(rowNum++);
-            periodRow.createCell(0).setCellValue("Ky bao cao:");
+            periodRow.createCell(0).setCellValue("Kỳ báo cáo:");
             periodRow.createCell(1).setCellValue(
                     filter.getFromDate().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")) +
                             " - " +
@@ -563,20 +572,20 @@ public class RevenueServiceImpl implements RevenueService {
 
         // Dữ liệu tổng quan
         rowNum++;
-        addExcelDataRow(sheet, rowNum++, "Tong doanh thu", summary.getTotalRevenue().toString() + " VND", headerStyle, dataStyle);
-        addExcelDataRow(sheet, rowNum++, "Doanh thu thanh cong", summary.getTotalSuccessRevenue().toString() + " VND", headerStyle, dataStyle);
-        addExcelDataRow(sheet, rowNum++, "Doanh thu cho xu ly", summary.getTotalPendingRevenue().toString() + " VND", headerStyle, dataStyle);
-        addExcelDataRow(sheet, rowNum++, "Doanh thu that bai", summary.getTotalFailedRevenue().toString() + " VND", headerStyle, dataStyle);
+        addExcelDataRow(sheet, rowNum++, "Tổng doanh thu", summary.getTotalRevenue().toString() + " VND", headerStyle, dataStyle);
+        addExcelDataRow(sheet, rowNum++, "Doanh thu thành công", summary.getTotalSuccessRevenue().toString() + " VND", headerStyle, dataStyle);
+        addExcelDataRow(sheet, rowNum++, "Doanh thu chờ xử lý", summary.getTotalPendingRevenue().toString() + " VND", headerStyle, dataStyle);
+        addExcelDataRow(sheet, rowNum++, "Doanh thu thất bại", summary.getTotalFailedRevenue().toString() + " VND", headerStyle, dataStyle);
 
         rowNum++;
-        addExcelDataRow(sheet, rowNum++, "Tong so giao dich", summary.getTotalTransactions().toString(), headerStyle, dataStyle);
-        addExcelDataRow(sheet, rowNum++, "Giao dich thanh cong", summary.getSuccessfulTransactions().toString(), headerStyle, dataStyle);
-        addExcelDataRow(sheet, rowNum++, "Giao dich cho xu ly", summary.getPendingTransactions().toString(), headerStyle, dataStyle);
-        addExcelDataRow(sheet, rowNum++, "Giao dich that bai", summary.getFailedTransactions().toString(), headerStyle, dataStyle);
+        addExcelDataRow(sheet, rowNum++, "Tổng số giao dịch", summary.getTotalTransactions().toString(), headerStyle, dataStyle);
+        addExcelDataRow(sheet, rowNum++, "Giao dịch thành công", summary.getSuccessfulTransactions().toString(), headerStyle, dataStyle);
+        addExcelDataRow(sheet, rowNum++, "Giao dịch chờ xử lý", summary.getPendingTransactions().toString(), headerStyle, dataStyle);
+        addExcelDataRow(sheet, rowNum++, "Giao dịch thất bại", summary.getFailedTransactions().toString(), headerStyle, dataStyle);
 
         rowNum++;
-        addExcelDataRow(sheet, rowNum++, "Gia tri TB/giao dich", summary.getAverageTransactionAmount().toString() + " VND", headerStyle, dataStyle);
-        addExcelDataRow(sheet, rowNum++, "Ty le tang truong", summary.getGrowthRate().toString() + " %", headerStyle, dataStyle);
+        addExcelDataRow(sheet, rowNum++, "Giá trị TB/giao dịch", summary.getAverageTransactionAmount().toString() + " VND", headerStyle, dataStyle);
+        addExcelDataRow(sheet, rowNum++, "Tỷ lệ tăng trưởng", summary.getGrowthRate().toString() + " %", headerStyle, dataStyle);
 
         // Auto-size columns
         sheet.autoSizeColumn(0);
@@ -584,16 +593,16 @@ public class RevenueServiceImpl implements RevenueService {
     }
 
     private void createChartDataSheet(Workbook workbook, List<RevenueResponseDTO.RevenueChartData> chartData) {
-        Sheet sheet = workbook.createSheet("Doanh thu theo thoi gian");
+        Sheet sheet = workbook.createSheet("Doanh thu theo thời gian");
 
         CellStyle headerStyle = createExcelHeaderStyle(workbook);
         CellStyle dataStyle = createExcelDataStyle(workbook);
 
         // Header
         Row headerRow = sheet.createRow(0);
-        headerRow.createCell(0).setCellValue("Ky");
+        headerRow.createCell(0).setCellValue("Thời gian");
         headerRow.createCell(1).setCellValue("Doanh thu (VND)");
-        headerRow.createCell(2).setCellValue("So giao dich");
+        headerRow.createCell(2).setCellValue("Số giao dịch");
         headerRow.getCell(0).setCellStyle(headerStyle);
         headerRow.getCell(1).setCellStyle(headerStyle);
         headerRow.getCell(2).setCellStyle(headerStyle);
@@ -617,19 +626,19 @@ public class RevenueServiceImpl implements RevenueService {
     }
 
     private void createStationRevenueSheet(Workbook workbook, List<RevenueResponseDTO.RevenueByStation> stationRevenue) {
-        Sheet sheet = workbook.createSheet("Doanh thu theo tram");
+        Sheet sheet = workbook.createSheet("Doanh thu theo trạm");
 
         CellStyle headerStyle = createExcelHeaderStyle(workbook);
         CellStyle dataStyle = createExcelDataStyle(workbook);
 
         // Header
         Row headerRow = sheet.createRow(0);
-        headerRow.createCell(0).setCellValue("ID Tram");
-        headerRow.createCell(1).setCellValue("Ten tram");
-        headerRow.createCell(2).setCellValue("Dia chi");
+        headerRow.createCell(0).setCellValue("ID Trạm");
+        headerRow.createCell(1).setCellValue("Tên trạm");
+        headerRow.createCell(2).setCellValue("Địa chỉ");
         headerRow.createCell(3).setCellValue("Doanh thu (VND)");
-        headerRow.createCell(4).setCellValue("So giao dich");
-        headerRow.createCell(5).setCellValue("TB/giao dich (VND)");
+        headerRow.createCell(4).setCellValue("Số giao dịch");
+        headerRow.createCell(5).setCellValue("TB/giao dịch (VND)");
 
         for (int i = 0; i < 6; i++) {
             headerRow.getCell(i).setCellStyle(headerStyle);
@@ -657,14 +666,14 @@ public class RevenueServiceImpl implements RevenueService {
     }
 
     private void createPaymentMethodSheet(Workbook workbook, Map<String, BigDecimal> paymentMethodData) {
-        Sheet sheet = workbook.createSheet("Phuong thuc thanh toan");
+        Sheet sheet = workbook.createSheet("Phương thức thanh toán");
 
         CellStyle headerStyle = createExcelHeaderStyle(workbook);
         CellStyle dataStyle = createExcelDataStyle(workbook);
 
         // Header
         Row headerRow = sheet.createRow(0);
-        headerRow.createCell(0).setCellValue("Phuong thuc");
+        headerRow.createCell(0).setCellValue("Phương thức");
         headerRow.createCell(1).setCellValue("Doanh thu (VND)");
         headerRow.getCell(0).setCellStyle(headerStyle);
         headerRow.getCell(1).setCellStyle(headerStyle);

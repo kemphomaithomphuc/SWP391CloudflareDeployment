@@ -35,6 +35,7 @@ import RevenueView from "./components/RevenueView";
 import StaffManagementView from "./components/StaffManagementView";
 import UsageAnalyticsView from "./components/UsageAnalyticsView";
 import AdminChargerPostActivatingView from "./components/AdminChargerPostActivatingView";
+import IssueResolvementView from "./components/IssueResolvementView";
 import LanguageThemeControls from "./components/LanguageThemeControls";
 import RoleSelection from "./components/RoleSelection";
 import StaffProfileSetup from "./components/StaffProfileSetup";
@@ -348,7 +349,7 @@ function AppContent() {
         );
 
       case "adminDashboard":
-        return <AdminDashboard onLogout={switchToLogin} onSystemConfig={switchToSystemConfig} onAdminMap={switchToAdminMap} onRevenue={switchToRevenue} onStaffManagement={switchToStaffManagement} onUsageAnalytics={switchToUsageAnalytics} onAdminChargerPostActivating={switchToAdminChargerPostActivating} />;
+        return <AdminDashboard onLogout={switchToLogin} onSystemConfig={switchToSystemConfig} onAdminMap={switchToAdminMap} onRevenue={switchToRevenue} onStaffManagement={switchToStaffManagement} onUsageAnalytics={switchToUsageAnalytics} onAdminChargerPostActivating={switchToAdminChargerPostActivating} onIssueResolvement={switchToIssueResolvement} />;
 
       case "systemConfig":
         return <SystemConfigView onBack={() => navigate("/adminDashboard")} />;

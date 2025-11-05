@@ -1,0 +1,5 @@
+name = "fe-chargehub"
+compatibility_date = "2025-10-26"
+[build]
+command = "npm run build"
+output_directory = "dist"

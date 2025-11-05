@@ -23,16 +23,17 @@ import { useLanguage } from "./contexts/LanguageContext";
 import DriverManagementView from "./components/DriverManagementView";
 
 interface AdminDashboardProps {
-    onLogout: () => void;
-    onSystemConfig: () => void;
-    onAdminMap: () => void;
-    onRevenue: () => void;
-    onStaffManagement: () => void;
-    onUsageAnalytics: () => void;
-    onAdminChargerPostActivating: () => void;
+  onLogout: () => void;
+  onSystemConfig: () => void;
+  onAdminMap: () => void;
+  onRevenue: () => void;
+  onStaffManagement: () => void;
+  onUsageAnalytics: () => void;
+  onAdminChargerPostActivating: () => void;
+  onIssueResolvement: () => void;
 }
 
-export default function AdminDashboard({ onLogout, onSystemConfig, onAdminMap, onRevenue, onStaffManagement, onUsageAnalytics, onAdminChargerPostActivating }: AdminDashboardProps) {
+export default function AdminDashboard({ onLogout, onSystemConfig, onAdminMap, onRevenue, onStaffManagement, onUsageAnalytics, onAdminChargerPostActivating, onIssueResolvement }: AdminDashboardProps) {
 
     const { language, setLanguage } = useLanguage();
     const [showSalary, setShowSalary] = useState(false);
@@ -70,6 +71,18 @@ export default function AdminDashboard({ onLogout, onSystemConfig, onAdminMap, o
         console.log("Usage Analytics button clicked");
         onUsageAnalytics();
     };
+  const handleGridButtonClick = (buttonName: string) => {
+    console.log(`${buttonName} button clicked`);
+    if (buttonName === 'SystemConfig') {
+      onSystemConfig();
+    } else if (buttonName === 'Map') {
+      onAdminMap();
+    } else if (buttonName === 'Revenue') {
+      onRevenue();
+    } else if (buttonName === 'StaffManagement') {
+      onStaffManagement();
+    } else if (buttonName === 'IssueResolvement') {
+      onIssueResolvement();
 
     const handleLogout = async () => {
         try {
@@ -244,34 +257,63 @@ export default function AdminDashboard({ onLogout, onSystemConfig, onAdminMap, o
                             </Button>
                         </motion.div>
 
-                        {/* Staff Management Button */}
-                        <motion.div
-                            initial={{ opacity: 0, scale: 0.95 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            transition={{ duration: 0.5, delay: 0.2 }}
-                            whileHover={{ scale: 1.02 }}
-                            whileTap={{ scale: 0.98 }}
-                        >
-                            <Button
-                                variant="outline"
-                                onClick={() => handleGridButtonClick('StaffManagement')}
-                                className="w-full h-32 flex flex-col items-center justify-center space-y-3 bg-card hover:bg-accent/50 border-border shadow-lg hover:shadow-xl transition-all duration-300 rounded-2xl group"
-                            >
-                                <div className="w-12 h-12 bg-green-500/10 rounded-xl flex items-center justify-center group-hover:bg-green-500/20 transition-colors duration-300">
-                                    <Users className="w-6 h-6 text-green-600" />
-                                </div>
-                                <motion.span
-                                    key={language + 'staffmanagement'}
-                                    initial={{ opacity: 0, y: 10 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    exit={{ opacity: 0, y: -10 }}
-                                    transition={{ duration: 0.2 }}
-                                    className="font-medium text-foreground group-hover:text-green-600 transition-colors duration-300"
-                                >
-                                    {language === 'en' ? 'Staff Management' : 'Quản lý nhân viên'}
-                                </motion.span>
-                            </Button>
-                        </motion.div>
+            {/* Issue Resolvement Button */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.5, delay: 0.35 }}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+            >
+              <Button
+                variant="outline"
+                onClick={() => handleGridButtonClick('IssueResolvement')}
+                className="w-full h-32 flex flex-col items-center justify-center space-y-3 bg-card hover:bg-accent/50 border-border shadow-lg hover:shadow-xl transition-all duration-300 rounded-2xl group"
+              >
+                <div className="w-12 h-12 bg-red-500/10 rounded-xl flex items-center justify-center group-hover:bg-red-500/20 transition-colors duration-300">
+                  <Activity className="w-6 h-6 text-red-600" />
+                </div>
+                <motion.span 
+                  key={language + 'issue-resolve'}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.2 }}
+                  className="font-medium text-foreground group-hover:text-red-600 transition-colors duration-300 text-center"
+                >
+                  {language === 'en' ? 'Issue Resolvement' : 'Xử lý sự cố'}
+                </motion.span>
+              </Button>
+            </motion.div>
+
+            {/* Staff Management Button */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.5, delay: 0.2 }}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+            >
+              <Button
+                variant="outline"
+                onClick={() => handleGridButtonClick('StaffManagement')}
+                className="w-full h-32 flex flex-col items-center justify-center space-y-3 bg-card hover:bg-accent/50 border-border shadow-lg hover:shadow-xl transition-all duration-300 rounded-2xl group"
+              >
+                <div className="w-12 h-12 bg-green-500/10 rounded-xl flex items-center justify-center group-hover:bg-green-500/20 transition-colors duration-300">
+                  <Users className="w-6 h-6 text-green-600" />
+                </div>
+                <motion.span 
+                  key={language + 'staffmanagement'}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.2 }}
+                  className="font-medium text-foreground group-hover:text-green-600 transition-colors duration-300"
+                >
+                  {language === 'en' ? 'Staff Management' : 'Quản lý nhân viên'}
+                </motion.span>
+              </Button>
+            </motion.div>
 
                         {/* System Config Button */}
                         <motion.div
