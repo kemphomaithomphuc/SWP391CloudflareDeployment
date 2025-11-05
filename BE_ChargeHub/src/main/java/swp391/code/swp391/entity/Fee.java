@@ -42,8 +42,9 @@ public class Fee {
     private LocalDateTime createdAt = LocalDateTime.now();
 
     public enum Type {
-        CHARGING,  // Phí sạc quá giờ khi pin đầy
-        NO_SHOW,   // Phí không đến theo lịch
-        CANCEL     // Phí hủy muộn
+        CHARGING,  // Phí sạc quá giờ khi pin đầy (deprecated, use OVERTIME)
+        OVERTIME,  // Phí sạc quá giờ khi pin đầy (AC3: 2,000 VNĐ/phút)
+        NO_SHOW,   // Phí không đến theo lịch (AC2: 30% estimated cost)
+        CANCEL     // Phí hủy muộn (AC1: 10% estimated cost)
     }
 }

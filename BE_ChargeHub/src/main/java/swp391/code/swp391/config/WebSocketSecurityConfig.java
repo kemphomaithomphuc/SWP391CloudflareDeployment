@@ -8,7 +8,7 @@ import org.springframework.security.config.annotation.web.socket.EnableWebSocket
 import org.springframework.security.messaging.access.intercept.MessageMatcherDelegatingAuthorizationManager;
 
 @Configuration
-@EnableWebSocketSecurity // (1) Kích hoạt bảo mật cho WebSocket Messages
+@EnableWebSocketSecurity // Kích hoạt bảo mật cho WebSocket Messages
 public class WebSocketSecurityConfig {
 
     @Bean
@@ -16,12 +16,21 @@ public class WebSocketSecurityConfig {
             MessageMatcherDelegatingAuthorizationManager.Builder messages
     ) {
         messages
-                .simpDestMatchers("/user/**").hasRole("USER")
+                // Cho phép CONNECT - yêu cầu authentication
+                .nullDestMatcher().authenticated()
+
+                // Cho phép subscribe đến personal queues (authenticated users)
+                .simpSubscribeDestMatchers("/user/queue/**").authenticated()
+
+                // Cho phép subscribe đến public topics (authenticated users)
+                .simpSubscribeDestMatchers("/topic/**").authenticated()
+
+                // Cho phép gửi message qua /app destinations
+                .simpDestMatchers("/app/**").authenticated()
+
+                // Yêu cầu authentication cho tất cả message khác
                 .anyMessage().authenticated();
+
         return messages.build();
-//        return (authentication, message) -> {
-//            // Require authentication for all WebSocket messages
-//            return new AuthorizationDecision(authentication.get() != null && authentication.get().isAuthenticated());
-//        };
     }
 }

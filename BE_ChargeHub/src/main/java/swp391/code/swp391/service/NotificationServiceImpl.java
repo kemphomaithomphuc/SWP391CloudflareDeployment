@@ -3,9 +3,10 @@ package swp391.code.swp391.service;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import swp391.code.swp391.dto.NotificationDTO;
+import swp391.code.swp391.dto.NotificationSignalDTO;
+import swp391.code.swp391.dto.StaffDTO;
 import swp391.code.swp391.entity.*;
 import swp391.code.swp391.repository.NotificationRepository;
 import swp391.code.swp391.repository.OrderRepository;
@@ -24,6 +25,7 @@ public class NotificationServiceImpl implements NotificationService {
     private final OrderRepository orderRepository;
     private final UserRepository userRepository;
     private final SimpMessagingTemplate simpMessagingTemplate;
+    private final StaffManagementService staffManagementService;
     @Override
     @Transactional
     public List<NotificationDTO> getNotificationDTOs(Long userId) {
@@ -71,9 +73,20 @@ public class NotificationServiceImpl implements NotificationService {
         notificationRepository.markAllAsRead(user);
     }
 
-    public void pushNotificationToUser(Notification notification) {
-        String username = SecurityContextHolder.getContext().getAuthentication().getName(); //Review lại
-        NotificationDTO dto = convertToDTO(notification);
+    public void pushNotificationToUser(Notification notification, Notification.Type type) {
+        // Lấy username (email hoặc phone) của user nhận notification
+        User recipientUser = notification.getUser();
+        String username = recipientUser.getEmail() != null ? recipientUser.getEmail() : recipientUser.getPhone();
+
+        if (username == null) {
+            throw new RuntimeException("User has no email or phone to send notification");
+        }
+
+        NotificationSignalDTO dto = new NotificationSignalDTO();
+        dto.setType(type);
+        dto.setNotificationCount(getUnreadCountForUser(recipientUser.getUserId()).intValue());
+
+        // Gửi notification đến user cụ thể qua WebSocket
         simpMessagingTemplate.convertAndSendToUser(
                 username,
                 "/queue/notifications",
@@ -82,7 +95,8 @@ public class NotificationServiceImpl implements NotificationService {
     }
 
     public void pushNotificationToAll(Notification notification) {
-        simpMessagingTemplate.convertAndSend("/queue/notifications", convertToDTO(notification));
+        // Gửi broadcast notification đến tất cả users đang subscribe /topic/notifications
+        simpMessagingTemplate.convertAndSend("/topic/notifications", convertToDTO(notification));
     }
 
 //=====================BOOKING NOTIFICATION==========================
@@ -141,7 +155,7 @@ public class NotificationServiceImpl implements NotificationService {
         notificationRepository.save(notification);
 
         // Push via WebSocket
-        pushNotificationToUser(notification);
+        pushNotificationToUser(notification,Notification.Type.BOOKING);
     }
 
     //=====================PAYMENT NOTIFICATION==========================
@@ -187,7 +201,7 @@ public class NotificationServiceImpl implements NotificationService {
         notificationRepository.save(notification);
 
         // Push via WebSocket
-        pushNotificationToUser(notification);
+        pushNotificationToUser(notification,Notification.Type.PAYMENT);
     }
 
     //=====================ISSUE NOTIFICATION==========================
@@ -207,8 +221,11 @@ public class NotificationServiceImpl implements NotificationService {
                 break;
             case STATION_ERROR_STAFF:
                 // Thông báo cho staff của station
-                // TODO: Implement logic to find staff assigned to station
-                targetUsers = userRepository.findByRole(User.UserRole.STAFF);
+                List<StaffDTO> staffs = staffManagementService.getStaffByStation(stationId);
+                targetUsers = staffs.stream()
+                        .map(staffDTO -> userRepository.findById(staffDTO.getUserId())
+                                .orElseThrow(() -> new RuntimeException("Staff user not found with ID: " + staffDTO.getUserId())))
+                        .collect(Collectors.toList());
                 break;
             case CHARGING_POINT_CHANGE_DRIVER:
                 // Thông báo cho driver về việc đổi charging point
@@ -233,7 +250,7 @@ public class NotificationServiceImpl implements NotificationService {
                 case STATION_ERROR_STAFF:
                     notification.setTitle("Trạm sạc gặp sự cố");
                     notification.setContent(String.format(
-                            "Trạm sạc ID: %d đang gặp sự cố\nChi tiết: %s\nVui lòng kiểm tra",
+                            "Trạm sạc ID: %d đang gặp sự cố\nChi tiết: %s",
                             stationId, additionalInfo
                     ));
                     break;
@@ -247,7 +264,7 @@ public class NotificationServiceImpl implements NotificationService {
             }
             notificationRepository.save(notification);
             // Push via WebSocket
-            pushNotificationToUser(notification);
+            pushNotificationToUser(notification,Notification.Type.ISSUE);
         }
     }
 
@@ -297,7 +314,7 @@ public class NotificationServiceImpl implements NotificationService {
         notificationRepository.save(notification);
 
         // Push via WebSocket
-        pushNotificationToUser(notification);
+        pushNotificationToUser(notification,Notification.Type.PENALTY);
     }
 
     //=====================GENERAL NOTIFICATION==========================
