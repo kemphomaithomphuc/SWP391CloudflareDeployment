@@ -9,7 +9,7 @@ import { Separator } from './ui/separator';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog';
 import { motion } from 'motion/react';
 import { toast } from 'sonner';
-import { getAllSubscriptions, getUserSubscription, type SubscriptionResponseDTO } from '../services/api';
+import { getAllSubscriptions, getUserSubscription, upgradeUserSubscription, type SubscriptionResponseDTO } from '../services/api';
 
 interface PremiumSubscriptionViewProps {
     onBack: () => void;
@@ -22,6 +22,7 @@ export default function PremiumSubscriptionView({ onBack, userType = 'driver' }:
     const [isUpgrading, setIsUpgrading] = useState(false);
     const [plans, setPlans] = useState<SubscriptionResponseDTO[] | null>(null);
     const [currentSub, setCurrentSub] = useState<SubscriptionResponseDTO | null>(null);
+    const [loading, setLoading] = useState(true);
     const [selectedPlan, setSelectedPlan] = useState<any>(null);
     const [showPaymentDialog, setShowPaymentDialog] = useState(false);
     const [paymentMethod, setPaymentMethod] = useState<'vnpay' | 'wallet' | null>(null);
@@ -97,6 +98,7 @@ export default function PremiumSubscriptionView({ onBack, userType = 'driver' }:
 
     // Load BE subscriptions
     useEffect(() => {
+        setLoading(true);
         (async () => {
             try {
                 const all = await getAllSubscriptions();
@@ -106,8 +108,11 @@ export default function PremiumSubscriptionView({ onBack, userType = 'driver' }:
                     const mine = await getUserSubscription(Number(uid));
                     setCurrentSub(mine?.data || null);
                 }
-            } catch (_) {
-                // ignore
+            } catch (err) {
+                console.error("Error loading subscriptions:", err);
+                toast.error(language === 'vi' ? 'Không thể tải gói đăng ký' : 'Cannot load subscriptions');
+            } finally {
+                setLoading(false);
             }
         })();
     }, []);
@@ -127,187 +132,24 @@ export default function PremiumSubscriptionView({ onBack, userType = 'driver' }:
         return language === 'vi' ? 'Gói Premium' : 'Premium Plan';
     };
 
-    // Fallback price when BE not available
-    const canonicalPrice = (key: 'basic' | 'plus' | 'premium') => {
-        if (key === 'basic') return 0;
-        if (key === 'plus') return 199000;
-        return 299000;
-    };
-
-    // Map BE subscriptions -> price by canonical key
+    // Map BE subscriptions -> price by canonical key (NO FALLBACK)
     const priceFromBackend = (key: 'basic' | 'plus' | 'premium') => {
-        if (!plans || plans.length === 0) return null;
+        if (!plans || plans.length === 0) return 0;
         const match = plans.find(p => canonicalKey(p.type || '') === key);
         // Handle both number and string (BigDecimal from backend may come as string)
         const price = match?.price;
         if (typeof price === 'number') return price;
         if (typeof price === 'string') {
             const parsed = parseFloat(price);
-            return isNaN(parsed) ? null : parsed;
+            return isNaN(parsed) ? 0 : parsed;
         }
-        return null;
+        return 0;
     };
 
     const featuresByKey = (key: 'basic' | 'plus' | 'premium') => {
-        if (userType === 'driver') {
-            if (key === 'basic') return [
-                language === 'vi' ? 'Truy cập sạc cơ bản' : 'Basic charging access',
-                language === 'vi' ? 'Tốc độ sạc tiêu chuẩn' : 'Standard charging speed',
-                language === 'vi' ? 'Hỗ trợ email' : 'Email support',
-                language === 'vi' ? 'Phân tích sử dụng cơ bản' : 'Basic usage analytics',
-            ];
-            if (key === 'plus') return [
-                language === 'vi' ? 'Truy cập sạc ưu tiên' : 'Priority charging access',
-                language === 'vi' ? 'Tốc độ sạc nhanh' : 'Fast charging speed',
-                language === 'vi' ? 'Hỗ trợ điện thoại 24/7' : '24/7 phone support',
-                language === 'vi' ? 'Phân tích nâng cao' : 'Advanced analytics',
-                language === 'vi' ? 'Tính năng nâng cao trên app' : 'Enhanced mobile app features',
-            ];
-            return [
-                language === 'vi' ? 'Truy cập sạc không giới hạn' : 'Unlimited charging access',
-                language === 'vi' ? 'Sạc siêu nhanh' : 'Ultra-fast charging',
-                language === 'vi' ? 'Hỗ trợ chuyên dụng' : 'Dedicated support',
-                language === 'vi' ? 'Báo cáo phân tích tùy chỉnh' : 'Custom analytics reports',
-                language === 'vi' ? 'Truy cập API' : 'API access',
-            ];
-        }
-        // Admin
-        if (key === 'basic') return [
-            language === 'vi' ? 'Quản lý cơ bản hệ thống' : 'Basic system management',
-            language === 'vi' ? 'Báo cáo tiêu chuẩn' : 'Standard reports',
-            language === 'vi' ? 'Hỗ trợ email' : 'Email support',
-            language === 'vi' ? 'Truy cập dashboard cơ bản' : 'Basic dashboard access',
-        ];
-        if (key === 'plus') return [
-            language === 'vi' ? 'Quản lý hệ thống đầy đủ' : 'Full system management',
-            language === 'vi' ? 'Báo cáo nâng cao' : 'Advanced reporting',
-            language === 'vi' ? 'Hỗ trợ ưu tiên 24/7' : 'Priority 24/7 support',
-            language === 'vi' ? 'Dashboard quản trị nâng cao' : 'Advanced admin dashboard',
-        ];
-        return [
-            language === 'vi' ? 'Quyền quản trị tối cao' : 'Supreme admin privileges',
-            language === 'vi' ? 'Báo cáo tùy chỉnh hoàn toàn' : 'Fully customizable reports',
-            language === 'vi' ? 'Hỗ trợ chuyên dụng 24/7' : 'Dedicated 24/7 support',
-            language === 'vi' ? 'API truy cập đầy đủ' : 'Full API access',
-        ];
+        // Return empty array - không hiển thị features
+        return [];
     };
-
-    // Subscription plans data (fallback static when BE not available)
-    const subscriptionPlans = userType === 'driver' ? [
-        {
-            id: 'basic',
-            name: canonicalName('basic'),
-            price: canonicalPrice('basic'),
-            features: language === 'vi' ? [
-                'Truy cập sạc cơ bản',
-                'Tốc độ sạc tiêu chuẩn',
-                'Hỗ trợ email',
-                'Phân tích sử dụng cơ bản'
-            ] : [
-                'Basic charging access',
-                'Standard charging speed',
-                'Email support',
-                'Basic usage analytics'
-            ],
-            current: true
-        },
-        {
-            id: 'plus',
-            name: canonicalName('plus'),
-            price: canonicalPrice('plus'),
-            features: language === 'vi' ? [
-                'Truy cập sạc ưu tiên',
-                'Tốc độ sạc nhanh',
-                'Hỗ trợ điện thoại 24/7',
-                'Phân tích nâng cao',
-                'Tính năng nâng cao trên app'
-            ] : [
-                'Priority charging access',
-                'Fast charging speed',
-                '24/7 phone support',
-                'Advanced analytics',
-                'Enhanced mobile app features'
-            ],
-            popular: true
-        },
-        {
-            id: 'premium',
-            name: canonicalName('premium'),
-            price: canonicalPrice('premium'),
-            features: language === 'vi' ? [
-                'Truy cập sạc không giới hạn',
-                'Sạc siêu nhanh',
-                'Hỗ trợ chuyên dụng',
-                'Báo cáo phân tích tùy chỉnh',
-                'Truy cập API'
-            ] : [
-                'Unlimited charging access',
-                'Ultra-fast charging',
-                'Dedicated support',
-                'Custom analytics reports',
-                'API access'
-            ]
-        }
-    ] : [
-        {
-            id: 'basic',
-            name: canonicalName('basic'),
-            price: canonicalPrice('basic'),
-            features: language === 'vi' ? [
-                'Quản lý cơ bản hệ thống',
-                'Báo cáo tiêu chuẩn',
-                'Hỗ trợ email',
-                'Truy cập dashboard cơ bản'
-            ] : [
-                'Basic system management',
-                'Standard reports',
-                'Email support',
-                'Basic dashboard access'
-            ],
-            current: true
-        },
-        {
-            id: 'plus',
-            name: canonicalName('plus'),
-            price: canonicalPrice('plus'),
-            features: language === 'vi' ? [
-                'Quản lý hệ thống đầy đủ',
-                'Báo cáo nâng cao',
-                'Hỗ trợ ưu tiên 24/7',
-                'Dashboard quản trị nâng cao',
-                'Công cụ phân tích chuyên sâu',
-                'Quản lý nhân viên không giới hạn'
-            ] : [
-                'Full system management',
-                'Advanced reporting',
-                'Priority 24/7 support',
-                'Advanced admin dashboard',
-                'Deep analytics tools',
-                'Unlimited staff management'
-            ],
-            popular: true
-        },
-        {
-            id: 'premium',
-            name: canonicalName('premium'),
-            price: canonicalPrice('premium'),
-            features: language === 'vi' ? [
-                'Quyền quản trị tối cao',
-                'Báo cáo tùy chỉnh hoàn toàn',
-                'Hỗ trợ chuyên dụng 24/7',
-                'API truy cập đầy đủ',
-                'Tích hợp hệ thống bên ngoài',
-                'Tính năng white-label'
-            ] : [
-                'Supreme admin privileges',
-                'Fully customizable reports',
-                'Dedicated 24/7 support',
-                'Full API access',
-                'External system integration',
-                'White-label features'
-            ]
-        }
-    ];
 
     const benefitItems = userType === 'driver' ? [
         {
@@ -359,14 +201,19 @@ export default function PremiumSubscriptionView({ onBack, userType = 'driver' }:
         return new Intl.NumberFormat('vi-VN').format(price) + ' ₫';
     };
 
-    // Map BE -> exactly 3 unique plans
+    // Map BE -> exactly 3 unique plans (NO FALLBACK)
     const mappedFromBackend = useMemo(() => {
+        // Only return data when BE has loaded
+        if (!plans || plans.length === 0) {
+            return null;
+        }
+        
         const currentKey = canonicalKey(currentSub?.type || '');
         const keys: Array<'basic'|'plus'|'premium'> = ['basic','plus','premium'];
         return keys.map(key => ({
             id: key,
             name: canonicalName(key),
-            price: priceFromBackend(key) ?? canonicalPrice(key),
+            price: priceFromBackend(key),  // Only from BE, no fallback
             features: featuresByKey(key),
             popular: key === 'plus',
             current: key === currentKey,
@@ -386,27 +233,89 @@ export default function PremiumSubscriptionView({ onBack, userType = 'driver' }:
             return;
         }
 
+        const userId = localStorage.getItem('userId');
+        if (!userId) {
+            toast.error(language === 'vi' ? 'Vui lòng đăng nhập' : 'Please login');
+            return;
+        }
+
         setPaymentStatus('processing');
 
-        // Simulate payment processing
-        setTimeout(() => {
-            setPaymentStatus('success');
-            toast.success(language === 'vi' ? 'Thanh toán thành công! Gói đăng ký đã được kích hoạt' : 'Payment successful! Subscription activated');
+        try {
+            // Map plan.id (basic/plus/premium) -> BE Type (BASIC/PLUS/PREMIUM)
+            const planTypeMap: Record<string, 'BASIC' | 'PLUS' | 'PREMIUM'> = {
+                'basic': 'BASIC',
+                'plus': 'PLUS',
+                'premium': 'PREMIUM'
+            };
+            
+            const subscriptionType = planTypeMap[selectedPlan.id];
+            if (!subscriptionType) {
+                throw new Error('Invalid plan type');
+            }
 
-            // Close dialog after 2 seconds
-            setTimeout(() => {
-                setShowPaymentDialog(false);
-                setSelectedPlan(null);
-                setPaymentStatus('pending');
-                // Refresh subscription data
-                const uid = localStorage.getItem('userId');
-                if (uid) {
-                    getUserSubscription(Number(uid)).then(res => {
+            console.log("=== Upgrading subscription ===");
+            console.log("User ID:", userId);
+            console.log("Plan type:", subscriptionType);
+            console.log("Plan name:", selectedPlan.name);
+            console.log("Plan price:", selectedPlan.price);
+            console.log("Payment method:", paymentMethod);
+
+            // Note: Giả định payment đã thành công (VNPay external hoặc Wallet deduction manual)
+            // TODO: Integrate VNPay gateway hoặc Wallet deduction API khi BE có sẵn
+            
+            if (paymentMethod === 'vnpay') {
+                console.log("VNPay payment - Assuming external payment completed");
+            } else if (paymentMethod === 'wallet') {
+                console.log("Wallet payment - Assuming sufficient balance and deducted");
+            }
+
+            // Call API upgrade subscription
+            const response = await upgradeUserSubscription(
+                Number(userId),
+                subscriptionType
+            );
+
+            console.log("✅ Upgrade response:", response);
+
+            if (response.success) {
+                setPaymentStatus('success');
+                toast.success(
+                    language === 'vi' 
+                        ? 'Nâng cấp thành công! Gói đăng ký đã được kích hoạt' 
+                        : 'Upgrade successful! Subscription activated'
+                );
+
+                // Close dialog after 2 seconds
+                setTimeout(() => {
+                    setShowPaymentDialog(false);
+                    setSelectedPlan(null);
+                    setPaymentStatus('pending');
+                    
+                    // Refresh subscription data
+                    getUserSubscription(Number(userId)).then(res => {
                         setCurrentSub(res?.data || null);
+                        console.log("✅ Subscription refreshed:", res?.data);
+                    }).catch(err => {
+                        console.error("Error refreshing subscription:", err);
                     });
-                }
+                }, 2000);
+            } else {
+                throw new Error(response.message || 'Upgrade failed');
+            }
+        } catch (error: any) {
+            console.error('=== Error upgrading subscription ===', error);
+            console.error('Error response:', error.response);
+            setPaymentStatus('failed');
+            
+            const errorMsg = error.response?.data?.message || error.message;
+            toast.error(errorMsg || (language === 'vi' ? 'Lỗi khi nâng cấp gói đăng ký' : 'Error upgrading subscription'));
+            
+            // Reset status after 2 seconds
+            setTimeout(() => {
+                setPaymentStatus('pending');
             }, 2000);
-        }, 2000);
+        }
     };
 
     const handlePaymentCancel = () => {
@@ -451,34 +360,71 @@ export default function PremiumSubscriptionView({ onBack, userType = 'driver' }:
 
             {/* Content */}
             <div className="max-w-6xl mx-auto p-4 space-y-8">
-                {/* Current Plan Banner */}
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.5 }}
-                >
-                    <Card className="bg-gradient-to-r from-green-50 via-green-50 to-blue-50 dark:from-green-950/20 dark:via-green-950/20 dark:to-blue-950/20 border-green-200 dark:border-green-800">
-                        <CardContent className="p-6">
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <h3 className="text-lg font-semibold text-foreground mb-1">
-                                        {language === 'vi' ? 'Gói Hiện Tại' : 'Current Plan'}
-                                    </h3>
-                                    <p className="text-muted-foreground">
-                                        {language === 'vi'
-                                            ? `Bạn đang sử dụng ${canonicalName(canonicalKey(currentSub?.type || ''))}`
-                                            : `You are currently on the ${canonicalName(canonicalKey(currentSub?.type || ''))}`}
-                                    </p>
-                                </div>
-                                <Badge className="bg-green-600 text-white">
-                                    {language === 'vi' ? 'Hiện Tại' : 'Current'}
-                                </Badge>
+                {/* Loading State */}
+                {loading ? (
+                    <div className="flex items-center justify-center py-20">
+                        <div className="text-center space-y-4">
+                            <motion.div
+                                animate={{ rotate: 360 }}
+                                transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                                className="w-16 h-16 mx-auto"
+                            >
+                                <Sparkles className="w-16 h-16 text-primary" />
+                            </motion.div>
+                            <p className="text-lg font-medium text-muted-foreground">
+                                {language === 'vi' ? 'Đang tải gói đăng ký...' : 'Loading subscription plans...'}
+                            </p>
+                        </div>
+                    </div>
+                ) : !mappedFromBackend || mappedFromBackend.length === 0 ? (
+                    /* Error State */
+                    <div className="flex items-center justify-center py-20">
+                        <div className="text-center space-y-4">
+                            <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto">
+                                <Info className="w-8 h-8 text-muted-foreground" />
                             </div>
-                        </CardContent>
-                    </Card>
-                </motion.div>
+                            <h3 className="text-xl font-semibold text-foreground">
+                                {language === 'vi' ? 'Không thể tải gói đăng ký' : 'Cannot load subscription plans'}
+                            </h3>
+                            <p className="text-muted-foreground">
+                                {language === 'vi' ? 'Vui lòng thử lại sau' : 'Please try again later'}
+                            </p>
+                            <Button onClick={() => window.location.reload()} variant="outline">
+                                {language === 'vi' ? 'Tải lại trang' : 'Reload Page'}
+                            </Button>
+                        </div>
+                    </div>
+                ) : (
+                    /* Data loaded successfully */
+                    <>
+                        {/* Current Plan Banner */}
+                        <motion.div
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.5 }}
+                        >
+                            <Card className="bg-gradient-to-r from-green-50 via-green-50 to-blue-50 dark:from-green-950/20 dark:via-green-950/20 dark:to-blue-950/20 border-green-200 dark:border-green-800">
+                                <CardContent className="p-6">
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <h3 className="text-lg font-semibold text-foreground mb-1">
+                                                {language === 'vi' ? 'Gói Hiện Tại' : 'Current Plan'}
+                                            </h3>
+                                            <p className="text-muted-foreground">
+                                                {language === 'vi'
+                                                    ? `Bạn đang sử dụng ${canonicalName(canonicalKey(currentSub?.type || ''))}`
+                                                    : `You are currently on the ${canonicalName(canonicalKey(currentSub?.type || ''))}`}
+                                            </p>
+                                        </div>
+                                        <Badge className="bg-green-600 text-white">
+                                            {language === 'vi' ? 'Hiện Tại' : 'Current'}
+                                        </Badge>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        </motion.div>
 
-                {/* Available Plans */}
+                        {/* Available Plans */}
                 <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -493,7 +439,7 @@ export default function PremiumSubscriptionView({ onBack, userType = 'driver' }:
                         </p>
 
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                            {(mappedFromBackend || subscriptionPlans).map((plan: any, index: number) => (
+                            {mappedFromBackend?.map((plan: any, index: number) => (
                                 <motion.div
                                     key={plan.id}
                                     initial={{ opacity: 0, y: 20 }}
@@ -674,6 +620,8 @@ export default function PremiumSubscriptionView({ onBack, userType = 'driver' }:
                         </CardContent>
                     </Card>
                 </motion.div>
+                    </>
+                )}
             </div>
 
             {/* Payment Dialog */}

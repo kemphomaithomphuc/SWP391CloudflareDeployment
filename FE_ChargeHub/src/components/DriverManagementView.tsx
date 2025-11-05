@@ -28,7 +28,7 @@ interface DriverData {
   status: 'ACTIVE' | 'BANNED' | 'INACTIVE';
   violations: number;
   reasonReport?: string;
-  avatar?: string;
+  avatarUrl?: string;
 }
 
 export default function DriverManagementView({ onBack }: DriverManagementViewProps) {
@@ -334,7 +334,9 @@ export default function DriverManagementView({ onBack }: DriverManagementViewPro
                         <TableCell>
                           <div className="flex items-center space-x-3">
                             <Avatar>
-                              <AvatarImage src={driver.avatar} />
+                              <AvatarImage 
+                                src={driver.avatarUrl?.startsWith('http') ? driver.avatarUrl : undefined} 
+                              />
                               <AvatarFallback>
                                 {driver.fullName?.charAt(0) || 'U'}
                               </AvatarFallback>
@@ -415,7 +417,9 @@ export default function DriverManagementView({ onBack }: DriverManagementViewPro
               <div className="space-y-4">
                 <div className="flex items-center space-x-4">
                   <Avatar className="w-20 h-20">
-                    <AvatarImage src={selectedDriver.avatar} />
+                    <AvatarImage 
+                      src={selectedDriver.avatarUrl?.startsWith('http') ? selectedDriver.avatarUrl : undefined} 
+                    />
                     <AvatarFallback className="text-2xl">
                       {selectedDriver.fullName?.charAt(0) || 'U'}
                     </AvatarFallback>

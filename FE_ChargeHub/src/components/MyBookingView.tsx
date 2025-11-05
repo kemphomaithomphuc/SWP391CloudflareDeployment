@@ -30,16 +30,40 @@ interface MyBookingViewProps {
 // API Response interfaces
 interface OrderResponseDTO {
   orderId: number;
+  
+  // Station & Charging Point info
+  stationId?: number;
+  chargingPointId?: number;
   stationName: string;
   stationAddress: string;
   connectorType: string;
+  
+  // User info
+  userId?: number;
+  userName?: string;
+  userPhone?: string;
+  
+  // Vehicle info
+  vehicleId?: number;
+  vehiclePlate?: string;
+  vehicleModel?: string;
+  
+  // Battery info
+  startedBattery?: number;
+  expectedBattery?: number;
+  
+  // Time info
   startTime: string; // ISO string format
   endTime: string; // ISO string format
   estimatedDuration: number;
+  
+  // Charging info
   energyToCharge: number;
   chargingPower: number;
   pricePerKwh: number;
   estimatedCost: number;
+  
+  // Status
   status: string;
   createdAt: string; // ISO string format
 }
@@ -47,6 +71,8 @@ interface OrderResponseDTO {
 interface SessionStarting {
   orderId: number;
   vehicleId: number;
+  userLatitude: number;
+  userLongitude: number;
 }
 interface APIResponse<T> {
   success: boolean;
@@ -411,11 +437,61 @@ export default function MyBookingView({ onBack, onStartCharging }: MyBookingView
         );
       }
 
-      // Get the first vehicle for the user (you might want to modify this logic)
+      // Get user location for distance check
+      console.log("=== Getting user location ===");
+      
+      let position: GeolocationPosition;
+      try {
+        position = await new Promise<GeolocationPosition>((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, {
+            enableHighAccuracy: true,
+            timeout: 10000,
+            maximumAge: 0
+          });
+        });
+      } catch (locationError: any) {
+        console.error("Location error:", locationError);
+        if (locationError?.code === 1) {
+          toast.error(
+            language === 'vi'
+              ? 'Cần quyền truy cập vị trí để bắt đầu sạc. Vui lòng cho phép truy cập vị trí trong trình duyệt.'
+              : 'Location permission required to start charging. Please allow location access in your browser.'
+          );
+        } else if (locationError?.code === 3) {
+          toast.error(
+            language === 'vi'
+              ? 'Không thể lấy vị trí (timeout). Vui lòng thử lại.'
+              : 'Cannot get location (timeout). Please try again.'
+          );
+        } else {
+          toast.error(
+            language === 'vi'
+              ? 'Không thể lấy vị trí. Vui lòng bật GPS và thử lại.'
+              : 'Cannot get location. Please enable GPS and try again.'
+          );
+        }
+        return;
+      }
+
+      const userLatitude = position.coords.latitude;
+      const userLongitude = position.coords.longitude;
+      console.log("User location:", { userLatitude, userLongitude });
+
+      // Get vehicleId from order (from DB, not hardcoded)
+      const vehicleId = order.vehicleId;
+      if (!vehicleId) {
+        toast.error(language === 'vi' ? 'Không tìm thấy thông tin xe trong đơn đặt' : 'Vehicle information not found in order');
+        return;
+      }
+
       const sessionData: SessionStarting = {
         orderId: orderId,
-        vehicleId: 3
+        vehicleId: vehicleId,
+        userLatitude: userLatitude,
+        userLongitude: userLongitude
       };
+
+      console.log("=== Starting session with data ===", sessionData);
 
       const response = await api.post(`/api/sessions/start`, sessionData, {
         headers: {
@@ -429,9 +505,10 @@ export default function MyBookingView({ onBack, onStartCharging }: MyBookingView
         
         // Update the order status locally to move it from Upcoming to Active
         const sessionId = response.data.data;
-        localStorage.setItem("currentSessionId", sessionId);
+        localStorage.setItem("currentSessionId", sessionId.toString());
         localStorage.setItem("currentOrderId", String(orderId));
-        console.log("Charging Session Id", sessionId);
+        console.log("✅ Charging Session Id:", sessionId);
+        
         setApiOrders(prevOrders => 
           prevOrders.map(order => 
             order.orderId === orderId 
@@ -440,16 +517,46 @@ export default function MyBookingView({ onBack, onStartCharging }: MyBookingView
           )
         );
         
-        // Redirect to ChargingSessionView
+        // Redirect to ChargingSessionView with sessionId
         if (onStartCharging) {
-          onStartCharging(orderId.toString());
+          onStartCharging(sessionId.toString());
         }
       } else {
         toast.error(response.data.message || (language === 'vi' ? 'Không thể bắt đầu sạc' : 'Failed to start charging'));
       }
     } catch (error: any) {
       console.error('Error starting charging session:', error);
-      toast.error(error.response?.data?.message || (language === 'vi' ? 'Lỗi khi bắt đầu sạc' : 'Error starting charging session'));
+      
+      // Enhanced error handling
+      const errorMsg = error.response?.data?.message;
+      
+      if (error.response?.status === 400) {
+        if (errorMsg?.includes('too far') || errorMsg?.includes('distance') || errorMsg?.includes('meters')) {
+          toast.error(
+            language === 'vi'
+              ? 'Bạn quá xa trạm sạc (>100m). Vui lòng di chuyển gần hơn.'
+              : 'You are too far from the station (>100m). Please move closer.'
+          );
+        } else if (errorMsg?.includes('time slot') || errorMsg?.includes('Out of booking')) {
+          toast.error(
+            language === 'vi'
+              ? 'Ngoài thời gian đặt chỗ. Đơn đã bị hủy với phí phạt.'
+              : 'Out of booking time slot. Order canceled with penalty.'
+          );
+        } else if (errorMsg?.includes('location') || errorMsg?.includes('required')) {
+          toast.error(
+            language === 'vi'
+              ? 'Vị trí không hợp lệ. Vui lòng bật GPS và thử lại.'
+              : 'Invalid location. Please enable GPS and try again.'
+          );
+        } else {
+          toast.error(errorMsg || (language === 'vi' ? 'Không thể bắt đầu sạc' : 'Failed to start charging'));
+        }
+      } else if (error.response?.status === 401) {
+        toast.error(language === 'vi' ? 'Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.' : 'Session expired. Please login again.');
+      } else {
+        toast.error(errorMsg || (language === 'vi' ? 'Lỗi khi bắt đầu sạc' : 'Error starting charging session'));
+      }
     }
   };
 

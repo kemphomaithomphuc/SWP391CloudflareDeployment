@@ -139,6 +139,8 @@ export default function SystemConfigView({ onBack }: SystemConfigViewProps) {
             try {
                 setLoadingPlans(true);
                 const res = await getAllSubscriptions();
+                console.log("📦 Subscription API Response:", res);
+                console.log("📦 Subscription Data:", res?.data);
                 setPlans(res?.data || []);
                 // Auto-select first plan for features if available
                 if (res?.data && res.data.length > 0 && res.data[0]) {
@@ -199,16 +201,29 @@ export default function SystemConfigView({ onBack }: SystemConfigViewProps) {
             return;
         }
 
+        // Validate factor
+        const factorValue = parseFloat(newFactor);
+        if (isNaN(factorValue) || factorValue <= 0) {
+            toast.error(language === 'vi' ? 'Hệ số phải là số dương lớn hơn 0' : 'Factor must be a positive number');
+            return;
+        }
+
         try {
             const startDateTime = `${newStartDate}T${newStartTime}:00`;
             const endDateTime = `${newEndDate}T${newEndTime}:00`;
 
+            // Validate time range
+            if (new Date(startDateTime) >= new Date(endDateTime)) {
+                toast.error(language === 'vi' ? 'Thời gian bắt đầu phải trước thời gian kết thúc' : 'Start time must be before end time');
+                return;
+            }
+
             await createPriceFactor({
                 stationId: selectedStationId,
-                factor: parseFloat(newFactor),
+                factor: factorValue,
                 startTime: startDateTime,
                 endTime: endDateTime,
-                description: newDescription || ""
+                description: newDescription.trim() || "Peak hour pricing"
             });
 
             toast.success(language === 'vi' ? 'Tạo yếu tố giá thành công' : 'Price factor created successfully');
@@ -226,10 +241,21 @@ export default function SystemConfigView({ onBack }: SystemConfigViewProps) {
             const response = await getPriceFactorsByStation(selectedStationId);
             setPriceFactors(response?.data || []);
         } catch (error: any) {
-            const errorMessage = error?.response?.data?.message ||
-                error?.message ||
-                (language === 'vi' ? 'Không thể tạo yếu tố giá' : 'Failed to create price factor');
-            toast.error(errorMessage);
+            const errorMessage = error?.response?.data?.message || error?.message;
+            
+            // Better error messages
+            if (errorMessage?.includes('overlap')) {
+                toast.error(language === 'vi' 
+                    ? 'Khoảng thời gian bị trùng với price factor khác' 
+                    : 'Time period overlaps with existing price factor');
+            } else if (errorMessage?.includes('not found') || errorMessage?.includes('Station')) {
+                toast.error(language === 'vi' 
+                    ? 'Trạm sạc không tồn tại' 
+                    : 'Station not found');
+            } else {
+                toast.error(errorMessage || (language === 'vi' ? 'Không thể tạo yếu tố giá' : 'Failed to create price factor'));
+            }
+            
             console.error("Error creating price factor:", error);
         }
     };
@@ -241,15 +267,28 @@ export default function SystemConfigView({ onBack }: SystemConfigViewProps) {
             return;
         }
 
+        // Validate factor
+        const factorValue = parseFloat(newFactor);
+        if (isNaN(factorValue) || factorValue <= 0) {
+            toast.error(language === 'vi' ? 'Hệ số phải là số dương lớn hơn 0' : 'Factor must be a positive number');
+            return;
+        }
+
         try {
             const startDateTime = `${newStartDate}T${newStartTime}:00`;
             const endDateTime = `${newEndDate}T${newEndTime}:00`;
+
+            // Validate time range
+            if (new Date(startDateTime) >= new Date(endDateTime)) {
+                toast.error(language === 'vi' ? 'Thời gian bắt đầu phải trước thời gian kết thúc' : 'Start time must be before end time');
+                return;
+            }
 
             await updatePriceFactor(editingPriceFactor.priceFactorId, {
                 factor: parseFloat(newFactor),
                 startTime: startDateTime,
                 endTime: endDateTime,
-                description: newDescription || ""
+                description: newDescription.trim() || "Peak hour pricing"
             });
 
             toast.success(language === 'vi' ? 'Cập nhật yếu tố giá thành công' : 'Price factor updated successfully');
@@ -267,10 +306,21 @@ export default function SystemConfigView({ onBack }: SystemConfigViewProps) {
             const response = await getPriceFactorsByStation(selectedStationId!);
             setPriceFactors(response?.data || []);
         } catch (error: any) {
-            const errorMessage = error?.response?.data?.message ||
-                error?.message ||
-                (language === 'vi' ? 'Không thể cập nhật yếu tố giá' : 'Failed to update price factor');
-            toast.error(errorMessage);
+            const errorMessage = error?.response?.data?.message || error?.message;
+            
+            // Better error messages
+            if (errorMessage?.includes('overlap')) {
+                toast.error(language === 'vi' 
+                    ? 'Khoảng thời gian bị trùng với price factor khác' 
+                    : 'Time period overlaps with existing price factor');
+            } else if (errorMessage?.includes('not found')) {
+                toast.error(language === 'vi' 
+                    ? 'Không tìm thấy yếu tố giá' 
+                    : 'Price factor not found');
+            } else {
+                toast.error(errorMessage || (language === 'vi' ? 'Không thể cập nhật yếu tố giá' : 'Failed to update price factor'));
+            }
+            
             console.error("Error updating price factor:", error);
         }
     };
@@ -792,27 +842,66 @@ export default function SystemConfigView({ onBack }: SystemConfigViewProps) {
                                     </h4>
                                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                         {plans && plans.length > 0 ? (
-                                            plans.map((plan: any) => (
-                                                <Card key={plan.subscriptionId} className="bg-muted/30">
-                                                    <CardContent className="p-4">
+                                            plans.map((plan: any) => {
+                                                console.log("🎯 Rendering plan:", plan);
+                                                console.log("💰 Plan price:", plan.price, "Type:", typeof plan.price);
+                                                console.log("✅ Plan isActive:", plan.isActive, "Type:", typeof plan.isActive);
+                                                
+                                                return (
+                                                <Card key={plan.subscriptionId} className="bg-muted/30 border-2 hover:border-primary/50 transition-colors">
+                                                    <CardContent className="p-6">
                                                         <div className="text-center space-y-3">
-                                                            <h5 className="font-medium">
-                                                                {plan.type ? plan.type.toUpperCase() : plan.subscriptionName || 'N/A'}
-                                                            </h5>
+                                                            {/* Plan Name */}
                                                             <div className="space-y-1">
-                                                                {plan.price && (
-                                                                    <p className="font-semibold text-primary">
-                                                                        {formatCurrency(plan.price)}/{t('month')}
+                                                                <h5 className="text-xl font-bold">
+                                                                    {plan.type ? plan.type.toUpperCase() : plan.subscriptionName || 'N/A'}
+                                                                </h5>
+                                                                {plan.description && (
+                                                                    <p className="text-xs text-muted-foreground">
+                                                                        {plan.description}
                                                                     </p>
                                                                 )}
+                                                            </div>
+                                                            
+                                                            {/* Price */}
+                                                            <div className="py-3">
+                                                                {plan.price != null && plan.price > 0 ? (
+                                                                    <div>
+                                                                        <p className="text-3xl font-bold text-primary">
+                                                                            {formatCurrency(plan.price)}
+                                                                        </p>
+                                                                        <p className="text-sm text-muted-foreground mt-1">
+                                                                            {plan.durationDays ? `/${plan.durationDays} ${language === 'vi' ? 'ngày' : 'days'}` : `/${t('month')}`}
+                                                                        </p>
+                                                                    </div>
+                                                                ) : (
+                                                                    <p className="text-sm text-muted-foreground">
+                                                                        {language === 'vi' ? 'Chưa có giá' : 'No price set'}
+                                                                    </p>
+                                                                )}
+                                                            </div>
+                                                            
+                                                            {/* Status Badge */}
+                                                            <div>
+                                                                <Badge variant={plan.isActive === true ? "default" : "secondary"}>
+                                                                    {plan.isActive === true
+                                                                        ? (language === 'vi' ? 'Đang hoạt động' : 'Active')
+                                                                        : (language === 'vi' ? 'Không hoạt động' : 'Inactive')
+                                                                    }
+                                                                </Badge>
                                                             </div>
                                                         </div>
                                                     </CardContent>
                                                 </Card>
-                                            ))
-                                        ) : (
-                                            <div className="col-span-3 text-center text-muted-foreground">
+                                                );
+                                            })
+                                        ) : loadingPlans ? (
+                                            <div className="col-span-3 text-center text-muted-foreground py-8">
                                                 {language === 'vi' ? 'Đang tải gói cước...' : 'Loading subscription plans...'}
+                                            </div>
+                                        ) : (
+                                            <div className="col-span-3 text-center text-muted-foreground py-8">
+                                                {language === 'vi' ? 'Không có gói cước nào' : 'No subscription plans available'}
                                             </div>
                                         )}
                                     </div>

@@ -44,7 +44,7 @@ export default function ChargingManagementView({ onBack, stationId }: ChargingMa
         allStatus: language === 'vi' ? 'Tất cả trạng thái' : 'All Status',
         bookingId: language === 'vi' ? 'ID Đặt chỗ' : 'Booking ID',
         driverName: language === 'vi' ? 'Tên Khách hàng' : 'Driver Name',
-        vehicleId: language === 'vi' ? 'ID Xe' : 'Vehicle ID',
+        vehicleId: language === 'vi' ? 'Biển Số Xe' : 'Plate Number',
         connectorType: language === 'vi' ? 'Loại Sạc' : 'Connector Type',
         stationId: language === 'vi' ? 'ID Trạm' : 'Station ID',
         startTime: language === 'vi' ? 'Thời Gian Bắt Đầu' : 'Start Time',
@@ -72,18 +72,23 @@ export default function ChargingManagementView({ onBack, stationId }: ChargingMa
         minutes: language === 'vi' ? 'phút' : 'minutes',
         hours: language === 'vi' ? 'giờ' : 'hours',
         statusLabels: {
+            booked: language === 'vi' ? 'Đã Đặt' : 'Booked',
             confirmed: language === 'vi' ? 'Đã Xác Nhận' : 'Confirmed',
+            charging: language === 'vi' ? 'Đang Sạc' : 'Charging',
             active: language === 'vi' ? 'Đang Sạc' : 'Active',
             completed: language === 'vi' ? 'Hoàn Thành' : 'Completed',
-            cancelled: language === 'vi' ? 'Đã Hủy' : 'Cancelled'
+            cancelled: language === 'vi' ? 'Đã Hủy' : 'Cancelled',
+            canceled: language === 'vi' ? 'Đã Hủy' : 'Canceled'
         }
     };
 
-    // Station orders filtered (exclude COMPLETED/Complete)
+    // Station orders filtered (exclude COMPLETED/CANCELED)
     const stationOrdersFiltered = (stationOrders || [])
         .filter((o: any) => {
             const s = (o.status || '').toString().toUpperCase();
-            return s !== 'COMPLETED' && s !== 'COMPLETE';
+            // Chỉ hiển thị BOOKED và CHARGING, loại bỏ COMPLETED/CANCELED
+            return s !== 'COMPLETED' && s !== 'COMPLETE' && 
+                   s !== 'CANCELED' && s !== 'CANCELLED';
         })
         .filter((o: any) => {
             if (!searchTerm) return true;
@@ -104,15 +109,21 @@ export default function ChargingManagementView({ onBack, stationId }: ChargingMa
 
     const getStatusBadge = (status: string) => {
         const variants = {
+            booked: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300',
             confirmed: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300',
+            charging: 'bg-green-50 text-green-700 border-green-200 dark:bg-green-950 dark:text-green-300',
             active: 'bg-green-50 text-green-700 border-green-200 dark:bg-green-950 dark:text-green-300',
             completed: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300',
-            cancelled: 'bg-red-50 text-red-700 border-red-200 dark:bg-red-950 dark:text-red-300'
+            cancelled: 'bg-red-50 text-red-700 border-red-200 dark:bg-red-950 dark:text-red-300',
+            canceled: 'bg-red-50 text-red-700 border-red-200 dark:bg-red-950 dark:text-red-300'
         };
 
+        const statusLabel = translations.statusLabels[status as keyof typeof translations.statusLabels] || status;
+        const variantClass = variants[status as keyof typeof variants] || variants.booked;
+
         return (
-            <Badge variant="outline" className={variants[status as keyof typeof variants] || variants.confirmed}>
-                {translations.statusLabels[status as keyof typeof translations.statusLabels]}
+            <Badge variant="outline" className={variantClass}>
+                {statusLabel}
             </Badge>
         );
     };
@@ -474,7 +485,7 @@ export default function ChargingManagementView({ onBack, stationId }: ChargingMa
                                                     </Badge>
                                                 </TableCell>
                                                 <TableCell className="font-mono text-sm">
-                                                    {booking.chargingPointId || '-'}
+                                                    {booking.stationId || '-'}
                                                 </TableCell>
                                                 <TableCell>
                                                     {booking.startTime ? new Date(booking.startTime).toLocaleString() : '-'}
