@@ -505,6 +505,25 @@ export const updateSubscription = async (
   return response.data;
 };
 
+// ===== USER SUBSCRIPTION UPGRADE API =====
+export const upgradeUserSubscription = async (
+  userId: number,
+  subscriptionType: 'BASIC' | 'PLUS' | 'PREMIUM'
+): Promise<APIResponse<SubscriptionResponseDTO>> => {
+  // Backend endpoint: PUT /api/subscription/update
+  // Body: SubscriptionRequestDTO (userId và type)
+  const response = await api.put<APIResponse<SubscriptionResponseDTO>>(
+    `/api/subscription/update`,
+    {
+      userId: userId,
+      type: subscriptionType,
+      startDate: new Date().toISOString(),
+      // endDate sẽ được BE tính tự động dựa vào durationDays của plan
+    }
+  );
+  return response.data;
+};
+
 // 5. Get transactions history (paginated)
 export interface TransactionHistoryParams {
   userId: number;
@@ -811,6 +830,81 @@ export const updateUserStatus = async (
         { status, role }
     );
     return response.data;
+};
+
+// ===== PEAK HOURS ANALYTICS API =====
+export interface PeakHourDTO {
+  hour: number;
+  timeRange: string;
+  sessionCount: number;
+  totalEnergy: number;
+  averageEnergy: number;
+  totalRevenue: number;
+  utilizationRate: number;
+}
+
+// Get peak hours analysis
+export const getPeakHours = async (
+  startDate?: string,
+  endDate?: string,
+  stationId?: number
+): Promise<APIResponse<PeakHourDTO[]>> => {
+  const params = new URLSearchParams();
+  if (startDate) params.append('startDate', startDate);
+  if (endDate) params.append('endDate', endDate);
+  if (stationId) params.append('stationId', stationId.toString());
+
+  const response = await api.get<APIResponse<PeakHourDTO[]>>(`/api/analytics/peak-hours?${params.toString()}`);
+  return response.data;
+};
+
+// ===== STAFF MANAGEMENT API =====
+export interface StaffDTO {
+  userId: number;
+  fullName: string;
+  email: string;
+  phone?: string;
+  dateOfBirth?: string;
+  address?: string;
+  role: 'DRIVER' | 'STAFF' | 'ADMIN';
+  status: 'ACTIVE' | 'INACTIVE' | 'BANNED';
+  stationId?: number;
+  stationName?: string;
+  stationAddress?: string;
+}
+
+// Get staff by station
+export const getStaffByStation = async (stationId: number): Promise<APIResponse<StaffDTO[]>> => {
+  const response = await api.get<APIResponse<StaffDTO[]>>(`/api/staff-management/stations/${stationId}/staff`);
+  return response.data;
+};
+
+// Get all available staff (not assigned to any station)
+export const getAvailableStaff = async (): Promise<APIResponse<StaffDTO[]>> => {
+  const response = await api.get<APIResponse<StaffDTO[]>>('/api/staff-management/available');
+  return response.data;
+};
+
+// Get staff by ID
+export const getStaffById = async (userId: number): Promise<APIResponse<StaffDTO>> => {
+  const response = await api.get<APIResponse<StaffDTO>>(`/api/staff-management/staff/${userId}`);
+  return response.data;
+};
+
+// Assign staff to station
+export const assignStaffToStation = async (userId: number, stationId: number): Promise<APIResponse<StaffDTO>> => {
+  const response = await api.post<APIResponse<StaffDTO>>('/api/staff-management/assign', null, {
+    params: { userId, stationId }
+  });
+  return response.data;
+};
+
+// Unassign staff from station
+export const unassignStaffFromStation = async (userId: number): Promise<APIResponse<StaffDTO>> => {
+  const response = await api.post<APIResponse<StaffDTO>>('/api/staff-management/unassign', null, {
+    params: { userId }
+  });
+  return response.data;
 };
 
 export default api;

@@ -21,6 +21,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 
 import { Slider } from "./components/ui/slider";
 
+import { Switch } from "./components/ui/switch";
 
 import { Separator } from "./components/ui/separator";
 
@@ -648,6 +649,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
         try {
             const res = await api.get("/api/charging-stations");
             if (res.status == 200) {
+                console.log(res.data);
                 return (res.data as any[]).map(station => ({
                     stationId: station.stationId,
                     stationName: station.stationName,
@@ -1668,7 +1670,6 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
         <div>
           <div class="flex items-center justify-between mb-3">
             <h3 class="font-semibold text-gray-900 text-base">${station.stationName || "Unknown"}</h3>
-            <span class="text-xs text-gray-500">ID: ${station.stationId}</span>
           </div>
           
           <div class="space-y-2 mb-4">
@@ -5150,12 +5151,12 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                                 </div>
                             )}
 
-                            {/* Available Slots Display */}
-                            {availableSlots.length > 0 && (
+                            {/* Available Slots Display - Only show for Schedule mode after selecting start time */}
+                            {bookingMode === "scheduled" && chargingStartTimeInput && availableSlots.length > 0 && (
                                 <div className="space-y-2">
                                     <h4 className="font-medium flex items-center space-x-2 text-sm">
                                         <Clock className="w-4 h-4 text-primary" />
-                                        <span>{language === 'vi' ? 'Slot khả dụng' : 'Available Slots'}</span>
+                                        <span>{language === 'vi' ? 'Slot khả dụng từ thời gian đã chọn' : 'Available Slots from Selected Time'}</span>
                                         <Badge variant="secondary" className="text-xs">
                                             {availableSlots.length}
                                         </Badge>
@@ -5187,16 +5188,16 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                                                                 {powerOutput !== null ? `${powerOutput} kW` : 'Power N/A'} •
                                                                 {pricePerKwh !== null ? ` ${pricePerKwh} VND/kWh` : ' Price N/A'}
                                                             </p>
-                                                            {/* Show time availability if connector info is not available */}
-                                                            {connectorTypeName === 'Standard' && (slot.freeFrom || slot.freeTo) && (
+                                                            {/* Show time availability */}
+                                                            {(slot.freeFrom || slot.freeTo) && (
                                                                 <p className="text-xs text-blue-600 mt-1">
                                                                     {slot.freeFrom && slot.freeTo ? 
-                                                                        `Available: ${new Date(slot.freeFrom).toLocaleTimeString()} - ${new Date(slot.freeTo).toLocaleTimeString()}` :
-                                                                        slot.availableMinutes ? `${slot.availableMinutes} minutes available` : 'Time slot available'
+                                                                        `${new Date(slot.freeFrom).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })} - ${new Date(slot.freeTo).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}` :
+                                                                        slot.availableMinutes ? `${slot.availableMinutes} ${language === 'vi' ? 'phút' : 'minutes'}` : (language === 'vi' ? 'Có sẵn' : 'Available')
                                                                     }
                                                                 </p>
                                                             )}
-                                                            {/* Show availability status if present */}
+                                                            {/* Show availability status */}
                                                             {slot.status && (
                                                                 <Badge variant="outline" className="text-xs mt-1">
                                                                     {slot.status}
@@ -5214,17 +5215,18 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                                 </div>
                             )}
 
-                            {/* Show message if no slots available */}
-                            {loadingSlots && (
+                            {/* Show loading state for schedule mode when selecting time */}
+                            {bookingMode === "scheduled" && chargingStartTimeInput && loadingSlots && (
                                 <div className="flex items-center justify-center py-4">
                                     <Loader2 className="w-6 h-6 animate-spin text-primary" />
                                     <span className="ml-2 text-sm text-muted-foreground">
-                                        {language === 'vi' ? 'Đang tải slot...' : 'Loading slots...'}
+                                        {language === 'vi' ? 'Đang tìm slot khả dụng...' : 'Finding available slots...'}
                                     </span>
                                 </div>
                             )}
 
-                            {!loadingSlots && availableSlots.length === 0 && (
+                            {/* Show message if no slots for schedule mode after selecting time */}
+                            {bookingMode === "scheduled" && chargingStartTimeInput && !loadingSlots && availableSlots.length === 0 && (
                                 <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4">
                                     <div className="flex items-start space-x-3">
                                         <Info className="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
@@ -5234,8 +5236,8 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                                             </p>
                                             <p className="text-amber-600 dark:text-amber-400 mt-1">
                                                 {language === 'vi' 
-                                                    ? 'Trạm này hiện không có slot phù hợp với xe của bạn hoặc đã hết slot trống.'
-                                                    : 'This station has no suitable slots for your vehicle or all slots are occupied.'
+                                                    ? 'Không có slot phù hợp từ thời gian đã chọn. Vui lòng chọn thời gian khác.'
+                                                    : 'No suitable slots from selected time. Please choose another time.'
                                                 }
                                             </p>
                                         </div>
@@ -5805,20 +5807,112 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                                 const result = await callApiForConfirmBooking(bookingData);
 
                                 if (result) {
+                                    console.log("=== Booking result ===", result);
+                                    
+                                    // Extract orderId from response
+                                    const orderId = result.orderId || result.data?.orderId;
+                                    
+                                    if (!orderId) {
+                                        toast.error(language === 'vi' ? 'Không nhận được Order ID' : 'Order ID not received');
+                                        return;
+                                    }
+                                    
+                                    // Save orderId to localStorage
+                                    localStorage.setItem("currentOrderId", orderId.toString());
+                                    console.log("✅ Saved orderId to localStorage:", orderId);
+                                    
                                     toast.success(language === 'vi' ? 'Đặt lịch thành công!' : 'Booking successful!');
                                     setIsChargingConfigOpen(false);
 
                                     // Only navigate to charging session for "Book Now"
                                     if (bookingMode === "now") {
-                                        // Generate a booking ID for charging session
-                                        const bookingId = `booking_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+                                        try {
+                                            // Get user location for distance check
+                                            console.log("=== Getting user location for session start ===");
+                                            const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+                                                navigator.geolocation.getCurrentPosition(resolve, reject, {
+                                                    enableHighAccuracy: true,
+                                                    timeout: 10000,
+                                                    maximumAge: 0
+                                                });
+                                            });
 
-                                        // Call the callback to navigate to charging session
-                                        onStartCharging?.(bookingId);
+                                            const userLatitude = position.coords.latitude;
+                                            const userLongitude = position.coords.longitude;
+
+                                            console.log("User location:", { userLatitude, userLongitude });
+
+                                            // Call API to start session
+                                            console.log("=== Calling /api/sessions/start ===");
+                                            const sessionResponse = await api.post("/api/sessions/start", {
+                                                orderId: orderId,
+                                                vehicleId: numericVehicleId,
+                                                userLatitude: userLatitude,
+                                                userLongitude: userLongitude
+                                            });
+
+                                            console.log("Session start response:", sessionResponse);
+                                            
+                                            if (sessionResponse.status === 201 || sessionResponse.status === 200) {
+                                                const sessionId = sessionResponse.data?.data || sessionResponse.data?.sessionId;
+                                                
+                                                if (sessionId) {
+                                                    // Save sessionId to localStorage
+                                                    localStorage.setItem("currentSessionId", sessionId.toString());
+                                                    console.log("✅ Session started successfully, sessionId:", sessionId);
+                                                    console.log("✅ Saved sessionId to localStorage:", sessionId);
+                                                    
+                                                    toast.success(language === 'vi' ? 'Bắt đầu sạc thành công!' : 'Charging started!');
+                                                    
+                                                    // Navigate to charging session with real sessionId
+                                                    onStartCharging?.(sessionId.toString());
+                                                } else {
+                                                    console.error("No sessionId in response:", sessionResponse.data);
+                                                    toast.error(language === 'vi' ? 'Không nhận được Session ID' : 'Session ID not received');
+                                                }
+                                            }
+                                        } catch (sessionError: any) {
+                                            console.error("=== Error starting session ===", sessionError);
+                                            console.error("Error response:", sessionError?.response);
+                                            
+                                            // Handle specific errors
+                                            if (sessionError?.response?.status === 400) {
+                                                const errorMsg = sessionError?.response?.data?.message;
+                                                
+                                                // Check for distance error
+                                                if (errorMsg?.includes('too far') || errorMsg?.includes('distance') || errorMsg?.includes('meters')) {
+                                                    toast.error(
+                                                        language === 'vi' 
+                                                            ? 'Bạn quá xa trạm sạc (>100m). Vui lòng di chuyển gần hơn.' 
+                                                            : 'You are too far from the station (>100m). Please move closer.'
+                                                    );
+                                                } else if (errorMsg?.includes('time slot') || errorMsg?.includes('Out of booking')) {
+                                                    toast.error(
+                                                        language === 'vi'
+                                                            ? 'Ngoài thời gian đặt chỗ. Đơn đã bị hủy với phí phạt.'
+                                                            : 'Out of booking time slot. Order canceled with penalty.'
+                                                    );
+                                                } else {
+                                                    toast.error(errorMsg || (language === 'vi' ? 'Không thể bắt đầu sạc' : 'Cannot start charging'));
+                                                }
+                                            } else if (sessionError?.response?.status === 401) {
+                                                toast.error(language === 'vi' ? 'Phiên đăng nhập hết hạn' : 'Session expired');
+                                            } else if (sessionError?.code === 'PERMISSION_DENIED' || sessionError?.message?.includes('denied')) {
+                                                toast.error(
+                                                    language === 'vi'
+                                                        ? 'Cần quyền truy cập vị trí để bắt đầu sạc'
+                                                        : 'Location permission required to start charging'
+                                                );
+                                            } else {
+                                                toast.error(
+                                                    language === 'vi' 
+                                                        ? 'Lỗi khi bắt đầu phiên sạc. Vui lòng thử lại.' 
+                                                        : 'Error starting charging session. Please try again.'
+                                                );
+                                            }
+                                        }
                                     } else {
                                         // For scheduled booking, navigate to MyBookingView
-                                        // This would typically be handled by parent component
-                                        // For now, we'll just show success message
                                         toast.info(
                                             language === 'vi'
                                                 ? 'Đặt lịch đã được lưu vào My Bookings'

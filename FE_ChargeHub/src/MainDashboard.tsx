@@ -156,14 +156,6 @@ export default function MainDashboard({ onLogout, onBooking, onHistory, onAnalys
     }
   };
 
-  // Mock user vehicle data - in real app this would come from backend/context
-  const userVehicle = {
-    brand: "Tesla",
-    model: "Model 3", 
-    plateNumber: "30A-12345",
-    image: "https://images.unsplash.com/photo-1570169725356-76eff13bee48?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx0ZXNsYSUyMG1vZGVsJTIwMyUyMGVsZWN0cmljJTIwY2FyfGVufDF8fHx8MTc1Nzc4MTk4NXww&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral"
-  };
-
   return (
     <div className="min-h-screen bg-background flex relative">
       {/* Overlay for mobile sidebar */}
