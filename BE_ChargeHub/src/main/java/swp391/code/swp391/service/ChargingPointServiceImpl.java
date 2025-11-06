@@ -117,10 +117,12 @@ public class ChargingPointServiceImpl implements ChargingPointService {
                 .orElseThrow(() -> new RuntimeException("Charging point not found with id: " + chargingPointId));
 
         // Nếu vẫn đang liên kết với một connector type, không cho xoá
-        if (chargingPoint.getConnectorType() != null) {
+        if (chargingPoint.getConnectorType() != null && chargingPoint.getStatus() != ChargingPointStatus.AVAILABLE) {
             throw new RuntimeException("Cannot delete charging point. It is still associated with a connector type.");
+        } else {
+            chargingPoint.setConnectorType(null); // Bỏ liên kết với connector type
+            chargingPointRepository.save(chargingPoint);
         }
-
         chargingPointRepository.deleteById(chargingPointId);
     }
 
