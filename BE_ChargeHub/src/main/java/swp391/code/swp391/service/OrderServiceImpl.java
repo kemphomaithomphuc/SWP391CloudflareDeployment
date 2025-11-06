@@ -12,10 +12,10 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.Duration;
-import java.time.chrono.ChronoLocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.Comparator;
 
 @Service
 @RequiredArgsConstructor
@@ -34,6 +34,8 @@ public class OrderServiceImpl implements OrderService {
     private static final int MIN_GAP_MINUTES = 30; // Thời gian tối thiểu cho mini-slot
     private static final LocalTime OPENING_TIME = LocalTime.of(0, 0);
     private static final LocalTime CLOSING_TIME = LocalTime.of(23, 30);
+    // Nếu người dùng chọn "book now" (bắt đầu trong khoảng ngắn), chuyển trạng thái ngay thành CHARGING
+    private static final int IMMEDIATE_START_THRESHOLD_MINUTES = 5; // start <= now + 5 minutes sẽ được coi là "book now"
 
     /**
      * Tìm các slot khả dụng theo cơ chế mới:
@@ -121,7 +123,7 @@ public class OrderServiceImpl implements OrderService {
                 point.getChargingPointId(),
                 LocalDateTime.now()
         );
-        existingOrders.sort((o1, o2) -> o1.getStartTime().compareTo(o2.getStartTime()));
+        existingOrders.sort(Comparator.comparing(Order::getStartTime));
 
         // Tạo danh sách tất cả các slot trong ngày
         List<TimeSlot> allFixedSlots = generateFixedSlots(dayStart, dayEnd);
@@ -366,9 +368,13 @@ public class OrderServiceImpl implements OrderService {
 
         order = orderRepository.save(order);
 
-        // ===== 11. TẠO NOTIFICATION CHO USER =====
-        // Tạo notification thông báo đặt chỗ thành công
-        if (order.getOrderId() != null) {
+        // ===== 11. Nếu người dùng bấm "Book Now" (start time gần bằng hiện tại), chuyển trạng thái ngay sang CHARGING =====
+        LocalDateTime now = LocalDateTime.now();
+        if (!request.getStartTime().isAfter(now.plusMinutes(IMMEDIATE_START_THRESHOLD_MINUTES))) {
+            order.setStatus(Order.Status.CHARGING);
+            // Persist change so frontend immediately sees CHARGING
+            order = orderRepository.save(order);
+            // Gửi notification (best-effort)
             try {
                 notificationService.createBookingOrderNotification(
                         order.getOrderId(),
@@ -376,8 +382,21 @@ public class OrderServiceImpl implements OrderService {
                         null
                 );
             } catch (Exception e) {
-                // Log lỗi nhưng không làm fail transaction nếu notification thất bại
-                System.err.println("Lỗi khi tạo notification cho booking: " + e.getMessage());
+                System.err.println("Lỗi khi tạo notification cho charging start: " + e.getMessage());
+            }
+        } else {
+            // ===== 11. TẠO NOTIFICATION CHO USER (booked nhưng chưa bắt đầu)
+            if (order.getOrderId() != null) {
+                try {
+                    notificationService.createBookingOrderNotification(
+                            order.getOrderId(),
+                            NotificationServiceImpl.NotificationEvent.BOOKING_SUCCESS,
+                            null
+                    );
+                } catch (Exception e) {
+                    // Log lỗi nhưng không làm fail transaction nếu notification thất bại
+                    System.err.println("Lỗi khi tạo notification cho booking: " + e.getMessage());
+                }
             }
         }
 

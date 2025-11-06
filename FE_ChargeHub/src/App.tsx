@@ -47,11 +47,10 @@ import ChargingSessionView from "./components/ChargingSessionView";
 import StationManagementView from "./components/StationManagementView";
 import PremiumSubscriptionView from "./components/PremiumSubscriptionView";
 import PenaltyPaymentView from "./components/PenaltyPaymentView";
-import { access } from "fs";
 import { checkAndRefreshToken } from "./services/api";
 
 
-type ViewType = "login" | "register" | "roleSelection" | "profileSetup" | "vehicleSetup" | "staffProfileSetup" | "educationSetup" | "dashboard" | "staffLogin" | "staffDashboard" | "staffHome" | "adminLogin" | "adminDashboard" | "systemConfig" | "adminMap" | "revenue" | "staffManagement" | "usageAnalytics" | "booking" | "history" | "analysis" | "reportIssue" | "wallet" | "notifications" | "staffNotifications" | "postActivating" | "adminChargerPostActivating" | "myBookings" | "chargingSession" | "stationManagement" | "premiumSubscription" | "penaltyPayment";
+type ViewType = "login" | "register" | "roleSelection" | "profileSetup" | "vehicleSetup" | "staffProfileSetup" | "educationSetup" | "dashboard" | "staffLogin" | "staffDashboard" | "staffHome" | "adminLogin" | "adminDashboard" | "systemConfig" | "adminMap" | "revenue" | "staffManagement" | "usageAnalytics" | "booking" | "history" | "analysis" | "reportIssue" | "wallet" | "notifications" | "staffNotifications" | "postActivating" | "adminChargerPostActivating" | "myBookings" | "chargingSession" | "stationManagement" | "premiumSubscription" | "penaltyPayment" | "issueResolvement";
 
 function AppContent() {
     const navigate = useNavigate();
@@ -98,6 +97,7 @@ function AppContent() {
     const switchToUsageAnalytics = () => navigate('/usageAnalytics');
     const switchToPostActivating = () => navigate('/postActivating');
     const switchToAdminChargerPostActivating = () => navigate('/adminChargerPostActivating');
+    const switchToIssueResolvement = () => navigate('/issueResolvement');
     const switchToMyBookings = () => navigate('/myBookings');
     const switchToChargingSession = (bookingId: string) => {
         setCurrentBookingId(bookingId);
@@ -151,7 +151,7 @@ function AppContent() {
         if (['staffDashboard', 'staffHome', 'staffNotifications', 'postActivating', 'stationManagement'].includes(currentView)) {
             return 'staff';
         }
-        if (['adminDashboard', 'systemConfig', 'adminMap', 'revenue', 'staffManagement', 'usageAnalytics', 'adminChargerPostActivating'].includes(currentView)) {
+        if (['adminDashboard', 'systemConfig', 'adminMap', 'revenue', 'staffManagement', 'usageAnalytics', 'adminChargerPostActivating', 'issueResolvement'].includes(currentView)) {
             return 'admin';
         }
         return undefined;
@@ -305,8 +305,8 @@ function AppContent() {
             case "dashboard":
                 return <MainDashboard onLogout={switchToLogin} onBooking={switchToBooking} onHistory={switchToHistory} onAnalysis={switchToAnalysis} onReportIssue={switchToReportIssue} onWallet={switchToWallet} onNotifications={switchToNotifications} onMyBookings={switchToMyBookings} onPremiumSubscription={switchToPremiumSubscription} vehicleBatteryLevel={vehicleBatteryLevel} setVehicleBatteryLevel={setVehicleBatteryLevel} />;
 
-      case "booking":
-        return <BookingMap onBack={() => navigate("/dashboard")} currentBatteryLevel={vehicleBatteryLevel} setCurrentBatteryLevel={setVehicleBatteryLevel} onStartCharging={switchToChargingSession} />;
+            case "booking":
+                return <BookingMap onBack={() => navigate("/dashboard")} currentBatteryLevel={vehicleBatteryLevel} setCurrentBatteryLevel={setVehicleBatteryLevel} onStartCharging={switchToChargingSession} />;
 
             case "history":
                 return <HistoryView onBack={() => navigate("/dashboard")} />;
@@ -314,221 +314,225 @@ function AppContent() {
             case "analysis":
                 return <PersonalAnalysisView onBack={() => navigate("/dashboard")} />;
 
-      case "reportIssue":
-        return <ReportIssueView onBack={() => navigate("/dashboard")} />;
+            case "reportIssue":
+                return <ReportIssueView onBack={() => navigate("/dashboard")} />;
 
-      case "wallet":
-        return <WalletView onBack={() => navigate("/dashboard")} />;
+            case "wallet":
+                return <WalletView onBack={() => navigate("/dashboard")} />;
 
-      case "notifications":
-        return <NotificationView onBack={() => navigate("/dashboard")} />;
+            case "notifications":
+                return <NotificationView onBack={() => navigate("/dashboard")} />;
 
-      case "staffNotifications":
-        return <StaffNotificationView onBack={() => navigate("/staffDashboard")} />;
+            case "staffNotifications":
+                return <StaffNotificationView onBack={() => navigate("/staffDashboard")} />;
 
-      case "staffDashboard":
-        return <StaffDashboard onLogout={switchToLogin} onGoHome={switchToStaffHome} onNotifications={switchToStaffNotifications} onPostActivating={switchToPostActivating} onStationManagement={switchToStationManagement} />;
+            case "staffDashboard":
+                return <StaffDashboard onLogout={switchToLogin} onGoHome={switchToStaffHome} onNotifications={switchToStaffNotifications} onPostActivating={switchToPostActivating} onStationManagement={switchToStationManagement} />;
 
-      case "staffHome":
-        return <StaffHomeDashboard onBack={() => navigate("/staffDashboard")} />;
+            case "staffHome":
+                return <StaffHomeDashboard onBack={() => navigate("/staffDashboard")} />;
 
-      case "staffLogin":
-        return (
-          <StaffLogin 
-            onLogin={completeStaffLogin}
-            onBack={switchToLogin}
-          />
-        );
+            case "staffLogin":
+                return (
+                    <StaffLogin
+                        onLogin={completeStaffLogin}
+                        onBack={switchToLogin}
+                    />
+                );
 
-      case "adminLogin":
-        return (
-          <AdminLogin 
-            onLogin={completeAdminLogin}
-            onBack={switchToLogin}
-          />
-        );
+            case "adminLogin":
+                return (
+                    <AdminLogin
+                        onLogin={completeAdminLogin}
+                        onBack={switchToLogin}
+                    />
+                );
 
-      case "adminDashboard":
-        return <AdminDashboard onLogout={switchToLogin} onSystemConfig={switchToSystemConfig} onAdminMap={switchToAdminMap} onRevenue={switchToRevenue} onStaffManagement={switchToStaffManagement} onUsageAnalytics={switchToUsageAnalytics} onAdminChargerPostActivating={switchToAdminChargerPostActivating} onIssueResolvement={switchToIssueResolvement} />;
+            case "adminDashboard":
+                return <AdminDashboard onLogout={switchToLogin} onSystemConfig={switchToSystemConfig} onAdminMap={switchToAdminMap} onRevenue={switchToRevenue} onStaffManagement={switchToStaffManagement} onUsageAnalytics={switchToUsageAnalytics} onAdminChargerPostActivating={switchToAdminChargerPostActivating} onIssueResolvement={switchToIssueResolvement} />;
 
-      case "systemConfig":
-        return <SystemConfigView onBack={() => navigate("/adminDashboard")} />;
+            case "systemConfig":
+                return <SystemConfigView onBack={() => navigate("/adminDashboard")} />;
 
-      case "adminMap":
-        return <AdminMapView onBack={() => navigate("/adminDashboard")} />;
+            case "adminMap":
+                return <AdminMapView onBack={() => navigate("/adminDashboard")} />;
 
-      case "revenue":
-        return <RevenueView onBack={() => navigate("/adminDashboard")} />;
+            case "revenue":
+                return <RevenueView onBack={() => navigate("/adminDashboard")} />;
 
-      case "staffManagement":
-        return <StaffManagementView onBack={() => navigate("/adminDashboard")} />;
+            case "staffManagement":
+                return <StaffManagementView onBack={() => navigate("/adminDashboard")} />;
 
-      case "usageAnalytics":
-        return <UsageAnalyticsView onBack={() => navigate("/adminDashboard")} />;
+            case "usageAnalytics":
+                return <UsageAnalyticsView onBack={() => navigate("/adminDashboard")} />;
 
-      case "adminChargerPostActivating":
-        return <AdminChargerPostActivatingView onBack={() => navigate("/adminDashboard")} />;
+            case "adminChargerPostActivating":
+                return <AdminChargerPostActivatingView onBack={() => navigate("/adminDashboard")} />;
 
-      case "postActivating":
-        return <PostActivatingView onBack={() => navigate("/staffDashboard")} />;
+            case "issueResolvement":
+                return <IssueResolvementView onBack={() => navigate("/adminDashboard")} />;
 
-      case "myBookings":
-        return <MyBookingView onBack={() => navigate("/dashboard")} onStartCharging={switchToChargingSession} />;
+            case "postActivating":
+                return <PostActivatingView onBack={() => navigate("/staffDashboard")} />;
 
-      case "chargingSession":
-        return <ChargingSessionView onBack={() => navigate("/myBookings")} bookingId={currentBookingId} />;
+            case "myBookings":
+                return <MyBookingView onBack={() => navigate("/dashboard")} onStartCharging={switchToChargingSession} />;
 
-      case "stationManagement":
-        return <StationManagementView onBack={() => navigate("/staffDashboard")} />;
+            case "chargingSession":
+                return <ChargingSessionView onBack={() => navigate("/myBookings")} bookingId={currentBookingId} />;
 
-      case "premiumSubscription":
-        return <PremiumSubscriptionView onBack={() => navigate("/dashboard")} userType="driver" />;
+            case "stationManagement":
+                return <StationManagementView onBack={() => navigate("/staffDashboard")} />;
 
-      case "penaltyPayment":
-        return <PenaltyPaymentView onBack={() => navigate("/login")} userId={parseInt(localStorage.getItem("userId") || "0")} />;
+            case "premiumSubscription":
+                return <PremiumSubscriptionView onBack={() => navigate("/dashboard")} userType="driver" />;
 
-      case "vehicleSetup":
-        return (
-          <VehicleSetup 
-            onNext={completeSetup}
-            onBack={() => navigate("/profileSetup")}
-          />
-        );
+            case "penaltyPayment":
+                return <PenaltyPaymentView onBack={() => navigate("/login")} userId={parseInt(localStorage.getItem("userId") || "0")} />;
 
-      case "profileSetup":
-        return (
-          <ProfileSetup 
-            onNext={handleProfileCompletion}
-            onBack={() => navigate("/roleSelection")}
-          />
-        );
+            case "vehicleSetup":
+                return (
+                    <VehicleSetup
+                        onNext={completeSetup}
+                        onBack={() => navigate("/profileSetup")}
+                    />
+                );
 
-      case "staffProfileSetup":
-        return (
-          <StaffProfileSetup 
-            onNext={switchToEducationSetup}
-            onBack={() => navigate("/roleSelection")}
-          />
-        );
+            case "profileSetup":
+                return (
+                    <ProfileSetup
+                        onNext={handleProfileCompletion}
+                        onBack={() => navigate("/roleSelection")}
+                    />
+                );
 
-      case "educationSetup":
-        return (
-          <EducationSetup 
-            onNext={completeStaffSetup}
-            onBack={() => navigate("/staffProfileSetup")}
-          />
-        );
+            case "staffProfileSetup":
+                return (
+                    <StaffProfileSetup
+                        onNext={switchToEducationSetup}
+                        onBack={() => navigate("/roleSelection")}
+                    />
+                );
 
-      case "roleSelection":
-        return (
-          <RoleSelection 
-            onSelectRole={handleRoleSelection}
-            onBack={() => navigate("/login")}
-          />
-        );
+            case "educationSetup":
+                return (
+                    <EducationSetup
+                        onNext={completeStaffSetup}
+                        onBack={() => navigate("/staffProfileSetup")}
+                    />
+                );
 
-      case "register":
-        return (
-          <Register 
-            onSwitchToLogin={switchToLogin}
-            onSwitchToRoleSelection={switchToRoleSelection}
-          />
-        );
+            case "roleSelection":
+                return (
+                    <RoleSelection
+                        onSelectRole={handleRoleSelection}
+                        onBack={() => navigate("/login")}
+                    />
+                );
 
-      default:
-        return (
-          <>
-            <Login 
-              onSwitchToRegister={switchToRegister} 
-              onLogin={() => navigate("/dashboard")}
-              // Redirect staff/admin directly after role detection
-              onStaffLogin={() => navigate("/staffDashboard")}
-              onAdminLogin={() => navigate("/adminDashboard")}
-              onSwitchToRoleSelection={switchToRoleSelection}
-              onSwitchToVehicleSetup={switchToVehicleSetup}
-            />
-            <LanguageThemeControls />
-          </>
-        );
-    }
-  };
+            case "register":
+                return (
+                    <Register
+                        onSwitchToLogin={switchToLogin}
+                        onSwitchToRoleSelection={switchToRoleSelection}
+                    />
+                );
 
-  const layoutWrapper = (
-    <AppLayout
-      userType={userType || "driver"}
-      currentView={currentView}
-      onNavigate={handleNavigation}
-      onLogout={switchToLogin}
-      showSidebar={showSidebar}
-    >
-      {renderContent()}
-    </AppLayout>
-  );
+            default:
+                return (
+                    <>
+                        <Login
+                            onSwitchToRegister={switchToRegister}
+                            onLogin={() => navigate("/dashboard")}
+                            // Redirect staff/admin directly after role detection
+                            onStaffLogin={() => navigate("/staffDashboard")}
+                            onAdminLogin={() => navigate("/adminDashboard")}
+                            onSwitchToRoleSelection={switchToRoleSelection}
+                            onSwitchToVehicleSetup={switchToVehicleSetup}
+                        />
+                        <LanguageThemeControls />
+                    </>
+                );
+        }
+    };
 
-  return (
-    <Routes>
-      {/* Auth Routes */}
-      <Route path="/" element={layoutWrapper} />
-      <Route path="/login" element={layoutWrapper} />
-      <Route path="/register" element={layoutWrapper} />
-      <Route path="/roleSelection" element={layoutWrapper} />
-      <Route path="/staffLogin" element={layoutWrapper} />
-      <Route path="/adminLogin" element={layoutWrapper} />
-      
-      {/* Setup Routes */}
-      <Route path="/profileSetup" element={layoutWrapper} />
-      <Route path="/vehicleSetup" element={layoutWrapper} />
-      <Route path="/staffProfileSetup" element={layoutWrapper} />
-      <Route path="/educationSetup" element={layoutWrapper} />
-      
-      {/* Driver Dashboard Routes */}
-      <Route path="/dashboard" element={layoutWrapper} />
-      <Route path="/booking" element={layoutWrapper} />
-      <Route path="/history" element={layoutWrapper} />
-      <Route path="/analysis" element={layoutWrapper} />
-      <Route path="/reportIssue" element={layoutWrapper} />
-      <Route path="/wallet" element={layoutWrapper} />
-      <Route path="/notifications" element={layoutWrapper} />
-      <Route path="/myBookings" element={layoutWrapper} />
-      <Route path="/chargingSession" element={layoutWrapper} />
-      <Route path="/premiumSubscription" element={layoutWrapper} />
-      <Route path="/penaltyPayment" element={layoutWrapper} />
-      
-      {/* Staff Dashboard Routes */}
-      <Route path="/staffDashboard" element={layoutWrapper} />
-      <Route path="/staffHome" element={layoutWrapper} />
-      <Route path="/staffNotifications" element={layoutWrapper} />
-      <Route path="/postActivating" element={layoutWrapper} />
-      <Route path="/stationManagement" element={layoutWrapper} />
-      
-      {/* Admin Dashboard Routes */}
-      <Route path="/adminDashboard" element={layoutWrapper} />
-      <Route path="/systemConfig" element={layoutWrapper} />
-      <Route path="/adminMap" element={layoutWrapper} />
-      <Route path="/revenue" element={layoutWrapper} />
-      <Route path="/staffManagement" element={layoutWrapper} />
-      <Route path="/usageAnalytics" element={layoutWrapper} />
-      <Route path="/adminChargerPostActivating" element={layoutWrapper} />
-      
-      {/* Catch all - redirect to login */}
-      <Route path="*" element={layoutWrapper} />
-    </Routes>
-  );
+    const layoutWrapper = (
+        <AppLayout
+            userType={userType || "driver"}
+            currentView={currentView}
+            onNavigate={handleNavigation}
+            onLogout={switchToLogin}
+            showSidebar={showSidebar}
+        >
+            {renderContent()}
+        </AppLayout>
+    );
+
+    return (
+        <Routes>
+            {/* Auth Routes */}
+            <Route path="/" element={layoutWrapper} />
+            <Route path="/login" element={layoutWrapper} />
+            <Route path="/register" element={layoutWrapper} />
+            <Route path="/roleSelection" element={layoutWrapper} />
+            <Route path="/staffLogin" element={layoutWrapper} />
+            <Route path="/adminLogin" element={layoutWrapper} />
+
+            {/* Setup Routes */}
+            <Route path="/profileSetup" element={layoutWrapper} />
+            <Route path="/vehicleSetup" element={layoutWrapper} />
+            <Route path="/staffProfileSetup" element={layoutWrapper} />
+            <Route path="/educationSetup" element={layoutWrapper} />
+
+            {/* Driver Dashboard Routes */}
+            <Route path="/dashboard" element={layoutWrapper} />
+            <Route path="/booking" element={layoutWrapper} />
+            <Route path="/history" element={layoutWrapper} />
+            <Route path="/analysis" element={layoutWrapper} />
+            <Route path="/reportIssue" element={layoutWrapper} />
+            <Route path="/wallet" element={layoutWrapper} />
+            <Route path="/notifications" element={layoutWrapper} />
+            <Route path="/myBookings" element={layoutWrapper} />
+            <Route path="/chargingSession" element={layoutWrapper} />
+            <Route path="/premiumSubscription" element={layoutWrapper} />
+            <Route path="/penaltyPayment" element={layoutWrapper} />
+
+            {/* Staff Dashboard Routes */}
+            <Route path="/staffDashboard" element={layoutWrapper} />
+            <Route path="/staffHome" element={layoutWrapper} />
+            <Route path="/staffNotifications" element={layoutWrapper} />
+            <Route path="/postActivating" element={layoutWrapper} />
+            <Route path="/stationManagement" element={layoutWrapper} />
+
+            {/* Admin Dashboard Routes */}
+            <Route path="/adminDashboard" element={layoutWrapper} />
+            <Route path="/systemConfig" element={layoutWrapper} />
+            <Route path="/adminMap" element={layoutWrapper} />
+            <Route path="/revenue" element={layoutWrapper} />
+            <Route path="/staffManagement" element={layoutWrapper} />
+            <Route path="/usageAnalytics" element={layoutWrapper} />
+            <Route path="/adminChargerPostActivating" element={layoutWrapper} />
+            <Route path="/issueResolvement" element={layoutWrapper} />
+
+            {/* Catch all - redirect to login */}
+            <Route path="*" element={layoutWrapper} />
+        </Routes>
+    );
 }
 
 export default function App() {
-  return (
-    <ThemeProvider>
-      <LanguageProvider>
-        <BookingProvider>
-          <StationProvider>
-            <NotificationProvider>
-              <AppContent />
-              <Toaster />
-            </NotificationProvider>
-          </StationProvider>
-        </BookingProvider>
-      </LanguageProvider>
-    </ThemeProvider>
-  );
+    return (
+        <ThemeProvider>
+            <LanguageProvider>
+                <BookingProvider>
+                    <StationProvider>
+                        <NotificationProvider>
+                            <AppContent />
+                            <Toaster />
+                        </NotificationProvider>
+                    </StationProvider>
+                </BookingProvider>
+            </LanguageProvider>
+        </ThemeProvider>
+    );
 }
