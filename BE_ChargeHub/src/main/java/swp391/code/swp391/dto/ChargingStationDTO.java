@@ -42,6 +42,4 @@ public class ChargingStationDTO {
 
     // Field chứa thông tin tiện ích xung quanh (được tạo bởi AI)
     private String surroundingAmenities;
-
-
 }

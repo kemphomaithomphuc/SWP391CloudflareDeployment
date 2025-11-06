@@ -1,17 +1,22 @@
 package swp391.code.swp391.dto;
 
+import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 
 @Data
 @Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class OrderResponseDTO {
     private Long orderId;
 
     // Thông tin trạm và điểm sạc
-    private Long chargingPointId;  // ID của trụ sạc
+    private Long stationId;            // ID của trạm sạc
+    private Long chargingPointId;      // ID của trụ sạc
     private String stationName;
     private String stationAddress;
     private String connectorType;
@@ -25,7 +30,6 @@ public class OrderResponseDTO {
     private Long vehicleId;
     private String vehiclePlate;       // vehicle.plateNumber
     private String vehicleModel;       // vehicle.carModel.model
-
     // Thông tin battery
     private Double startedBattery;     // current battery
     private Double expectedBattery;    // target battery

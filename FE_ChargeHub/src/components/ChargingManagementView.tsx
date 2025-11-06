@@ -677,10 +677,7 @@ export default function ChargingManagementView({ onBack, stationId }: ChargingMa
                                     <Car className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
                                     <div className="space-y-2">
                                         <p className="text-muted-foreground">
-                                            {language === 'vi' ? 'Không có đơn nào từ máy chủ cho trạm này' : 'No orders returned from server for this station'}
-                                        </p>
-                                        <p className="text-xs text-muted-foreground">
-                                            {language === 'vi' ? 'Kiểm tra stationId, token và API /api/orders/station/{stationId}' : 'Check stationId, token, and /api/orders/station/{stationId} API'}
+                                            {language === 'vi' ? 'Hiện tại trạm không có đơn nào' : 'This station has no orders right now'}
                                         </p>
                                     </div>
                                 </div>

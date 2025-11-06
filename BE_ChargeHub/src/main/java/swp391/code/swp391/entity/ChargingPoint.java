@@ -6,6 +6,7 @@ import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.ToString;
 
 
 @Entity
@@ -20,10 +21,12 @@ public class ChargingPoint {
     @Column(name = "charging_point_id")
     private Long chargingPointId;
 
+    @ToString.Exclude
     @ManyToOne
     @JsonBackReference("station-points")
     private ChargingStation station;
 
+    @ToString.Exclude
     @ManyToOne
     @JoinColumn(name = "connector_type_id", nullable = false)
     private ConnectorType connectorType;

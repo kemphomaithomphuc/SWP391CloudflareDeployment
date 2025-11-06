@@ -80,8 +80,19 @@ public class SubscriptionController {
         );
     }
 
-
-
+    @PutMapping("/updateSubscription/{subscriptionId}")
+    public ResponseEntity<APIResponse<SubscriptionResponseDTO>> updateSubscription(
+            @RequestBody SubscriptionRequestDTO subscriptionRequest
+            ,@PathVariable Long subscriptionId) {
+        SubscriptionResponseDTO dto = subscription.updateSubscriptionPlan(subscriptionId, subscriptionRequest);
+        return ResponseEntity.ok(
+                APIResponse.<SubscriptionResponseDTO>builder()
+                        .success(true)
+                        .message("Cập nhật gói cước thành công")
+                        .data(dto)
+                        .build()
+        );
+    }
 }
 
 

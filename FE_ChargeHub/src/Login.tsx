@@ -204,7 +204,17 @@ export default function Login({ onSwitchToRegister, onLogin, onStaffLogin, onAdm
                 toast.error("Login Failed - Invalid response structure");
             }
         } catch (err: any) {
-            if (err.response?.status === 401 || err.response?.status === 403) {
+            const errorMsg = err.response?.data?.message || '';
+            
+            // Kiểm tra message trước để xác định lỗi sai username/password
+            if (errorMsg.toLowerCase().includes('login failed') || 
+                errorMsg.toLowerCase().includes('password') || 
+                errorMsg.toLowerCase().includes('incorrect') ||
+                errorMsg.toLowerCase().includes('username') ||
+                errorMsg.toLowerCase().includes('credentials')) {
+                setError("Username or password is incorrect");
+                toast.error("Username or password is incorrect");
+            } else if (err.response?.status === 401 || err.response?.status === 403) {
                 setError("Username or password is incorrect");
                 toast.error("Username or password is incorrect");
             } else if (err.response?.status === 500) {

@@ -843,9 +843,9 @@ export default function SystemConfigView({ onBack }: SystemConfigViewProps) {
                                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                         {plans && plans.length > 0 ? (
                                             plans.map((plan: any) => {
-                                                console.log("🎯 Rendering plan:", plan);
-                                                console.log("💰 Plan price:", plan.price, "Type:", typeof plan.price);
-                                                console.log("✅ Plan isActive:", plan.isActive, "Type:", typeof plan.isActive);
+                                                console.log("Rendering plan:", plan);
+                                                console.log("Plan price:", plan.price, "Type:", typeof plan.price);
+                                                console.log("Plan isActive:", plan.isActive, "Type:", typeof plan.isActive);
                                                 
                                                 return (
                                                 <Card key={plan.subscriptionId} className="bg-muted/30 border-2 hover:border-primary/50 transition-colors">
