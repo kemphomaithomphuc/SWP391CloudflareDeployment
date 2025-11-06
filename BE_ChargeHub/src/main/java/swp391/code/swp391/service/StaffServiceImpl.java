@@ -25,6 +25,11 @@ public class StaffServiceImpl implements StaffService {
     private final NotificationService notificationService;
     private final ChargingStationRepository chargingStationRepository;
     private final EmailService emailService;
+    private final IssueReportRepository issueReportRepository;
+    private final SessionRepository sessionRepository;
+    private final OrderService orderService;
+    private final VehicleRepository vehicleRepository;
+    private final TransactionRepository transactionRepository;
 
     @Override
     @Transactional
@@ -483,4 +488,389 @@ public class StaffServiceImpl implements StaffService {
                 .map(ChargingStation::getStationId)
                 .collect(Collectors.toList());
     }
+
+    @Override
+    public Long createIssueReport(IssueReportDTO dto, Long staffId) {
+        // Lấy staff từ CSDL
+        User staff = userRepository.findById(staffId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy staff với ID: " + staffId));
+
+        if (staff.getRole() != User.UserRole.STAFF) {
+            throw new RuntimeException("User này không phải là STAFF");
+        }
+
+        // Lấy trạm sạc từ CSDL
+        ChargingStation station = chargingStationRepository.findById(dto.getStationId())
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy trạm sạc với ID: " + dto.getStationId()));
+
+        // Tạo IssueReport entity
+        IssueReport issueReport = new IssueReport();
+        issueReport.setStation(station);
+        issueReport.setReporter(staff);
+        issueReport.setDescription(dto.getDescription());
+        issueReport.setStatus(IssueReport.Status.INBOX);
+        issueReport.setReportedTime(LocalDateTime.now());
+
+        // Lưu vào CSDL
+        IssueReport savedReport = issueReportRepository.save(issueReport);
+
+        log.info("Staff {} created issue report {} for station {}",
+                staff.getFullName(), savedReport.getIssueReportId(), station.getStationName());
+
+        // Tạo thông báo
+        notificationService.createIssueNotification(
+                station.getStationId(),
+                NotificationServiceImpl.IssueEvent.STATION_ERROR_STAFF,
+                "New issue reported by staff: " + dto.getDescription()
+        );
+
+        return savedReport.getIssueReportId();
+    }
+
+    @Override
+    public List<SessionListDTO> getSessionsByStation(Long stationId) {
+        log.info("Getting sessions for station: {}", stationId);
+
+        // Validate station exists
+        ChargingStation station = chargingStationRepository.findById(stationId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy trạm sạc với ID: " + stationId));
+
+        // Lấy tất cả sessions của trạm sạc
+        List<Session> sessions = sessionRepository.findByOrderChargingPointStationStationId(stationId);
+
+        // Convert sang DTO
+        return sessions.stream()
+                .map(session -> {
+                    Order order = session.getOrder();
+                    User user = order.getUser();
+                    ChargingPoint chargingPoint = order.getChargingPoint();
+                    ConnectorType connectorType = chargingPoint.getConnectorType();
+
+                    // Tính overtime nếu có
+                    Long overtimeMinutes = null;
+                    if (session.isOvertime() && session.getEndTime() != null && order.getEndTime() != null) {
+                        overtimeMinutes = Duration.between(order.getEndTime(), session.getEndTime()).toMinutes();
+                    }
+
+                    return SessionListDTO.builder()
+                            .sessionId(session.getSessionId())
+                            .orderId(order.getOrderId())
+                            .userId(user.getUserId())
+                            .userName(user.getFullName())
+                            .userPhone(user.getPhone())
+                            .chargingPointId(chargingPoint.getChargingPointId())
+                            .connectorType(connectorType.getTypeName())
+                            .powerOutput(connectorType.getPowerOutput())
+                            .startTime(session.getStartTime())
+                            .endTime(session.getEndTime())
+                            .powerConsumed(session.getPowerConsumed())
+                            .baseCost(session.getBaseCost())
+                            .status(session.getStatus().name())
+                            .isOvertime(session.isOvertime())
+                            .overtimeMinutes(overtimeMinutes)
+                            .build();
+                })
+                .sorted(Comparator.comparing(SessionListDTO::getStartTime).reversed()) // Mới nhất lên đầu
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional
+    public Object createImmediateSession(OrderRequestDTO request) {
+        log.info("Creating immediate session for driver {} at station {}", request.getUserId(), request.getStationId());
+
+        // 1. Validate driver
+        User driver = userRepository.findById(request.getUserId())
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy driver với ID: " + request.getUserId()));
+
+        // 2. Validate vehicle
+        Vehicle vehicle = vehicleRepository.findById(request.getVehicleId())
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy xe với ID: " + request.getVehicleId()));
+
+        if (!vehicle.getUser().getUserId().equals(driver.getUserId())) {
+            throw new RuntimeException("Xe này không thuộc về driver");
+        }
+
+        // 3. Validate station
+        ChargingStation station = chargingStationRepository.findById(request.getStationId())
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy trạm sạc với ID: " + request.getStationId()));
+
+        // 4. Validate battery
+        if (request.getCurrentBattery() >= request.getTargetBattery()) {
+            throw new RuntimeException("Target battery phải lớn hơn current battery");
+        }
+
+        // 5. TẬN DỤNG OrderService.findAvailableSlots() để kiểm tra slot trống
+        AvailableSlotsResponseDTO availableSlots;
+        try {
+            availableSlots = orderService.findAvailableSlots(request);
+        } catch (Exception e) {
+            log.error("Error finding available slots: {}", e.getMessage());
+            throw new RuntimeException("Không tìm thấy slot khả dụng: " + e.getMessage());
+        }
+
+        // 6. Nếu không chỉ định charging point, lấy point đầu tiên có slot
+        ChargingPoint chargingPoint;
+        if (request.getChargingPointId() != null) {
+            chargingPoint = chargingPointRepository.findById(request.getChargingPointId())
+                    .orElseThrow(() -> new RuntimeException("Không tìm thấy trụ sạc với ID: " + request.getChargingPointId()));
+
+            if (!chargingPoint.getStation().getStationId().equals(station.getStationId())) {
+                throw new RuntimeException("Trụ sạc không thuộc về trạm này");
+            }
+        } else {
+            if (availableSlots.getChargingPoints().isEmpty()) {
+                // Trả về available slots để frontend suggest
+                return availableSlots;
+            }
+            ChargingPointAvailabilityDTO firstAvailable = availableSlots.getChargingPoints().get(0);
+            chargingPoint = chargingPointRepository.findById(firstAvailable.getChargingPointId())
+                    .orElseThrow(() -> new RuntimeException("Không tìm thấy trụ sạc"));
+        }
+
+        // 7. Tìm charging point availability trong response
+        final Long finalChargingPointId = chargingPoint.getChargingPointId();
+        ChargingPointAvailabilityDTO pointAvailability = availableSlots.getChargingPoints().stream()
+                .filter(cp -> cp.getChargingPointId().equals(finalChargingPointId))
+                .findFirst()
+                .orElse(null);
+
+        if (pointAvailability == null || pointAvailability.getAvailableSlots().isEmpty()) {
+            // Trả về available slots để frontend suggest thời gian khác
+            return availableSlots;
+        }
+
+        // 8. Kiểm tra có slot "ngay lập tức" không (bắt đầu trong vòng 5 phút)
+        LocalDateTime now = LocalDateTime.now();
+        AvailableTimeSlotDTO immediateSlot = pointAvailability.getAvailableSlots().stream()
+                .filter(slot -> !slot.getFreeFrom().isAfter(now.plusMinutes(5)))
+                .findFirst()
+                .orElse(null);
+
+        if (immediateSlot == null) {
+            // Không có slot ngay lập tức, trả về available slots
+            log.info("No immediate slot available. Returning suggestions.");
+            return availableSlots;
+        }
+
+        // 9. TẬN DỤNG OrderService.confirmOrder() để tạo order và tự động chuyển sang CHARGING
+        LocalDateTime startTime = now;
+        LocalDateTime endTime = startTime.plusMinutes(immediateSlot.getRequiredMinutes());
+
+        ConfirmOrderDTO confirmRequest = ConfirmOrderDTO.builder()
+                .userId(driver.getUserId())
+                .vehicleId(vehicle.getId())
+                .stationId(station.getStationId())
+                .chargingPointId(chargingPoint.getChargingPointId())
+                .startTime(startTime)
+                .endTime(endTime)
+                .currentBattery(request.getCurrentBattery())
+                .targetBattery(request.getTargetBattery())
+                .build();
+
+        OrderResponseDTO createdOrder;
+        try {
+            createdOrder = orderService.confirmOrder(confirmRequest);
+        } catch (Exception e) {
+            log.error("Error confirming order: {}", e.getMessage());
+            throw new RuntimeException("Không thể tạo order: " + e.getMessage());
+        }
+
+        // 10. Gửi thông báo cho driver
+        try {
+            String staffName = "Staff";
+            if (request.getStaffId() != null) {
+                User staff = userRepository.findById(request.getStaffId()).orElse(null);
+                if (staff != null) {
+                    staffName = staff.getFullName();
+                }
+            }
+
+            notificationService.createGeneralNotification(
+                    List.of(driver.getUserId()),
+                    "Phiên sạc được tạo bởi Staff",
+                    String.format(" Staff %s đã tạo phiên sạc cho bạn tại %s - Trụ #%d\n" +
+                                    "Thời gian: %s - %s\n" +
+                                    "Vui lòng đến trạm và bắt đầu sạc!",
+                            staffName,
+                            station.getStationName(),
+                            chargingPoint.getChargingPointId(),
+                            startTime,
+                            endTime)
+            );
+        } catch (Exception e) {
+            log.error("Failed to send notification: {}", e.getMessage());
+        }
+
+        // 11. Trả về OrderResponseDTO
+        log.info("Successfully created immediate session. Order ID: {}", createdOrder.getOrderId());
+        return createdOrder;
+    }
+
+    @Override
+    public List<ChargingPointDTO> getChargingPointsByStation(Long stationId) {
+        log.info("Getting charging points for station: {}", stationId);
+
+        // Validate station
+        ChargingStation station = chargingStationRepository.findById(stationId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy trạm sạc với ID: " + stationId));
+
+        // Lấy tất cả charging points của trạm
+        List<ChargingPoint> chargingPoints = chargingPointRepository.findByStation_StationId(stationId);
+
+        // Convert sang DTO
+        return chargingPoints.stream()
+                .map(point -> {
+                    ChargingPointDTO dto = new ChargingPointDTO();
+                    dto.setChargingPointId(point.getChargingPointId());
+                    dto.setStatus(point.getStatus());
+                    dto.setStationId(point.getStation().getStationId());
+                    dto.setConnectorTypeId(point.getConnectorType().getConnectorTypeId());
+                    dto.setTypeName(point.getConnectorType().getTypeName());
+                    dto.setPowerOutput(point.getConnectorType().getPowerOutput());
+                    dto.setPricePerKwh(point.getConnectorType().getPricePerKWh());
+                    return dto;
+                })
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<TransactionHistoryDTO> getTransactionHistoryByStation(Long stationId) {
+        log.info("Getting transaction history for station: {}", stationId);
+
+        // Validate station
+        ChargingStation station = chargingStationRepository.findById(stationId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy trạm sạc với ID: " + stationId));
+
+        // Lấy tất cả transactions của trạm
+        List<Transaction> transactions = transactionRepository
+                .findBySessionOrderChargingPointStationStationIdOrderByCreatedAtDesc(stationId);
+
+        // Convert sang DTO
+        return transactions.stream()
+                .map(tx -> {
+                    Session session = tx.getSession();
+                    Order order = session.getOrder();
+                    User user = order.getUser();
+
+                    return TransactionHistoryDTO.builder()
+                            .transactionId(tx.getTransactionId())
+                            .amount(java.math.BigDecimal.valueOf(tx.getAmount()))
+                            .paymentMethod(tx.getPaymentMethod())
+                            .status(tx.getStatus())
+                            .createdAt(tx.getCreatedAt())
+                            .paymentTime(tx.getPaymentTime())
+                            .userId(user.getUserId())
+                            .userName(user.getFullName())
+                            .userEmail(user.getEmail())
+                            .sessionId(session.getSessionId())
+                            .sessionStartTime(session.getStartTime())
+                            .sessionEndTime(session.getEndTime())
+                            .powerConsumed(java.math.BigDecimal.valueOf(session.getPowerConsumed()))
+                            .stationName(station.getStationName())
+                            .stationAddress(station.getAddress())
+                            .vnpayTransactionNo(tx.getVnpayTransactionNo())
+                            .vnpayBankCode(tx.getVnpayBankCode())
+                            .build();
+                })
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional
+    public TransactionHistoryDTO processOnsitePayment(Long sessionId, Long staffId) {
+        log.info("Processing onsite payment for session: {} by staff: {}", sessionId, staffId);
+
+        // 1. Validate staff
+        User staff = userRepository.findById(staffId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy staff với ID: " + staffId));
+
+        if (staff.getRole() != User.UserRole.STAFF) {
+            throw new RuntimeException("User này không phải là STAFF");
+        }
+
+        // 2. Lấy session (trực tiếp từ sessionId)
+        Session session = sessionRepository.findById(sessionId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy phiên sạc với ID: " + sessionId));
+
+        Order order = session.getOrder();
+        if (order == null) {
+            throw new RuntimeException("Session không có order liên kết");
+        }
+
+        // 3. Kiểm tra session đã hoàn thành chưa
+        if (session.getStatus() != Session.SessionStatus.COMPLETED) {
+            throw new RuntimeException("Phiên sạc chưa hoàn thành. Status hiện tại: " + session.getStatus());
+        }
+
+        // 4. Kiểm tra đã có transaction chưa
+        Optional<Transaction> existingTx = transactionRepository.findBySessionAndUser(session, order.getUser());
+        if (existingTx.isPresent()) {
+            Transaction existing = existingTx.get();
+            if (existing.getStatus() == Transaction.Status.SUCCESS) {
+                throw new RuntimeException("Phiên sạc này đã được thanh toán rồi");
+            }
+        }
+
+        // 5. Tính tổng tiền phải trả (baseCost + fees)
+        double totalAmount = session.getBaseCost();
+        if (session.getFees() != null && !session.getFees().isEmpty()) {
+            totalAmount += session.getFees().stream()
+                    .mapToDouble(Fee::getAmount)
+                    .sum();
+        }
+
+        // 6. Tạo transaction mới với payment method = CASH
+        Transaction transaction = new Transaction();
+        transaction.setSession(session);
+        transaction.setUser(order.getUser());
+        transaction.setAmount(totalAmount);
+        transaction.setPaymentMethod(Transaction.PaymentMethod.CASH);
+        transaction.setStatus(Transaction.Status.SUCCESS);
+        transaction.setPaymentTime(LocalDateTime.now());
+        transaction.setCreatedAt(LocalDateTime.now());
+
+        transaction = transactionRepository.save(transaction);
+
+        log.info("Created onsite payment transaction: {} for session: {}", transaction.getTransactionId(), sessionId);
+
+        // 7. Gửi thông báo cho driver
+        try {
+            notificationService.createGeneralNotification(
+                    List.of(order.getUser().getUserId()),
+                    "Thanh toán tại chỗ thành công",
+                    String.format(" Staff %s đã xác nhận thanh toán tại chỗ\n" +
+                                    "Số tiền: %.0f VND\n" +
+                                    "Trạm: %s\n" +
+                                    "Cảm ơn bạn đã s��� dụng dịch vụ!",
+                            staff.getFullName(),
+                            totalAmount,
+                            order.getChargingPoint().getStation().getStationName())
+            );
+        } catch (Exception e) {
+            log.error("Failed to send notification: {}", e.getMessage());
+        }
+
+        // 8. Convert sang DTO và return
+        return TransactionHistoryDTO.builder()
+                .transactionId(transaction.getTransactionId())
+                .amount(java.math.BigDecimal.valueOf(transaction.getAmount()))
+                .paymentMethod(transaction.getPaymentMethod())
+                .status(transaction.getStatus())
+                .createdAt(transaction.getCreatedAt())
+                .paymentTime(transaction.getPaymentTime())
+                .userId(order.getUser().getUserId())
+                .userName(order.getUser().getFullName())
+                .userEmail(order.getUser().getEmail())
+                .sessionId(session.getSessionId())
+                .sessionStartTime(session.getStartTime())
+                .sessionEndTime(session.getEndTime())
+                .powerConsumed(java.math.BigDecimal.valueOf(session.getPowerConsumed()))
+                .stationName(order.getChargingPoint().getStation().getStationName())
+                .stationAddress(order.getChargingPoint().getStation().getAddress())
+                .vnpayTransactionNo(transaction.getVnpayTransactionNo())
+                .vnpayBankCode(transaction.getVnpayBankCode())
+                .build();
+    }
+
 }
