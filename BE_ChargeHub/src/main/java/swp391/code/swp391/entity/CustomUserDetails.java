@@ -23,6 +23,7 @@ public class CustomUserDetails implements UserDetails { //không phải entity, 
     public Collection<? extends GrantedAuthority> getAuthorities() {
         List<SimpleGrantedAuthority> authorities = new ArrayList<>();
         authorities.add(new SimpleGrantedAuthority("ROLE_" + user.getRole().name().toUpperCase()));
+        authorities.add(new SimpleGrantedAuthority("STATUS_"+ user.getStatus().name().toUpperCase()));
         return authorities;
     }
 
@@ -49,7 +50,7 @@ public class CustomUserDetails implements UserDetails { //không phải entity, 
 
     @Override
     public boolean isAccountNonLocked() {
-        return user.getStatus() == User.UserStatus.ACTIVE;
+        return true;
     }
 
     @Override
@@ -59,6 +60,7 @@ public class CustomUserDetails implements UserDetails { //không phải entity, 
 
     @Override
     public boolean isEnabled() {
+        // User phải ở trạng thái ACTIVE mới được enabled
         return user.getStatus() == User.UserStatus.ACTIVE;
     }
 }

@@ -165,7 +165,6 @@ public class AuthenticationService {
                 return mapper.readValue(
                         restTemplate.getForEntity(userInfoUri, String.class).getBody(),
                         new TypeReference<>() {});
-//                break; // Unreachable code
             default:
                 throw new IllegalArgumentException("Unsupported login type: " + loginType);
         }

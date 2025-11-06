@@ -9,33 +9,35 @@ import CustomerSupportView from "./components/CustomerSupportView";
 import ChargingManagementView from "./components/ChargingManagementView";
 import StaffInvoiceView from "./components/StaffInvoiceView";
 import StaffReportView from "./components/StaffReportView";
-import { 
-  Menu, 
-  X, 
-  Sun, 
-  Moon, 
-  Globe, 
-  Home,
-  Users,
-  Settings,
-  HelpCircle,
-  LogOut,
-  MapPin,
-  Zap,
-  Car,
-  BarChart3,
-  Calendar,
-  Bell,
-  ChevronDown,
-  ArrowDown,
-  Receipt,
-  AlertTriangle,
-  FileText,
-  CreditCard,
-  DollarSign,
-  CheckCircle,
-  Activity
+import {
+    Menu,
+    X,
+    Sun,
+    Moon,
+    Globe,
+    Home,
+    Users,
+    Settings,
+    HelpCircle,
+    LogOut,
+    MapPin,
+    Zap,
+    Car,
+    BarChart3,
+    Calendar,
+    Bell,
+    ChevronDown,
+    ArrowDown,
+    Receipt,
+    AlertTriangle,
+    FileText,
+    CreditCard,
+    DollarSign,
+    CheckCircle,
+    Activity
 } from "lucide-react";
+import { logoutUser } from "./services/api";
+import { toast } from "sonner";
 
 interface StaffDashboardProps {
   onLogout: () => void;
@@ -46,32 +48,52 @@ interface StaffDashboardProps {
 }
 
 export default function StaffDashboard({ onLogout, onGoHome, onNotifications, onPostActivating, onStationManagement }: StaffDashboardProps) {
-  const [activeSection, setActiveSection] = useState("dashboard");
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [scrollProgress, setScrollProgress] = useState(0);
-  const [showScrollIndicator, setShowScrollIndicator] = useState(false);
-  const { theme, toggleTheme } = useTheme();
-  const { language, setLanguage, t } = useLanguage();
-  const { currentStation } = useStation();
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
+    const [activeSection, setActiveSection] = useState("dashboard");
+    const [sidebarOpen, setSidebarOpen] = useState(false);
+    const [scrollProgress, setScrollProgress] = useState(0);
+    const [showScrollIndicator, setShowScrollIndicator] = useState(false);
+    const [isLoggingOut, setIsLoggingOut] = useState(false);
+    const { theme, toggleTheme } = useTheme();
+    const { language, setLanguage, t } = useLanguage();
+    const { currentStation } = useStation();
+    const scrollContainerRef = useRef<HTMLDivElement>(null);
 
-  // Function to handle language change
-  const handleLanguageChange = () => {
-    const newLanguage = language === "en" ? "vi" : "en";
-    setLanguage(newLanguage);
-  };
+    // Function to handle language change
+    const handleLanguageChange = () => {
+        const newLanguage = language === "en" ? "vi" : "en";
+        setLanguage(newLanguage);
+    };
+    const handleLogout = async () => {
+        try {
+            setIsLoggingOut(true);
+            await logoutUser();
+        } catch (_) {
+            // ignore
+        } finally {
+            localStorage.removeItem("token");
+            localStorage.removeItem("userId");
+            localStorage.removeItem("fullName");
+            localStorage.removeItem("email");
+            localStorage.removeItem("role");
+            localStorage.removeItem("registeredUserId");
+            localStorage.removeItem("refreshToken");
+            toast.success(t('Logout successful'));
+            setIsLoggingOut(false);
+            onLogout();
+        }
+    };
 
-  const menuItems = useMemo(() => [
-    { id: "dashboard", label: t("dashboard") || "Dashboard", icon: Home },
-    { id: "customers", label: t("customer_support") || "Customer Support", icon: Users },
-    { id: "chargingManagement", label: language === 'vi' ? "Quản Lý Charging" : "Charging Management", icon: Zap },
-    { id: "stationManagement", label: language === 'vi' ? "Quản Lý Trạm" : "Station Management", icon: MapPin },
-    { id: "billing", label: t("billing_invoice") || "Billing & Invoice", icon: Receipt },
-    { id: "reports", label: t("report_issues") || "Report Issues", icon: AlertTriangle },
-    { id: "postActivating", label: language === 'vi' ? "Kích Hoạt Trạm" : "Post Activating", icon: Activity },
-    { id: "notifications", label: t("notification") || "Notifications", icon: Bell },
-    { id: "settings", label: "Settings", icon: Settings },
-  ], [t, language]);
+    const menuItems = useMemo(() => [
+        { id: "dashboard", label: t("dashboard") || "Dashboard", icon: Home },
+        { id: "customers", label: t("customer_support") || "Customer Support", icon: Users },
+        { id: "chargingManagement", label: language === 'vi' ? "Quản Lý Charging" : "Charging Management", icon: Zap },
+        { id: "stationManagement", label: language === 'vi' ? "Quản Lý Trạm" : "Station Management", icon: MapPin },
+        { id: "billing", label: t("billing_invoice") || "Billing & Invoice", icon: Receipt },
+        { id: "reports", label: t("report_issues") || "Report Issues", icon: AlertTriangle },
+        { id: "postActivating", label: language === 'vi' ? "Kích Hoạt Trạm" : "Post Activating", icon: Activity },
+        { id: "notifications", label: t("notification") || "Notifications", icon: Bell },
+        { id: "settings", label: "Settings", icon: Settings },
+    ], [t, language]);
 
   // Handle scroll progress tracking
   useEffect(() => {
@@ -110,77 +132,83 @@ export default function StaffDashboard({ onLogout, onGoHome, onNotifications, on
     }
   };
 
-  const renderContent = () => {
-    switch (activeSection) {
-      case "customers":
-        return (
-          <CustomerSupportView onBack={() => setActiveSection("dashboard")} />
-        );
+    const renderContent = () => {
+        switch (activeSection) {
+            case "customers":
+                return (
+                    <CustomerSupportView onBack={() => setActiveSection("dashboard")} />
+                );
 
-      case "chargingManagement":
-        return (
-          <ChargingManagementView onBack={() => setActiveSection("dashboard")} />
-        );
+            case "chargingManagement": {
+                const stationId = localStorage.getItem('stationId');
+                const stationIdNumber = stationId ? Number(stationId) : undefined;
+                return (
+                    <ChargingManagementView
+                        onBack={() => setActiveSection("dashboard")}
+                        {...(stationIdNumber && { stationId: stationIdNumber })}
+                    />
+                );
+            }
 
-      case "stationManagement":
-        return (
-          <div className="space-y-6">
-            <div className="mb-8">
-              <h2 className="mb-2 text-foreground">{language === 'vi' ? 'Quản Lý Trạm Sạc' : 'Station Management'}</h2>
-              <p className="text-muted-foreground">{language === 'vi' ? 'Quản lý cột sạc và hóa đơn tại trạm' : 'Manage charging pillars and invoices at station'}</p>
-            </div>
-            
-            <div className="text-center py-4">
-              <Button 
-                onClick={onStationManagement} 
-                className="bg-primary hover:bg-primary/90 text-primary-foreground"
-                size="lg"
-              >
-                <MapPin className="w-4 h-4 mr-2" />
-                {language === 'vi' ? 'Mở Quản Lý Trạm' : 'Open Station Management'}
-              </Button>
-            </div>
+            case "stationManagement":
+                return (
+                    <div className="space-y-6">
+                        <div className="mb-8">
+                            <h2 className="mb-2 text-foreground">{language === 'vi' ? 'Quản Lý Trạm Sạc' : 'Station Management'}</h2>
+                            <p className="text-muted-foreground">{language === 'vi' ? 'Quản lý cột sạc và hóa đơn tại trạm' : 'Manage charging pillars and invoices at station'}</p>
+                        </div>
 
-            {/* Quick Stats */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-              <div className="bg-card rounded-xl p-6 shadow-sm border border-border">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-muted-foreground">{language === 'vi' ? 'Cột Sẵn Sàng' : 'Available Pillars'}</p>
-                    <p className="text-2xl font-semibold text-card-foreground">5/8</p>
-                  </div>
-                  <div className="w-12 h-12 bg-green-100 dark:bg-green-900 rounded-lg flex items-center justify-center">
-                    <Zap className="w-6 h-6 text-green-600 dark:text-green-400" />
-                  </div>
-                </div>
-              </div>
+                        <div className="text-center py-4">
+                            <Button
+                                onClick={onStationManagement}
+                                className="bg-primary hover:bg-primary/90 text-primary-foreground"
+                                size="lg"
+                            >
+                                <MapPin className="w-4 h-4 mr-2" />
+                                {language === 'vi' ? 'Mở Quản Lý Trạm' : 'Open Station Management'}
+                            </Button>
+                        </div>
 
-              <div className="bg-card rounded-xl p-6 shadow-sm border border-border">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-muted-foreground">{language === 'vi' ? 'Đang Sạc' : 'Active Sessions'}</p>
-                    <p className="text-2xl font-semibold text-card-foreground">3</p>
-                  </div>
-                  <div className="w-12 h-12 bg-yellow-100 dark:bg-yellow-900 rounded-lg flex items-center justify-center">
-                    <Car className="w-6 h-6 text-yellow-600 dark:text-yellow-400" />
-                  </div>
-                </div>
-              </div>
+                        {/* Quick Stats */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                            <div className="bg-card rounded-xl p-6 shadow-sm border border-border">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <p className="text-sm text-muted-foreground">{language === 'vi' ? 'Cột Sẵn Sàng' : 'Available Pillars'}</p>
+                                        <p className="text-2xl font-semibold text-card-foreground">5/8</p>
+                                    </div>
+                                    <div className="w-12 h-12 bg-green-100 dark:bg-green-900 rounded-lg flex items-center justify-center">
+                                        <Zap className="w-6 h-6 text-green-600 dark:text-green-400" />
+                                    </div>
+                                </div>
+                            </div>
 
-              <div className="bg-card rounded-xl p-6 shadow-sm border border-border">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-muted-foreground">{language === 'vi' ? 'Hóa Đơn Hôm Nay' : 'Invoices Today'}</p>
-                    <p className="text-2xl font-semibold text-card-foreground">12</p>
-                  </div>
-                  <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900 rounded-lg flex items-center justify-center">
-                    <Receipt className="w-6 h-6 text-blue-600 dark:text-blue-400" />
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        );
+                            <div className="bg-card rounded-xl p-6 shadow-sm border border-border">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <p className="text-sm text-muted-foreground">{language === 'vi' ? 'Đang Sạc' : 'Active Sessions'}</p>
+                                        <p className="text-2xl font-semibold text-card-foreground">3</p>
+                                    </div>
+                                    <div className="w-12 h-12 bg-yellow-100 dark:bg-yellow-900 rounded-lg flex items-center justify-center">
+                                        <Car className="w-6 h-6 text-yellow-600 dark:text-yellow-400" />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="bg-card rounded-xl p-6 shadow-sm border border-border">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <p className="text-sm text-muted-foreground">{language === 'vi' ? 'Hóa Đơn Hôm Nay' : 'Invoices Today'}</p>
+                                        <p className="text-2xl font-semibold text-card-foreground">12</p>
+                                    </div>
+                                    <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900 rounded-lg flex items-center justify-center">
+                                        <Receipt className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                );
 
       case "billing":
         return (
@@ -695,200 +723,201 @@ export default function StaffDashboard({ onLogout, onGoHome, onNotifications, on
               </Button>
             )}
 
-            {/* Settings Popover */}
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground">
-                  <Settings className="w-4 h-4" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-56 p-3" align="end">
-                <div className="space-y-1">
-                  <div className="px-2 py-1">
-                    <p className="text-sm font-medium">
-                      {t("settings")}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {language === "vi" ? "Tùy chọn hệ thống" : "System preferences"}
-                    </p>
-                  </div>
-                  <Separator />
-                  
-                  {/* Theme Toggle */}
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={toggleTheme}
-                    className="w-full justify-start h-8"
-                  >
-                    {theme === "light" ? (
-                      <>
-                        <Moon className="w-3 h-3 mr-2" />
-                        {t("switch_to_dark")}
-                      </>
-                    ) : (
-                      <>
-                        <Sun className="w-3 h-3 mr-2" />
-                        {t("switch_to_light")}
-                      </>
-                    )}
-                  </Button>
+                        {/* Settings Popover */}
+                        <Popover>
+                            <PopoverTrigger asChild>
+                                <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground">
+                                    <Settings className="w-4 h-4" />
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-56 p-3" align="end">
+                                <div className="space-y-1">
+                                    <div className="px-2 py-1">
+                                        <p className="text-sm font-medium">
+                                            {t("settings")}
+                                        </p>
+                                        <p className="text-xs text-muted-foreground">
+                                            {language === "vi" ? "Tùy chọn hệ thống" : "System preferences"}
+                                        </p>
+                                    </div>
+                                    <Separator />
 
-                  {/* Language Toggle */}
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleLanguageChange}
-                    className="w-full justify-start h-8"
-                  >
-                    <Globe className="w-3 h-3 mr-2" />
-                    {language === "en" ? t("tieng_viet") : t("english")}
-                  </Button>
+                                    {/* Theme Toggle */}
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={toggleTheme}
+                                        className="w-full justify-start h-8"
+                                    >
+                                        {theme === "light" ? (
+                                            <>
+                                                <Moon className="w-3 h-3 mr-2" />
+                                                {t("switch_to_dark")}
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Sun className="w-3 h-3 mr-2" />
+                                                {t("switch_to_light")}
+                                            </>
+                                        )}
+                                    </Button>
 
-                  <Separator />
+                                    {/* Language Toggle */}
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={handleLanguageChange}
+                                        className="w-full justify-start h-8"
+                                    >
+                                        <Globe className="w-3 h-3 mr-2" />
+                                        {language === "en" ? t("tieng_viet") : t("english")}
+                                    </Button>
 
-                  {/* Settings Page Link */}
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      setActiveSection("settings");
-                      setSidebarOpen(false);
-                    }}
-                    className="w-full justify-start h-8"
-                  >
-                    <Settings className="w-3 h-3 mr-2" />
-                    {t("all_settings")}
-                  </Button>
+                                    <Separator />
+
+                                    {/* Settings Page Link */}
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => {
+                                            setActiveSection("settings");
+                                            setSidebarOpen(false);
+                                        }}
+                                        className="w-full justify-start h-8"
+                                    >
+                                        <Settings className="w-3 h-3 mr-2" />
+                                        {t("all_settings")}
+                                    </Button>
+                                </div>
+                            </PopoverContent>
+                        </Popover>
+                    </div>
                 </div>
-              </PopoverContent>
-            </Popover>
-          </div>
-        </div>
-      </div>
-
-      <div className="flex">
-        {/* Sidebar */}
-        <div className={`fixed inset-y-0 left-0 z-30 w-64 bg-sidebar border-r border-sidebar-border transform ${
-          sidebarOpen ? "translate-x-0" : "-translate-x-full"
-        } transition-transform duration-300 ease-in-out md:translate-x-0 md:static md:inset-0`}>
-          <div className="flex flex-col h-full">
-            <div className="flex items-center justify-between p-4 md:hidden">
-              <span className="font-semibold text-sidebar-foreground">Menu</span>
-              <Button variant="ghost" size="sm" onClick={() => setSidebarOpen(false)}>
-                <X className="w-5 h-5" />
-              </Button>
             </div>
 
-            {/* Station Info Header - Visible on desktop */}
-            <div className="hidden md:block p-4 border-b border-sidebar-border">
-              <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 bg-sidebar-primary rounded-lg flex items-center justify-center">
-                  <span className="font-bold text-sidebar-primary-foreground">V</span>
+            <div className="flex">
+                {/* Sidebar */}
+                <div className={`fixed inset-y-0 left-0 z-30 w-64 bg-sidebar border-r border-sidebar-border transform ${
+                    sidebarOpen ? "translate-x-0" : "-translate-x-full"
+                } transition-transform duration-300 ease-in-out md:translate-x-0 md:static md:inset-0`}>
+                    <div className="flex flex-col h-full">
+                        <div className="flex items-center justify-between p-4 md:hidden">
+                            <span className="font-semibold text-sidebar-foreground">Menu</span>
+                            <Button variant="ghost" size="sm" onClick={() => setSidebarOpen(false)}>
+                                <X className="w-5 h-5" />
+                            </Button>
+                        </div>
+
+                        {/* Station Info Header - Visible on desktop */}
+                        <div className="hidden md:block p-4 border-b border-sidebar-border">
+                            <div className="flex items-center space-x-3">
+                                <div className="w-10 h-10 bg-sidebar-primary rounded-lg flex items-center justify-center">
+                                    <span className="font-bold text-sidebar-primary-foreground">V</span>
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <h2 className="font-semibold text-sidebar-foreground truncate">{currentStation.name}</h2>
+                                    <p className="text-xs text-sidebar-foreground/60 truncate">
+                                        ID: {currentStation.id}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <nav className="flex-1 overflow-hidden relative">
+                            {/* Scroll Progress Indicator */}
+                            {showScrollIndicator && (
+                                <div className="absolute top-0 right-0 w-1 h-full bg-sidebar-border/30 z-10">
+                                    <div
+                                        className="w-full bg-sidebar-primary transition-all duration-300 ease-out rounded-full"
+                                        style={{ height: `${scrollProgress}%` }}
+                                    />
+                                </div>
+                            )}
+
+                            {/* Quick Navigation Buttons */}
+                            {showScrollIndicator && (
+                                <div className="absolute top-2 right-2 flex flex-col space-y-1 z-20">
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={scrollToBottom}
+                                        className="h-6 w-6 p-0 bg-sidebar-accent/50 hover:bg-sidebar-accent text-sidebar-foreground rounded-md opacity-70 hover:opacity-100 transition-opacity"
+                                        title="Scroll to Logout"
+                                    >
+                                        <ArrowDown className="w-3 h-3" />
+                                    </Button>
+                                </div>
+                            )}
+
+                            {/* Scrollable menu area */}
+                            <div
+                                ref={scrollContainerRef}
+                                className="h-full overflow-y-auto px-4 py-4 space-y-2 scrollbar-thin scrollbar-track-sidebar scrollbar-thumb-sidebar-border hover:scrollbar-thumb-sidebar-accent-foreground"
+                            >
+                                {menuItems.map((item) => {
+                                    const Icon = item.icon;
+                                    return (
+                                        <Button
+                                            key={item.id}
+                                            variant={activeSection === item.id ? "default" : "ghost"}
+                                            className={`w-full justify-start ${
+                                                activeSection === item.id
+                                                    ? "bg-sidebar-primary text-sidebar-primary-foreground"
+                                                    : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                                            }`}
+                                            onClick={() => {
+                                                setActiveSection(item.id);
+                                                setSidebarOpen(false);
+                                            }}
+                                        >
+                                            <Icon className="w-4 h-4 mr-3" />
+                                            {item.label}
+                                        </Button>
+                                    );
+                                })}
+                            </div>
+                        </nav>
+
+                        <div className="p-4 border-t border-sidebar-border relative">
+                            {/* Logout indicator when scrolled */}
+                            {scrollProgress < 90 && showScrollIndicator && (
+                                <div className="absolute -top-2 left-1/2 transform -translate-x-1/2">
+                                    <div className="flex items-center space-x-1 text-xs text-sidebar-foreground/50 animate-pulse">
+                                        <ChevronDown className="w-3 h-3" />
+                                        <span>Logout</span>
+                                        <ChevronDown className="w-3 h-3" />
+                                    </div>
+                                </div>
+                            )}
+
+                            <Button
+                                variant="ghost"
+                                className="w-full justify-start text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                                onClick={handleLogout}
+                                disabled={isLoggingOut}
+                            >
+                                <LogOut className="w-4 h-4 mr-3" />
+                                Logout
+                            </Button>
+                        </div>
+                    </div>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <h2 className="font-semibold text-sidebar-foreground truncate">{currentStation.name}</h2>
-                  <p className="text-xs text-sidebar-foreground/60 truncate">
-                    ID: {currentStation.id}
-                  </p>
+
+                {/* Overlay */}
+                {sidebarOpen && (
+                    <div
+                        className="fixed inset-0 z-20 bg-black bg-opacity-50 md:hidden"
+                        onClick={() => setSidebarOpen(false)}
+                    />
+                )}
+
+                {/* Main Content */}
+                <div className="flex-1 md:ml-0">
+                    <main className="p-6">
+                        {renderContent()}
+                    </main>
                 </div>
-              </div>
             </div>
-
-            <nav className="flex-1 overflow-hidden relative">
-              {/* Scroll Progress Indicator */}
-              {showScrollIndicator && (
-                <div className="absolute top-0 right-0 w-1 h-full bg-sidebar-border/30 z-10">
-                  <div 
-                    className="w-full bg-sidebar-primary transition-all duration-300 ease-out rounded-full"
-                    style={{ height: `${scrollProgress}%` }}
-                  />
-                </div>
-              )}
-
-              {/* Quick Navigation Buttons */}
-              {showScrollIndicator && (
-                <div className="absolute top-2 right-2 flex flex-col space-y-1 z-20">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={scrollToBottom}
-                    className="h-6 w-6 p-0 bg-sidebar-accent/50 hover:bg-sidebar-accent text-sidebar-foreground rounded-md opacity-70 hover:opacity-100 transition-opacity"
-                    title="Scroll to Logout"
-                  >
-                    <ArrowDown className="w-3 h-3" />
-                  </Button>
-                </div>
-              )}
-
-              {/* Scrollable menu area */}
-              <div 
-                ref={scrollContainerRef}
-                className="h-full overflow-y-auto px-4 py-4 space-y-2 scrollbar-thin scrollbar-track-sidebar scrollbar-thumb-sidebar-border hover:scrollbar-thumb-sidebar-accent-foreground"
-              >
-                {menuItems.map((item) => {
-                  const Icon = item.icon;
-                  return (
-                    <Button
-                      key={item.id}
-                      variant={activeSection === item.id ? "default" : "ghost"}
-                      className={`w-full justify-start ${
-                        activeSection === item.id
-                          ? "bg-sidebar-primary text-sidebar-primary-foreground"
-                          : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-                      }`}
-                      onClick={() => {
-                        setActiveSection(item.id);
-                        setSidebarOpen(false);
-                      }}
-                    >
-                      <Icon className="w-4 h-4 mr-3" />
-                      {item.label}
-                    </Button>
-                  );
-                })}
-              </div>
-            </nav>
-
-            <div className="p-4 border-t border-sidebar-border relative">
-              {/* Logout indicator when scrolled */}
-              {scrollProgress < 90 && showScrollIndicator && (
-                <div className="absolute -top-2 left-1/2 transform -translate-x-1/2">
-                  <div className="flex items-center space-x-1 text-xs text-sidebar-foreground/50 animate-pulse">
-                    <ChevronDown className="w-3 h-3" />
-                    <span>Logout</span>
-                    <ChevronDown className="w-3 h-3" />
-                  </div>
-                </div>
-              )}
-              
-              <Button
-                variant="ghost"
-                className="w-full justify-start text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-                onClick={onLogout}
-              >
-                <LogOut className="w-4 h-4 mr-3" />
-                Logout
-              </Button>
-            </div>
-          </div>
         </div>
-
-        {/* Overlay */}
-        {sidebarOpen && (
-          <div
-            className="fixed inset-0 z-20 bg-black bg-opacity-50 md:hidden"
-            onClick={() => setSidebarOpen(false)}
-          />
-        )}
-
-        {/* Main Content */}
-        <div className="flex-1 md:ml-0">
-          <main className="p-6">
-            {renderContent()}
-          </main>
-        </div>
-      </div>
-    </div>
-  );
+    );
 }

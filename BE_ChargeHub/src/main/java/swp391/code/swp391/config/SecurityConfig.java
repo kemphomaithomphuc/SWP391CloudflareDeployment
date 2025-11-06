@@ -46,12 +46,14 @@ public class SecurityConfig {
             "/api/staff/**",
             "/api/transactions/**",
             "/api/admin/revenue/**",
-            "/api/test/**" // them de test thoi, khong dung nua thi xoa
+            "/api/test/**", // them de test thoi, khong dung nua thi xoa
+            "/api/notifications/connection/ws/**" // WebSocket endpoint
     };
     private final JwtDecoder jwtDecoder; // Tự động được Spring inject JwtDecoderConfig
     private final CustomUserDetailService userDetailsService;
     private final JwtBlacklistFilter jwtBlacklistFilter;
     private final AuthorizationFilter authorizeationFilter;
+    private final swp391.code.swp391.filter.UserStatusFilter userStatusFilter;
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
@@ -59,7 +61,8 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .cors(Customizer.withDefaults())
                 .addFilterBefore(jwtBlacklistFilter, BearerTokenAuthenticationFilter.class)
-                .addFilterAfter(authorizeationFilter,BearerTokenAuthenticationFilter.class)
+                .addFilterAfter(userStatusFilter, BearerTokenAuthenticationFilter.class)
+                .addFilterAfter(authorizeationFilter, BearerTokenAuthenticationFilter.class)
                 .oauth2ResourceServer((oauth2) -> oauth2
                         .jwt(jwtConfigurer -> jwtConfigurer.decoder(jwtDecoder)
                                 .jwtAuthenticationConverter(jwtAuthenticationConverter())

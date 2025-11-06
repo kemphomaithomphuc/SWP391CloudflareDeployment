@@ -9,11 +9,13 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import swp391.code.swp391.dto.APIResponse;
 import swp391.code.swp391.dto.SessionProgressDTO;
+import swp391.code.swp391.dto.SessionDTO;
 import swp391.code.swp391.dto.StartSessionRequestDTO;
 import swp391.code.swp391.util.JwtUtil;
 import swp391.code.swp391.service.SessionService;
 
 import java.text.ParseException;
+import java.util.List;
 
 
 @RestController
@@ -52,6 +54,9 @@ public class SessionController {
     }
 
     // US11: GET /api/sessions/{sessionId}/monitor
+    // NOTE: This endpoint is OPTIONAL for backwards compatibility
+    // Progress is automatically pushed via WebSocket every 10 seconds (SessionProgressScheduler)
+    // Subscribe to /user/queue/session-progress to receive real-time updates
     @PutMapping("/{sessionId}/monitor")
     public ResponseEntity<APIResponse<SessionProgressDTO>> monitorSession(@PathVariable Long sessionId,
                                                                           HttpServletRequest httpServletRequest) {
@@ -88,6 +93,45 @@ public class SessionController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(APIResponse.error("Token parsing error"));
         } catch (RuntimeException e) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(APIResponse.error(e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(APIResponse.error(e.getMessage()));
+        }
+    }
+
+    @GetMapping("")
+    public ResponseEntity<APIResponse<List<SessionDTO>>> getAllSessions() {
+        try {
+            List<SessionDTO> list = sessionService.getAllSessions();
+            return ResponseEntity.ok(APIResponse.success("Sessions retrieved", list));
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(APIResponse.error(e.getMessage()));
+        }
+    }
+
+    @GetMapping("/{sessionId}")
+    public ResponseEntity<APIResponse<SessionDTO>> getSessionDetails(@PathVariable Long sessionId) {
+        try {
+            SessionDTO dto = sessionService.getSessionDetails(sessionId);
+            return ResponseEntity.ok(APIResponse.success("Session details retrieved", dto));
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(APIResponse.error(e.getMessage()));
+        }
+    }
+
+    @PostMapping("/{sessionId}/force-end")
+    public ResponseEntity<APIResponse<Long>> forceEndSession(@PathVariable Long sessionId,
+                                                             HttpServletRequest httpServletRequest) {
+        String header = httpServletRequest.getHeader("Authorization");
+        String token = jwtUtil.getTokenFromHeader(header);
+        Long operatorId;
+        try {
+            operatorId = jwtUtil.getUserIdByTokenDecode(token);
+            Long completed = sessionService.forceEndSession(sessionId, operatorId);
+            return ResponseEntity.ok(APIResponse.success("Session force-ended", completed));
+        } catch (ParseException | JOSEException e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(APIResponse.error("Token parsing error"));
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(APIResponse.error(e.getMessage()));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(APIResponse.error(e.getMessage()));
         }

@@ -4,7 +4,7 @@ import { Button } from "./ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Separator } from "./ui/separator";
-import { toast } from "sonner@2.0.3";
+import { toast } from "sonner";
 import { Toaster } from "./ui/sonner";
 
 interface StaffNotification {
@@ -24,7 +24,7 @@ interface StaffNotification {
     phoneNumber?: string;
   };
   actionData?: {
-    sessionId: string;
+    sessionId?: string;
     reportId?: string;
     amount?: number;
     location?: string;

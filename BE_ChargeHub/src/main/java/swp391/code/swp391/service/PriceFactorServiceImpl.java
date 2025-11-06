@@ -39,6 +39,11 @@ public class PriceFactorServiceImpl implements PriceFactorService {
             throw new IllegalArgumentException("Start time must be before end time");
         }
 
+        // Validate factor value
+        if (requestDTO.getFactor() <= 0) {
+            throw new IllegalArgumentException("Factor must be greater than 0");
+        }
+
         // Check for overlapping time periods
         List<PriceFactor> existingFactors = priceFactorRepository.findByStationId(requestDTO.getStationId());
         for (PriceFactor pf : existingFactors) {
@@ -58,9 +63,19 @@ public class PriceFactorServiceImpl implements PriceFactorService {
         PriceFactor existing = priceFactorRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Price factor not found with id: " + id));
 
+        // Validate required fields
+        if (updateDTO.getFactor() == null || updateDTO.getStartTime() == null || updateDTO.getEndTime() == null) {
+            throw new IllegalArgumentException("Factor, start time, and end time are required");
+        }
+
         // Validate time range
         if (updateDTO.getStartTime().isAfter(updateDTO.getEndTime())) {
             throw new IllegalArgumentException("Start time must be before end time");
+        }
+
+        // Validate factor value
+        if (updateDTO.getFactor() <= 0) {
+            throw new IllegalArgumentException("Factor must be greater than 0");
         }
 
         // Check for overlapping time periods, excluding itself
@@ -73,7 +88,7 @@ public class PriceFactorServiceImpl implements PriceFactorService {
             }
         }
 
-        // Update only allowed fields (stationId không thay đổi)
+        // Update fields (stationId không thay đổi)
         existing.setFactor(updateDTO.getFactor());
         existing.setStartTime(updateDTO.getStartTime());
         existing.setEndTime(updateDTO.getEndTime());
