@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import type { JSX } from 'react';
 import { ArrowLeft, Download, BarChart3, Calendar, MapPin, Building2, TrendingUp, Users, Zap, Clock } from 'lucide-react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
@@ -8,7 +9,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, Area, AreaChart } from 'recharts';
 import AdminLanguageThemeControls from './AdminLanguageThemeControls';
-import { getRevenueData, RevenueData, RevenueFilters, exportRevenueToExcel, exportRevenueToPDF, ExportRevenueFilters, getAllChargingStations, ChargingStationDTO } from '../services/api';
+import { getRevenueData, RevenueData, RevenueFilters, exportRevenueToExcel, exportRevenueToPDF, ExportRevenueFilters, getAllChargingStations, ChargingStationDTO, RevenueAPIResponse } from '../services/api';
 import { toast } from 'sonner';
 
 const regionData = [
@@ -36,7 +37,7 @@ interface RevenueViewProps {
   onBack: () => void;
 }
 
-export default function RevenueView({ onBack }: RevenueViewProps) {
+export default function RevenueView({ onBack }: RevenueViewProps): JSX.Element {
   const { language } = useLanguage();
   const { theme } = useTheme();
   const [selectedRegion, setSelectedRegion] = useState('all');
@@ -85,30 +86,30 @@ export default function RevenueView({ onBack }: RevenueViewProps) {
   const generateMockData = () => {
     const data = [];
     const daysCount = selectedTimeRange === 'week' ? 7 : selectedTimeRange === 'month' ? 30 : selectedTimeRange === 'quarter' ? 90 : 365;
-    
+
     for (let i = daysCount - 1; i >= 0; i--) {
       const date = new Date();
       date.setDate(date.getDate() - i);
-      
+
       // Generate random but realistic data
       const baseRevenue = 500 + Math.random() * 1500;
       const baseSessions = 10 + Math.random() * 40;
       const baseUsers = 5 + Math.random() * 20;
-      
+
       // Add some variation based on day of week (weekends higher)
       const dayOfWeek = date.getDay();
       const weekendMultiplier = (dayOfWeek === 0 || dayOfWeek === 6) ? 1.3 : 1;
-      
+
       const revenue = Math.round(baseRevenue * weekendMultiplier);
       const sessions = Math.round(baseSessions * weekendMultiplier);
       const users = Math.round(baseUsers * weekendMultiplier);
-      
+
       // Format date for display
-      const displayDate = date.toLocaleDateString(isVietnamese ? 'vi-VN' : 'en-US', { 
-        month: 'short', 
-        day: 'numeric' 
+      const displayDate = date.toLocaleDateString(isVietnamese ? 'vi-VN' : 'en-US', {
+        month: 'short',
+        day: 'numeric'
       });
-      
+
       data.push({
         month: displayDate,
         date: date.toISOString().split('T')[0],
@@ -117,7 +118,7 @@ export default function RevenueView({ onBack }: RevenueViewProps) {
         users: users,
       });
     }
-    
+
     return data;
   };
 
@@ -126,42 +127,6 @@ export default function RevenueView({ onBack }: RevenueViewProps) {
     const fetchRevenueData = async () => {
       setIsLoading(true);
       try {
-        // === TEMPORARY: Use mock data instead of API ===
-        console.log('Using mock data temporarily');
-        
-        // Simulate API delay
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
-        const mockData = generateMockData();
-        
-        // Process mock data
-        const processedData = mockData.map((item: any) => ({
-          ...item,
-          month: item.month,
-          revenue: Number(item.revenue || 0),
-          sessions: Number(item.sessions || 0),
-          users: Number(item.users || 0),
-        }));
-        
-        setRevenueData(processedData);
-        
-        // Calculate summary statistics
-        const totalRevenue = processedData.reduce((sum: number, item: any) => sum + (item.revenue || 0), 0);
-        const totalSessions = processedData.reduce((sum: number, item: any) => sum + (item.sessions || 0), 0);
-        // For mock data, estimate unique users as sum of daily users (simplified)
-        // In real API, this would be provided separately
-        const totalUsers = Math.round(processedData.reduce((sum: number, item: any) => sum + (item.users || 0), 0) * 0.7); // Estimate 70% unique
-        const avgRevenuePerSession = totalSessions > 0 ? totalRevenue / totalSessions : 0;
-        
-        setTotalRevenue(totalRevenue);
-        setTotalSessions(totalSessions);
-        setTotalUsers(totalUsers);
-        setAvgRevenuePerSession(avgRevenuePerSession);
-        
-        // === END MOCK DATA ===
-        
-        // === ORIGINAL API CODE (COMMENTED OUT) ===
-        /*
         // Calculate date range based on selectedTimeRange
         const getDateRange = () => {
           const toDate = new Date();
@@ -173,15 +138,20 @@ export default function RevenueView({ onBack }: RevenueViewProps) {
               break;
             case 'month':
               fromDate.setMonth(toDate.getMonth() - 1);
+              fromDate.setDate(toDate.getDate());
               break;
             case 'quarter':
               fromDate.setMonth(toDate.getMonth() - 3);
+              fromDate.setDate(toDate.getDate());
               break;
             case 'year':
               fromDate.setFullYear(toDate.getFullYear() - 1);
+              fromDate.setMonth(toDate.getMonth());
+              fromDate.setDate(toDate.getDate());
               break;
             default:
               fromDate.setMonth(toDate.getMonth() - 1);
+              fromDate.setDate(toDate.getDate());
           }
           
           // Set time to start of day for fromDate and end of day for toDate
@@ -205,7 +175,7 @@ export default function RevenueView({ onBack }: RevenueViewProps) {
           filters.station = selectedStation;
         }
         filters.timeRange = selectedTimeRange;
-        
+
         // New format with date range and stationId
         if (fromDate) filters.fromDate = fromDate;
         if (toDate) filters.toDate = toDate;
@@ -226,22 +196,15 @@ export default function RevenueView({ onBack }: RevenueViewProps) {
         
         console.log('Fetching revenue with filters:', filters);
         
-        const response = await getRevenueData(filters);
+        const response: RevenueAPIResponse = await getRevenueData(filters);
         
-        // Handle different response formats
-        let data: RevenueData[] = [];
-        if (Array.isArray(response)) {
-          data = response;
-        } else if (response.data && Array.isArray(response.data)) {
-          data = response.data;
-        } else if (response.data) {
-          data = [response.data];
-        }
+        // Process chart data from API response
+        const chartData = response.data?.chartData || [];
         
         // Process and normalize data format for display
-        const processedData = data.map((item: any) => {
+        const processedData = chartData.map((item: any) => {
           // Normalize date/month field for chart display
-          let displayDate = item.month || item.date || item.day || item.period || item.timePeriod || '';
+          let displayDate = item.period || item.date || '';
           
           // Format date string if needed
           if (displayDate) {
@@ -252,21 +215,21 @@ export default function RevenueView({ onBack }: RevenueViewProps) {
                 if (!isNaN(date.getTime())) {
                   // Format based on groupBy
                   if (filters.groupBy === 'day' || filters.groupBy === 'date') {
-                    displayDate = date.toLocaleDateString(isVietnamese ? 'vi-VN' : 'en-US', { 
-                      month: 'short', 
-                      day: 'numeric' 
+                    displayDate = date.toLocaleDateString(isVietnamese ? 'vi-VN' : 'en-US', {
+                      month: 'short',
+                      day: 'numeric'
                     });
                   } else if (filters.groupBy === 'week') {
                     displayDate = `Week ${Math.ceil(date.getDate() / 7)}`;
                   } else if (filters.groupBy === 'month') {
-                    displayDate = date.toLocaleDateString(isVietnamese ? 'vi-VN' : 'en-US', { 
-                      month: 'short', 
-                      year: 'numeric' 
+                    displayDate = date.toLocaleDateString(isVietnamese ? 'vi-VN' : 'en-US', {
+                      month: 'short',
+                      year: 'numeric'
                     });
                   } else {
-                    displayDate = date.toLocaleDateString(isVietnamese ? 'vi-VN' : 'en-US', { 
-                      month: 'short', 
-                      day: 'numeric' 
+                    displayDate = date.toLocaleDateString(isVietnamese ? 'vi-VN' : 'en-US', {
+                      month: 'short',
+                      day: 'numeric'
                     });
                   }
                 }
@@ -278,47 +241,32 @@ export default function RevenueView({ onBack }: RevenueViewProps) {
           }
           
           return {
-            ...item,
             month: displayDate, // Use 'month' as standard key for chart
-            revenue: Number(item.revenue || item.totalRevenue || 0),
-            sessions: Number(item.sessions || item.totalSessions || item.sessionCount || 0),
-            users: Number(item.users || item.totalUsers || item.userCount || 0),
+            date: item.date || item.period,
+            revenue: Number(item.revenue || 0),
+            sessions: Number(item.transactionCount || 0),
+            users: 0, // Not provided per period in API
           };
         });
         
         setRevenueData(processedData);
         
-        // Set summary statistics from processed data
-        
-        if (response.totalRevenue !== undefined && response.totalRevenue !== null) {
-          setTotalRevenue(Number(response.totalRevenue));
+        // Set summary statistics from API response
+        const summary = response.data?.summary;
+        if (summary) {
+          setTotalRevenue(Number(summary.totalRevenue || 0));
+          setTotalSessions(Number(summary.totalTransactions || 0));
+          setTotalUsers(Number(summary.successfulTransactions || 0)); // Using successfulTransactions as proxy
+          setAvgRevenuePerSession(Number(summary.averageTransactionAmount || 0));
         } else {
-          const total = processedData.reduce((sum: number, item: any) => sum + (item.revenue || 0), 0);
-          setTotalRevenue(total);
+          // Fallback: calculate from chart data
+          const totalRevenue = processedData.reduce((sum: number, item: any) => sum + (item.revenue || 0), 0);
+          const totalSessions = processedData.reduce((sum: number, item: any) => sum + (item.sessions || 0), 0);
+          setTotalRevenue(totalRevenue);
+          setTotalSessions(totalSessions);
+          setTotalUsers(0);
+          setAvgRevenuePerSession(totalSessions > 0 ? totalRevenue / totalSessions : 0);
         }
-        
-        if (response.totalSessions !== undefined && response.totalSessions !== null) {
-          setTotalSessions(Number(response.totalSessions));
-        } else {
-          const total = processedData.reduce((sum: number, item: any) => sum + (item.sessions || 0), 0);
-          setTotalSessions(total);
-        }
-        
-        if (response.totalUsers !== undefined && response.totalUsers !== null) {
-          setTotalUsers(Number(response.totalUsers));
-        } else {
-          const total = processedData.reduce((sum: number, item: any) => sum + (item.users || 0), 0);
-          setTotalUsers(total);
-        }
-        
-        if (response.avgRevenuePerSession !== undefined && response.avgRevenuePerSession !== null) {
-          setAvgRevenuePerSession(Number(response.avgRevenuePerSession));
-        } else {
-          const totalRev = response.totalRevenue ?? processedData.reduce((sum: number, item: any) => sum + (item.revenue || 0), 0);
-          const totalSess = response.totalSessions ?? processedData.reduce((sum: number, item: any) => sum + (item.sessions || 0), 0);
-          setAvgRevenuePerSession(totalSess > 0 ? Number(totalRev) / Number(totalSess) : 0);
-        }
-        */
         
       } catch (error: any) {
         console.error('Error fetching revenue data:', error);
@@ -423,7 +371,7 @@ export default function RevenueView({ onBack }: RevenueViewProps) {
         filters.stationId = parseInt(selectedStation.replace('station-', ''));
       }
       filters.groupBy = 'day'; // Default group by day
-      
+
       console.log('Exporting to Excel with filters:', filters);
       
       const blob = await exportRevenueToExcel(filters);
@@ -462,7 +410,7 @@ export default function RevenueView({ onBack }: RevenueViewProps) {
         filters.stationId = parseInt(selectedStation.replace('station-', ''));
       }
       filters.groupBy = 'day'; // Default group by day
-      
+
       console.log('Exporting to PDF with filters:', filters);
       
       const blob = await exportRevenueToPDF(filters);

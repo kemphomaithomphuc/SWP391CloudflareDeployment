@@ -7,4 +7,5 @@ import swp391.code.swp391.entity.IssueReport;
 @Repository
 public interface IssueReportRepository extends JpaRepository<IssueReport, Long> {
 
+
 }
