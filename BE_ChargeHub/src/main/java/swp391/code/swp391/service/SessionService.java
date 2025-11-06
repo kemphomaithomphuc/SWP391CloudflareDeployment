@@ -2,8 +2,11 @@ package swp391.code.swp391.service;
 
 
 import swp391.code.swp391.dto.SessionProgressDTO;
+import swp391.code.swp391.dto.SessionDTO;
 import swp391.code.swp391.entity.Order;
 import swp391.code.swp391.entity.Vehicle;
+
+import java.util.List;
 
 public interface SessionService {
 
@@ -29,4 +32,11 @@ public interface SessionService {
     Double calculateBatteryPercentage(Vehicle vehicle, Double kwh);
 
     long expectedMinutes(Vehicle vehicle, Double expectedBattery);
+
+    // --- New management APIs ---
+    List<SessionDTO> getAllSessions();
+
+    SessionDTO getSessionDetails(Long sessionId);
+
+    Long forceEndSession(Long sessionId, Long operatorId); // For admin/operator use
 }

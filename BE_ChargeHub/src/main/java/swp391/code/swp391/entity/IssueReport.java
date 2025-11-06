@@ -22,8 +22,8 @@ public class IssueReport {
     private ChargingStation station;
 
     @ManyToOne
-    @JoinColumn(name = "staff_id", nullable = false)
-    private User staff;
+    @JoinColumn(name = "user_id", nullable = false)
+    private User reporter;
 
     @Column(nullable = false)
     private String description;
@@ -37,4 +37,6 @@ public class IssueReport {
     public enum Status {
         INBOX, IN_PROGRESS, RESOLVED
     }
+
+
 }

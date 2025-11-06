@@ -32,5 +32,4 @@ public class JwtConfig {
                 .macAlgorithm(MacAlgorithm.HS512)
                 .build();
     }
-
 }

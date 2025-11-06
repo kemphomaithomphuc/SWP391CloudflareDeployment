@@ -1,4 +1,4 @@
-package swp391.code.swp391.service;
+package swp391.code.swp391.scheduler;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -6,16 +6,12 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import swp391.code.swp391.entity.Order;
 import swp391.code.swp391.repository.OrderRepository;
+import swp391.code.swp391.service.PenaltyService;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
 
-/**
- * Scheduler Service để xử lý các tác vụ định kỳ
- *
- * AC2: Tự động check và xử lý No-Show sau 15 phút
- */
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -24,19 +20,15 @@ public class PenaltyScheduler {
     private final OrderRepository orderRepository;
     private final PenaltyService penaltyService;
 
-    private static final int NO_SHOW_GRACE_MINUTES = 15;
+    private static final int NO_SHOW_MINUTES = 15;
 
-    /**
-     * AC2: Check no-show orders mỗi 5 phút
-     * Tìm các order BOOKED đã quá 15 phút sau startTime
-     */
-    @Scheduled(fixedRate = 300000) // Chạy mỗi 5 phút (300,000 ms)
+    @Scheduled(fixedRate = 1000*60*5) //5mins
     public void checkNoShowOrders() {
         log.info("Running no-show checker...");
 
         try {
             LocalDateTime now = LocalDateTime.now();
-            LocalDateTime cutoffTime = now.minusMinutes(NO_SHOW_GRACE_MINUTES);
+            LocalDateTime cutoffTime = now.minusMinutes(NO_SHOW_MINUTES);
 
             // Tìm các order BOOKED có startTime đã qua 15 phút
             List<Order> potentialNoShows = orderRepository.findAll().stream()
@@ -70,11 +62,8 @@ public class PenaltyScheduler {
         }
     }
 
-    /**
-     * Optional: Check và notify user sắp bị no-show (10 phút trước)
-     * Gửi reminder để tránh phí
-     */
-    @Scheduled(fixedRate = 180000) // Mỗi 3 phút
+
+    @Scheduled(fixedRate = 1000*60*3) //3 mins
     public void sendNoShowReminders() {
         log.debug("Running no-show reminder checker...");
 
@@ -111,7 +100,7 @@ public class PenaltyScheduler {
      * Optional: Cleanup old completed/canceled orders
      * Chạy hàng ngày vào 2:00 AM
      */
-    @Scheduled(cron = "0 0 2 * * *")
+    @Scheduled(cron = "0 0 0 * * *")
     public void cleanupOldOrders() {
         log.info("Running order cleanup...");
 
