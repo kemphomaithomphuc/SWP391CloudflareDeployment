@@ -6,8 +6,6 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.time.LocalDateTime;
-
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -32,6 +30,4 @@ public class OrderRequestDTO {
     @DecimalMin(value = "0.0", message = "Pin mong muốn phải >= 0%")
     @DecimalMax(value = "100.0", message = "Pin mong muốn phải <= 100%")
     private Double targetBattery; // % pin mong muốn
-
-
 }

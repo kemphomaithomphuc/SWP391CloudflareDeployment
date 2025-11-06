@@ -19,6 +19,7 @@ public class Subscription {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long subscriptionId;
 
+    @lombok.ToString.Exclude
     @OneToMany(mappedBy = "subscription")
     private List<User> user;
 
@@ -57,9 +58,10 @@ public class Subscription {
         BASIC, PLUS, PREMIUM
     }
 
+    @lombok.ToString.Exclude
     @OneToMany(mappedBy = "subscription", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<SubscriptionFeature> features;
 
     @Column(name ="kwh_used",  precision = 10)
-    private Double kwhUsed = 0.0;
+    private double kwhUsed = 0.0;
 }

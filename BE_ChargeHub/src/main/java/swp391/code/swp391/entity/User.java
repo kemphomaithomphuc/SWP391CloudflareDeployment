@@ -7,6 +7,9 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.ToString;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
+import com.fasterxml.jackson.annotation.JsonBackReference;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -14,7 +17,7 @@ import java.util.List;
 
 @Entity
 @Table(name = "users")
-@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler", "verifications"})
 @NoArgsConstructor
 @AllArgsConstructor
 @Data
@@ -51,13 +54,15 @@ public class User {
     @Column(name = "avatar")
     private String avatar;
 
+    @ToString.Exclude
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private List<Vehicle> vehicles;
 
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @JsonManagedReference
     private List<Verification> verifications;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "station_id")
     @JsonBackReference("station-staff")
     private ChargingStation station;
@@ -87,6 +92,7 @@ public class User {
     @Column(name = "reason_report", columnDefinition = "TEXT")
     private String reasonReport;
 
+    @ToString.Exclude
     @ManyToOne
     @JoinColumn(name = "subscription_id")
     private Subscription subscription;

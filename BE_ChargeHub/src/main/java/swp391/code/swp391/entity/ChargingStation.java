@@ -6,6 +6,7 @@ import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.ToString;
 
 import java.util.List;
 
@@ -30,6 +31,7 @@ public class ChargingStation {
     private double latitude; //Vi tri vi do
     private double longitude; //Vi tri kinh do
 
+    @ToString.Exclude
     @OneToMany(mappedBy = "station", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @JsonManagedReference("station-points")
     private List<ChargingPoint> chargingPoint;
@@ -43,7 +45,11 @@ public class ChargingStation {
     @Column(name = "charging_point_number", nullable = false)
     private int chargingPointNumber;
 
+    @ToString.Exclude
     @OneToMany(mappedBy = "station")
     @JsonManagedReference("station-staff")
     private List<User> staff_id;
+
+    @Column(name = "staff_id")
+    private Long staffId;
 }

@@ -145,6 +145,7 @@ public class VehicleServiceImpl implements VehicleService {
 
     private VehicleResponseDTO convertToDTO(Vehicle vehicle) {
         VehicleResponseDTO dto = new VehicleResponseDTO();
+        dto.setVehicleId(vehicle.getId());
         dto.setPlateNumber(vehicle.getPlateNumber());
         dto.setVehicleId(vehicle.getId());
         if (vehicle.getCarModel() != null) {

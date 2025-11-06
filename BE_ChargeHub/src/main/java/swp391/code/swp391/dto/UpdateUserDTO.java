@@ -26,8 +26,10 @@ public class UpdateUserDTO {
     @Size(max = 500, message = "Địa chỉ không quá 500 ký tự")
     private String address;
 
-    /**
-     * Ngày sinh phải là ngày trong quá khứ (nếu có)
+    @Size(max = 15, message = "Số điện thoại không quá 15 ký tự")
+    private String phoneNumber;
+
+    /*** Ngày sinh phải là ngày trong quá khứ (nếu có)
      * Có thể null nếu người dùng không muốn cung cấp
      */
     @Past(message = "Ngày sinh phải là ngày trong quá khứ")
@@ -54,16 +56,22 @@ public class UpdateUserDTO {
     @Size(min = 6, max = 100, message = "Nhập lại mật khẩu mới phải từ 6-100 ký tự")
     private String confirmNewPassword;
 
+    //Fields cho Admin update role và status
+    private String status;  // "ACTIVE", "INACTIVE", "BANNED"
+    private String role;    // "DRIVER", "STAFF", "ADMIN"
+    private String reasonReport; // Lý do khi ban user
+
     @AssertTrue(message = "Mật khẩu mới và xác nhận mật khẩu không khớp")
 
     // Constructor rỗng
     public UpdateUserDTO() {}
 
     // Constructor đầy đủ
-    public UpdateUserDTO(String fullName, String address, LocalDate dateOfBirth,
+    public UpdateUserDTO(String fullName, String address, String phoneNumber, LocalDate dateOfBirth,
                          String oldPassword, String newPassword, String confirmNewPassword) {
         this.fullName = fullName;
         this.address = address;
+        this.phoneNumber = phoneNumber;
         this.dateOfBirth = dateOfBirth;
         this.oldPassword = oldPassword;
         this.newPassword = newPassword;

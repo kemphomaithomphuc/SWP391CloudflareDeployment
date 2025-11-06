@@ -19,11 +19,13 @@ import swp391.code.swp391.repository.SubscriptionRepository;
 import swp391.code.swp391.repository.UserRepository;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Random;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import static swp391.code.swp391.entity.Subscription.Type.BASIC;
 
@@ -38,6 +40,7 @@ public class UserServiceImpl implements UserService {
     /** Pattern for validating Vietnamese phone numbers */
     private static final String VIETNAM_PHONE_REGEX = "^(0|\\+84)([35789])[0-9]{8}$";
     private static int MAX_VIOLATIONS = 3;
+
     // Dependencies
 
     private final PasswordEncoder passwordEncoder;
@@ -163,6 +166,7 @@ public class UserServiceImpl implements UserService {
     /**
      * 2. CẬP NHẬT THÔNG TIN CƠ BẢN (không cần xác thực)
      */
+    @Transactional
     public User updateUserProfile(Long userId, UpdateUserDTO updateDTO) {
         User user = getUserById(userId);
 
@@ -173,6 +177,10 @@ public class UserServiceImpl implements UserService {
 
         if (updateDTO.getAddress() != null) {
             user.setAddress(updateDTO.getAddress());
+        }
+
+        if (updateDTO.getPhoneNumber() != null) {
+            user.setPhone(updateDTO.getPhoneNumber());
         }
 
         if (updateDTO.getDateOfBirth() != null) {
@@ -324,6 +332,45 @@ public class UserServiceImpl implements UserService {
         return userRepository.save(user);
     }
 
+    /**
+     * 5.1 ADMIN CẬP NHẬT ROLE VÀ STATUS CỦA DRIVER
+     * CHỈ update role và status, KHÔNG động vào thông tin cá nhân
+     */
+    public User adminUpdateDriverRoleAndStatus(Long userId, UpdateUserDTO updateDTO) {
+        User user = getUserById(userId);
+
+        // CHỈ update role và status
+        if (updateDTO.getRole() != null) {
+            try {
+                user.setRole(User.UserRole.valueOf(updateDTO.getRole().toUpperCase()));
+            } catch (IllegalArgumentException e) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Role không hợp lệ: " + updateDTO.getRole());
+            }
+        }
+
+        if (updateDTO.getStatus() != null) {
+            try {
+                User.UserStatus newStatus = User.UserStatus.valueOf(updateDTO.getStatus().toUpperCase());
+                user.setStatus(newStatus);
+
+                // Khi unban user (set status = ACTIVE), reset violations về 0 và clear reason
+                if (newStatus == User.UserStatus.ACTIVE && user.getViolations() > 0) {
+                    user.setViolations(0);
+                    user.setReasonReport(null); // Clear lý do ban
+                }
+
+                // Nếu ban user, lưu lý do
+                if (newStatus == User.UserStatus.BANNED && updateDTO.getReasonReport() != null) {
+                    user.setReasonReport(updateDTO.getReasonReport());
+                }
+            } catch (IllegalArgumentException e) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Status không hợp lệ: " + updateDTO.getStatus());
+            }
+        }
+
+        return userRepository.save(user);
+    }
+
     @Override
     public void deleteUser(Long userId) {
             User user = getUserById(userId);
@@ -344,7 +391,7 @@ public class UserServiceImpl implements UserService {
         return convertToDTO(userRepository.save(user));
     }
 
-    public static UserDTO convertToDTO(User user) {
+    public UserDTO convertToDTO(User user) {
         return new UserDTO(user);
     }
     // =============== HELPER METHODS ===============
@@ -402,6 +449,14 @@ public class UserServiceImpl implements UserService {
 
         // TODO: Implement real SMS sending
         // smsService.sendVerificationCode(phone, code, fullName);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<UserDTO> getAllDriver(){
+        return userRepository.findUsersByRole(User.UserRole.DRIVER).stream()
+                .map(this:: convertToDTO)
+                .collect(Collectors.toList());
     }
 
     // =============== INNER CLASSES ===============

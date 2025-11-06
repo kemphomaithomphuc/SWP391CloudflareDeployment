@@ -280,6 +280,30 @@ public class SubscriptionServiceImpl implements SubscriptionService {
         dto.setType(subscription.getType());
         dto.setStartDate(subscription.getStartDate());
         dto.setEndDate(subscription.getEndDate());
+        // Map price
+        if (subscription.getPrice() != null) {
+            dto.setPrice(subscription.getPrice());
+        }
+        // Map subscriptionName
+        if (subscription.getSubscriptionName() != null) {
+            dto.setSubscriptionName(subscription.getSubscriptionName());
+        }
+        // Map description
+        if (subscription.getDescription() != null) {
+            dto.setDescription(subscription.getDescription());
+        }
+        // Map durationDays
+        if (subscription.getDurationDays() != null) {
+            dto.setDurationDays(subscription.getDurationDays());
+        }
+        // Map isActive
+        if (subscription.getIsActive() != null) {
+            dto.setIsActive(subscription.getIsActive());
+        }
+        // Map displayOrder
+        if (subscription.getDisplayOrder() != null) {
+            dto.setDisplayOrder(subscription.getDisplayOrder());
+        }
         // Map users to UserDTO list (null-safe)
         if (subscription.getUser() != null) {
             dto.setUserId(subscription.getUser().stream()

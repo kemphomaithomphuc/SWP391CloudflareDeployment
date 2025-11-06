@@ -42,6 +42,8 @@ public class SecurityConfig {
             "/api/otp/send/forgot-password",
             "/api/otp/verify/forgot-password",
             "/api/otp/reset-password",
+            "api/otp/**",
+            "api/**",
             "/api/payment/**",
             "/api/staff/**",
             "/api/transactions/**",
@@ -75,6 +77,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/staff/**").hasAnyRole( "STAFF", "ADMIN")
                         .requestMatchers("/api/staff-management/**").hasAnyRole( "STAFF", "ADMIN")
                         .requestMatchers("/api/analytics/**").hasAnyRole( "STAFF", "ADMIN")
+                        .requestMatchers("/api/issue-reports/**").hasAnyRole( "STAFF", "ADMIN")
                         .anyRequest().authenticated()
                 );
         return http.build();

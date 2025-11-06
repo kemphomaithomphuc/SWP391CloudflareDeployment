@@ -25,6 +25,10 @@ public class UserDTO {
     private User.UserStatus status;
     private int violations;
 
+    // Station info for staff
+    private Long stationId;
+    private String stationName;
+
     // Danh sách xe của user
     private List<VehicleResponseDTO> vehicles;
 
@@ -41,6 +45,12 @@ public class UserDTO {
         this.status = user.getStatus();
         this.avatarUrl = user.getAvatar();
         this.violations = user.getViolations();
+        
+        // Kiểm tra null cho station (chỉ STAFF mới có station)
+        if (user.getStation() != null) {
+            this.stationId = user.getStation().getStationId();
+            this.stationName = user.getStation().getStationName();
+        }
     }
     // Constructor từ User entity (có bao gồm vehicles)
     public UserDTO(User user, boolean includeVehicles) {

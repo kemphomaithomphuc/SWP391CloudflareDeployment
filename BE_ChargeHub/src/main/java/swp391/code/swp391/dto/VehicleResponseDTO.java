@@ -23,6 +23,7 @@ public class VehicleResponseDTO {
     // Constructor from Vehicle entity
     public VehicleResponseDTO(Vehicle vehicle) {
         if (vehicle == null) return;
+        this.vehicleId = vehicle.getId(); // Set vehicleId from entity
         this.plateNumber = vehicle.getPlateNumber();
         this.vehicleId = vehicle.getId();
         if (vehicle.getCarModel() != null) {

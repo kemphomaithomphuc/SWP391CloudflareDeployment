@@ -487,7 +487,12 @@ public class OrderServiceImpl implements OrderService {
     public List<OrderResponseDTO> getStationOrders(Long stationId) {
         List<Order> orders = orderRepository.findByChargingPoint_Station_StationId(stationId);
 
+        // Filter chỉ lấy orders có status BOOKED hoặc CHARGING
         List<OrderResponseDTO> orderDTOs = orders.stream()
+                .filter(order -> {
+                    Order.Status status = order.getStatus();
+                    return status == Order.Status.BOOKED || status == Order.Status.CHARGING;
+                })
                 .map(this::convertToDTO)
                 .collect(Collectors.toList());
 
@@ -508,28 +513,56 @@ public class OrderServiceImpl implements OrderService {
                 .compatibleConnectors(compatibleConnectors)
                 .build();
     }
-
     public OrderResponseDTO convertToDTO(Order order) {
         if (order == null) return null;
-
+    
         int estimatedDuration = calculateChargingDuration(
                 (order.getExpectedBattery() - order.getStartedBattery()) / 100.0 * order.getVehicle().getCarModel().getCapacity(),
                 order.getChargingPoint().getConnectorType().getPowerOutput());
-
+    
         double energyToCharge = order.getExpectedBattery() - order.getStartedBattery();
         double estimatedCost = energyToCharge * order.getChargingPoint().getConnectorType().getPricePerKWh();
-
+    
         return OrderResponseDTO.builder()
                 .orderId(order.getOrderId())
-                .stationName(order.getChargingPoint().getStation() != null ? order.getChargingPoint().getStation().getStationName() : null)
-                .stationAddress(order.getChargingPoint().getStation() != null ? order.getChargingPoint().getStation().getAddress() : null)
-                .connectorType(order.getChargingPoint().getConnectorType() != null ? order.getChargingPoint().getConnectorType().getTypeName() : null)
+                
+                // Station info
+                .stationId(order.getChargingPoint().getStation() != null ? 
+                    order.getChargingPoint().getStation().getStationId() : null)
+                .stationName(order.getChargingPoint().getStation() != null ? 
+                    order.getChargingPoint().getStation().getStationName() : null)
+                .stationAddress(order.getChargingPoint().getStation() != null ? 
+                    order.getChargingPoint().getStation().getAddress() : null)
+                
+                // Charging point info
+                .chargingPointId(order.getChargingPoint() != null ? 
+                    order.getChargingPoint().getChargingPointId() : null)
+                .connectorType(order.getChargingPoint().getConnectorType() != null ? 
+                    order.getChargingPoint().getConnectorType().getTypeName() : null)
+                .chargingPower(order.getChargingPoint().getConnectorType() != null ?
+                    order.getChargingPoint().getConnectorType().getPowerOutput() : null)
+                .pricePerKwh(order.getChargingPoint().getConnectorType() != null ?
+                    order.getChargingPoint().getConnectorType().getPricePerKWh() : null)
+                
+                // User info
+                .userId(order.getUser() != null ? order.getUser().getUserId() : null)
+                .userName(order.getUser() != null ? order.getUser().getFullName() : null)
+                .userPhone(order.getUser() != null ? order.getUser().getPhone() : null)
+                
+                // Vehicle info - Hiển thị PLATE NUMBER cho Vehicle ID
+                .vehicleId(order.getVehicle() != null ? order.getVehicle().getId() : null)
+                .vehiclePlate(order.getVehicle() != null ? order.getVehicle().getPlateNumber() : null)
+                .vehicleModel(order.getVehicle() != null && order.getVehicle().getCarModel() != null ? 
+                    order.getVehicle().getCarModel().getModel() : null)
+                
+                // Battery info
+                .startedBattery(order.getStartedBattery())
+                .expectedBattery(order.getExpectedBattery())
+                // Time and cost
                 .startTime(order.getStartTime())
                 .endTime(order.getEndTime())
                 .estimatedDuration(estimatedDuration)
                 .energyToCharge(energyToCharge)
-                .chargingPower(order.getChargingPoint().getConnectorType().getPowerOutput())
-                .pricePerKwh(order.getChargingPoint().getConnectorType().getPricePerKWh())
                 .estimatedCost(estimatedCost)
                 .status(order.getStatus() != null ? order.getStatus().name() : null)
                 .createdAt(order.getCreatedAt())

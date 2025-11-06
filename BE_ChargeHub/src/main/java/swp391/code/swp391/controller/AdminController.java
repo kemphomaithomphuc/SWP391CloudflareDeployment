@@ -15,5 +15,4 @@ public class AdminController {
     private final JwtUtil jwtUtil;
     private final NotificationService notificationService;
 
-
 }

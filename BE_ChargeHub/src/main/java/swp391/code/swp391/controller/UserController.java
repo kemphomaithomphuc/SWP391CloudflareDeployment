@@ -22,7 +22,11 @@ public class UserController {
     private final UserServiceImpl userServiceImpl;
     private final VehicleServiceImpl vehicleServiceImpl;
 
-
+    /**
+     * 1. XEM THÔNG TIN USER
+     * GET /api/user/profile/{id}
+     * GET /api/user/profile/{id}?include=vehicles
+     */
     @GetMapping("/profile/{id}")
     public ResponseEntity<APIResponse<UserDTO>> viewUserProfile(
             @PathVariable Long id,
@@ -55,16 +59,19 @@ public class UserController {
      * PUT /api/user/profile/{id}
      */
     @PutMapping("/profile/{id}")
-    public ResponseEntity<APIResponse<User>> updateUserProfile(
+    public ResponseEntity<APIResponse<UserDTO>> updateUserProfile(
             @PathVariable Long id,
             @Valid @RequestBody UpdateUserDTO updateDTO) {
 
         try {
-            // TODO: Gọi service để cập nhật thông tin user
+            // Gọi service để cập nhật thông tin user
             User updatedUser = userServiceImpl.updateUserProfile(id, updateDTO);
 
+            // Convert to DTO to avoid serialization issues
+            UserDTO userDTO = new UserDTO(updatedUser);
+
             return ResponseEntity.ok(
-                    APIResponse.success("Cập nhật thông tin thành công", updatedUser)
+                    APIResponse.success("Cập nhật thông tin thành công", userDTO)
             );
         } catch (RuntimeException e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
@@ -160,6 +167,20 @@ public class UserController {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
                     .body(APIResponse.error("Không tìm thấy user hoặc vehicle: " + e.getMessage()));
         } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(APIResponse.error("Lỗi hệ thống: " + e.getMessage()));
+        }
+    }
+
+    @GetMapping("/allDriver")
+    public ResponseEntity<APIResponse<List<UserDTO>>> getAllDriver() {
+        try{
+            List<UserDTO> users = userServiceImpl.getAllDriver();
+            return ResponseEntity.ok(
+                    APIResponse.success("Lấy danh sách driver thành công", users)
+            );
+        }
+        catch (Exception e){
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(APIResponse.error("Lỗi hệ thống: " + e.getMessage()));
         }

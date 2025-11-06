@@ -8,6 +8,7 @@ import swp391.code.swp391.dto.ChargingStationDTO;
 import swp391.code.swp391.entity.ChargingStation;
 import swp391.code.swp391.entity.ChargingStation.ChargingStationStatus;
 import swp391.code.swp391.repository.ChargingStationRepository;
+import swp391.code.swp391.repository.ChargingPointRepository;
 import swp391.code.swp391.repository.ConnectorTypeRepository;
 
 import java.util.ArrayList;
@@ -21,6 +22,7 @@ public class ChargingStationServiceImpl implements ChargingStationService {
 
     private final ChargingStationRepository chargingStationRepository;
     private final ChargingPointService chargingPointService;
+    private final ChargingPointRepository chargingPointRepository;
     private final ConnectorTypeRepository connectorTypeRepository;
 
     @Override

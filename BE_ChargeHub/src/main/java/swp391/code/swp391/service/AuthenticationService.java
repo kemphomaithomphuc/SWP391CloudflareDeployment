@@ -15,6 +15,7 @@ import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 import swp391.code.swp391.dto.LoginRequestDTO;
@@ -229,6 +230,7 @@ public class AuthenticationService {
         return customUserDetails;
     }
 
+    @Transactional
     public LoginResponseDTO generateTokenForSocialUser(String code, String loginType){
         CustomUserDetails customUserDetails = processSocialLogin(code, loginType);
         return LoginResponseDTO.builder()
@@ -238,6 +240,15 @@ public class AuthenticationService {
     }
 
     // Lưu user mới hoặc liên kết tài khoản xã hội với user hiện có
+    /**
+     * Lưu user mới hoặc liên kết tài khoản xã hội với user hiện có
+     * Ưu tiên tìm user theo email, nếu không có email thì tìm theo số điện thoại
+     * Nếu tìm thấy user, liên kết social ID vào user đó
+     * Nếu không tìm thấy, tạo user mới với trạng thái ACTIVE và vai trò DRIVER
+     * @param user User chứa thông tin từ nhà cung cấp xã hội (có thể có email hoặc phone)
+     * @param loginType Loại đăng nhập xã hội (google hoặc facebook)
+     * @return ID của user đã lưu hoặc liên kết
+     */
     private Long saveOrLinkSocialAccount(User user, String loginType) {
         User existingUser = null;
 

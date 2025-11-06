@@ -5,10 +5,7 @@ import { useStation } from "./contexts/StationContext";
 import { Button } from "./components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "./components/ui/popover";
 import { Separator } from "./components/ui/separator";
-import CustomerSupportView from "./components/CustomerSupportView";
-import ChargingManagementView from "./components/ChargingManagementView";
 import StaffInvoiceView from "./components/StaffInvoiceView";
-import StaffReportView from "./components/StaffReportView";
 import {
     Menu,
     X,
@@ -36,23 +33,25 @@ import {
     CheckCircle,
     Activity
 } from "lucide-react";
-import { logoutUser } from "./services/api";
+import { logoutUser, getOrdersByStation } from "./services/api";
 import { toast } from "sonner";
 
 interface StaffDashboardProps {
   onLogout: () => void;
-  onGoHome?: () => void;
   onNotifications?: () => void;
+  onReports?: () => void;
+  onChargingManagement?: () => void;
   onPostActivating?: () => void;
   onStationManagement?: () => void;
 }
 
-export default function StaffDashboard({ onLogout, onGoHome, onNotifications, onPostActivating, onStationManagement }: StaffDashboardProps) {
+export default function StaffDashboard({ onLogout, onNotifications, onReports, onChargingManagement, onPostActivating, onStationManagement }: StaffDashboardProps) {
     const [activeSection, setActiveSection] = useState("dashboard");
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [scrollProgress, setScrollProgress] = useState(0);
     const [showScrollIndicator, setShowScrollIndicator] = useState(false);
     const [isLoggingOut, setIsLoggingOut] = useState(false);
+    const [ordersCount, setOrdersCount] = useState<number>(0);
     const { theme, toggleTheme } = useTheme();
     const { language, setLanguage, t } = useLanguage();
     const { currentStation } = useStation();
@@ -85,15 +84,48 @@ export default function StaffDashboard({ onLogout, onGoHome, onNotifications, on
 
     const menuItems = useMemo(() => [
         { id: "dashboard", label: t("dashboard") || "Dashboard", icon: Home },
-        { id: "customers", label: t("customer_support") || "Customer Support", icon: Users },
         { id: "chargingManagement", label: language === 'vi' ? "Quản Lý Charging" : "Charging Management", icon: Zap },
-        { id: "stationManagement", label: language === 'vi' ? "Quản Lý Trạm" : "Station Management", icon: MapPin },
         { id: "billing", label: t("billing_invoice") || "Billing & Invoice", icon: Receipt },
         { id: "reports", label: t("report_issues") || "Report Issues", icon: AlertTriangle },
         { id: "postActivating", label: language === 'vi' ? "Kích Hoạt Trạm" : "Post Activating", icon: Activity },
         { id: "notifications", label: t("notification") || "Notifications", icon: Bell },
         { id: "settings", label: "Settings", icon: Settings },
     ], [t, language]);
+
+    // Handle menu item clicks
+    const handleMenuClick = (itemId: string) => {
+        if (itemId === "reports" && onReports) {
+            onReports();
+        } else if (itemId === "chargingManagement" && onChargingManagement) {
+            onChargingManagement();
+        } else if (itemId === "notifications" && onNotifications) {
+            onNotifications();
+        } else if (itemId === "postActivating" && onPostActivating) {
+            onPostActivating();
+        } else {
+            setActiveSection(itemId);
+        }
+        setSidebarOpen(false);
+    };
+
+  // Fetch orders count on mount
+  useEffect(() => {
+    const fetchOrdersCount = async () => {
+      try {
+        const stationId = localStorage.getItem('stationId');
+        if (stationId) {
+          const response = await getOrdersByStation(Number(stationId));
+          if (response.success && response.data) {
+            setOrdersCount(response.data.length);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching orders count:', error);
+      }
+    };
+    
+    fetchOrdersCount();
+  }, []);
 
   // Handle scroll progress tracking
   useEffect(() => {
@@ -134,90 +166,9 @@ export default function StaffDashboard({ onLogout, onGoHome, onNotifications, on
 
     const renderContent = () => {
         switch (activeSection) {
-            case "customers":
-                return (
-                    <CustomerSupportView onBack={() => setActiveSection("dashboard")} />
-                );
-
-            case "chargingManagement": {
-                const stationId = localStorage.getItem('stationId');
-                const stationIdNumber = stationId ? Number(stationId) : undefined;
-                return (
-                    <ChargingManagementView
-                        onBack={() => setActiveSection("dashboard")}
-                        {...(stationIdNumber && { stationId: stationIdNumber })}
-                    />
-                );
-            }
-
-            case "stationManagement":
-                return (
-                    <div className="space-y-6">
-                        <div className="mb-8">
-                            <h2 className="mb-2 text-foreground">{language === 'vi' ? 'Quản Lý Trạm Sạc' : 'Station Management'}</h2>
-                            <p className="text-muted-foreground">{language === 'vi' ? 'Quản lý cột sạc và hóa đơn tại trạm' : 'Manage charging pillars and invoices at station'}</p>
-                        </div>
-
-                        <div className="text-center py-4">
-                            <Button
-                                onClick={onStationManagement}
-                                className="bg-primary hover:bg-primary/90 text-primary-foreground"
-                                size="lg"
-                            >
-                                <MapPin className="w-4 h-4 mr-2" />
-                                {language === 'vi' ? 'Mở Quản Lý Trạm' : 'Open Station Management'}
-                            </Button>
-                        </div>
-
-                        {/* Quick Stats */}
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                            <div className="bg-card rounded-xl p-6 shadow-sm border border-border">
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                        <p className="text-sm text-muted-foreground">{language === 'vi' ? 'Cột Sẵn Sàng' : 'Available Pillars'}</p>
-                                        <p className="text-2xl font-semibold text-card-foreground">5/8</p>
-                                    </div>
-                                    <div className="w-12 h-12 bg-green-100 dark:bg-green-900 rounded-lg flex items-center justify-center">
-                                        <Zap className="w-6 h-6 text-green-600 dark:text-green-400" />
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="bg-card rounded-xl p-6 shadow-sm border border-border">
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                        <p className="text-sm text-muted-foreground">{language === 'vi' ? 'Đang Sạc' : 'Active Sessions'}</p>
-                                        <p className="text-2xl font-semibold text-card-foreground">3</p>
-                                    </div>
-                                    <div className="w-12 h-12 bg-yellow-100 dark:bg-yellow-900 rounded-lg flex items-center justify-center">
-                                        <Car className="w-6 h-6 text-yellow-600 dark:text-yellow-400" />
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="bg-card rounded-xl p-6 shadow-sm border border-border">
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                        <p className="text-sm text-muted-foreground">{language === 'vi' ? 'Hóa Đơn Hôm Nay' : 'Invoices Today'}</p>
-                                        <p className="text-2xl font-semibold text-card-foreground">12</p>
-                                    </div>
-                                    <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900 rounded-lg flex items-center justify-center">
-                                        <Receipt className="w-6 h-6 text-blue-600 dark:text-blue-400" />
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                );
-
       case "billing":
         return (
           <StaffInvoiceView onBack={() => setActiveSection("dashboard")} />
-        );
-
-      case "reports":
-        return (
-          <StaffReportView onBack={() => setActiveSection("dashboard")} />
         );
 
       case "postActivating":
@@ -521,11 +472,11 @@ export default function StaffDashboard({ onLogout, onGoHome, onNotifications, on
               <div className="bg-card rounded-xl p-6 shadow-sm border border-border">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-muted-foreground">{t('support_tickets')}</p>
-                    <p className="text-2xl font-semibold text-card-foreground">8</p>
+                    <p className="text-sm text-muted-foreground">{language === 'vi' ? 'Quản Lý Charging' : 'Charging Management'}</p>
+                    <p className="text-2xl font-semibold text-card-foreground">{ordersCount}</p>
                   </div>
-                  <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900 rounded-lg flex items-center justify-center">
-                    <Users className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+                  <div className="w-12 h-12 bg-yellow-100 dark:bg-yellow-900 rounded-lg flex items-center justify-center">
+                    <Zap className="w-6 h-6 text-yellow-600 dark:text-yellow-400" />
                   </div>
                 </div>
               </div>
@@ -570,25 +521,10 @@ export default function StaffDashboard({ onLogout, onGoHome, onNotifications, on
             {/* Quick Actions */}
             <div className="bg-card rounded-xl p-6 shadow-sm border border-border">
               <h3 className="font-medium text-card-foreground mb-6">{t('quick_actions')}</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
                 <div 
                   className="group p-6 border border-border rounded-xl hover:shadow-md transition-all duration-200 cursor-pointer hover:border-primary/30 bg-gradient-to-br from-card to-card/80"
-                  onClick={() => setActiveSection("customers")}
-                >
-                  <div className="flex flex-col items-center text-center space-y-3">
-                    <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform duration-200">
-                      <Users className="w-6 h-6 text-blue-600 dark:text-blue-400" />
-                    </div>
-                    <div>
-                      <h4 className="font-semibold text-card-foreground mb-1">{t("customer_support") || "Customer Support"}</h4>
-                      <p className="text-sm text-muted-foreground">{t("help_customers_issues") || "Help customers with issues"}</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div 
-                  className="group p-6 border border-border rounded-xl hover:shadow-md transition-all duration-200 cursor-pointer hover:border-primary/30 bg-gradient-to-br from-card to-card/80"
-                  onClick={() => setActiveSection("chargingManagement")}
+                  onClick={onChargingManagement}
                 >
                   <div className="flex flex-col items-center text-center space-y-3">
                     <div className="w-12 h-12 bg-yellow-100 dark:bg-yellow-900 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform duration-200">
@@ -597,21 +533,6 @@ export default function StaffDashboard({ onLogout, onGoHome, onNotifications, on
                     <div>
                       <h4 className="font-semibold text-card-foreground mb-1">{language === 'vi' ? "Quản Lý Charging" : "Charging Management"}</h4>
                       <p className="text-sm text-muted-foreground">{language === 'vi' ? "Quản lý đặt chỗ và phiên sạc" : "Manage bookings and charging sessions"}</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div 
-                  className="group p-6 border border-border rounded-xl hover:shadow-md transition-all duration-200 cursor-pointer hover:border-primary/30 bg-gradient-to-br from-card to-card/80"
-                  onClick={() => setActiveSection("stationManagement")}
-                >
-                  <div className="flex flex-col items-center text-center space-y-3">
-                    <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform duration-200">
-                      <MapPin className="w-6 h-6 text-purple-600 dark:text-purple-400" />
-                    </div>
-                    <div>
-                      <h4 className="font-semibold text-card-foreground mb-1">{language === 'vi' ? "Quản Lý Trạm" : "Station Management"}</h4>
-                      <p className="text-sm text-muted-foreground">{language === 'vi' ? "Quản lý cột sạc và hóa đơn" : "Manage pillars and invoices"}</p>
                     </div>
                   </div>
                 </div>
@@ -633,7 +554,7 @@ export default function StaffDashboard({ onLogout, onGoHome, onNotifications, on
 
                 <div 
                   className="group p-6 border border-border rounded-xl hover:shadow-md transition-all duration-200 cursor-pointer hover:border-primary/30 bg-gradient-to-br from-card to-card/80"
-                  onClick={() => setActiveSection("reports")}
+                  onClick={onReports}
                 >
                   <div className="flex flex-col items-center text-center space-y-3">
                     <div className="w-12 h-12 bg-orange-100 dark:bg-orange-900 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform duration-200">
@@ -657,24 +578,10 @@ export default function StaffDashboard({ onLogout, onGoHome, onNotifications, on
                     <div>
                       <h4 className="font-semibold text-card-foreground mb-1">{t("notification") || "Notifications"}</h4>
                       <p className="text-sm text-muted-foreground">{t("view_system_alerts") || "View system alerts"}</p>
-                    </div>
                   </div>
                 </div>
               </div>
-
-              {/* Home Button - Added per requirement */}
-              {onGoHome && (
-                <div className="mt-6 pt-4 border-t border-border">
-                  <Button
-                    variant="default"
-                    className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
-                    onClick={onGoHome}
-                  >
-                    <Home className="w-4 h-4 mr-2" />
-                    {language === 'vi' ? 'Về trang chủ' : 'Go to Home'}
-                  </Button>
-                </div>
-              )}
+            </div>
             </div>
           </div>
         );
@@ -709,19 +616,6 @@ export default function StaffDashboard({ onLogout, onGoHome, onNotifications, on
               {/* Notification badge - mock unread count */}
               <div className="absolute -top-1 -right-1 w-3 h-3 bg-destructive rounded-full animate-pulse"></div>
             </Button>
-            
-            {/* Home Button */}
-            {onGoHome && (
-              <Button 
-                variant="ghost" 
-                size="sm"
-                onClick={onGoHome}
-                className="text-muted-foreground hover:text-foreground"
-              >
-                <Home className="w-4 h-4 mr-1" />
-                {language === 'vi' ? 'Trang chủ' : 'Home'}
-              </Button>
-            )}
 
                         {/* Settings Popover */}
                         <Popover>
@@ -865,10 +759,7 @@ export default function StaffDashboard({ onLogout, onGoHome, onNotifications, on
                                                     ? "bg-sidebar-primary text-sidebar-primary-foreground"
                                                     : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                                             }`}
-                                            onClick={() => {
-                                                setActiveSection(item.id);
-                                                setSidebarOpen(false);
-                                            }}
+                                            onClick={() => handleMenuClick(item.id)}
                                         >
                                             <Icon className="w-4 h-4 mr-3" />
                                             {item.label}
