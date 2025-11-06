@@ -1,6 +1,8 @@
 package swp391.code.swp391.service;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import swp391.code.swp391.dto.IssueReportDTO;
@@ -41,7 +43,7 @@ public class IssueReportServiceImpl implements IssueReportService {
         // Create issue report
         IssueReport issueReport = new IssueReport();
         issueReport.setStation(station);
-        issueReport.setStaff(staff);
+        issueReport.setReporter(staff);
         issueReport.setDescription(dto.getDescription());
         issueReport.setStatus(IssueReport.Status.INBOX);
         issueReport.setReportedTime(LocalDateTime.now());
@@ -79,8 +81,8 @@ public class IssueReportServiceImpl implements IssueReportService {
                         issue.getIssueReportId(),
                         issue.getStation().getStationId(),
                         issue.getStation().getStationName(),
-                        issue.getStaff().getUserId(),
-                        issue.getStaff().getFullName(),
+                        issue.getReporter().getUserId(),
+                        issue.getReporter().getFullName(),
                         issue.getDescription(),
                         issue.getStatus(),
                         issue.getReportedTime()
@@ -116,9 +118,10 @@ public class IssueReportServiceImpl implements IssueReportService {
         newReport.setStatus(IssueReport.Status.INBOX); // Đặt trạng thái ban đầu
         newReport.setReportedTime(LocalDateTime.now());
 
-        // newReport.setStaff(null); // Sẽ là null (vì chúng ta đã sửa Entity)
-        // newReport.setReporter(currentUser); // (Bạn nên lấy user đang login)
-
+        // Lấy user hiện tại từ CSDL
+        User currentUser = getCurrentUser();
+        // Nếu không có user hiện tại, có thể để null hoặc gán user mặc định
+        newReport.setReporter(currentUser); // Gán người báo cáo
         // 4. Lưu vào CSDL
         return issueReportRepository.save(newReport);
     }
@@ -147,5 +150,23 @@ public class IssueReportServiceImpl implements IssueReportService {
         }
 
         return sb.toString();
+    }
+    /**
+     * Hàm helper mới: Lấy User entity từ Spring Security
+     */
+    private User getCurrentUser() {
+        // Lấy thông tin xác thực (authentication)
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+
+        if (authentication == null || !authentication.isAuthenticated() || "anonymousUser".equals(authentication.getPrincipal())) {
+            // Không có ai đăng nhập (ví dụ: test Postman không token)
+            return null;
+        }
+
+        // Lấy email (hoặc username) từ token
+        String userEmail = authentication.getName();
+
+        // Tìm User trong CSDL bằng email
+        return userRepository.findByEmail(userEmail).orElse(null);
     }
 }

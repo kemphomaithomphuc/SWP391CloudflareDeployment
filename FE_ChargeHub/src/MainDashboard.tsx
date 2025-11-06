@@ -36,6 +36,7 @@ import { logoutUser, getUnreadNotificationCount, getNotifications } from "./serv
 import { toast } from "sonner";
 
 import Footer from "./components/Footer";
+import Chatbot from "./components/Chatbot";
 
 interface MainDashboardProps {
   onLogout: () => void;
@@ -558,6 +559,9 @@ export default function MainDashboard({ onLogout, onBooking, onHistory, onAnalys
         {/* Footer - Only show on dashboard */}
         {activeSection === "dashboard" && <Footer />}
       </div>
+
+      {/* Chat Widget */}
+      <Chatbot />
     </div>
   );
 }

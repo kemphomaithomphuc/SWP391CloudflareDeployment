@@ -14,4 +14,7 @@ public class SmartReportRequest {
      * Ví dụ: "Trụ CCS2 ở Vincom A sạc không vào điện!"
      */
     private String userFeedback;
+    /**
+     * ID của người dùng gửi phản hồi (nếu có).
+     */    private Long userId;
 }

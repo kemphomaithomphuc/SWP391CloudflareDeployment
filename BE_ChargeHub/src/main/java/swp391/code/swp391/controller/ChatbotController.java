@@ -53,7 +53,8 @@ public class ChatbotController {
                     // Gemini đã nhớ ngữ cảnh và bóc tách được
                     issueReportService.createReportFromParsedData(
                             decision.getReportDetails(),
-                            chatRequest.getMessage() // Hoặc gửi toàn bộ history
+                            chatRequest.getMessage()
+                            // Hoặc gửi toàn bộ history
                     ); // "Cảm ơn, tôi đã ghi nhận"
                 } catch (Exception e) {
                     return ResponseEntity.ok(new ChatResponse("Tôi ghi nhận lỗi, nhưng: " + e.getMessage()));

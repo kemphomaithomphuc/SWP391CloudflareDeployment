@@ -32,7 +32,7 @@ interface AdminDashboardProps {
 
 export default function AdminDashboard({ onLogout, onSystemConfig, onAdminMap, onRevenue, onStaffManagement, onUsageAnalytics, onAdminChargerPostActivating, onIssueResolvement }: AdminDashboardProps) {
 
-  const { language, toggleLanguage } = useLanguage();
+  const { language, setLanguage } = useLanguage();
   const [showSalary, setShowSalary] = useState(false);
 
   const adminData = {
@@ -124,7 +124,7 @@ export default function AdminDashboard({ onLogout, onSystemConfig, onAdminMap, o
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => language !== 'vi' && toggleLanguage()}
+                    onClick={() => language !== 'vi' && setLanguage('vi')}
                     className={`relative z-10 h-8 w-12 px-2 text-xs font-medium transition-all duration-200 hover:scale-105 ${
                       language === 'vi' ? 'text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
                     }`}
@@ -134,7 +134,7 @@ export default function AdminDashboard({ onLogout, onSystemConfig, onAdminMap, o
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => language !== 'en' && toggleLanguage()}
+                    onClick={() => language !== 'en' && setLanguage('en')}
                     className={`relative z-10 h-8 w-12 px-2 text-xs font-medium transition-all duration-200 hover:scale-105 ${
                       language === 'en' ? 'text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
                     }`}

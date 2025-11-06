@@ -704,6 +704,166 @@ export const reportViolation = async (userId: number, reason: string): Promise<A
   return response.data;
 };
 
+// ===== CHATBOT API FUNCTIONS =====
+export interface ChatRequest {
+  message: string;
+}
+
+export interface ChatResponse {
+  message: string;
+}
+
+export const sendChatMessage = async (message: string): Promise<any> => {
+  try {
+    console.log('Sending chat message to:', `${apiBaseUrl}/api/chatbot/send`);
+    console.log('Message payload:', { message });
+    
+    const response = await api.post('/api/chatbot/send', { message });
+    
+    console.log('Chat API full response:', response);
+    console.log('Chat API response.data:', response.data);
+    console.log('Chat API response.data type:', typeof response.data);
+    
+    // Return the full response data to handle different formats
+    return response.data;
+  } catch (error: any) {
+    console.error('Error calling chatbot API:', error);
+    console.error('Error response:', error.response?.data);
+    console.error('Error status:', error.response?.status);
+    throw error;
+  }
+};
+
+// ===== ADMIN REVENUE API FUNCTIONS =====
+export interface RevenueData {
+  month: string;
+  revenue: number;
+  sessions: number;
+  users: number;
+}
+
+export interface RevenueResponse {
+  data: RevenueData[];
+  totalRevenue?: number;
+  totalSessions?: number;
+  totalUsers?: number;
+  avgRevenuePerSession?: number;
+}
+
+export interface RevenueFilters {
+  region?: string;
+  station?: string;
+  timeRange?: string;
+  fromDate?: string;
+  toDate?: string;
+  stationId?: number;
+  paymentMethod?: string;
+  status?: string;
+  groupBy?: string;
+}
+
+export const getRevenueData = async (filters?: RevenueFilters): Promise<RevenueResponse> => {
+  try {
+    console.log('Fetching revenue data with filters:', filters);
+    
+    const params = new URLSearchParams();
+    // Support both old and new filter formats
+    if (filters?.region) params.append('region', filters.region);
+    if (filters?.station) params.append('station', filters.station);
+    if (filters?.timeRange) params.append('timeRange', filters.timeRange);
+    // New filter parameters
+    if (filters?.fromDate) params.append('fromDate', filters.fromDate);
+    if (filters?.toDate) params.append('toDate', filters.toDate);
+    if (filters?.stationId !== undefined) params.append('stationId', filters.stationId.toString());
+    if (filters?.paymentMethod) params.append('paymentMethod', filters.paymentMethod);
+    if (filters?.status) params.append('status', filters.status);
+    if (filters?.groupBy) params.append('groupBy', filters.groupBy);
+    
+    const queryString = params.toString();
+    const url = `/api/admin/revenue${queryString ? `?${queryString}` : ''}`;
+    
+    console.log('Revenue API URL:', url);
+    
+    const response = await api.get<RevenueResponse>(url);
+    
+    console.log('Revenue API response:', response.data);
+    return response.data;
+  } catch (error: any) {
+    console.error('Error fetching revenue data:', error);
+    console.error('Error response:', error.response?.data);
+    throw error;
+  }
+};
+
+export interface ExportRevenueFilters {
+  fromDate?: string;
+  toDate?: string;
+  stationId?: number;
+  paymentMethod?: string;
+  status?: string;
+  groupBy?: string;
+}
+
+export const exportRevenueToExcel = async (filters?: ExportRevenueFilters): Promise<Blob> => {
+  try {
+    console.log('Exporting revenue to Excel with filters:', filters);
+    
+    const params = new URLSearchParams();
+    if (filters?.fromDate) params.append('fromDate', filters.fromDate);
+    if (filters?.toDate) params.append('toDate', filters.toDate);
+    if (filters?.stationId !== undefined) params.append('stationId', filters.stationId.toString());
+    if (filters?.paymentMethod) params.append('paymentMethod', filters.paymentMethod);
+    if (filters?.status) params.append('status', filters.status);
+    if (filters?.groupBy) params.append('groupBy', filters.groupBy);
+    
+    const queryString = params.toString();
+    const url = `/api/admin/revenue/export/excel${queryString ? `?${queryString}` : ''}`;
+    
+    console.log('Export Revenue API URL:', url);
+    
+    const response = await api.get(url, {
+      responseType: 'blob', // Important for file download
+    });
+    
+    console.log('Export Revenue API response:', response);
+    return response.data;
+  } catch (error: any) {
+    console.error('Error exporting revenue to Excel:', error);
+    console.error('Error response:', error.response?.data);
+    throw error;
+  }
+};
+
+export const exportRevenueToPDF = async (filters?: ExportRevenueFilters): Promise<Blob> => {
+  try {
+    console.log('Exporting revenue to PDF with filters:', filters);
+    
+    const params = new URLSearchParams();
+    if (filters?.fromDate) params.append('fromDate', filters.fromDate);
+    if (filters?.toDate) params.append('toDate', filters.toDate);
+    if (filters?.stationId !== undefined) params.append('stationId', filters.stationId.toString());
+    if (filters?.paymentMethod) params.append('paymentMethod', filters.paymentMethod);
+    if (filters?.status) params.append('status', filters.status);
+    if (filters?.groupBy) params.append('groupBy', filters.groupBy);
+    
+    const queryString = params.toString();
+    const url = `/api/admin/revenue/export/pdf${queryString ? `?${queryString}` : ''}`;
+    
+    console.log('Export Revenue PDF API URL:', url);
+    
+    const response = await api.get(url, {
+      responseType: 'blob', // Important for file download
+    });
+    
+    console.log('Export Revenue PDF API response:', response);
+    return response.data;
+  } catch (error: any) {
+    console.error('Error exporting revenue to PDF:', error);
+    console.error('Error response:', error.response?.data);
+    throw error;
+  }
+};
+
 export default api;
 
 
