@@ -3,23 +3,23 @@ import axios from "axios";
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080";
 
 export const api = axios.create({
-  baseURL: apiBaseUrl,
+    baseURL: apiBaseUrl,
 });
 
 api.interceptors.request.use((config) => {
-  const accessToken = localStorage.getItem("token");
-  if (accessToken) {
-    config.headers = config.headers ?? {};
-    (config.headers as Record<string, string>)["Authorization"] = `Bearer ${accessToken}`;
-  }
-  return config;
+    const accessToken = localStorage.getItem("token");
+    if (accessToken) {
+        config.headers = config.headers ?? {};
+        (config.headers as Record<string, string>)["Authorization"] = `Bearer ${accessToken}`;
+    }
+    return config;
 });
 
 // Response interceptor for token refresh
 api.interceptors.response.use(
-  (response) => response,
-  async (error) => {
-    const originalRequest = error.config;
+    (response) => response,
+    async (error) => {
+        const originalRequest = error.config;
 
     // Check if it's a 403 error (user is banned)
     if (error.response?.status === 403 && error.response?.data?.error === "User is banned") {
@@ -28,133 +28,140 @@ api.interceptors.response.use(
       return Promise.reject(error);
     }
 
-    // Check if it's a 401 error and we haven't already tried to refresh
-    if (error.response?.status === 401 && !originalRequest._retry) {
-      originalRequest._retry = true;
-
-      const refreshToken = localStorage.getItem("refreshToken");
-
-      if (refreshToken) {
-        try {
-          console.log("=== TOKEN REFRESH DEBUG ===");
-          console.log("Attempting to refresh token...");
-
-          // Call refresh token endpoint
-          const response = await axios.post(`${apiBaseUrl}/api/auth/refresh`, {
-            refreshToken: refreshToken
-          });
-
-          if (response.data?.success && response.data?.data?.accessToken) {
-            const newAccessToken = response.data.data.accessToken;
-            const newRefreshToken = response.data.data.refreshToken;
-
-            console.log("Token refresh successful");
-
-            // Update tokens in localStorage
-            localStorage.setItem("token", newAccessToken);
-            if (newRefreshToken) {
-              localStorage.setItem("refreshToken", newRefreshToken);
-            }
-
-            // Update the original request with new token
-            originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
-
-            // Retry the original request
-            return api(originalRequest);
-          }
-        } catch (refreshError) {
-          console.error("=== TOKEN REFRESH FAILED ===");
-          console.error("Refresh error:", refreshError);
-
-          // Clear tokens and redirect to login
-          localStorage.removeItem("token");
-          localStorage.removeItem("refreshToken");
-          localStorage.removeItem("userId");
-          localStorage.removeItem("fullName");
-          localStorage.removeItem("email");
-
-          // Redirect to login page
-          window.location.href = "/";
-
-          return Promise.reject(refreshError);
+        // Check if it's a 403 error (user is banned)
+        if (error.response?.status === 403 && error.response?.data?.error === "User is banned") {
+            // Redirect to penalty payment page
+            window.location.href = "/penalty-payment";
+            return Promise.reject(error);
         }
-      } else {
-        console.log("No refresh token available, redirecting to login");
 
-        // Clear tokens and redirect to login
-        localStorage.removeItem("token");
-        localStorage.removeItem("refreshToken");
-        localStorage.removeItem("userId");
-        localStorage.removeItem("fullName");
-        localStorage.removeItem("email");
+        // Check if it's a 401 error and we haven't already tried to refresh
+        if (error.response?.status === 401 && !originalRequest._retry) {
+            originalRequest._retry = true;
 
-        // Redirect to login page
-        window.location.href = "/";
-      }
+            const refreshToken = localStorage.getItem("refreshToken");
+
+            if (refreshToken) {
+                try {
+                    console.log("=== TOKEN REFRESH DEBUG ===");
+                    console.log("Attempting to refresh token...");
+
+                    // Call refresh token endpoint
+                    const response = await axios.post(`${apiBaseUrl}/api/auth/refresh`, {
+                        refreshToken: refreshToken
+                    });
+
+                    if (response.data?.success && response.data?.data?.accessToken) {
+                        const newAccessToken = response.data.data.accessToken;
+                        const newRefreshToken = response.data.data.refreshToken;
+
+                        console.log("Token refresh successful");
+
+                        // Update tokens in localStorage
+                        localStorage.setItem("token", newAccessToken);
+                        if (newRefreshToken) {
+                            localStorage.setItem("refreshToken", newRefreshToken);
+                        }
+
+                        // Update the original request with new token
+                        originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
+
+                        // Retry the original request
+                        return api(originalRequest);
+                    }
+                } catch (refreshError) {
+                    console.error("=== TOKEN REFRESH FAILED ===");
+                    console.error("Refresh error:", refreshError);
+
+                    // Clear tokens and redirect to login
+                    localStorage.removeItem("token");
+                    localStorage.removeItem("refreshToken");
+                    localStorage.removeItem("userId");
+                    localStorage.removeItem("fullName");
+                    localStorage.removeItem("email");
+
+                    // Redirect to login page
+                    window.location.href = "/";
+
+                    return Promise.reject(refreshError);
+                }
+            } else {
+                console.log("No refresh token available, redirecting to login");
+
+                // Clear tokens and redirect to login
+                localStorage.removeItem("token");
+                localStorage.removeItem("refreshToken");
+                localStorage.removeItem("userId");
+                localStorage.removeItem("fullName");
+                localStorage.removeItem("email");
+
+                // Redirect to login page
+                window.location.href = "/";
+            }
+        }
+
+        return Promise.reject(error);
     }
-
-    return Promise.reject(error);
-  }
 );
 
 // ===== TOKEN UTILITIES =====
 
 // Check if token is expired (with 5 minute buffer for 30-minute tokens)
 export const isTokenExpired = (token: string): boolean => {
-  try {
-    const parts = token.split('.');
-    if (parts.length !== 3 || !parts[1]) {
-      console.error("Invalid token format");
-      return true;
+    try {
+        const parts = token.split('.');
+        if (parts.length !== 3 || !parts[1]) {
+            console.error("Invalid token format");
+            return true;
+        }
+        const payload = JSON.parse(atob(parts[1]));
+        const currentTime = Math.floor(Date.now() / 1000);
+        const bufferTime = 5 * 60; // 5 minutes buffer (for 30-minute tokens)
+        return payload.exp < (currentTime + bufferTime);
+    } catch (error) {
+        console.error("Error parsing token:", error);
+        return true; // Assume expired if can't parse
     }
-    const payload = JSON.parse(atob(parts[1]));
-    const currentTime = Math.floor(Date.now() / 1000);
-    const bufferTime = 5 * 60; // 5 minutes buffer (for 30-minute tokens)
-    return payload.exp < (currentTime + bufferTime);
-  } catch (error) {
-    console.error("Error parsing token:", error);
-    return true; // Assume expired if can't parse
-  }
 };
 
 // Check if token will expire soon (for 30-minute tokens)
 export const isTokenExpiringSoon = (token: string): boolean => {
-  try {
-    const parts = token.split('.');
-    if (parts.length !== 3 || !parts[1]) {
-      return false;
+    try {
+        const parts = token.split('.');
+        if (parts.length !== 3 || !parts[1]) {
+            return false;
+        }
+        const payload = JSON.parse(atob(parts[1]));
+        const currentTime = Math.floor(Date.now() / 1000);
+        const timeUntilExpiry = payload.exp - currentTime;
+        const warningTime = 5 * 60; // 5 minutes warning for 30-minute tokens
+        return timeUntilExpiry <= warningTime && timeUntilExpiry > 0;
+    } catch (error) {
+        return false;
     }
-    const payload = JSON.parse(atob(parts[1]));
-    const currentTime = Math.floor(Date.now() / 1000);
-    const timeUntilExpiry = payload.exp - currentTime;
-    const warningTime = 5 * 60; // 5 minutes warning for 30-minute tokens
-    return timeUntilExpiry <= warningTime && timeUntilExpiry > 0;
-  } catch (error) {
-    return false;
-  }
 };
 
 // Proactively refresh token if it's about to expire
 export const checkAndRefreshToken = async (): Promise<boolean> => {
-  const accessToken = localStorage.getItem("token");
-  const refreshToken = localStorage.getItem("refreshToken");
+    const accessToken = localStorage.getItem("token");
+    const refreshToken = localStorage.getItem("refreshToken");
 
-  if (!accessToken || !refreshToken) {
-    return false;
-  }
+    if (!accessToken || !refreshToken) {
+        return false;
+    }
 
-  if (isTokenExpired(accessToken)) {
-    try {
-      console.log("=== PROACTIVE TOKEN REFRESH ===");
-      console.log("Token is expired, refreshing...");
+    if (isTokenExpired(accessToken)) {
+        try {
+            console.log("=== PROACTIVE TOKEN REFRESH ===");
+            console.log("Token is expired, refreshing...");
 
-      const response = await axios.post(`${apiBaseUrl}/api/auth/refresh`, {
-        refreshToken: refreshToken
-      });
+            const response = await axios.post(`${apiBaseUrl}/api/auth/refresh`, {
+                refreshToken: refreshToken
+            });
 
-      if (response.data?.success && response.data?.data?.accessToken) {
-        const newAccessToken = response.data.data.accessToken;
-        const newRefreshToken = response.data.data.refreshToken;
+            if (response.data?.success && response.data?.data?.accessToken) {
+                const newAccessToken = response.data.data.accessToken;
+                const newRefreshToken = response.data.data.refreshToken;
 
         console.log("Proactive token refresh successful");
 
@@ -282,6 +289,18 @@ export interface OrderResponseDTO {
   createdAt: string; // ISO string format
 }
 
+// Minimal order list item for staff views
+export interface StationOrderItemDTO {
+    orderId: number;
+    userName?: string;
+    vehiclePlate?: string;
+    chargingPointId: number;
+    connectorType?: string;
+    status: 'BOOKED' | 'CHARGING' | 'COMPLETED' | string;
+    startTime: string;
+    endTime: string;
+}
+
 export interface BatteryLevelDTO {
   vehicleId: number;
   currentBatteryPercent: number;
@@ -294,6 +313,40 @@ export interface APIResponse<T> {
   message: string;
   data: T;
   timestamp: string;
+}
+
+// ===== STAFF: CHANGE CHARGING POINT TYPES =====
+export interface ChargingPointDTO {
+    chargingPointId: number;
+    status: string;
+    stationId: number;
+    connectorTypeId: number;
+    typeName?: string;
+    powerOutput?: number;
+    pricePerKwh?: number;
+}
+
+export interface ChangeChargingPointRequestDTO {
+    orderId: number;
+    currentChargingPointId: number;
+    newChargingPointId: number;
+    reason?: string;
+    staffId?: number;
+}
+
+export interface ChangeChargingPointResponseDTO {
+    orderId: number;
+    oldChargingPointId: number;
+    oldChargingPointInfo?: string;
+    newChargingPointId: number;
+    newChargingPointInfo?: string;
+    driverName?: string;
+    driverId?: number;
+    reason?: string;
+    changedAt?: string;
+    changedByStaff?: string;
+    notificationSent?: boolean;
+    message?: string;
 }
 
 // ===== ORDER API FUNCTIONS =====
@@ -359,6 +412,37 @@ export const getStationById = async (stationId: number) => {
   return response.data;
 };
 
+
+// ===== SUBSCRIPTION API =====
+export interface SubscriptionResponseDTO {
+  subscriptionId: number;
+  type: 'BASIC' | 'PLUS' | 'PRO' | string;
+  startDate?: string;
+  endDate?: string;
+  // Optional fields if backend provides pricing/metadata
+  price?: number;
+  subscriptionName?: string;
+  description?: string;
+  durationDays?: number;
+  isActive?: boolean;
+  displayOrder?: number;
+}
+
+// Update subscription plan price (admin)
+// Update subscription via controller's updateSubscription
+export interface SubscriptionRequestDTO {
+  userId?: number;
+  type?: 'BASIC' | 'PLUS' | 'PRO' | 'PREMIUM' | string;
+  startDate?: string;
+  endDate?: string;
+  subscriptionName?: string;
+  description?: string;
+  price?: number;
+  durationDays?: number;
+  isActive?: boolean;
+  displayOrder?: number;
+}
+
 export const getOrdersByStation = async (
   stationId: number,
   statuses: Array<'BOOKED' | 'CHARGING' | 'COMPLETED'> = ['BOOKED', 'CHARGING']
@@ -421,6 +505,25 @@ export const updateSubscription = async (
   return response.data;
 };
 
+// ===== USER SUBSCRIPTION UPGRADE API =====
+export const upgradeUserSubscription = async (
+  userId: number,
+  subscriptionType: 'BASIC' | 'PLUS' | 'PREMIUM'
+): Promise<APIResponse<SubscriptionResponseDTO>> => {
+  // Backend endpoint: PUT /api/subscription/update
+  // Body: SubscriptionRequestDTO (userId và type)
+  const response = await api.put<APIResponse<SubscriptionResponseDTO>>(
+    `/api/subscription/update`,
+    {
+      userId: userId,
+      type: subscriptionType,
+      startDate: new Date().toISOString(),
+      // endDate sẽ được BE tính tự động dựa vào durationDays của plan
+    }
+  );
+  return response.data;
+};
+
 // 5. Get transactions history (paginated)
 export interface TransactionHistoryParams {
   userId: number;
@@ -461,28 +564,28 @@ export const getTransactionHistory = async ({ userId, page = 0, size = 10, sortB
 
 // Logout user
 export const logoutUser = async (): Promise<APIResponse<string>> => {
-  console.log("=== API LOGOUT DEBUG ===");
-  console.log("Calling POST /api/auth/logout");
-  console.log("Current token:", localStorage.getItem("token"));
-  
-  try {
-    const response = await api.post<APIResponse<string>>('/api/auth/logout');
-    console.log("Logout API response status:", response.status);
-    console.log("Logout API response data:", response.data);
-    console.log("Logout API response headers:", response.headers);
-    return response.data;
-  } catch (error) {
-    console.error("=== API LOGOUT ERROR ===");
-    console.error("API logout error:", error);
-    console.error("Error type:", typeof error);
-    console.error("Error message:", error instanceof Error ? error.message : "Unknown error");
-    if (error instanceof Error && 'response' in error) {
-      console.error("Error response:", (error as any).response);
-      console.error("Error response status:", (error as any).response?.status);
-      console.error("Error response data:", (error as any).response?.data);
+    console.log("=== API LOGOUT DEBUG ===");
+    console.log("Calling POST /api/auth/logout");
+    console.log("Current token:", localStorage.getItem("token"));
+
+    try {
+        const response = await api.post<APIResponse<string>>('/api/auth/logout');
+        console.log("Logout API response status:", response.status);
+        console.log("Logout API response data:", response.data);
+        console.log("Logout API response headers:", response.headers);
+        return response.data;
+    } catch (error) {
+        console.error("=== API LOGOUT ERROR ===");
+        console.error("API logout error:", error);
+        console.error("Error type:", typeof error);
+        console.error("Error message:", error instanceof Error ? error.message : "Unknown error");
+        if (error instanceof Error && 'response' in error) {
+            console.error("Error response:", (error as any).response);
+            console.error("Error response status:", (error as any).response?.status);
+            console.error("Error response data:", (error as any).response?.data);
+        }
+        throw error;
     }
-    throw error;
-  }
 };
 
 // Get current user ID
@@ -681,14 +784,20 @@ export const deleteSubscriptionFeature = async (featureId: number): Promise<APIR
 
 // ===== USER API TYPES =====
 export interface UserDTO {
-  userId: number;
-  fullName: string;
-  email?: string;
-  phoneNumber?: string;
-  status: 'ACTIVE' | 'INACTIVE' | 'BANNED';
-  violations: number;
-  avatarUrl?: string;
-  role: string;
+    userId: number;
+    fullName: string;
+    email?: string;
+    phoneNumber?: string;
+    dateOfBirth?: string;  //Added for DriverManagementView
+    status: 'ACTIVE' | 'INACTIVE' | 'BANNED';
+    violations: number;
+    avatarUrl?: string;
+    avatar?: string;  //Alias for avatarUrl
+    role: string;
+    reasonReport?: string;  //Added for ban reason
+    // Station info for STAFF
+    stationId?: number;
+    stationName?: string;
 }
 
 // ===== USER API FUNCTIONS =====
@@ -700,6 +809,100 @@ export const getUserProfile = async (userId: number): Promise<APIResponse<UserDT
 export const reportViolation = async (userId: number, reason: string): Promise<APIResponse<UserDTO>> => {
   const response = await api.post<APIResponse<UserDTO>>(`/api/user/reportViolation`, null, {
     params: { userId, reason }
+  });
+  return response.data;
+};
+
+// Get all users (for admin)
+export const getAllUsers = async (): Promise<APIResponse<UserDTO[]>> => {
+    const response = await api.get<APIResponse<UserDTO[]>>('/api/user/allDriver');
+    return response.data;
+};
+
+// Update user status and role (for admin)
+export const updateUserStatus = async (
+    userId: number,
+    status: 'ACTIVE' | 'INACTIVE' | 'BANNED',
+    role?: 'DRIVER' | 'STAFF' | 'ADMIN'
+): Promise<APIResponse<UserDTO>> => {
+    const response = await api.put<APIResponse<UserDTO>>(
+        `/api/user/profile/${userId}`,
+        { status, role }
+    );
+    return response.data;
+};
+
+// ===== PEAK HOURS ANALYTICS API =====
+export interface PeakHourDTO {
+  hour: number;
+  timeRange: string;
+  sessionCount: number;
+  totalEnergy: number;
+  averageEnergy: number;
+  totalRevenue: number;
+  utilizationRate: number;
+}
+
+// Get peak hours analysis
+export const getPeakHours = async (
+  startDate?: string,
+  endDate?: string,
+  stationId?: number
+): Promise<APIResponse<PeakHourDTO[]>> => {
+  const params = new URLSearchParams();
+  if (startDate) params.append('startDate', startDate);
+  if (endDate) params.append('endDate', endDate);
+  if (stationId) params.append('stationId', stationId.toString());
+
+  const response = await api.get<APIResponse<PeakHourDTO[]>>(`/api/analytics/peak-hours?${params.toString()}`);
+  return response.data;
+};
+
+// ===== STAFF MANAGEMENT API =====
+export interface StaffDTO {
+  userId: number;
+  fullName: string;
+  email: string;
+  phone?: string;
+  dateOfBirth?: string;
+  address?: string;
+  role: 'DRIVER' | 'STAFF' | 'ADMIN';
+  status: 'ACTIVE' | 'INACTIVE' | 'BANNED';
+  stationId?: number;
+  stationName?: string;
+  stationAddress?: string;
+}
+
+// Get staff by station
+export const getStaffByStation = async (stationId: number): Promise<APIResponse<StaffDTO[]>> => {
+  const response = await api.get<APIResponse<StaffDTO[]>>(`/api/staff-management/stations/${stationId}/staff`);
+  return response.data;
+};
+
+// Get all available staff (not assigned to any station)
+export const getAvailableStaff = async (): Promise<APIResponse<StaffDTO[]>> => {
+  const response = await api.get<APIResponse<StaffDTO[]>>('/api/staff-management/available');
+  return response.data;
+};
+
+// Get staff by ID
+export const getStaffById = async (userId: number): Promise<APIResponse<StaffDTO>> => {
+  const response = await api.get<APIResponse<StaffDTO>>(`/api/staff-management/staff/${userId}`);
+  return response.data;
+};
+
+// Assign staff to station
+export const assignStaffToStation = async (userId: number, stationId: number): Promise<APIResponse<StaffDTO>> => {
+  const response = await api.post<APIResponse<StaffDTO>>('/api/staff-management/assign', null, {
+    params: { userId, stationId }
+  });
+  return response.data;
+};
+
+// Unassign staff from station
+export const unassignStaffFromStation = async (userId: number): Promise<APIResponse<StaffDTO>> => {
+  const response = await api.post<APIResponse<StaffDTO>>('/api/staff-management/unassign', null, {
+    params: { userId }
   });
   return response.data;
 };

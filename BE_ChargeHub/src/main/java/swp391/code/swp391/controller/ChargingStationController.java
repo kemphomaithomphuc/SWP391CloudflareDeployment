@@ -1,14 +1,17 @@
 package swp391.code.swp391.controller;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import swp391.code.swp391.dto.ChargingPointDTO;
 import swp391.code.swp391.dto.ChargingStationDTO;
+import swp391.code.swp391.entity.ChargingStation;
 import swp391.code.swp391.entity.ChargingStation.ChargingStationStatus;
 import swp391.code.swp391.service.ChargingStationService;
+import swp391.code.swp391.service.GeminiService;
 
 import java.util.List;
 
@@ -171,5 +174,38 @@ public class ChargingStationController {
     public ResponseEntity<Boolean> isStationNameExists(@RequestParam String stationName) {
         boolean exists = chargingStationService.isStationNameExists(stationName);
         return new ResponseEntity<>(exists, HttpStatus.OK);
+    }
+
+    // --- THÊM GEMINI SERVICE ---
+    @Autowired
+    private GeminiService geminiService;
+
+    /**
+     * API lấy chi tiết trạm sạc VÀ các tiện ích xung quanh
+     */
+    @GetMapping("/{id}")
+    public ResponseEntity<ChargingStationDTO> getStationById(@PathVariable Long id) {
+
+        // Bước 1: Lấy dữ liệu trạm sạc từ CSDL
+        ChargingStationDTO station = chargingStationService.getChargingStationById(id);
+
+        if (station == null) {
+            return ResponseEntity.notFound().build();
+        }
+
+        // Bước 2: Gọi Gemini để lấy tiện ích xung quanh
+        try {
+            String amenities = geminiService.getAmenitiesAround(
+                    station.getLatitude(),
+                    station.getLongitude()
+            );
+            // Gán kết quả vào DTO
+            station.setSurroundingAmenities(amenities != null ? amenities : "No amenities found.");
+        } catch (Exception e) {
+            // Nếu Gemini lỗi, vẫn trả về thông tin trạm
+            station.setSurroundingAmenities("Không thể tải gợi ý tiện ích.");
+        }
+
+        return new ResponseEntity<>(station, HttpStatus.OK);
     }
 }

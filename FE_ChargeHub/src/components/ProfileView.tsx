@@ -746,28 +746,20 @@ export default function ProfileView({ onBack }: ProfileViewProps) {
             [field]: value,
         }));
 
-        // 🆕 Mark field as touched when user edits it
+        //Mark field as touched when user edits it
         if (field === 'fullName' || field === 'phone' || field === 'dateOfBirth' || field === 'address') {
             setTouchedFields(prev => ({
                 ...prev,
                 [field]: true
             }));
             
-            // 🆕 Always validate on input change for real-time feedback
+            // Validate on input change for real-time feedback
             const error = validateFormField(field, value);
-            setFormErrors(prev => {
-                const newErrors = {
-                    ...prev,
-                    [field]: error || undefined
-                };
-                
-                // 🆕 Check form validity after updating errors
-                setTimeout(() => {
-                    checkFormValidity();
-                }, 0);
-                
-                return newErrors;
-            });
+            setFormErrors(prev => ({
+                ...prev,
+                [field]: error || undefined
+            }));
+            //useEffect at line 363-365 will automatically checkFormValidity() when formErrors changes
         }
     };
 

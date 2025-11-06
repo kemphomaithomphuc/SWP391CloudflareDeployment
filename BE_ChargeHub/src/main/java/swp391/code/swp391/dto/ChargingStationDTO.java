@@ -40,6 +40,8 @@ public class ChargingStationDTO {
     @NotNull(message = "Number of charging points is required")
     private int chargingPointNumber;
 
-    // Cho output: list charging points (đã được map qua DTO)
-    // Nếu cần trả về thông tin staff, hãy tạo StaffDTO riêng
+    // Field chứa thông tin tiện ích xung quanh (được tạo bởi AI)
+    private String surroundingAmenities;
+
+
 }

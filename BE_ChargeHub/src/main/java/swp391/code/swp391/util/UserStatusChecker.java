@@ -72,48 +72,6 @@ public class UserStatusChecker {
             );
         }
     }
-
-    /**
-     * Get current user status from JWT token
-     * @return User status or null if not found
-     */
-    public User.UserStatus getCurrentUserStatus() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-
-        if (authentication instanceof JwtAuthenticationToken jwtAuth) {
-            Jwt jwt = jwtAuth.getToken();
-            String status = jwt.getClaimAsString("status");
-
-            if (status != null) {
-                try {
-                    return User.UserStatus.valueOf(status);
-                } catch (IllegalArgumentException e) {
-                    return null;
-                }
-            }
-        }
-
-        return null;
-    }
-
-    /**
-     * Check if current user is ACTIVE
-     * @return true if user is ACTIVE, false otherwise
-     */
-    public boolean isCurrentUserActive() {
-        User.UserStatus status = getCurrentUserStatus();
-        return status == User.UserStatus.ACTIVE;
-    }
-
-
-    /**
-     * Check if current user is INACTIVE
-     * @return true if user is INACTIVE, false otherwise
-     */
-    public boolean isCurrentUserInactive() {
-        User.UserStatus status = getCurrentUserStatus();
-        return status == User.UserStatus.INACTIVE;
-    }
 }
 
 

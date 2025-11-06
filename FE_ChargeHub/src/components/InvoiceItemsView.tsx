@@ -5,7 +5,7 @@ import { Input } from "./ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Separator } from "./ui/separator";
 
-import { toast } from "sonner@2.0.3";
+import { toast } from "sonner";
 import { Toaster } from "./ui/sonner";
 import QRCodeGenerator from "./QRCodeGenerator";
 

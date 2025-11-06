@@ -36,6 +36,7 @@ import { logoutUser, getUnreadNotificationCount, getNotifications } from "./serv
 import { toast } from "sonner";
 
 import Footer from "./components/Footer";
+import Chatbot from "./components/Chatbot";
 
 interface MainDashboardProps {
   onLogout: () => void;
@@ -154,14 +155,6 @@ export default function MainDashboard({ onLogout, onBooking, onHistory, onAnalys
       setIsLoggingOut(false);
       console.log("=== LOGOUT DEBUG END ===");
     }
-  };
-
-  // Mock user vehicle data - in real app this would come from backend/context
-  const userVehicle = {
-    brand: "Tesla",
-    model: "Model 3", 
-    plateNumber: "30A-12345",
-    image: "https://images.unsplash.com/photo-1570169725356-76eff13bee48?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx0ZXNsYSUyMG1vZGVsJTIwMyUyMGVsZWN0cmljJTIwY2FyfGVufDF8fHx8MTc1Nzc4MTk4NXww&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral"
   };
 
   return (
@@ -506,7 +499,7 @@ export default function MainDashboard({ onLogout, onBooking, onHistory, onAnalys
 
                   <div 
                     className="bg-card rounded-2xl p-6 border border-border hover:shadow-lg hover:border-primary/50 transition-all cursor-pointer"
-                    onClick={() => setActiveSection("subscription")}
+                    onClick={onPremiumSubscription}
                   >
                     <CreditCard className="w-8 h-8 text-primary mb-4" />
                     <h3 className="font-semibold text-foreground mb-2">
@@ -558,6 +551,9 @@ export default function MainDashboard({ onLogout, onBooking, onHistory, onAnalys
         {/* Footer - Only show on dashboard */}
         {activeSection === "dashboard" && <Footer />}
       </div>
+
+      {/* Chat Widget */}
+      <Chatbot />
     </div>
   );
 }
