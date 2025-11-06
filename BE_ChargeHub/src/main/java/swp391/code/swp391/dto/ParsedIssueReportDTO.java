@@ -2,7 +2,7 @@ package swp391.code.swp391.dto;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import lombok.Data; // (Dùng Lombok cho nhanh)
+import lombok.Data;
 
 /**
  * DTO này dùng để hứng dữ liệu JSON đã được bóc tách
@@ -32,6 +32,12 @@ public class ParsedIssueReportDTO {
      */
     @JsonProperty("issue_type")
     private String issueType;
+
+    /*
+    * Thông tin user
+     */
+    @JsonProperty("user_id")
+    private Long userId;
 
     /**
      * Cảm xúc của người dùng.

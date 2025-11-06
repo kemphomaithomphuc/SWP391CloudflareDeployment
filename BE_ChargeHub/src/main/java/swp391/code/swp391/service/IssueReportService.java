@@ -23,5 +23,5 @@ public interface IssueReportService {
      * @return Entity IssueReport đã được lưu
      * @throws RuntimeException nếu không tìm thấy tên trạm sạc
      */
-    IssueReport createReportFromParsedData(ParsedIssueReportDTO parsedReport, String originalFeedback);
+    IssueReport createReportFromParsedData(ParsedIssueReportDTO parsedReport, String originalFeedback );
 }

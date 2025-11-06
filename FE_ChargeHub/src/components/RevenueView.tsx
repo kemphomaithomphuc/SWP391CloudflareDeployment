@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ArrowLeft, Download, BarChart3, Calendar, MapPin, Building2, TrendingUp, Users, Zap, Clock } from 'lucide-react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
@@ -8,16 +8,8 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, Area, AreaChart } from 'recharts';
 import AdminLanguageThemeControls from './AdminLanguageThemeControls';
-
-// Mock data for revenue analytics
-const revenueData = [
-  { month: 'Jan', revenue: 45000, sessions: 1250, users: 890 },
-  { month: 'Feb', revenue: 52000, sessions: 1380, users: 945 },
-  { month: 'Mar', revenue: 48000, sessions: 1290, users: 920 },
-  { month: 'Apr', revenue: 61000, sessions: 1520, users: 1080 },
-  { month: 'May', revenue: 55000, sessions: 1410, users: 1020 },
-  { month: 'Jun', revenue: 67000, sessions: 1680, users: 1180 },
-];
+import { getRevenueData, RevenueData, RevenueFilters, exportRevenueToExcel, exportRevenueToPDF, ExportRevenueFilters, getAllChargingStations, ChargingStationDTO } from '../services/api';
+import { toast } from 'sonner';
 
 const regionData = [
   { id: 'all', name: 'All Regions', nameVi: 'Tất cả khu vực' },
@@ -26,12 +18,12 @@ const regionData = [
   { id: 'south', name: 'Southern Region', nameVi: 'Miền Nam' },
 ];
 
-const stationData = [
-  { id: 'all', name: 'All Stations', nameVi: 'Tất cả trạm' },
-  { id: 'station-1', name: 'ChargeHub Center', nameVi: 'ChargeHub Trung tâm' },
-  { id: 'station-2', name: 'ChargeHub Mall', nameVi: 'ChargeHub TTTM' },
-  { id: 'station-3', name: 'ChargeHub Airport', nameVi: 'ChargeHub Sân bay' },
-];
+interface StationOption {
+  id: string;
+  name: string;
+  nameVi: string;
+  stationId?: number;
+}
 
 const timeRangeData = [
   { id: 'week', name: 'Last 7 days', nameVi: '7 ngày qua' },
@@ -51,8 +43,303 @@ export default function RevenueView({ onBack }: RevenueViewProps) {
   const [selectedStation, setSelectedStation] = useState('all');
   const [selectedTimeRange, setSelectedTimeRange] = useState('month');
   const [chartType, setChartType] = useState<'bar' | 'line' | 'area'>('bar');
+  const [revenueData, setRevenueData] = useState<RevenueData[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [totalRevenue, setTotalRevenue] = useState(0);
+  const [totalSessions, setTotalSessions] = useState(0);
+  const [totalUsers, setTotalUsers] = useState(0);
+  const [avgRevenuePerSession, setAvgRevenuePerSession] = useState(0);
+  const [stationData, setStationData] = useState<StationOption[]>([
+    { id: 'all', name: 'All Stations', nameVi: 'Tất cả trạm' }
+  ]);
 
   const isVietnamese = language === 'vi';
+
+  // Fetch stations from API
+  useEffect(() => {
+    const fetchStations = async () => {
+      try {
+        const response = await getAllChargingStations();
+        if (response && response.length > 0) {
+          const stations: StationOption[] = [
+            { id: 'all', name: 'All Stations', nameVi: 'Tất cả trạm' },
+            ...response.map((station: ChargingStationDTO) => ({
+              id: `station-${station.stationId}`,
+              name: station.stationName || `Station ${station.stationId}`,
+              nameVi: station.stationName || `Trạm ${station.stationId}`,
+              stationId: station.stationId,
+            }))
+          ];
+          setStationData(stations);
+        }
+      } catch (error) {
+        console.error('Error fetching stations:', error);
+        // Keep default station data on error
+      }
+    };
+
+    fetchStations();
+  }, []);
+
+  // Generate mock revenue data
+  const generateMockData = () => {
+    const data = [];
+    const daysCount = selectedTimeRange === 'week' ? 7 : selectedTimeRange === 'month' ? 30 : selectedTimeRange === 'quarter' ? 90 : 365;
+    
+    for (let i = daysCount - 1; i >= 0; i--) {
+      const date = new Date();
+      date.setDate(date.getDate() - i);
+      
+      // Generate random but realistic data
+      const baseRevenue = 500 + Math.random() * 1500;
+      const baseSessions = 10 + Math.random() * 40;
+      const baseUsers = 5 + Math.random() * 20;
+      
+      // Add some variation based on day of week (weekends higher)
+      const dayOfWeek = date.getDay();
+      const weekendMultiplier = (dayOfWeek === 0 || dayOfWeek === 6) ? 1.3 : 1;
+      
+      const revenue = Math.round(baseRevenue * weekendMultiplier);
+      const sessions = Math.round(baseSessions * weekendMultiplier);
+      const users = Math.round(baseUsers * weekendMultiplier);
+      
+      // Format date for display
+      const displayDate = date.toLocaleDateString(isVietnamese ? 'vi-VN' : 'en-US', { 
+        month: 'short', 
+        day: 'numeric' 
+      });
+      
+      data.push({
+        month: displayDate,
+        date: date.toISOString().split('T')[0],
+        revenue: revenue,
+        sessions: sessions,
+        users: users,
+      });
+    }
+    
+    return data;
+  };
+
+  // Fetch revenue data when filters change
+  useEffect(() => {
+    const fetchRevenueData = async () => {
+      setIsLoading(true);
+      try {
+        // === TEMPORARY: Use mock data instead of API ===
+        console.log('Using mock data temporarily');
+        
+        // Simulate API delay
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        const mockData = generateMockData();
+        
+        // Process mock data
+        const processedData = mockData.map((item: any) => ({
+          ...item,
+          month: item.month,
+          revenue: Number(item.revenue || 0),
+          sessions: Number(item.sessions || 0),
+          users: Number(item.users || 0),
+        }));
+        
+        setRevenueData(processedData);
+        
+        // Calculate summary statistics
+        const totalRevenue = processedData.reduce((sum: number, item: any) => sum + (item.revenue || 0), 0);
+        const totalSessions = processedData.reduce((sum: number, item: any) => sum + (item.sessions || 0), 0);
+        // For mock data, estimate unique users as sum of daily users (simplified)
+        // In real API, this would be provided separately
+        const totalUsers = Math.round(processedData.reduce((sum: number, item: any) => sum + (item.users || 0), 0) * 0.7); // Estimate 70% unique
+        const avgRevenuePerSession = totalSessions > 0 ? totalRevenue / totalSessions : 0;
+        
+        setTotalRevenue(totalRevenue);
+        setTotalSessions(totalSessions);
+        setTotalUsers(totalUsers);
+        setAvgRevenuePerSession(avgRevenuePerSession);
+        
+        // === END MOCK DATA ===
+        
+        // === ORIGINAL API CODE (COMMENTED OUT) ===
+        /*
+        // Calculate date range based on selectedTimeRange
+        const getDateRange = () => {
+          const toDate = new Date();
+          const fromDate = new Date();
+          
+          switch (selectedTimeRange) {
+            case 'week':
+              fromDate.setDate(toDate.getDate() - 7);
+              break;
+            case 'month':
+              fromDate.setMonth(toDate.getMonth() - 1);
+              break;
+            case 'quarter':
+              fromDate.setMonth(toDate.getMonth() - 3);
+              break;
+            case 'year':
+              fromDate.setFullYear(toDate.getFullYear() - 1);
+              break;
+            default:
+              fromDate.setMonth(toDate.getMonth() - 1);
+          }
+          
+          // Set time to start of day for fromDate and end of day for toDate
+          fromDate.setHours(0, 0, 0, 0);
+          toDate.setHours(23, 59, 59, 999);
+          
+          return {
+            fromDate: fromDate.toISOString().split('.')[0], // Format: YYYY-MM-DDTHH:mm:ss
+            toDate: toDate.toISOString().split('.')[0], // Format: YYYY-MM-DDTHH:mm:ss
+          };
+        };
+        
+        const { fromDate, toDate } = getDateRange();
+        
+        const filters: RevenueFilters = {};
+        // Old format for backward compatibility
+        if (selectedRegion !== 'all') {
+          filters.region = selectedRegion;
+        }
+        if (selectedStation !== 'all') {
+          filters.station = selectedStation;
+        }
+        filters.timeRange = selectedTimeRange;
+        
+        // New format with date range and stationId
+        if (fromDate) filters.fromDate = fromDate;
+        if (toDate) filters.toDate = toDate;
+        if (selectedStation !== 'all') {
+          // Find stationId from stationData
+          const selectedStationData = stationData.find(s => s.id === selectedStation);
+          if (selectedStationData?.stationId) {
+            filters.stationId = selectedStationData.stationId;
+          } else {
+            // Fallback: try to parse from id format "station-{id}"
+            const stationIdMatch = selectedStation.match(/\d+/);
+            if (stationIdMatch) {
+              filters.stationId = parseInt(stationIdMatch[0]);
+            }
+          }
+        }
+        filters.groupBy = 'day'; // Default group by day
+        
+        console.log('Fetching revenue with filters:', filters);
+        
+        const response = await getRevenueData(filters);
+        
+        // Handle different response formats
+        let data: RevenueData[] = [];
+        if (Array.isArray(response)) {
+          data = response;
+        } else if (response.data && Array.isArray(response.data)) {
+          data = response.data;
+        } else if (response.data) {
+          data = [response.data];
+        }
+        
+        // Process and normalize data format for display
+        const processedData = data.map((item: any) => {
+          // Normalize date/month field for chart display
+          let displayDate = item.month || item.date || item.day || item.period || item.timePeriod || '';
+          
+          // Format date string if needed
+          if (displayDate) {
+            try {
+              // Try parsing ISO datetime string or date string
+              if (displayDate.includes('T') || displayDate.match(/^\d{4}-\d{2}-\d{2}/)) {
+                const date = new Date(displayDate);
+                if (!isNaN(date.getTime())) {
+                  // Format based on groupBy
+                  if (filters.groupBy === 'day' || filters.groupBy === 'date') {
+                    displayDate = date.toLocaleDateString(isVietnamese ? 'vi-VN' : 'en-US', { 
+                      month: 'short', 
+                      day: 'numeric' 
+                    });
+                  } else if (filters.groupBy === 'week') {
+                    displayDate = `Week ${Math.ceil(date.getDate() / 7)}`;
+                  } else if (filters.groupBy === 'month') {
+                    displayDate = date.toLocaleDateString(isVietnamese ? 'vi-VN' : 'en-US', { 
+                      month: 'short', 
+                      year: 'numeric' 
+                    });
+                  } else {
+                    displayDate = date.toLocaleDateString(isVietnamese ? 'vi-VN' : 'en-US', { 
+                      month: 'short', 
+                      day: 'numeric' 
+                    });
+                  }
+                }
+              }
+            } catch (e) {
+              // Keep original value if parsing fails
+              console.warn('Failed to parse date:', displayDate, e);
+            }
+          }
+          
+          return {
+            ...item,
+            month: displayDate, // Use 'month' as standard key for chart
+            revenue: Number(item.revenue || item.totalRevenue || 0),
+            sessions: Number(item.sessions || item.totalSessions || item.sessionCount || 0),
+            users: Number(item.users || item.totalUsers || item.userCount || 0),
+          };
+        });
+        
+        setRevenueData(processedData);
+        
+        // Set summary statistics from processed data
+        
+        if (response.totalRevenue !== undefined && response.totalRevenue !== null) {
+          setTotalRevenue(Number(response.totalRevenue));
+        } else {
+          const total = processedData.reduce((sum: number, item: any) => sum + (item.revenue || 0), 0);
+          setTotalRevenue(total);
+        }
+        
+        if (response.totalSessions !== undefined && response.totalSessions !== null) {
+          setTotalSessions(Number(response.totalSessions));
+        } else {
+          const total = processedData.reduce((sum: number, item: any) => sum + (item.sessions || 0), 0);
+          setTotalSessions(total);
+        }
+        
+        if (response.totalUsers !== undefined && response.totalUsers !== null) {
+          setTotalUsers(Number(response.totalUsers));
+        } else {
+          const total = processedData.reduce((sum: number, item: any) => sum + (item.users || 0), 0);
+          setTotalUsers(total);
+        }
+        
+        if (response.avgRevenuePerSession !== undefined && response.avgRevenuePerSession !== null) {
+          setAvgRevenuePerSession(Number(response.avgRevenuePerSession));
+        } else {
+          const totalRev = response.totalRevenue ?? processedData.reduce((sum: number, item: any) => sum + (item.revenue || 0), 0);
+          const totalSess = response.totalSessions ?? processedData.reduce((sum: number, item: any) => sum + (item.sessions || 0), 0);
+          setAvgRevenuePerSession(totalSess > 0 ? Number(totalRev) / Number(totalSess) : 0);
+        }
+        */
+        
+      } catch (error: any) {
+        console.error('Error fetching revenue data:', error);
+        toast.error(
+          isVietnamese 
+            ? 'Không thể tải dữ liệu doanh thu. Vui lòng thử lại sau.' 
+            : 'Failed to load revenue data. Please try again later.'
+        );
+        // Set empty data on error
+        setRevenueData([]);
+        setTotalRevenue(0);
+        setTotalSessions(0);
+        setTotalUsers(0);
+        setAvgRevenuePerSession(0);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchRevenueData();
+  }, [selectedRegion, selectedStation, selectedTimeRange, isVietnamese, stationData]);
 
   const translations = {
     title: isVietnamese ? 'Doanh Thu' : 'Revenue',
@@ -78,35 +365,169 @@ export default function RevenueView({ onBack }: RevenueViewProps) {
     areaChart: isVietnamese ? 'Biểu đồ vùng' : 'Area Chart',
   };
 
-  // Calculate summary statistics
-  const totalRevenue = revenueData.reduce((sum, item) => sum + item.revenue, 0);
-  const totalSessions = revenueData.reduce((sum, item) => sum + item.sessions, 0);
-  const totalUsers = revenueData.reduce((sum, item) => sum + item.users, 0);
-  const avgRevenuePerSession = totalRevenue / totalSessions;
 
-  const handleExport = () => {
-    const currentDate = new Date().toLocaleString();
-    const exportData = {
-      region: regionData.find(r => r.id === selectedRegion)?.name || 'All Regions',
-      station: stationData.find(s => s.id === selectedStation)?.name || 'All Stations',
-      timeRange: timeRangeData.find(t => t.id === selectedTimeRange)?.name || 'Last 30 days',
-      totalRevenue,
-      totalSessions,
-      totalUsers,
-      avgRevenuePerSession: Math.round(avgRevenuePerSession),
-      exportTimestamp: currentDate,
-    };
+  // Helper function to get date range
+  const getDateRange = () => {
+    const toDate = new Date();
+    const fromDate = new Date();
     
-    console.log('Export Data:', exportData);
-    // In a real app, this would trigger a file download
+    switch (selectedTimeRange) {
+      case 'week':
+        fromDate.setDate(toDate.getDate() - 7);
+        break;
+      case 'month':
+        fromDate.setMonth(toDate.getMonth() - 1);
+        break;
+      case 'quarter':
+        fromDate.setMonth(toDate.getMonth() - 3);
+        break;
+      case 'year':
+        fromDate.setFullYear(toDate.getFullYear() - 1);
+        break;
+      default:
+        fromDate.setMonth(toDate.getMonth() - 1);
+    }
+    
+    // Set time to start of day for fromDate and end of day for toDate
+    fromDate.setHours(0, 0, 0, 0);
+    toDate.setHours(23, 59, 59, 999);
+    
+    return {
+      fromDate: fromDate.toISOString().split('.')[0], // Format: YYYY-MM-DDTHH:mm:ss
+      toDate: toDate.toISOString().split('.')[0], // Format: YYYY-MM-DDTHH:mm:ss
+    };
+  };
+
+  // Helper function to download file
+  const downloadFile = (blob: Blob, filename: string) => {
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+  };
+
+  const handleExportExcel = async () => {
+    try {
+      setIsLoading(true);
+      
+      const { fromDate, toDate } = getDateRange();
+      
+      const filters: ExportRevenueFilters = {};
+      if (fromDate) filters.fromDate = fromDate;
+      if (toDate) filters.toDate = toDate;
+      if (selectedStation !== 'all') {
+        filters.stationId = parseInt(selectedStation.replace('station-', ''));
+      }
+      filters.groupBy = 'day'; // Default group by day
+      
+      console.log('Exporting to Excel with filters:', filters);
+      
+      const blob = await exportRevenueToExcel(filters);
+      
+      // Generate filename with current date
+      const currentDate = new Date().toISOString().split('T')[0];
+      downloadFile(blob, `revenue-export-${currentDate}.xlsx`);
+      
+      toast.success(
+        isVietnamese 
+          ? 'Xuất dữ liệu Excel thành công!' 
+          : 'Excel export successful!'
+      );
+    } catch (error: any) {
+      console.error('Error exporting revenue to Excel:', error);
+      toast.error(
+        isVietnamese 
+          ? 'Không thể xuất dữ liệu Excel. Vui lòng thử lại sau.' 
+          : 'Failed to export Excel. Please try again later.'
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleExportPDF = async () => {
+    try {
+      setIsLoading(true);
+      
+      const { fromDate, toDate } = getDateRange();
+      
+      const filters: ExportRevenueFilters = {};
+      if (fromDate) filters.fromDate = fromDate;
+      if (toDate) filters.toDate = toDate;
+      if (selectedStation !== 'all') {
+        filters.stationId = parseInt(selectedStation.replace('station-', ''));
+      }
+      filters.groupBy = 'day'; // Default group by day
+      
+      console.log('Exporting to PDF with filters:', filters);
+      
+      const blob = await exportRevenueToPDF(filters);
+      
+      // Generate filename with current date
+      const currentDate = new Date().toISOString().split('T')[0];
+      downloadFile(blob, `revenue-export-${currentDate}.pdf`);
+      
+      toast.success(
+        isVietnamese 
+          ? 'Xuất dữ liệu PDF thành công!' 
+          : 'PDF export successful!'
+      );
+    } catch (error: any) {
+      console.error('Error exporting revenue to PDF:', error);
+      toast.error(
+        isVietnamese 
+          ? 'Không thể xuất dữ liệu PDF. Vui lòng thử lại sau.' 
+          : 'Failed to export PDF. Please try again later.'
+      );
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const renderChart = () => {
     const commonProps = {
       width: '100%',
-      height: 300,
+      height: 350,
       data: revenueData,
-      margin: { top: 5, right: 30, left: 20, bottom: 5 },
+      margin: { top: 10, right: 30, left: 20, bottom: 70 },
+    };
+
+    // Custom tooltip formatter
+    const customTooltip = ({ active, payload, label }: any) => {
+      if (active && payload && payload.length) {
+        const data = payload[0].payload;
+        return (
+          <div className="bg-card border border-border rounded-lg p-3 shadow-lg">
+            <p className="font-semibold mb-2">{label}</p>
+            <div className="space-y-1 text-sm">
+              <p className="text-red-600 dark:text-red-400">
+                {translations.totalRevenue}: <span className="font-bold">${data.revenue?.toLocaleString() || 0}</span>
+              </p>
+              <p className="text-blue-600 dark:text-blue-400">
+                {translations.totalSessions}: <span className="font-bold">{data.sessions?.toLocaleString() || 0}</span>
+              </p>
+              {data.users !== undefined && (
+                <p className="text-green-600 dark:text-green-400">
+                  {translations.uniqueUsers}: <span className="font-bold">{data.users?.toLocaleString() || 0}</span>
+                </p>
+              )}
+            </div>
+          </div>
+        );
+      }
+      return null;
+    };
+
+    // Format Y-axis for revenue (currency)
+    const formatYAxis = (value: number) => {
+      if (value >= 1000) {
+        return `$${(value / 1000).toFixed(1)}k`;
+      }
+      return `$${value}`;
     };
 
     switch (chartType) {
@@ -115,16 +536,19 @@ export default function RevenueView({ onBack }: RevenueViewProps) {
           <ResponsiveContainer {...commonProps}>
             <LineChart data={revenueData}>
               <CartesianGrid strokeDasharray="3 3" stroke={theme === 'dark' ? '#333' : '#e0e0e0'} />
-              <XAxis dataKey="month" stroke={theme === 'dark' ? '#fff' : '#333'} />
-              <YAxis stroke={theme === 'dark' ? '#fff' : '#333'} />
-              <Tooltip 
-                contentStyle={{
-                  backgroundColor: theme === 'dark' ? '#1a1a1a' : '#fff',
-                  border: `1px solid ${theme === 'dark' ? '#333' : '#e0e0e0'}`,
-                  borderRadius: '8px',
-                  color: theme === 'dark' ? '#fff' : '#333'
-                }}
+              <XAxis 
+                dataKey="month" 
+                stroke={theme === 'dark' ? '#fff' : '#333'}
+                angle={-45}
+                textAnchor="end"
+                height={80}
+                interval="preserveStartEnd"
               />
+              <YAxis 
+                stroke={theme === 'dark' ? '#fff' : '#333'}
+                tickFormatter={formatYAxis}
+              />
+              <Tooltip content={customTooltip} />
               <Line type="monotone" dataKey="revenue" stroke="#dc2626" strokeWidth={3} dot={{ fill: '#dc2626', strokeWidth: 2, r: 6 }} />
             </LineChart>
           </ResponsiveContainer>
@@ -134,16 +558,19 @@ export default function RevenueView({ onBack }: RevenueViewProps) {
           <ResponsiveContainer {...commonProps}>
             <AreaChart data={revenueData}>
               <CartesianGrid strokeDasharray="3 3" stroke={theme === 'dark' ? '#333' : '#e0e0e0'} />
-              <XAxis dataKey="month" stroke={theme === 'dark' ? '#fff' : '#333'} />
-              <YAxis stroke={theme === 'dark' ? '#fff' : '#333'} />
-              <Tooltip 
-                contentStyle={{
-                  backgroundColor: theme === 'dark' ? '#1a1a1a' : '#fff',
-                  border: `1px solid ${theme === 'dark' ? '#333' : '#e0e0e0'}`,
-                  borderRadius: '8px',
-                  color: theme === 'dark' ? '#fff' : '#333'
-                }}
+              <XAxis 
+                dataKey="month" 
+                stroke={theme === 'dark' ? '#fff' : '#333'}
+                angle={-45}
+                textAnchor="end"
+                height={80}
+                interval="preserveStartEnd"
               />
+              <YAxis 
+                stroke={theme === 'dark' ? '#fff' : '#333'}
+                tickFormatter={formatYAxis}
+              />
+              <Tooltip content={customTooltip} />
               <Area type="monotone" dataKey="revenue" stroke="#dc2626" fill="url(#revenueGradient)" strokeWidth={2} />
               <defs>
                 <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
@@ -159,16 +586,19 @@ export default function RevenueView({ onBack }: RevenueViewProps) {
           <ResponsiveContainer {...commonProps}>
             <BarChart data={revenueData}>
               <CartesianGrid strokeDasharray="3 3" stroke={theme === 'dark' ? '#333' : '#e0e0e0'} />
-              <XAxis dataKey="month" stroke={theme === 'dark' ? '#fff' : '#333'} />
-              <YAxis stroke={theme === 'dark' ? '#fff' : '#333'} />
-              <Tooltip 
-                contentStyle={{
-                  backgroundColor: theme === 'dark' ? '#1a1a1a' : '#fff',
-                  border: `1px solid ${theme === 'dark' ? '#333' : '#e0e0e0'}`,
-                  borderRadius: '8px',
-                  color: theme === 'dark' ? '#fff' : '#333'
-                }}
+              <XAxis 
+                dataKey="month" 
+                stroke={theme === 'dark' ? '#fff' : '#333'}
+                angle={-45}
+                textAnchor="end"
+                height={80}
+                interval="preserveStartEnd"
               />
+              <YAxis 
+                stroke={theme === 'dark' ? '#fff' : '#333'}
+                tickFormatter={formatYAxis}
+              />
+              <Tooltip content={customTooltip} />
               <Bar dataKey="revenue" fill="#dc2626" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
@@ -378,8 +808,25 @@ export default function RevenueView({ onBack }: RevenueViewProps) {
             </div>
           </CardHeader>
           <CardContent className="p-6">
-            <div className="h-80 w-full">
-              {renderChart()}
+            <div className="h-[400px] w-full">
+              {isLoading ? (
+                <div className="flex items-center justify-center h-full">
+                  <div className="text-center">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600 mx-auto mb-4"></div>
+                    <p className="text-muted-foreground">
+                      {isVietnamese ? 'Đang tải dữ liệu...' : 'Loading data...'}
+                    </p>
+                  </div>
+                </div>
+              ) : revenueData.length === 0 ? (
+                <div className="flex items-center justify-center h-full">
+                  <p className="text-muted-foreground">
+                    {isVietnamese ? 'Không có dữ liệu' : 'No data available'}
+                  </p>
+                </div>
+              ) : (
+                renderChart()
+              )}
             </div>
           </CardContent>
         </Card>
@@ -394,18 +841,29 @@ export default function RevenueView({ onBack }: RevenueViewProps) {
               </CardTitle>
             </CardHeader>
             <CardContent className="p-6">
-              <div className="text-center">
-                <Button
-                  onClick={handleExport}
-                  className="bg-red-600 hover:bg-red-700 text-white px-8 py-3 text-lg"
-                >
-                  <Download className="mr-2 h-5 w-5" />
-                  {translations.export}
-                </Button>
-                <p className="text-sm text-muted-foreground mt-4">
+              <div className="text-center space-y-4">
+                <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                  <Button
+                    onClick={handleExportExcel}
+                    disabled={isLoading}
+                    className="bg-green-600 hover:bg-green-700 text-white px-6 py-3"
+                  >
+                    <Download className="mr-2 h-5 w-5" />
+                    {isVietnamese ? 'Xuất Excel' : 'Export Excel'}
+                  </Button>
+                  <Button
+                    onClick={handleExportPDF}
+                    disabled={isLoading}
+                    className="bg-red-600 hover:bg-red-700 text-white px-6 py-3"
+                  >
+                    <Download className="mr-2 h-5 w-5" />
+                    {isVietnamese ? 'Xuất PDF' : 'Export PDF'}
+                  </Button>
+                </div>
+                <p className="text-sm text-muted-foreground">
                   {isVietnamese 
-                    ? 'Xuất dữ liệu doanh thu dưới định dạng CSV hoặc Excel' 
-                    : 'Export revenue data in CSV or Excel format'
+                    ? 'Xuất dữ liệu doanh thu dưới định dạng Excel hoặc PDF' 
+                    : 'Export revenue data in Excel or PDF format'
                   }
                 </p>
               </div>
