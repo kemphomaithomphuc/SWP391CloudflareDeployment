@@ -4,7 +4,6 @@ import { LanguageProvider } from "./contexts/LanguageContext";
 import { BookingProvider } from "./contexts/BookingContext";
 import { StationProvider } from "./contexts/StationContext";
 import { NotificationProvider } from "./contexts/NotificationContext";
-import { ChatbotProvider } from "./contexts/ChatbotContext";
 import { Toaster } from "./components/ui/sonner";
 import AppLayout from "./components/AppLayout";
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom'
@@ -14,12 +13,14 @@ import { jwtDecode } from "jwt-decode";
 
 // Import components individually to catch any import errors
 import Login from "./Login";
-import Register from "./Register";
+import Register from "./Register";  
 import ProfileSetup from "./ProfileSetup";
 import VehicleSetup from "./VehicleSetup";
 import MainDashboard from "./MainDashboard";
 import StaffLogin from "./StaffLogin";
 import StaffDashboard from "./StaffDashboard";
+import StaffNotificationView from "./components/StaffNotificationView";
+import StaffReportView from "./components/StaffReportView";
 import AdminLogin from "./AdminLogin";
 import AdminDashboard from "./AdminDashboard";
 import BookingMap from "./BookingMap";
@@ -28,9 +29,6 @@ import PersonalAnalysisView from "./components/PersonalAnalysisView";
 import ReportIssueView from "./components/ReportIssueView";
 import WalletView from "./components/WalletView";
 import NotificationView from "./components/NotificationView";
-import StaffNotificationView from "./components/StaffNotificationView";
-import StaffReportView from "./components/StaffReportView";
-import ChargingManagementView from "./components/ChargingManagementView";
 import SystemConfigView from "./components/SystemConfigView";
 import AdminMapView from "./components/AdminMapView";
 import RevenueView from "./components/RevenueView";
@@ -47,438 +45,267 @@ import PostActivatingView from "./components/PostActivatingView";
 import MyBookingView from "./components/MyBookingView";
 import ChargingSessionView from "./components/ChargingSessionView";
 import PremiumSubscriptionView from "./components/PremiumSubscriptionView";
-import PenaltyPaymentView from "./components/PenaltyPaymentView";
-import { access } from "fs";
-import { checkAndRefreshToken, getCurrentUserId, getUserProfile } from "./services/api";
+import PaymentResultView from "./components/PaymentResultView";
+import { ChatbotProvider } from "./contexts/ChatbotContext";
+import { checkAndRefreshToken } from "./services/api";
 
-
-type ViewType = "login" | "register" | "roleSelection" | "profileSetup" | "vehicleSetup" | "staffProfileSetup" | "educationSetup" | "dashboard" | "staffLogin" | "staffDashboard" | "adminLogin" | "adminDashboard" | "systemConfig" | "adminMap" | "revenue" | "staffManagement" | "usageAnalytics" | "booking" | "history" | "analysis" | "reportIssue" | "wallet" | "notifications" | "staffNotifications" | "postActivating" | "adminChargerPostActivating" | "myBookings" | "chargingSession" | "stationManagement" | "premiumSubscription" | "penaltyPayment" | "issueResolvement" | "staffReports" | "staffChargingManagement";
-
-// Protected routes that require authentication
-const PROTECTED_ROUTES: ViewType[] = [
-    'dashboard', 'booking', 'history', 'analysis', 'reportIssue', 
-    'wallet', 'notifications', 'myBookings', 'chargingSession', 
-    'premiumSubscription', 'penaltyPayment',
-    'staffDashboard', 'staffNotifications', 'staffReports', 
-    'staffChargingManagement', 'postActivating', 'stationManagement',
-    'adminDashboard', 'systemConfig', 'adminMap', 'revenue', 
-    'staffManagement', 'usageAnalytics', 'adminChargerPostActivating', 
-    'issueResolvement'
-];
+type ViewType = "login" | "register" | "roleSelection" | "profileSetup" | "vehicleSetup" | "staffProfileSetup" | "educationSetup" | "dashboard" | "staffLogin" | "staffDashboard" | "staffReports" | "adminLogin" | "adminDashboard" | "systemConfig" | "adminMap" | "revenue" | "staffManagement" | "usageAnalytics" | "booking" | "history" | "analysis" | "reportIssue" | "wallet" | "notifications" | "staffNotifications" | "postActivating" | "adminChargerPostActivating" | "myBookings" | "chargingSession" | "premiumSubscription" | "issueResolvement";
 
 function AppContent() {
-    const navigate = useNavigate();
-    const location = useLocation();
-    const [vehicleBatteryLevel, setVehicleBatteryLevel] = useState(75);
-    const [currentBookingId, setCurrentBookingId] = useState<string>("");
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [currentView, setCurrentView] = useState<ViewType>("login");
+  const [vehicleBatteryLevel, setVehicleBatteryLevel] = useState(75);
+  const [currentBookingId, setCurrentBookingId] = useState<string>("");
 
-    // Lấy currentView từ URL path
-    const getCurrentViewFromPath = (): ViewType => {
-        const path = location.pathname.replace('/', '') || 'login';
-        return path as ViewType;
-    };
+  const switchToLogin = () => setCurrentView("login");
+  const switchToRegister = () => setCurrentView("register");
+  const switchToRoleSelection = () => {
+    console.log("Switching to roleSelection view");
+    setCurrentView("roleSelection");
+  };
+  const switchToProfileSetup = () => setCurrentView("profileSetup");
+  const switchToVehicleSetup = () => setCurrentView("vehicleSetup");
+  const switchToStaffProfileSetup = () => setCurrentView("staffProfileSetup");
+  const switchToEducationSetup = () => setCurrentView("educationSetup");
+  const completeSetup = () => setCurrentView("login");
+  const completeStaffSetup = () => setCurrentView("staffDashboard");
+  const switchToStaffLogin = () => setCurrentView("staffLogin");
+  const completeStaffLogin = () => setCurrentView("staffDashboard");
+  const switchToStaffReports = () => setCurrentView("staffReports");
+  const switchToAdminLogin = () => setCurrentView("adminLogin");
+  const completeAdminLogin = () => setCurrentView("adminDashboard");
+  const switchToBooking = () => setCurrentView("booking");
+  const switchToHistory = () => setCurrentView("history");
+  const switchToAnalysis = () => setCurrentView("analysis");
+  const switchToReportIssue = () => setCurrentView("reportIssue");
+  const switchToWallet = () => setCurrentView("wallet");
+  const switchToNotifications = () => setCurrentView("notifications");
+  const switchToStaffNotifications = () => setCurrentView("staffNotifications");
+  const switchToSystemConfig = () => setCurrentView("systemConfig");
+  const switchToAdminMap = () => setCurrentView("adminMap");
+  const switchToRevenue = () => setCurrentView("revenue");
+  const switchToStaffManagement = () => setCurrentView("staffManagement");
+  const switchToUsageAnalytics = () => setCurrentView("usageAnalytics");
+  const switchToPostActivating = () => setCurrentView("postActivating");
+  const switchToAdminChargerPostActivating = () => setCurrentView("adminChargerPostActivating");
+const switchToIssueResolvement = () => setCurrentView("issueResolvement");
+  const switchToMyBookings = () => setCurrentView("myBookings");
+  const switchToChargingSession = (bookingId: string) => {
+    setCurrentBookingId(bookingId);
+    setCurrentView("chargingSession");
+  };
+  const switchToPremiumSubscription = () => setCurrentView("premiumSubscription");
 
-    const currentView = getCurrentViewFromPath();
+  // Check if user needs vehicle setup after profile completion
+  const handleProfileCompletion = async () => {
+    const token = localStorage.getItem("token");
+    if (token) {
+      try {
+        // Check if user has vehicles
+        const userId = localStorage.getItem("userId") || localStorage.getItem("registeredUserId");
+        if (userId) {
+          const res = await axios.get(`http://localhost:8080/api/user/profile/${userId}`);
+          if (res.data && res.data.vehicles && res.data.vehicles.length > 0) {
+            // User has vehicles, go to dashboard
+            setCurrentView("dashboard");
+          } else {
+            // User needs vehicle setup
+            setCurrentView("vehicleSetup");
+          }
+        } else {
+          // Fallback to vehicle setup
+          setCurrentView("vehicleSetup");
+        }
+      } catch (err) {
+        console.error("Error checking user vehicles:", err);
+        // Fallback to vehicle setup
+        setCurrentView("vehicleSetup");
+      }
+    } else {
+      // For new users, go to vehicle setup
+      switchToVehicleSetup();
+    }
+  };
 
-    // Rehydrate user data on mount or route change
-    useEffect(() => {
-        const rehydrateUserData = async () => {
-            const token = localStorage.getItem("token");
-            const isProtectedRoute = PROTECTED_ROUTES.includes(currentView);
-            
-            console.log("=== REHYDRATE USER DATA ===");
-            console.log("Current route:", currentView);
-            console.log("Is protected:", isProtectedRoute);
-            console.log("Has token:", !!token);
-            
-            // If no token and on protected route → redirect to login
-            if (!token && isProtectedRoute) {
-                console.log("No token on protected route, redirecting to login...");
-                
-                // Clear all user data
-                localStorage.removeItem("userId");
-                localStorage.removeItem("fullName");
-                localStorage.removeItem("email");
-                localStorage.removeItem("role");
-                localStorage.removeItem("stationId");
-                localStorage.removeItem("stationName");
-                localStorage.removeItem("refreshToken");
-                
-                // Redirect based on route type
-                if (currentView.startsWith('staff')) {
-                    navigate('/staffLogin');
-                } else if (currentView.startsWith('admin')) {
-                    navigate('/adminLogin');
-                } else {
-                    navigate('/login');
+  // Generic navigation handler for layout
+  const handleNavigation = (view: string) => {
+    setCurrentView(view as ViewType);
+  };
+
+  // Determine user type and whether to show sidebar based on current view
+  const getUserType = (): 'driver' | 'staff' | 'admin' | undefined => {
+    if (['dashboard', 'booking', 'history', 'analysis', 'reportIssue', 'wallet', 'notifications', 'myBookings', 'chargingSession', 'premiumSubscription'].includes(currentView)) {
+      return 'driver';
+    }
+    if (['staffDashboard', 'staffNotifications', 'staffReports', 'postActivating'].includes(currentView)) {
+      return 'staff';  
+    }
+    if (['adminDashboard', 'systemConfig', 'adminMap', 'revenue', 'staffManagement', 'usageAnalytics', 'adminChargerPostActivating'].includes(currentView)) {
+      return 'admin';
+    }
+    return undefined;
+  };
+
+  const shouldShowSidebar = () => {
+    const authViews = ['login', 'register', 'roleSelection', 'profileSetup', 'vehicleSetup', 'staffLogin', 'adminLogin', 'staffProfileSetup', 'educationSetup', 'dashboard', 'staffDashboard'];
+    return !authViews.includes(currentView);
+  };
+
+  const userType = getUserType();
+  const showSidebar = shouldShowSidebar();
+
+  const handleRoleSelection = (role: 'driver' | 'staff') => {
+    // Lưu role vào localStorage
+    localStorage.setItem("role", role);
+    
+    if (role === 'driver') {
+      switchToProfileSetup();
+    } else {
+      switchToStaffProfileSetup();
+    }
+  };
+  //Phần này Minh thêm, chạy không được thì comment block hoặc xóa
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    const params = url.searchParams;
+
+    const code = params.get("code");
+    const state = params.get("state");
+
+    const source = params.get("source"); // Thêm source parameter
+    console.log("OAuth URL params:", { code, state, source});
+
+
+    // Chạy OAuth flow nếu có token/code trên URL
+    // CASE 2: Có code + state từ Google/Facebook → gọi callback đổi token
+    if (code && (state === "google" || state === "facebook")) {
+      (async () => {
+        try {
+
+          const r = await axios.get(
+            `http://localhost:8080/api/auth/social/callback?code=${code}&state=${state}`
+          );
+
+          const at = r?.data?.data?.accessToken as string | undefined;
+          const rt = r?.data?.data?.refreshToken as string | undefined;
+          console.log(at, rt);
+          if (!at) throw new Error("Missing accessToken from callback");
+          const decoded: any = jwtDecode(at);
+
+          localStorage.setItem("token", at);
+          if (rt) localStorage.setItem("refreshToken", rt);
+
+          // /me
+          try {
+            const meRes = await axios.post(
+              "http://localhost:8080/api/auth/me",
+              null,
+              { headers: { Authorization: `Bearer ${at}` } }
+            );
+            const userId = meRes?.data?.data;
+            if (userId != null) {
+              localStorage.setItem("userId", String(userId));
+              
+              // Fetch and store user profile data
+              try {
+                const profileRes = await axios.get(`http://localhost:8080/api/user/profile/${userId}`);
+                if (profileRes.status === 200 && profileRes.data?.data) {
+                  const userProfile = profileRes.data.data;
+                  if (userProfile.fullName) {
+                    localStorage.setItem("fullName", userProfile.fullName);
+                    console.log("OAuth: Stored fullName:", userProfile.fullName);
+                  }
+                  if (userProfile.email) {
+                    localStorage.setItem("email", userProfile.email);
+                    console.log("OAuth: Stored email:", userProfile.email);
+                  }
                 }
-                return;
+              } catch (profileErr) {
+                console.warn("Cannot fetch user profile:", profileErr);
+              }
             }
-            
-            // If has token → restore user data
-            if (token) {
-                try {
-                    // Decode JWT to get basic info
-                    const decoded: any = jwtDecode(token);
-                    console.log("Token decoded:", decoded);
-                    
-                    // Check if userId is already in localStorage
-                    let userId = localStorage.getItem("userId");
-                    
-                    // If no userId, call /api/auth/me to get it
-                    if (!userId) {
-                        console.log("No userId in localStorage, calling /api/auth/me...");
-                        const meResponse = await getCurrentUserId();
-                        if (meResponse.success && meResponse.data) {
-                            userId = String(meResponse.data);
-                            localStorage.setItem("userId", userId);
-                            console.log("UserId restored:", userId);
-                        }
-                    }
-                    
-                    // If we have userId, fetch full profile
-                    if (userId) {
-                        console.log("Fetching user profile...");
-                        const profileResponse = await getUserProfile(Number(userId));
-                        
-                        if (profileResponse.success && profileResponse.data) {
-                            const userProfile = profileResponse.data;
-                            console.log("User profile fetched:", userProfile);
-                            
-                            // Restore all user data to localStorage
-                            if (userProfile.fullName) {
-                                localStorage.setItem("fullName", userProfile.fullName);
-                            }
-                            if (userProfile.email) {
-                                localStorage.setItem("email", userProfile.email);
-                            }
-                            if (userProfile.role) {
-                                localStorage.setItem("role", userProfile.role);
-                            }
-                            
-                            // For staff users, restore station info
-                            if (userProfile.role === 'STAFF') {
-                                if (userProfile.stationId) {
-                                    localStorage.setItem("stationId", String(userProfile.stationId));
-                                }
-                                if (userProfile.stationName) {
-                                    localStorage.setItem("stationName", userProfile.stationName);
-                                }
-                            }
-                            
-                            console.log("✅ User data rehydrated successfully");
-                        }
-                    }
-                } catch (error: any) {
-                    console.error("❌ Error rehydrating user data:", error);
-                    
-                    // If token is invalid or expired on protected route → redirect to login
-                    if (isProtectedRoute) {
-                        console.log("Invalid token on protected route, redirecting to login...");
-                        
-                        // Clear all user data
-                        localStorage.removeItem("token");
-                        localStorage.removeItem("refreshToken");
-                        localStorage.removeItem("userId");
-                        localStorage.removeItem("fullName");
-                        localStorage.removeItem("email");
-                        localStorage.removeItem("role");
-                        localStorage.removeItem("stationId");
-                        localStorage.removeItem("stationName");
-                        
-                        // Redirect based on route type
-                        if (currentView.startsWith('staff')) {
-                            navigate('/staffLogin');
-                        } else if (currentView.startsWith('admin')) {
-                            navigate('/adminLogin');
-                        } else {
-                            navigate('/login');
-                        }
-                    }
-                }
-            }
-        };
-        
-        rehydrateUserData();
-    }, [currentView, navigate]);
-
-    const switchToLogin = () => navigate('/login');
-    const switchToRegister = () => navigate('/register');
-    const switchToRoleSelection = () => {
-        console.log("Switching to roleSelection view");
-        navigate('/roleSelection');
-    };
-    const switchToProfileSetup = () => navigate('/profileSetup');
-    const switchToVehicleSetup = () => navigate('/vehicleSetup');
-    const switchToStaffProfileSetup = () => navigate('/staffProfileSetup');
-    const switchToEducationSetup = () => navigate('/educationSetup');
-    const completeSetup = () => navigate('/login');
-    const completeStaffSetup = () => navigate('/staffDashboard');
-    const switchToStaffLogin = () => navigate('/staffLogin');
-    const completeStaffLogin = () => navigate('/staffDashboard');
-    const switchToAdminLogin = () => navigate('/adminLogin');
-    const completeAdminLogin = () => navigate('/adminDashboard');
-    const switchToBooking = () => navigate('/booking');
-    const switchToHistory = () => navigate('/history');
-    const switchToAnalysis = () => navigate('/analysis');
-    const switchToReportIssue = () => navigate('/reportIssue');
-    const switchToWallet = () => navigate('/wallet');
-    const switchToNotifications = () => navigate('/notifications');
-    const switchToStaffNotifications = () => navigate('/staffNotifications');
-    const switchToStaffReports = () => navigate('/staffReports');
-    const switchToStaffChargingManagement = () => navigate('/staffChargingManagement');
-    const switchToSystemConfig = () => navigate('/systemConfig');
-    const switchToAdminMap = () => navigate('/adminMap');
-    const switchToRevenue = () => navigate('/revenue');
-    const switchToStaffManagement = () => navigate('/staffManagement');
-    const switchToUsageAnalytics = () => navigate('/usageAnalytics');
-    const switchToPostActivating = () => navigate('/postActivating');
-    const switchToAdminChargerPostActivating = () => navigate('/adminChargerPostActivating');
-    const switchToIssueResolvement = () => navigate('/issueResolvement');
-    const switchToMyBookings = () => navigate('/myBookings');
-    const switchToChargingSession = (bookingId: string) => {
-        setCurrentBookingId(bookingId);
-        navigate('/chargingSession');
-    };
-    const switchToStationManagement = () => navigate('/stationManagement');
-    const switchToPremiumSubscription = () => navigate('/premiumSubscription');
-    const switchToPenaltyPayment = () => navigate('/penaltyPayment');
-
-    // Check if user needs vehicle setup after profile completion
-    const handleProfileCompletion = async () => {
-        const token = localStorage.getItem("token");
-        if (token) {
+          } catch (e) {
+            console.warn("Cannot fetch /me:", e);
+          }
+          // Điều hướng vào RoleSelection hoặc dashboard tùy theo source
+          if (source === "register") {
+            console.log("OAuth success with code/state from register, navigating to roleSelection");
+            setCurrentView("roleSelection")
+          } else {
+            // Từ login, kiểm tra role để điều hướng đúng
             try {
-                // Check if user has vehicles
-                const userId = localStorage.getItem("userId") || localStorage.getItem("registeredUserId");
-                if (userId) {
-                    const res = await axios.get(`http://localhost:8080/api/user/profile/${userId}`);
-                    if (res.data && res.data.vehicles && res.data.vehicles.length > 0) {
-                        // User has vehicles, go to dashboard
-                        navigate("/dashboard");
-                    } else {
-                        // User needs vehicle setup
-                        navigate("/vehicleSetup");
-                    }
-                } else {
-                    // Fallback to vehicle setup
-                    navigate("/vehicleSetup");
-                }
-            } catch (err) {
-                console.error("Error checking user vehicles:", err);
-                // Fallback to vehicle setup
-                navigate("/vehicleSetup");
+              const decoded: any = jwtDecode(at);
+              if (decoded) {
+                setCurrentView("dashboard");
+              } else {
+                setCurrentView("roleSelection");
+              }
+            } catch (e) {
+              console.error("JWT decode failed:", e);
+              setCurrentView("login");
             }
-        } else {
-            // For new users, go to vehicle setup
-            switchToVehicleSetup();
+          }
+        } catch (e) {
+          console.error("OAuth callback exchange failed:", e);
+          setCurrentView("login");
         }
-    };
+      })();
+    }
 
-    // Generic navigation handler for layout
-    const handleNavigation = (view: string) => {
-        navigate(`/${view}`);
-    };
+  
+    // deps rỗng để chỉ chạy 1 lần khi app mount
+  }, []);
+  //Phần này Minh thêm, chạy không được thì comment block hoặc xóa
 
-    // Determine user type and whether to show sidebar based on current view
-    const getUserType = (): 'driver' | 'staff' | 'admin' | undefined => {
-        if (['dashboard', 'booking', 'history', 'analysis', 'reportIssue', 'wallet', 'notifications', 'myBookings', 'chargingSession', 'premiumSubscription'].includes(currentView)) {
-            return 'driver';
-        }
-        if (['staffDashboard', 'staffNotifications', 'staffReports', 'staffChargingManagement', 'postActivating', 'stationManagement'].includes(currentView)) {
-            return 'staff';
-        }
-        if (['adminDashboard', 'systemConfig', 'adminMap', 'revenue', 'staffManagement', 'usageAnalytics', 'adminChargerPostActivating', 'issueResolvement'].includes(currentView)) {
-            return 'admin';
-        }
-        return undefined;
-    };
+  // Token refresh check - runs every 5 minutes
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
 
-    const shouldShowSidebar = () => {
-        const authViews = ['login', 'register', 'roleSelection', 'profileSetup', 'vehicleSetup', 'staffLogin', 'adminLogin', 'staffProfileSetup', 'educationSetup', 'dashboard', 'staffDashboard'];
-        return !authViews.includes(currentView);
-    };
+    // Check token immediately
+    checkAndRefreshToken();
 
-    const userType = getUserType();
-    const showSidebar = shouldShowSidebar();
+    // Set up interval to check token every 5 minutes
+    const interval = setInterval(() => {
+      checkAndRefreshToken();
+    }, 5 * 60 * 1000); // 5 minutes
 
-    const handleRoleSelection = (role: 'driver' | 'staff') => {
-        // Lưu role vào localStorage
-        localStorage.setItem("role", role);
+    return () => clearInterval(interval);
+  }, []);
 
-        if (role === 'driver') {
-            switchToProfileSetup();
-        } else {
-            switchToStaffProfileSetup();
-        }
-    };
-    //Phần này Minh thêm, chạy không được thì comment block hoặc xóa
-    useEffect(() => {
-        const url = new URL(window.location.href);
-        const params = url.searchParams;
-
-        const code = params.get("code");
-        const state = params.get("state");
-
-        const source = params.get("source"); // Thêm source parameter
-        console.log("OAuth URL params:", { code, state, source});
-
-        //Backend OAuth đã hoạt động bình thường - comment lại các dòng skip
-        // // Skip OAuth if backend is not available
-        // const skipOAuth = localStorage.getItem("skipOAuth") === "true";
-        // if (skipOAuth) {
-        //     console.log("Skipping OAuth due to backend issues");
-        //     return;
-        // }
-
-        // // Temporarily disable OAuth completely
-        // console.log("OAuth temporarily disabled - backend not available");
-        // return;
-
-        // ❌ COMMENT - Login.tsx đã xử lý OAuth callback đầy đủ rồi
-        // Việc gọi 2 lần sẽ gây lỗi vì OAuth code chỉ dùng được 1 lần
-        // // Chạy OAuth flow nếu có token/code trên URL
-        // // CASE 2: Có code + state từ Google/Facebook → gọi callback đổi token
-        // if (code && (state === "google" || state === "facebook")) {
-        //     (async () => {
-        //         try {
-
-        //             const r = await axios.get(
-        //                 `http://localhost:8080/api/auth/social/callback?code=${code}&state=${state}`
-        //             );
-
-        //             const at = r?.data?.data?.accessToken as string | undefined;
-        //             const rt = r?.data?.data?.refreshToken as string | undefined;
-        //             console.log(at, rt);
-        //             if (!at) throw new Error("Missing accessToken from callback");
-        //             const decoded: any = jwtDecode(at);
-
-        //             localStorage.setItem("token", at);
-        //             if (rt) localStorage.setItem("refreshToken", rt);
-
-        //             // /me
-        //             try {
-        //                 const meRes = await axios.post(
-        //                     "http://localhost:8080/api/auth/me",
-        //                     null,
-        //                     { headers: { Authorization: `Bearer ${at}` } }
-        //                 );
-        //                 const userId = meRes?.data?.data;
-        //                 if (userId != null) {
-        //                     localStorage.setItem("userId", String(userId));
-
-        //                     // Fetch and store user profile data
-        //                     try {
-        //                         const profileRes = await axios.get(`http://localhost:8080/api/user/profile/${userId}`);
-        //                         if (profileRes.status === 200 && profileRes.data?.data) {
-        //                             const userProfile = profileRes.data.data;
-        //                             if (userProfile.fullName) {
-        //                                 localStorage.setItem("fullName", userProfile.fullName);
-        //                                 console.log("OAuth: Stored fullName:", userProfile.fullName);
-        //                             }
-        //                             if (userProfile.email) {
-        //                                 localStorage.setItem("email", userProfile.email);
-        //                                 console.log("OAuth: Stored email:", userProfile.email);
-        //                             }
-        //                         }
-        //                     } catch (profileErr) {
-        //                         console.warn("Cannot fetch user profile:", profileErr);
-        //                     }
-        //                 }
-        //             } catch (e) {
-        //                 console.warn("Cannot fetch /me:", e);
-        //             }
-        //             // Điều hướng vào RoleSelection hoặc dashboard tùy theo source
-        //             if (source === "register") {
-        //                 console.log("OAuth success with code/state from register, navigating to roleSelection");
-        //                 navigate("/roleSelection");
-        //             } else {
-        //                 // Từ login, kiểm tra role để điều hướng đúng
-        //                 try {
-        //                     const decoded: any = jwtDecode(at);
-        //                     if (decoded) {
-        //                         navigate("/dashboard");
-        //                     } else {
-        //                         navigate("/roleSelection");
-        //                     }
-        //                 } catch (e) {
-        //                     console.error("JWT decode failed:", e);
-        //                     navigate("/login");
-        //                 }
-        //             }
-        //         } catch (e) {
-        //             console.error("OAuth callback exchange failed:", e);
-        //             // Set flag to skip OAuth in future
-        //             localStorage.setItem("skipOAuth", "true");
-        //             navigate("/login");
-        //         }
-        //     })();
-        // }
-
-
-        // deps rỗng để chỉ chạy 1 lần khi app mount
-    }, []);
-    //Phần này Minh thêm, chạy không được thì comment block hoặc xóa
-
-    // Token refresh check - runs every 2 minutes for 30-minute tokens
-    useEffect(() => {
-        const token = localStorage.getItem("token");
-        if (!token) return;
-
-        // Check token immediately
-        checkAndRefreshToken();
-
-        // Set up interval to check token every 2 minutes (for 30-minute tokens)
-        const interval = setInterval(() => {
-            checkAndRefreshToken();
-        }, 2 * 60 * 1000); // 2 minutes
-
-        return () => clearInterval(interval);
-    }, []);
-
-    // Render current view based on URL
-    const renderContent = () => {
-        switch (currentView) {
-            case "dashboard":
-                return <MainDashboard onLogout={switchToLogin} onBooking={switchToBooking} onHistory={switchToHistory} onAnalysis={switchToAnalysis} onReportIssue={switchToReportIssue} onWallet={switchToWallet} onNotifications={switchToNotifications} onMyBookings={switchToMyBookings} onPremiumSubscription={switchToPremiumSubscription} vehicleBatteryLevel={vehicleBatteryLevel} setVehicleBatteryLevel={setVehicleBatteryLevel} />;
+  // Render current view based on state
+  const renderContent = () => {
+    switch (currentView) {
+      case "dashboard":
+        return <MainDashboard onLogout={switchToLogin} onBooking={switchToBooking} onHistory={switchToHistory} onAnalysis={switchToAnalysis} onReportIssue={switchToReportIssue} onWallet={switchToWallet} onNotifications={switchToNotifications} onMyBookings={switchToMyBookings} onPremiumSubscription={switchToPremiumSubscription} vehicleBatteryLevel={vehicleBatteryLevel} setVehicleBatteryLevel={setVehicleBatteryLevel} />;
 
       case "booking":
-        return <BookingMap onBack={() => navigate("/dashboard")} currentBatteryLevel={vehicleBatteryLevel} setCurrentBatteryLevel={setVehicleBatteryLevel} onStartCharging={switchToChargingSession} />;
+        return <BookingMap onBack={() => setCurrentView("dashboard")} currentBatteryLevel={vehicleBatteryLevel} setCurrentBatteryLevel={setVehicleBatteryLevel} onStartCharging={switchToChargingSession} />;
 
-            case "history":
-                return <HistoryView onBack={() => navigate("/dashboard")} />;
+      case "history":
+        return <HistoryView onBack={() => setCurrentView("dashboard")} />;
 
-            case "analysis":
-                return <PersonalAnalysisView onBack={() => navigate("/dashboard")} />;
+      case "analysis":
+        return <PersonalAnalysisView onBack={() => setCurrentView("dashboard")} />;
 
       case "reportIssue":
-        return <ReportIssueView onBack={() => navigate("/dashboard")} />;
+        return <ReportIssueView onBack={() => setCurrentView("dashboard")} />;
 
       case "wallet":
-        return <WalletView onBack={() => navigate("/dashboard")} />;
+        return <WalletView onBack={() => setCurrentView("dashboard")} />;
 
       case "notifications":
-        return <NotificationView onBack={() => navigate("/dashboard")} />;
+        return <NotificationView onBack={() => setCurrentView("dashboard")} />;
 
       case "staffNotifications":
-        return <StaffNotificationView onBack={() => navigate("/staffDashboard")} />;
-
-      case "staffReports":
-        return <StaffReportView onBack={() => navigate("/staffDashboard")} />;
-
-      case "staffChargingManagement": {
-        const stationId = localStorage.getItem('stationId');
-        const stationIdNumber = stationId ? Number(stationId) : undefined;
-        return (
-          <ChargingManagementView
-            onBack={() => navigate("/staffDashboard")}
-            {...(stationIdNumber && { stationId: stationIdNumber })}
-          />
-        );
-      }
+        return <StaffNotificationView onBack={() => setCurrentView("staffDashboard")} />;
 
       case "staffDashboard":
-        return <StaffDashboard onLogout={switchToLogin} onNotifications={switchToStaffNotifications} onReports={switchToStaffReports} onChargingManagement={switchToStaffChargingManagement} onPostActivating={switchToPostActivating} onStationManagement={switchToStationManagement} />;
+        return <StaffDashboard onLogout={switchToLogin} onNotifications={switchToStaffNotifications} onPostActivating={switchToPostActivating} onReports={switchToStaffReports} />;
+
+      case "staffReports":
+        return <StaffReportView onBack={() => setCurrentView("staffDashboard")} />;
 
       case "staffLogin":
         return (
@@ -500,46 +327,46 @@ function AppContent() {
         return <AdminDashboard onLogout={switchToLogin} onSystemConfig={switchToSystemConfig} onAdminMap={switchToAdminMap} onRevenue={switchToRevenue} onStaffManagement={switchToStaffManagement} onUsageAnalytics={switchToUsageAnalytics} onAdminChargerPostActivating={switchToAdminChargerPostActivating} onIssueResolvement={switchToIssueResolvement} />;
 
       case "systemConfig":
-        return <SystemConfigView onBack={() => navigate("/adminDashboard")} />;
+        return <SystemConfigView onBack={() => setCurrentView("adminDashboard")} />;
 
       case "adminMap":
-        return <AdminMapView onBack={() => navigate("/adminDashboard")} />;
+        return <AdminMapView onBack={() => setCurrentView("adminDashboard")} />;
 
       case "revenue":
-        return <RevenueView onBack={() => navigate("/adminDashboard")} />;
+        return <RevenueView onBack={() => setCurrentView("adminDashboard")} />;
 
       case "staffManagement":
-        return <StaffManagementView onBack={() => navigate("/adminDashboard")} />;
+        return <StaffManagementView onBack={() => setCurrentView("adminDashboard")} />;
 
       case "usageAnalytics":
-        return <UsageAnalyticsView onBack={() => navigate("/adminDashboard")} />;
+        return <UsageAnalyticsView onBack={() => setCurrentView("adminDashboard")} />;
 
       case "adminChargerPostActivating":
-        return <AdminChargerPostActivatingView onBack={() => navigate("/adminDashboard")} />;
+        return <AdminChargerPostActivatingView onBack={() => setCurrentView("adminDashboard")} />;
 
       case "issueResolvement":
-        return <IssueResolvementView onBack={() => navigate("/adminDashboard")} />;
+        return <IssueResolvementView onBack={() => setCurrentView("adminDashboard")} />;
 
       case "postActivating":
-        return <PostActivatingView onBack={() => navigate("/staffDashboard")} />;
+        return <PostActivatingView onBack={() => setCurrentView("staffDashboard")} />;
 
       case "myBookings":
-        return <MyBookingView onBack={() => navigate("/dashboard")} onStartCharging={switchToChargingSession} />;
+        return <MyBookingView onBack={() => setCurrentView("dashboard")} onStartCharging={switchToChargingSession} />;
 
       case "chargingSession":
-        return <ChargingSessionView onBack={() => navigate("/myBookings")} bookingId={currentBookingId} />;
+        return <ChargingSessionView onBack={() => setCurrentView("myBookings")} bookingId={currentBookingId} />;
 
       case "premiumSubscription":
-        return <PremiumSubscriptionView onBack={() => navigate("/dashboard")} userType="driver" />;
+        return <PremiumSubscriptionView onBack={() => setCurrentView("dashboard")} userType="driver" />;
 
-      case "penaltyPayment":
-        return <PenaltyPaymentView onBack={() => navigate("/login")} userId={parseInt(localStorage.getItem("userId") || "0")} />;
+
 
       case "vehicleSetup":
         return (
           <VehicleSetup 
             onNext={completeSetup}
-            onBack={() => navigate("/profileSetup")}
+            onBack={() => setCurrentView("profileSetup")}
+            onBackToLogin={switchToLogin}
           />
         );
 
@@ -547,7 +374,7 @@ function AppContent() {
         return (
           <ProfileSetup 
             onNext={handleProfileCompletion}
-            onBack={() => navigate("/roleSelection")}
+            onBack={() => setCurrentView("roleSelection")}
           />
         );
 
@@ -555,7 +382,7 @@ function AppContent() {
         return (
           <StaffProfileSetup 
             onNext={switchToEducationSetup}
-            onBack={() => navigate("/roleSelection")}
+            onBack={() => setCurrentView("roleSelection")}
           />
         );
 
@@ -563,7 +390,7 @@ function AppContent() {
         return (
           <EducationSetup 
             onNext={completeStaffSetup}
-            onBack={() => navigate("/staffProfileSetup")}
+            onBack={() => setCurrentView("staffProfileSetup")}
           />
         );
 
@@ -571,7 +398,7 @@ function AppContent() {
         return (
           <RoleSelection 
             onSelectRole={handleRoleSelection}
-            onBack={() => navigate("/login")}
+            onBack={() => setCurrentView("login")}
           />
         );
 
@@ -588,13 +415,11 @@ function AppContent() {
           <>
             <Login 
               onSwitchToRegister={switchToRegister} 
-              onLogin={() => navigate("/dashboard")}
-              // Redirect staff/admin directly after role detection
-              onStaffLogin={() => navigate("/staffDashboard")}
-              onAdminLogin={() => navigate("/adminDashboard")}
+              onLogin={() => setCurrentView("dashboard")}
+              onStaffLogin={completeStaffLogin}
+              onAdminLogin={completeAdminLogin}
               onSwitchToRoleSelection={switchToRoleSelection}
               onSwitchToVehicleSetup={switchToVehicleSetup}
-              onSwitchToPenaltyPayment={switchToPenaltyPayment}
             />
             <LanguageThemeControls />
           </>
@@ -602,67 +427,61 @@ function AppContent() {
     }
   };
 
-  const layoutWrapper = (
-    <AppLayout
-      userType={userType || "driver"}
-      currentView={currentView}
-      onNavigate={handleNavigation}
-      onLogout={switchToLogin}
-      showSidebar={showSidebar}
-    >
-      {renderContent()}
-    </AppLayout>
-  );
+  // Sync currentView with URL
+  useEffect(() => {
+    if (location.pathname === "/home" && currentView !== "dashboard") {
+      setCurrentView("dashboard");
+    }
+  }, [location.pathname]);
 
   return (
     <Routes>
-      {/* Auth Routes */}
-      <Route path="/" element={layoutWrapper} />
-      <Route path="/login" element={layoutWrapper} />
-      <Route path="/register" element={layoutWrapper} />
-      <Route path="/roleSelection" element={layoutWrapper} />
-      <Route path="/staffLogin" element={layoutWrapper} />
-      <Route path="/adminLogin" element={layoutWrapper} />
-      
-      {/* Setup Routes */}
-      <Route path="/profileSetup" element={layoutWrapper} />
-      <Route path="/vehicleSetup" element={layoutWrapper} />
-      <Route path="/staffProfileSetup" element={layoutWrapper} />
-      <Route path="/educationSetup" element={layoutWrapper} />
-      
-      {/* Driver Dashboard Routes */}
-      <Route path="/dashboard" element={layoutWrapper} />
-      <Route path="/booking" element={layoutWrapper} />
-      <Route path="/history" element={layoutWrapper} />
-      <Route path="/analysis" element={layoutWrapper} />
-      <Route path="/reportIssue" element={layoutWrapper} />
-      <Route path="/wallet" element={layoutWrapper} />
-      <Route path="/notifications" element={layoutWrapper} />
-      <Route path="/myBookings" element={layoutWrapper} />
-      <Route path="/chargingSession" element={layoutWrapper} />
-      <Route path="/premiumSubscription" element={layoutWrapper} />
-      <Route path="/penaltyPayment" element={layoutWrapper} />
-      
-      {/* Staff Dashboard Routes */}
-      <Route path="/staffDashboard" element={layoutWrapper} />
-      <Route path="/staffNotifications" element={layoutWrapper} />
-      <Route path="/staffReports" element={layoutWrapper} />
-      <Route path="/staffChargingManagement" element={layoutWrapper} />
-      <Route path="/postActivating" element={layoutWrapper} />
-      <Route path="/stationManagement" element={layoutWrapper} />
-      
-      {/* Admin Dashboard Routes */}
-      <Route path="/adminDashboard" element={layoutWrapper} />
-      <Route path="/systemConfig" element={layoutWrapper} />
-      <Route path="/adminMap" element={layoutWrapper} />
-      <Route path="/revenue" element={layoutWrapper} />
-      <Route path="/staffManagement" element={layoutWrapper} />
-      <Route path="/usageAnalytics" element={layoutWrapper} />
-      <Route path="/adminChargerPostActivating" element={layoutWrapper} />
-      <Route path="/issueResolvement" element={layoutWrapper} />
-      
-      {/* Catch all - redirect to login */}
-      <Route path="*" element={layoutWrapper} />
+      <Route 
+        path="/" 
+        element={
+          <AppLayout
+            userType={userType || "driver"}
+            currentView={currentView}
+            onNavigate={handleNavigation}
+            onLogout={switchToLogin}
+            showSidebar={showSidebar}
+          >
+            {renderContent()}
+          </AppLayout>
+        } 
+      />
+      <Route 
+        path="/home" 
+        element={
+          <AppLayout
+            userType={userType || "driver"}
+            currentView="dashboard"
+            onNavigate={handleNavigation}
+            onLogout={switchToLogin}
+            showSidebar={showSidebar}
+          >
+            {renderContent()}
+          </AppLayout>
+        } 
+      />
+      <Route 
+        path="/payment/result" 
+        element={<PaymentResultView />} 
+      />
+      <Route 
+        path="*" 
+        element={
+          <AppLayout
+            userType={userType || "driver"}
+            currentView={currentView}
+            onNavigate={handleNavigation}
+            onLogout={switchToLogin}
+            showSidebar={showSidebar}
+          >
+            {renderContent()}
+          </AppLayout>
+        } 
+      />
     </Routes>
   );
 }

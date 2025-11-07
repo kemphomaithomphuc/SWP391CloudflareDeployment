@@ -74,6 +74,23 @@ interface SessionStarting {
   userLatitude: number;
   userLongitude: number;
 }
+
+interface StationInfoStoragePayload {
+  stationId?: number;
+  stationName?: string;
+  stationAddress?: string;
+  connectorType?: string;
+  chargingPower?: number;
+  pricePerKwh?: number;
+  timestamp: string;
+}
+
+interface UserVehicle {
+  vehicleId: number;
+  plateNumber?: string;
+  brand?: string;
+  model?: string;
+}
 interface APIResponse<T> {
   success: boolean;
   message: string;
@@ -89,6 +106,7 @@ export default function MyBookingView({ onBack, onStartCharging }: MyBookingView
   // State for real API data
   const [apiBookings, setApiBookings] = useState<Booking[]>([]);
   const [apiOrders, setApiOrders] = useState<OrderResponseDTO[]>([]);
+  const [userVehicles, setUserVehicles] = useState<UserVehicle[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
@@ -112,32 +130,70 @@ export default function MyBookingView({ onBack, onStartCharging }: MyBookingView
       }
       
       console.log("Fetching user orders for userId:", userId);
-      console.log("Token:", token);
 
-      const response = await api.get(`api/orders/my-orders?userId=${userId}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
+      let vehicles: UserVehicle[] = [];
 
-      console.log("Orders API response:", response.data);
-      console.log("Response status:", response.status);
-      console.log("Response headers:", response.headers);
-      console.log("Full response.data:", JSON.stringify(response.data, null, 2));
+      const [vehiclesResponse, ordersResponse] = await Promise.all([
+        api.get(`/api/user/${userId}/vehicles`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }).catch(error => {
+          console.error("Error fetching user vehicles:", error);
+          return null;
+        }),
+        api.get(`api/orders/my-orders?userId=${userId}`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        })
+      ]);
 
-      if (response.status === 200 && response.data?.success) {
-        const orders: OrderResponseDTO[] = response.data.data || [];
+      if (vehiclesResponse?.data?.success && Array.isArray(vehiclesResponse.data.data)) {
+        vehicles = vehiclesResponse.data.data.map((vehicle: any) => ({
+          vehicleId: vehicle.vehicleId ?? vehicle.id,
+          plateNumber: vehicle.plateNumber,
+          brand: vehicle.carModel?.brand,
+          model: vehicle.carModel?.model,
+        }));
+        setUserVehicles(vehicles);
+        console.log("Fetched user vehicles:", vehicles);
+      } else {
+        setUserVehicles([]);
+      }
+
+      if (ordersResponse?.status === 200 && ordersResponse.data?.success) {
+        const orders: OrderResponseDTO[] = ordersResponse.data.data || [];
         console.log("Found orders:", orders);
         console.log("Orders length:", orders.length);
         console.log("Raw orders data:", JSON.stringify(orders, null, 2));
 
-        // Always set the orders, even if empty
-        setApiOrders(orders);
+        const enrichedOrders = orders.map(order => {
+          if (order.vehicleId) return order;
+
+          const matchByPlate = order.vehiclePlate
+            ? vehicles.find(v => v.plateNumber?.toLowerCase() === order.vehiclePlate?.toLowerCase())
+            : undefined;
+
+          const fallbackVehicle = matchByPlate?.vehicleId ?? vehicles[0]?.vehicleId;
+
+          if (fallbackVehicle != null) {
+            return {
+              ...order,
+              vehicleId: fallbackVehicle,
+            };
+          }
+
+          return order;
+        });
+
+        setApiOrders(enrichedOrders);
         
         if (orders.length > 0) {
           // Convert API data to Booking format
-          const convertedBookings: Booking[] = orders.map(order => {
+          const convertedBookings: Booking[] = enrichedOrders.map(order => {
             // Map API status to Booking status
             let bookingStatus: Booking['status'];
             switch (order.status) {
@@ -180,7 +236,7 @@ export default function MyBookingView({ onBack, onStartCharging }: MyBookingView
           
           // Debug: Show status mapping
           console.log("=== STATUS MAPPING VERIFICATION ===");
-          orders.forEach(order => {
+          enrichedOrders.forEach(order => {
             const convertedBooking = convertedBookings.find(b => b.id === order.orderId.toString());
             console.log(`Order ${order.orderId}: API status "${order.status}" -> Booking status "${convertedBooking?.status}"`);
           });
@@ -189,12 +245,11 @@ export default function MyBookingView({ onBack, onStartCharging }: MyBookingView
           
           // Additional debug: Show the mapping
           console.log("=== STATUS MAPPING DEBUG ===");
-          orders.forEach(order => {
+          enrichedOrders.forEach(order => {
             console.log(`Order ${order.orderId}: ${order.status} -> ${convertedBookings.find(b => b.id === order.orderId.toString())?.status}`);
           });
           
-          // Show success message
-          console.log("✅ Successfully loaded and converted", orders.length, "orders");
+          console.log("✅ Successfully loaded and converted", enrichedOrders.length, "orders");
         } else {
           console.log("No orders found in database");
           setApiBookings([]);
@@ -477,8 +532,50 @@ export default function MyBookingView({ onBack, onStartCharging }: MyBookingView
       const userLongitude = position.coords.longitude;
       console.log("User location:", { userLatitude, userLongitude });
 
+      // Persist station info for ChargingSessionView
+      const stationInfoPayload: StationInfoStoragePayload = {
+        timestamp: new Date().toISOString(),
+      };
+
+      if (typeof order.stationName === 'string' && order.stationName.trim().length > 0) {
+        stationInfoPayload.stationName = order.stationName;
+      }
+      if (typeof order.stationAddress === 'string' && order.stationAddress.trim().length > 0) {
+        stationInfoPayload.stationAddress = order.stationAddress;
+      }
+
+      if (typeof order.stationId === 'number' && !isNaN(order.stationId)) {
+        stationInfoPayload.stationId = order.stationId;
+      }
+      if (typeof order.connectorType === 'string' && order.connectorType.trim().length > 0) {
+        stationInfoPayload.connectorType = order.connectorType;
+      }
+      if (typeof order.chargingPower === 'number' && !isNaN(order.chargingPower)) {
+        stationInfoPayload.chargingPower = order.chargingPower;
+      }
+      if (typeof order.pricePerKwh === 'number' && !isNaN(order.pricePerKwh)) {
+        stationInfoPayload.pricePerKwh = order.pricePerKwh;
+      }
+
+      try {
+        localStorage.setItem("currentStationInfo", JSON.stringify(stationInfoPayload));
+        if (stationInfoPayload.stationId !== undefined && stationInfoPayload.stationId !== null) {
+          localStorage.setItem("currentStationId", String(stationInfoPayload.stationId));
+        }
+      } catch (storageError) {
+        console.error("Error storing station info:", storageError);
+      }
+
       // Get vehicleId from order (from DB, not hardcoded)
-      const vehicleId = order.vehicleId;
+      let vehicleId = order.vehicleId;
+      if (!vehicleId) {
+        const matchByPlate = order.vehiclePlate
+          ? userVehicles.find(v => v.plateNumber?.toLowerCase() === order.vehiclePlate?.toLowerCase())
+          : undefined;
+
+        vehicleId = matchByPlate?.vehicleId ?? userVehicles[0]?.vehicleId;
+      }
+
       if (!vehicleId) {
         toast.error(language === 'vi' ? 'Không tìm thấy thông tin xe trong đơn đặt' : 'Vehicle information not found in order');
         return;
