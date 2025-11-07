@@ -4,10 +4,10 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import swp391.code.swp391.dto.*;
 import swp391.code.swp391.service.StaffService;
+import swp391.code.swp391.util.JwtUtil;
 
 import java.util.List;
 
@@ -19,7 +19,7 @@ import java.util.List;
 public class StaffController {
 
     private final StaffService staffService;
-
+    private final JwtUtil jwtUtil;
     /**
      * API đổi trụ sạc cho driver
      * Endpoint: POST /api/staff/change-charging-point
