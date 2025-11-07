@@ -298,6 +298,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
     const [chargingPower, setChargingPower] = useState(0);
 
     const [chargingIntervalRef, setChargingIntervalRef] = useState<NodeJS.Timeout | null>(null);
+    const batteryLevelBarRef = useRef<HTMLDivElement | null>(null);
 
     const [completedSession, setCompletedSession] = useState<any>(null);
 
@@ -552,6 +553,12 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
             loadAllStationChargingPoints();
         }
     }, [stations]);
+
+    useEffect(() => {
+        if (batteryLevelBarRef.current) {
+            batteryLevelBarRef.current.style.width = `${currentBatteryLevel}%`;
+        }
+    }, [currentBatteryLevel]);
 
     // Search function with scoring mechanism
     const searchStations = (query: string) => {
@@ -1287,13 +1294,16 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                 .sort((a, b) => a.distance - b.distance);
 
             if (stationsWithDistance.length > 0) {
-                const nearestStation = stationsWithDistance[0].station;
-                setSelectedStation(nearestStation);
-                hasAutoSelectedRef.current = true;
-                
-                // Center map on nearest station
-                if (nearestStation.latitude && nearestStation.longitude) {
-                    setMapCenter({ lat: nearestStation.latitude, lng: nearestStation.longitude });
+                const nearestStationEntry = stationsWithDistance[0];
+                const nearestStation = nearestStationEntry?.station;
+                if (nearestStation) {
+                    setSelectedStation(nearestStation);
+                    hasAutoSelectedRef.current = true;
+
+                    // Center map on nearest station
+                    if (nearestStation.latitude && nearestStation.longitude) {
+                        setMapCenter({ lat: nearestStation.latitude, lng: nearestStation.longitude });
+                    }
                 }
             }
         }
@@ -3526,13 +3536,15 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                                                     className="pl-10 pr-10 bg-black/90 backdrop-blur-sm border-2 border-white/30 shadow-xl focus:ring-2 focus:ring-white/30 focus:border-white/60 text-white placeholder:text-white/60 h-10 rounded-lg"
                                                 />
                                                 {searchQuery && (
-                                                    <button
+                                                <button
                                                         onClick={() => {
                                                             setSearchQuery("");
                                                             setSearchResults([]);
                                                             setShowSearchResults(false);
                                                         }}
                                                         className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-white/70 hover:text-white transition-colors"
+                                                        type="button"
+                                                        aria-label={language === 'vi' ? 'Xóa tìm kiếm' : 'Clear search'}
                                                     >
                                                         <X className="w-4 h-4" />
                                                     </button>
@@ -4001,11 +4013,10 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                                                                         }}
 
                                                                         className="w-16 h-12 text-center text-xl font-bold bg-transparent border-none outline-none text-primary"
-
                                                                         min="0"
-
                                                                         max="100"
-
+                                                                        aria-label={language === 'vi' ? 'Mức pin hiện tại' : 'Current battery level'}
+                                                                        title={language === 'vi' ? 'Mức pin hiện tại' : 'Current battery level'}
                                                                     />
 
                                                                     <div className="text-xs text-muted-foreground">Enter 0-100%</div>
@@ -4041,8 +4052,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                                                                         currentBatteryLevel <= 50 ? 'bg-yellow-500' : 'bg-primary'
 
                                                                     }`}
-
-                                                                    style={{ width: `${currentBatteryLevel}%` }}
+                                                                    ref={batteryLevelBarRef}
 
                                                                 />
 
@@ -4870,6 +4880,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                                             }
                                         }}
                                         className="w-16 h-8 px-2 text-center border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+                                        aria-label={language === 'vi' ? 'Nhập số trang' : 'Enter page number'}
                                     />
                                     <span className="text-muted-foreground">/ {totalPages}</span>
                                 </div>
@@ -5191,68 +5202,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                             )}
 
                             {/* Available Slots Display - Only show for Schedule mode after selecting start time */}
-                            {bookingMode === "scheduled" && chargingStartTimeInput && availableSlots.length > 0 && (
-                                <div className="space-y-2">
-                                    <h4 className="font-medium flex items-center space-x-2 text-sm">
-                                        <Clock className="w-4 h-4 text-primary" />
-                                        <span>{language === 'vi' ? 'Slot khả dụng từ thời gian đã chọn' : 'Available Slots from Selected Time'}</span>
-                                        <Badge variant="secondary" className="text-xs">
-                                            {availableSlots.length}
-                                        </Badge>
-                                    </h4>
-                                    <div className="grid grid-cols-1 gap-2 max-h-40 overflow-y-auto pr-2">
-                                        {availableSlots.map((slot, index) => {
-                                            const { connectorTypeName, powerOutput, pricePerKwh } = extractSlotInfo(slot);
-
-                                            return (
-                                                <div
-                                                    key={index}
-                                                    className={`p-3 border rounded-lg cursor-pointer transition-all ${
-                                                        selectedSlot === slot
-                                                            ? 'border-primary bg-primary/10 ring-2 ring-primary/20'
-                                                            : 'border-border hover:border-primary/50 hover:bg-accent/50'
-                                                    }`}
-                                                    onClick={() => {
-                                                        console.log("Selected slot:", slot);
-                                                        setSelectedSlot(slot);
-                                                    }}
-                                                >
-                                                    <div className="flex items-center justify-between">
-                                                        <div className="flex-1">
-                                                            <div className="flex items-center space-x-2">
-                                                                <Zap className="w-4 h-4 text-primary" />
-                                                                <p className="text-sm font-medium">{connectorTypeName}</p>
-                                                            </div>
-                                                            <p className="text-xs text-muted-foreground mt-1">
-                                                                {powerOutput !== null ? `${powerOutput} kW` : 'Power N/A'} •
-                                                                {pricePerKwh !== null ? ` ${pricePerKwh} VND/kWh` : ' Price N/A'}
-                                                            </p>
-                                                            {/* Show time availability */}
-                                                            {(slot.freeFrom || slot.freeTo) && (
-                                                                <p className="text-xs text-blue-600 mt-1">
-                                                                    {slot.freeFrom && slot.freeTo ?
-                                                                        `${new Date(slot.freeFrom).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })} - ${new Date(slot.freeTo).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}` :
-                                                                        slot.availableMinutes ? `${slot.availableMinutes} ${language === 'vi' ? 'phút' : 'minutes'}` : (language === 'vi' ? 'Có sẵn' : 'Available')
-                                                                    }
-                                                                </p>
-                                                            )}
-                                                            {/* Show availability status */}
-                                                            {slot.status && (
-                                                                <Badge variant="outline" className="text-xs mt-1">
-                                                                    {slot.status}
-                                                                </Badge>
-                                                            )}
-                                                        </div>
-                                                        {selectedSlot === slot && (
-                                                            <CheckCircle className="w-5 h-5 text-primary flex-shrink-0" />
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
-                            )}
+                           
 
                             {/* Show loading state for schedule mode when selecting time */}
                             {bookingMode === "scheduled" && chargingStartTimeInput && loadingSlots && (
@@ -5343,6 +5293,8 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                                                 className="w-16 h-10 text-center text-lg font-bold bg-transparent border-2 border-primary rounded-lg outline-none focus:ring-2 focus:ring-primary/20"
                                                 min="0"
                                                 max="100"
+                                                aria-label={language === 'vi' ? 'Mức pin ban đầu' : 'Initial battery level'}
+                                                title={language === 'vi' ? 'Mức pin ban đầu' : 'Initial battery level'}
                                             />
                                             <span className="text-xs text-muted-foreground">%</span>
                                         </div>
@@ -5402,6 +5354,8 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                                                 className="w-16 h-10 text-center text-lg font-bold bg-transparent border-2 border-primary rounded-lg outline-none focus:ring-2 focus:ring-primary/20"
                                                 min={initialBatteryLevel + 5}
                                                 max="100"
+                                                aria-label={language === 'vi' ? 'Mức pin mục tiêu' : 'Target battery level'}
+                                                title={language === 'vi' ? 'Mức pin mục tiêu' : 'Target battery level'}
                                             />
                                             <span className="text-xs text-muted-foreground">%</span>
                                         </div>
@@ -5448,6 +5402,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                                             }}
                                             className="w-32 h-10 text-center text-lg font-medium border-2 border-primary rounded-lg focus:ring-2 focus:ring-primary/20"
                                             placeholder="HH:MM"
+                                            aria-label={language === 'vi' ? 'Giờ bắt đầu sạc' : 'Start charging time'}
                                         />
                                         {chargingStartTimeInput && (
                                             <div className="text-xs text-muted-foreground text-center">
@@ -6164,6 +6119,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                                     // Calculate end time
                                     const startTime = slot.freeFrom ? new Date(slot.freeFrom) : new Date();
                                     const endTime = new Date(startTime.getTime() + chargingDuration * 60000);
+                                    const formattedStartForInput = `${startTime.getHours().toString().padStart(2, '0')}:${startTime.getMinutes().toString().padStart(2, '0')}`;
 
                                     return (
                                         <div
@@ -6176,6 +6132,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                                             onClick={() => {
                                                 console.log("Selected slot:", slot);
                                                 setSelectedSlot(slot);
+                                                setChargingStartTimeInput(formattedStartForInput);
                                                 setIsSlotsPopupOpen(false);
                                                 toast.success(
                                                     language === 'vi'

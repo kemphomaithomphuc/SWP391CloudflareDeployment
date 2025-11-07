@@ -6,7 +6,7 @@ import { StationProvider } from "./contexts/StationContext";
 import { NotificationProvider } from "./contexts/NotificationContext";
 import { Toaster } from "./components/ui/sonner";
 import AppLayout from "./components/AppLayout";
-import { Routes, Route, useLocation } from 'react-router-dom'
+import { Routes, Route, useNavigate, useLocation } from 'react-router-dom'
 import axios from "axios";
 import { jwtDecode } from "jwt-decode";
 
@@ -19,6 +19,8 @@ import VehicleSetup from "./VehicleSetup";
 import MainDashboard from "./MainDashboard";
 import StaffLogin from "./StaffLogin";
 import StaffDashboard from "./StaffDashboard";
+import StaffNotificationView from "./components/StaffNotificationView";
+import StaffReportView from "./components/StaffReportView";
 import AdminLogin from "./AdminLogin";
 import AdminDashboard from "./AdminDashboard";
 import BookingMap from "./BookingMap";
@@ -27,7 +29,6 @@ import PersonalAnalysisView from "./components/PersonalAnalysisView";
 import ReportIssueView from "./components/ReportIssueView";
 import WalletView from "./components/WalletView";
 import NotificationView from "./components/NotificationView";
-import StaffNotificationView from "./components/StaffNotificationView";
 import SystemConfigView from "./components/SystemConfigView";
 import AdminMapView from "./components/AdminMapView";
 import RevenueView from "./components/RevenueView";
@@ -45,11 +46,13 @@ import MyBookingView from "./components/MyBookingView";
 import ChargingSessionView from "./components/ChargingSessionView";
 import PremiumSubscriptionView from "./components/PremiumSubscriptionView";
 import PaymentResultView from "./components/PaymentResultView";
+import { ChatbotProvider } from "./contexts/ChatbotContext";
 import { checkAndRefreshToken } from "./services/api";
 
-type ViewType = "login" | "register" | "roleSelection" | "profileSetup" | "vehicleSetup" | "staffProfileSetup" | "educationSetup" | "dashboard" | "staffLogin" | "staffDashboard" | "adminLogin" | "adminDashboard" | "systemConfig" | "adminMap" | "revenue" | "staffManagement" | "usageAnalytics" | "booking" | "history" | "analysis" | "reportIssue" | "wallet" | "notifications" | "staffNotifications" | "postActivating" | "adminChargerPostActivating" | "myBookings" | "chargingSession" | "stationManagement" | "premiumSubscription" | "issueResolvement";
+type ViewType = "login" | "register" | "roleSelection" | "profileSetup" | "vehicleSetup" | "staffProfileSetup" | "educationSetup" | "dashboard" | "staffLogin" | "staffDashboard" | "staffReports" | "adminLogin" | "adminDashboard" | "systemConfig" | "adminMap" | "revenue" | "staffManagement" | "usageAnalytics" | "booking" | "history" | "analysis" | "reportIssue" | "wallet" | "notifications" | "staffNotifications" | "postActivating" | "adminChargerPostActivating" | "myBookings" | "chargingSession" | "premiumSubscription" | "issueResolvement";
 
 function AppContent() {
+  const navigate = useNavigate();
   const location = useLocation();
   const [currentView, setCurrentView] = useState<ViewType>("login");
   const [vehicleBatteryLevel, setVehicleBatteryLevel] = useState(75);
@@ -69,6 +72,7 @@ function AppContent() {
   const completeStaffSetup = () => setCurrentView("staffDashboard");
   const switchToStaffLogin = () => setCurrentView("staffLogin");
   const completeStaffLogin = () => setCurrentView("staffDashboard");
+  const switchToStaffReports = () => setCurrentView("staffReports");
   const switchToAdminLogin = () => setCurrentView("adminLogin");
   const completeAdminLogin = () => setCurrentView("adminDashboard");
   const switchToBooking = () => setCurrentView("booking");
@@ -91,7 +95,6 @@ const switchToIssueResolvement = () => setCurrentView("issueResolvement");
     setCurrentBookingId(bookingId);
     setCurrentView("chargingSession");
   };
-  const switchToStationManagement = () => setCurrentView("stationManagement");
   const switchToPremiumSubscription = () => setCurrentView("premiumSubscription");
 
   // Check if user needs vehicle setup after profile completion
@@ -135,7 +138,7 @@ const switchToIssueResolvement = () => setCurrentView("issueResolvement");
     if (['dashboard', 'booking', 'history', 'analysis', 'reportIssue', 'wallet', 'notifications', 'myBookings', 'chargingSession', 'premiumSubscription'].includes(currentView)) {
       return 'driver';
     }
-    if (['staffDashboard', 'staffNotifications', 'postActivating', 'stationManagement'].includes(currentView)) {
+    if (['staffDashboard', 'staffNotifications', 'staffReports', 'postActivating'].includes(currentView)) {
       return 'staff';  
     }
     if (['adminDashboard', 'systemConfig', 'adminMap', 'revenue', 'staffManagement', 'usageAnalytics', 'adminChargerPostActivating'].includes(currentView)) {
@@ -298,7 +301,11 @@ const switchToIssueResolvement = () => setCurrentView("issueResolvement");
       case "staffNotifications":
         return <StaffNotificationView onBack={() => setCurrentView("staffDashboard")} />;
 
-     
+      case "staffDashboard":
+        return <StaffDashboard onLogout={switchToLogin} onNotifications={switchToStaffNotifications} onPostActivating={switchToPostActivating} onReports={switchToStaffReports} />;
+
+      case "staffReports":
+        return <StaffReportView onBack={() => setCurrentView("staffDashboard")} />;
 
       case "staffLogin":
         return (
@@ -348,7 +355,6 @@ const switchToIssueResolvement = () => setCurrentView("issueResolvement");
 
       case "chargingSession":
         return <ChargingSessionView onBack={() => setCurrentView("myBookings")} bookingId={currentBookingId} />;
-
 
       case "premiumSubscription":
         return <PremiumSubscriptionView onBack={() => setCurrentView("dashboard")} userType="driver" />;
@@ -487,8 +493,10 @@ export default function App() {
         <BookingProvider>
           <StationProvider>
             <NotificationProvider>
-              <AppContent />
-              <Toaster />
+              <ChatbotProvider>
+                <AppContent />
+                <Toaster />
+              </ChatbotProvider>
             </NotificationProvider>
           </StationProvider>
         </BookingProvider>

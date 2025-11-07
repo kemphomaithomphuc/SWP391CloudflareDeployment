@@ -112,10 +112,10 @@ export default function PaymentResultView() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
-        <Card className="w-full max-w-md">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-black via-neutral-950 to-black">
+        <Card className="w-full max-w-md bg-neutral-900 border border-neutral-800 text-neutral-100 shadow-[0_20px_60px_rgba(0,0,0,0.5)]">
           <CardContent className="flex flex-col items-center justify-center py-12">
-            <Loader2 className="w-16 h-16 text-blue-500 animate-spin mb-4" />
+            <Loader2 className="w-16 h-16 text-emerald-400 animate-spin mb-4" />
             <p className="text-lg font-medium">
               {language === 'vi' ? 'Đang xử lý kết quả thanh toán...' : 'Processing payment result...'}
             </p>
@@ -126,11 +126,11 @@ export default function PaymentResultView() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 p-4">
-      <Card className="w-full max-w-2xl">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-black via-neutral-950 to-black p-4">
+      <Card className="w-full max-w-2xl bg-neutral-900 text-neutral-100 border border-neutral-800 shadow-[0_25px_80px_rgba(0,0,0,0.6)]">
         <CardHeader>
-          <CardTitle className="flex items-center justify-center gap-3 text-2xl">
-            <CreditCard className="w-8 h-8 text-blue-500" />
+          <CardTitle className="flex items-center justify-center gap-3 text-2xl text-emerald-400">
+            <CreditCard className="w-8 h-8" />
             {language === 'vi' ? 'Kết quả thanh toán' : 'Payment Result'}
           </CardTitle>
         </CardHeader>
@@ -139,11 +139,11 @@ export default function PaymentResultView() {
           <div className="flex flex-col items-center justify-center py-8">
             {paymentStatus === 'success' ? (
               <>
-                <CheckCircle2 className="w-24 h-24 text-green-500 mb-4" />
-                <h2 className="text-3xl font-bold text-green-600 dark:text-green-400 mb-2">
+                <CheckCircle2 className="w-24 h-24 text-emerald-400 mb-4" />
+                <h2 className="text-3xl font-bold text-emerald-400 mb-2">
                   {language === 'vi' ? 'Thanh toán thành công!' : 'Payment Successful!'}
                 </h2>
-                <p className="text-gray-600 dark:text-gray-400 text-center">
+                <p className="text-neutral-300 text-center">
                   {language === 'vi' 
                     ? 'Giao dịch của bạn đã được xử lý thành công.' 
                     : 'Your transaction has been processed successfully.'}
@@ -151,11 +151,11 @@ export default function PaymentResultView() {
               </>
             ) : (
               <>
-                <XCircle className="w-24 h-24 text-red-500 mb-4" />
-                <h2 className="text-3xl font-bold text-red-600 dark:text-red-400 mb-2">
+                <XCircle className="w-24 h-24 text-rose-400 mb-4" />
+                <h2 className="text-3xl font-bold text-rose-400 mb-2">
                   {language === 'vi' ? 'Thanh toán thất bại!' : 'Payment Failed!'}
                 </h2>
-                <p className="text-gray-600 dark:text-gray-400 text-center">
+                <p className="text-neutral-300 text-center">
                   {paymentInfo.message || (language === 'vi' 
                     ? 'Giao dịch của bạn không thành công.' 
                     : 'Your transaction was not successful.')}
@@ -165,31 +165,31 @@ export default function PaymentResultView() {
           </div>
 
           {/* Payment Details */}
-          <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-6 space-y-4">
+          <div className="bg-neutral-800/60 rounded-2xl p-6 space-y-4 border border-neutral-700">
             <h3 className="text-lg font-semibold mb-4">
               {language === 'vi' ? 'Chi tiết giao dịch' : 'Transaction Details'}
             </h3>
             
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <p className="text-sm text-gray-500 dark:text-gray-400">
+                <p className="text-sm text-neutral-400">
                   {language === 'vi' ? 'Mã giao dịch' : 'Transaction ID'}
                 </p>
                 <p className="font-medium">{paymentInfo.transactionId}</p>
               </div>
               
               <div>
-                <p className="text-sm text-gray-500 dark:text-gray-400">
+                <p className="text-sm text-neutral-400">
                   {language === 'vi' ? 'Mã đơn hàng' : 'Order ID'}
                 </p>
                 <p className="font-medium">{paymentInfo.orderId}</p>
               </div>
               
               <div className="col-span-2">
-                <p className="text-sm text-gray-500 dark:text-gray-400">
+                <p className="text-sm text-neutral-400">
                   {language === 'vi' ? 'Số tiền' : 'Amount'}
                 </p>
-                <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                <p className="text-3xl font-bold text-emerald-400">
                   {paymentInfo.amount}
                 </p>
               </div>
@@ -200,7 +200,7 @@ export default function PaymentResultView() {
           <div className="flex gap-4">
             <Button
               onClick={handleBackToDashboard}
-              className="flex-1"
+              className={`flex-1 ${paymentStatus === 'success' ? 'bg-emerald-500 hover:bg-emerald-400 text-black shadow-[0_10px_30px_rgba(16,185,129,0.3)]' : 'border-neutral-700 text-neutral-100 hover:bg-neutral-800'}`}
               variant={paymentStatus === 'success' ? 'default' : 'outline'}
             >
               {language === 'vi' ? 'Về trang chủ' : 'Back to Dashboard'}
@@ -209,7 +209,7 @@ export default function PaymentResultView() {
             {paymentStatus === 'failed' && (
               <Button
                 onClick={() => window.history.back()}
-                className="flex-1"
+                className="flex-1 border border-neutral-700 text-neutral-100 hover:bg-neutral-800"
               >
                 {language === 'vi' ? 'Thử lại' : 'Try Again'}
               </Button>
@@ -218,7 +218,7 @@ export default function PaymentResultView() {
 
           {/* Auto redirect message for success */}
           {paymentStatus === 'success' && (
-            <p className="text-center text-sm text-gray-500 dark:text-gray-400">
+            <p className="text-center text-sm text-neutral-400">
               {language === 'vi' 
                 ? 'Tự động chuyển về trang chủ sau 3 giây...' 
                 : 'Automatically redirecting to dashboard in 3 seconds...'}

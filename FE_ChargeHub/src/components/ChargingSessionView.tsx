@@ -24,9 +24,10 @@ interface ChargingSessionViewProps {
 interface ChargingSession {
   id: string;
   bookingId: string;
+  stationId?: number;
   stationName: string;
   stationAddress: string;
-  chargerType: 'DC_FAST' | 'AC_SLOW' | 'AC_FAST';
+  chargerType: 'DC_FAST' | 'AC_SLOW' | 'AC_FAST' | string;
   power: number;
   startTime: string;
   endTime?: string;
@@ -51,6 +52,31 @@ interface PaymentDetail {
   baseCost: number,
   totalFee: number
 }
+
+interface StoredStationInfo {
+  stationId?: number;
+  stationName?: string;
+  stationAddress?: string;
+  connectorType?: string;
+  chargingPower?: number;
+  pricePerKwh?: number;
+  timestamp?: string;
+}
+
+const getStoredStationInfo = (): StoredStationInfo | null => {
+  try {
+    const raw = localStorage.getItem("currentStationInfo");
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === 'object') {
+      return parsed as StoredStationInfo;
+    }
+    return null;
+  } catch (error) {
+    console.error("Failed to parse stored station info:", error);
+    return null;
+  }
+};
 export default function ChargingSessionView({ onBack, bookingId }: ChargingSessionViewProps) {
   const { language } = useLanguage();
   const { theme } = useTheme();
@@ -60,25 +86,46 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
   const orderId = localStorage.getItem("currentOrderId");
   const token = localStorage.getItem("token");
 
+  const initialStationInfo = getStoredStationInfo();
+  const initialChargerType = initialStationInfo?.connectorType && typeof initialStationInfo.connectorType === 'string'
+    ? initialStationInfo.connectorType
+    : 'DC_FAST';
+  const initialPower = typeof initialStationInfo?.chargingPower === 'number' && !isNaN(initialStationInfo.chargingPower)
+    ? initialStationInfo.chargingPower
+    : 50;
+  const initialPrice = typeof initialStationInfo?.pricePerKwh === 'number' && !isNaN(initialStationInfo.pricePerKwh)
+    ? initialStationInfo.pricePerKwh
+    : 3500;
+
   
-  const [session, setSession] = useState<ChargingSession>({
-    id: String(sessionId),
-    bookingId: String(orderId),
-    stationName: "EVN Station Thủ Đức",
-    stationAddress: "123 Võ Văn Ngân, Thủ Đức, TP.HCM",
-    chargerType: 'DC_FAST',
-    power: 50,
-    startTime: new Date().toISOString(),
-    pausedTime: 0,
-    status: 'charging',
-    currentBattery: 0, // Will be set from API
-    targetBattery: 100, // Always 100% as final milestone
-    initialBattery: 0, // Will be set from API
-    energyConsumed: 0,
-    costPerKWh: 3500, // VND per kWh
-    totalCost: 0,
-    estimatedTimeRemaining: 0
-  });
+  const buildInitialSession = (): ChargingSession => {
+    const base: ChargingSession = {
+      id: String(sessionId),
+      bookingId: String(orderId),
+      stationName: initialStationInfo?.stationName ?? "EVN Station Thủ Đức",
+      stationAddress: initialStationInfo?.stationAddress ?? "123 Võ Văn Ngân, Thủ Đức, TP.HCM",
+      chargerType: initialChargerType,
+      power: initialPower,
+      startTime: new Date().toISOString(),
+      pausedTime: 0,
+      status: 'charging',
+      currentBattery: 0, // Will be set from API
+      targetBattery: 100, // Always 100% as final milestone
+      initialBattery: 0, // Will be set from API
+      energyConsumed: 0,
+      costPerKWh: initialPrice, // VND per kWh
+      totalCost: 0,
+      estimatedTimeRemaining: 0
+    };
+
+    if (typeof initialStationInfo?.stationId === 'number' && !isNaN(initialStationInfo.stationId)) {
+      base.stationId = initialStationInfo.stationId;
+    }
+
+    return base;
+  };
+
+  const [session, setSession] = useState<ChargingSession>(buildInitialSession);
 
   const [elapsedTime, setElapsedTime] = useState(0); // in seconds
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
@@ -92,6 +139,36 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
   const [smoothEnergy, setSmoothEnergy] = useState(0);
   const [smoothCost, setSmoothCost] = useState(0);
   const [lastUpdateTime, setLastUpdateTime] = useState<Date | null>(null);
+  const [finalizedMetrics, setFinalizedMetrics] = useState<{ cost: number; energy: number } | null>(null);
+  const expectedPaymentAmountRef = useRef<number | null>(null);
+  const PAYMENT_AMOUNT_TOLERANCE_VND = 500; // Allow minor rounding differences
+  const stationInfoRef = useRef<StoredStationInfo | null>(initialStationInfo);
+
+  const updateSessionWithStationInfo = (info: StoredStationInfo) => {
+    stationInfoRef.current = info;
+    setSession(prev => {
+      const next: ChargingSession = {
+        ...prev,
+        stationName: info.stationName ?? prev.stationName,
+        stationAddress: info.stationAddress ?? prev.stationAddress,
+        chargerType: info.connectorType && typeof info.connectorType === 'string' && info.connectorType.trim().length > 0
+          ? info.connectorType
+          : prev.chargerType,
+        power: typeof info.chargingPower === 'number' && !isNaN(info.chargingPower)
+          ? info.chargingPower
+          : prev.power,
+        costPerKWh: typeof info.pricePerKwh === 'number' && !isNaN(info.pricePerKwh)
+          ? info.pricePerKwh
+          : prev.costPerKWh,
+      };
+
+      if (typeof info.stationId === 'number' && !isNaN(info.stationId)) {
+        next.stationId = info.stationId;
+      }
+
+      return next;
+    });
+  };
 
   
   
@@ -147,6 +224,23 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
         }));
         console.log("SessionId Monitor - Updated session.id to:", currentSessionId);
       }
+
+      const storedStationInfo = getStoredStationInfo();
+      if (storedStationInfo) {
+        const previousInfo = stationInfoRef.current;
+        const infoChanged = !previousInfo || (
+          previousInfo.stationId !== storedStationInfo.stationId ||
+          previousInfo.stationName !== storedStationInfo.stationName ||
+          previousInfo.stationAddress !== storedStationInfo.stationAddress ||
+          previousInfo.connectorType !== storedStationInfo.connectorType ||
+          previousInfo.chargingPower !== storedStationInfo.chargingPower ||
+          previousInfo.pricePerKwh !== storedStationInfo.pricePerKwh
+        );
+
+        if (infoChanged) {
+          updateSessionWithStationInfo(storedStationInfo);
+        }
+      }
     };
     
     // Check immediately
@@ -156,6 +250,11 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
     const interval = setInterval(checkSessionId, 2000);
     
     return () => clearInterval(interval);
+  }, [session.id]);
+
+  useEffect(() => {
+    setFinalizedMetrics(null);
+    expectedPaymentAmountRef.current = null;
   }, [session.id]);
 
   
@@ -283,6 +382,10 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
           totalCost: monitoringData.cost || session.totalCost,
           estimatedTimeRemaining: session.estimatedTimeRemaining
         };
+
+        if (typeof session.stationId === 'number' && !isNaN(session.stationId)) {
+          updatedSession.stationId = session.stationId;
+        }
 
         console.log('Updated Session:', updatedSession);
 
@@ -485,7 +588,7 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
         setSession(prev => ({
           ...prev,
           status: 'stopped',
-          endTime: new Date().toISOString()
+                    endTime: new Date().toISOString()
         }));
         
         // Show success message
@@ -494,6 +597,15 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
           : 'Charging session stopped successfully'
         );
         
+        // Sync latest payment detail (if available) to freeze displayed values
+        const userIdSnapshot = localStorage.getItem("userId");
+        if (userIdSnapshot) {
+          const detail = await fetchPaymentDetail(sessionId, userIdSnapshot, { silent: true });
+          if (detail) {
+            applyPaymentDetail(detail);
+          }
+        }
+
         // Show payment dialog - payment will be initiated when user confirms
         setShowPaymentDialog(true);
         
@@ -555,6 +667,7 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
       return null;
     } finally {
       setLoading(false);
+      setIsChargingFinishing(false);
     }
   };
 
@@ -829,6 +942,70 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
     setIsSimulating(true);
   };
 
+  const parsePaymentDetail = (rawData: any): PaymentDetail => {
+    const parseNumeric = (value: any): number => {
+      const parsed = Number(value);
+      return Number.isFinite(parsed) ? parsed : 0;
+    };
+
+    const baseCostValue = parseNumeric(rawData?.baseCost);
+    const totalFeeValueRaw = parseNumeric(rawData?.totalFee);
+    const totalFeeValue = totalFeeValueRaw > 0 ? totalFeeValueRaw : baseCostValue;
+
+    return {
+      userName: rawData?.userName || 'N/A',
+      stationName: rawData?.stationName || 'N/A',
+      stationAddress: rawData?.stationAddress || 'N/A',
+      sesionStartTime: rawData?.sessionStartTime || new Date().toISOString(),
+      sessionEndTime: rawData?.sessionEndTime || new Date().toISOString(),
+      powerConsumed: parseNumeric(rawData?.powerConsumed),
+      baseCost: baseCostValue,
+      totalFee: totalFeeValue
+    };
+  };
+
+  const fetchPaymentDetail = async (
+    sessionId: string,
+    userId: string,
+    options?: { silent?: boolean }
+  ): Promise<PaymentDetail | null> => {
+    try {
+      const res = await axios.get(`http://localhost:8080/api/payment/detail?sessionId=${sessionId}&userId=${userId}`);
+
+      if (res.status === 200 && res.data?.success) {
+        return parsePaymentDetail(res.data.data);
+      }
+
+      const serverMessage = res.data?.message || 'Unable to fetch payment information';
+      throw new Error(serverMessage);
+    } catch (err: any) {
+      if (options?.silent) {
+        console.warn('Silent payment detail fetch failed:', err);
+        return null;
+      }
+
+      if (err?.response?.data?.message) {
+        throw new Error(err.response.data.message);
+      }
+
+      throw err instanceof Error ? err : new Error('Unable to fetch payment information');
+    }
+  };
+
+  const applyPaymentDetail = (detail: PaymentDetail) => {
+    setSession(prev => ({
+      ...prev,
+      energyConsumed: detail.powerConsumed,
+      totalCost: detail.totalFee,
+      ...(detail.sessionEndTime ? { endTime: detail.sessionEndTime } : {}),
+    }));
+
+    setSmoothEnergy(detail.powerConsumed);
+    setSmoothCost(detail.totalFee);
+    setFinalizedMetrics({ cost: detail.totalFee, energy: detail.powerConsumed });
+    expectedPaymentAmountRef.current = Math.round(detail.totalFee);
+  };
+
 
   const handlePayment = async () => {
     try {
@@ -848,55 +1025,26 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
         toast.error(language === 'vi' ? 'Không tìm thấy thông tin phiên sạc' : 'Session information not found');
         return;
       }
+      const paymentDetail = await fetchPaymentDetail(sessionId, userId, { silent: false });
 
-      const res = await axios.get(`http://localhost:8080/api/payment/detail?sessionId=${sessionId}&userId=${userId}`);
-      if (res.status === 200 && res.data.success) {
-        console.log('Payment API Response:', res.data.data);
-        
-        // Safely parse numeric values with fallback to 0
-        const parseBaseCost = (value: any): number => {
-          const parsed = Number(value);
-          return isNaN(parsed) ? 0 : parsed;
-        };
-        
-        const parsePowerConsumed = (value: any): number => {
-          const parsed = Number(value);
-          return isNaN(parsed) ? 0 : parsed;
-        };
-        
-        // Parse baseCost first
-        const baseCostValue = parseBaseCost(res.data.data.baseCost);
-        
-        // Parse totalFee, fallback to baseCost if totalFee is 0 or invalid
-        const parseTotalFee = (value: any, fallbackValue: number): number => {
-          const parsed = Number(value);
-          if (isNaN(parsed) || parsed === 0) {
-            return fallbackValue; // Use baseCost as fallback
-          }
-          return parsed;
-        };
-        
-        const paymentDetail: PaymentDetail = {
-          userName: res.data.data.userName || 'N/A',
-          stationName: res.data.data.stationName || 'N/A',
-          stationAddress: res.data.data.stationAddress || 'N/A',
-          sesionStartTime: res.data.data.sessionStartTime || new Date().toISOString(),
-          sessionEndTime: res.data.data.sessionEndTime || new Date().toISOString(),
-          powerConsumed: parsePowerConsumed(res.data.data.powerConsumed),
-          baseCost: baseCostValue,
-          totalFee: parseTotalFee(res.data.data.totalFee, baseCostValue) // Fallback to baseCost
-        };
-        
-        console.log('Parsed Payment Detail:', paymentDetail);
-        
-        setPaymentData(paymentDetail);
-        setShowPaymentConfirmation(true);
-      } else {
+      if (!paymentDetail) {
         toast.error(language === 'vi' ? 'Không thể lấy thông tin thanh toán' : 'Unable to fetch payment information');
+        return;
       }
+
+      console.log('Payment API Response (parsed):', paymentDetail);
+
+      applyPaymentDetail(paymentDetail);
+      setPaymentData(paymentDetail);
+      setShowPaymentConfirmation(true);
     } catch (err: any) {
       console.error('Error fetching payment details:', err);
-      toast.error(language === 'vi' ? 'Lỗi khi lấy thông tin thanh toán' : 'Error fetching payment details');
+      const message = err instanceof Error ? err.message : undefined;
+      toast.error(
+        language === 'vi'
+          ? `Lỗi khi lấy thông tin thanh toán${message ? `: ${message}` : ''}`
+          : `Error fetching payment details${message ? `: ${message}` : ''}`
+      );
     } finally {
       setPaymentLoading(false);
     }
@@ -929,6 +1077,25 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
         return;
       }
 
+      const previousExpectedAmount = expectedPaymentAmountRef.current;
+      const detailForSync = await fetchPaymentDetail(sessionId, userId, { silent: true });
+      if (detailForSync) {
+        applyPaymentDetail(detailForSync);
+        const updatedAmount = expectedPaymentAmountRef.current;
+        const baselineAmount = previousExpectedAmount ?? Math.round(smoothCost);
+
+        if (
+          updatedAmount !== null &&
+          Math.abs(updatedAmount - baselineAmount) > PAYMENT_AMOUNT_TOLERANCE_VND
+        ) {
+          toast.info(
+            language === 'vi'
+              ? 'Chi phí thanh toán đã được đồng bộ với dữ liệu mới nhất.'
+              : 'Payment amount has been synchronized with the latest charging data.'
+          );
+        }
+      }
+
       const payload = {
         sessionId: sessionId,
         userId: userId,
@@ -954,6 +1121,8 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
         // Clear session data from localStorage before redirecting to payment
         localStorage.removeItem("currentSessionId");
         localStorage.removeItem("currentOrderId");
+        localStorage.removeItem("currentStationInfo");
+        localStorage.removeItem("currentStationId");
         
         // Show brief success message
         toast.success(language === 'vi' 
@@ -1192,7 +1361,7 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
               
               <div className="text-center p-4 bg-card rounded-lg border">
                 <CreditCard className="w-8 h-8 mx-auto mb-2 text-green-500" />
-                <p className="text-2xl font-bold">{formatCurrency(smoothCost)}</p>
+                <p className="text-2xl font-bold">{formatCurrency(finalizedMetrics?.cost ?? smoothCost)}</p>
                 <p className="text-sm text-muted-foreground">{translations.currentCost}</p>
               </div>
             </div>
@@ -1426,7 +1595,7 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
               }
             </p>
             <p className="text-center font-medium text-lg">
-              {formatCurrency(smoothCost)}
+              {formatCurrency(finalizedMetrics?.cost ?? smoothCost)}
             </p>
           </div>
         </DialogContent>
