@@ -14,7 +14,7 @@ export default function ChatMessages({ messages, isLoading, messagesEndRef }: Ch
   const { language } = useLanguage();
 
   return (
-    <div className="flex-1 overflow-y-auto pr-2 min-h-0" style={{ maxHeight: '100%' }}>
+    <div className="flex-1 overflow-y-auto pr-2 min-h-0" style={{ maxHeight: '100%', width: '100%', minWidth: 0, maxWidth: '100%' }}>
       <div className="space-y-2 px-2">
         {messages.length === 0 ? (
           <div className="text-center text-gray-500 py-8">

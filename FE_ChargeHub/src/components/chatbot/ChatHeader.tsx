@@ -4,13 +4,17 @@ import { useLanguage } from "../../contexts/LanguageContext";
 
 interface ChatHeaderProps {
   onClose: () => void;
+  onMouseDown?: (e: React.MouseEvent) => void;
 }
 
-export default function ChatHeader({ onClose }: ChatHeaderProps) {
+export default function ChatHeader({ onClose, onMouseDown }: ChatHeaderProps) {
   const { language } = useLanguage();
 
   return (
-    <div className="bg-green-600 text-white px-4 py-3 flex items-center justify-between flex-shrink-0">
+    <div 
+      className="bg-green-600 text-white px-4 py-3 flex items-center justify-between flex-shrink-0 cursor-move"
+      onMouseDown={onMouseDown}
+    >
       <div className="flex items-center space-x-2">
         <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center">
           <MessageSquare className="w-4 h-4" />
@@ -24,7 +28,8 @@ export default function ChatHeader({ onClose }: ChatHeaderProps) {
         variant="ghost"
         size="sm"
         onClick={onClose}
-        className="h-6 w-6 p-0 text-white hover:bg-white/20 rounded-full"
+        onMouseDown={(e) => e.stopPropagation()}
+        className="h-6 w-6 p-0 text-white hover:bg-white/20 rounded-full cursor-pointer"
       >
         <X className="w-4 h-4" />
       </Button>
