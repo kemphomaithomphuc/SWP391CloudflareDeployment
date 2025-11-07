@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { ArrowLeft, Zap, Pause, Play, Square, Clock, Battery, MapPin, CreditCard, QrCode, RefreshCw, AlertTriangle } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useTheme } from '../contexts/ThemeContext';
@@ -87,6 +87,7 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
+  const [isMonitoring, setIsMonitoring] = useState(false); // Track if monitoring call is in progress
   const [smoothBattery, setSmoothBattery] = useState(0);
   const [smoothEnergy, setSmoothEnergy] = useState(0);
   const [smoothCost, setSmoothCost] = useState(0);
@@ -103,6 +104,9 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
     cost: number;
     timestamp: number;
   } | null>(null);
+  
+  // Ref to store monitoring interval ID for manual cleanup
+  const monitoringIntervalRef = useRef<NodeJS.Timeout | null>(null);
   
   // Constants for simulation
   const BATTERY_CAPACITY_KWH = 50; // Typical EV battery capacity
@@ -122,6 +126,10 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
   
   // Charging finishing state
   const [isChargingFinishing, setIsChargingFinishing] = useState(false);
+  
+  // Track 401 errors to avoid premature redirect
+  const [unauthorizedCount, setUnauthorizedCount] = useState(0);
+  const MAX_UNAUTHORIZED_RETRIES = 3; // Retry 3 times before redirecting
   
   // Monitor localStorage changes for sessionId
   useEffect(() => {
@@ -180,6 +188,14 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
   };
 
   const handleChargingMonitoring = async (sessionId: string, isInitialCall: boolean = false): Promise<ChargingSession | null> => {
+    // Skip if already monitoring (prevent race condition)
+    if (isMonitoring && !isInitialCall) {
+      console.log('Monitoring call skipped - already in progress');
+      return null;
+    }
+    
+    setIsMonitoring(true);
+    
     // Only show loading for initial call, not for periodic updates
     if (isInitialCall) {
       setLoading(true);
@@ -187,28 +203,49 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
     setError(null);
     
     try {
-      if (!token) {
-        throw new Error('No authentication token found');
+      // Get fresh token from localStorage for each call
+      const currentToken = localStorage.getItem("token");
+      
+      if (!currentToken) {
+        console.error('No authentication token found - skipping monitoring call');
+        setError('Authentication token not found. Please ensure you are logged in.');
+        
+        // Don't redirect immediately - token might be loading
+        // Only return null and let the periodic check handle it
+        setIsMonitoring(false);
+        if (isInitialCall) {
+          setLoading(false);
+        }
+        return null;
       }
 
       if (!sessionId) {
         throw new Error('Session ID is required for monitoring');
       }
 
-      console.log(`Monitoring session ID: `, sessionId);
+      console.log(`Monitoring session ID: ${sessionId}`);
       
-      const response = await axios.get(`http://localhost:8080/api/sessions/${sessionId}/monitor`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json'
+      // Fix: headers should be in the 3rd parameter (config), 2nd parameter is data (empty object for PUT)
+      const response = await axios.put(
+        `http://localhost:8080/api/sessions/${sessionId}/monitor`,
+        {}, // Empty data body for PUT request
+        {
+          headers: {
+            Authorization: `Bearer ${currentToken}`,
+            'Content-Type': 'application/json'
+          },
+          timeout: 5000 // 5 second timeout for smooth UX
         }
-      });
+      );
 
       if (response.data && response.data.success) {
         const monitoringData = response.data.data;
         
         console.log('Monitoring API Response:', response.data);
         console.log('Monitoring Data:', monitoringData);
+        
+        // Reset unauthorized count on successful call
+        setUnauthorizedCount(0);
         
         // Handle initial battery setup and start simulation
         if (!isInitialized && monitoringData.currentBattery) {
@@ -300,6 +337,7 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
       
       // Handle different types of errors
       let errorMessage = 'Failed to monitor charging session';
+      let shouldStopMonitoring = false;
       
       if (err.response) {
         // Server responded with error status
@@ -308,20 +346,73 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
         
         switch (status) {
           case 401:
-            errorMessage = 'Authentication failed. Please login again.';
+            // Check current count before incrementing
+            const currentUnauthorizedCount = unauthorizedCount;
+            
+            // Increment unauthorized count
+            setUnauthorizedCount(prev => prev + 1);
+            
+            // Only redirect after multiple failures to avoid premature logout
+            if (currentUnauthorizedCount >= MAX_UNAUTHORIZED_RETRIES - 1) {
+              errorMessage = language === 'vi' 
+                ? 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.' 
+                : 'Session expired. Please login again.';
+              shouldStopMonitoring = true;
+              
+              // Clear token and redirect to login after delay
+              localStorage.removeItem('token');
+              localStorage.removeItem('currentSessionId');
+              localStorage.removeItem('currentOrderId');
+              toast.error(errorMessage);
+              
+              setTimeout(() => {
+                window.location.href = '/login';
+              }, 2000);
+            } else {
+              // Just log and retry
+              errorMessage = language === 'vi' 
+                ? `Lỗi xác thực. Đang thử lại... (${currentUnauthorizedCount + 1}/${MAX_UNAUTHORIZED_RETRIES})` 
+                : `Authentication error. Retrying... (${currentUnauthorizedCount + 1}/${MAX_UNAUTHORIZED_RETRIES})`;
+              console.warn('401 Unauthorized, retrying...', { attemptNumber: currentUnauthorizedCount + 1 });
+              
+              // Don't show toast for retries, just log
+              if (isInitialCall) {
+                toast.warning(errorMessage);
+              }
+              
+              // Don't stop monitoring yet, allow retry
+              shouldStopMonitoring = false;
+            }
             break;
+            
           case 404:
-            errorMessage = 'Session not found. Please check your session ID.';
+            errorMessage = language === 'vi' 
+              ? 'Không tìm thấy phiên sạc.' 
+              : 'Session not found.';
+            shouldStopMonitoring = true;
             break;
+            
           case 500:
-            errorMessage = 'Server error. Please try again later.';
+            errorMessage = language === 'vi' 
+              ? 'Lỗi server. Vui lòng thử lại sau.' 
+              : 'Server error. Please try again later.';
+            // Don't stop monitoring on server errors, might be temporary
             break;
+            
           default:
             errorMessage = serverMessage || `Server error (${status})`;
         }
       } else if (err.request) {
-        // Network error
-        errorMessage = 'Network error. Please check your connection.';
+        // Network error - don't stop monitoring, might be temporary
+        errorMessage = language === 'vi' 
+          ? 'Lỗi mạng. Đang thử kết nối lại...' 
+          : 'Network error. Retrying...';
+        
+        // Don't show toast for periodic network errors, just log
+        if (!isInitialCall) {
+          console.log('Network error during monitoring, will retry...');
+          return null;
+        }
       } else {
         // Other error
         errorMessage = err.message || 'Unknown error occurred';
@@ -334,17 +425,26 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
         setLoading(false);
       }
       
-      // Show error toast with specific message
-      toast.error(language === 'vi' 
-        ? `Lỗi: ${errorMessage}` 
-        : `Error: ${errorMessage}`
-      );
+      // Show error toast only for initial calls or critical errors
+      if (isInitialCall || shouldStopMonitoring) {
+        toast.error(errorMessage);
+      }
+      
+      // Stop session if critical error
+      if (shouldStopMonitoring) {
+        setSession(prev => ({ ...prev, status: 'stopped' }));
+      }
       
       return null;
+    } finally {
+      setIsMonitoring(false); // Reset monitoring flag
     }
   };
 
   const handleChargingTerminating = async (sessionId: string) => {
+    // Store previous status for rollback if error occurs
+    const previousStatus = session.status;
+    
     try {
       setLoading(true);
       setError(null);
@@ -359,6 +459,16 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
 
       console.log(`Terminating charging session: ${sessionId}`);
       
+      // Stop monitoring immediately before API call
+      if (monitoringIntervalRef.current) {
+        console.log('Clearing monitoring interval before termination');
+        clearInterval(monitoringIntervalRef.current);
+        monitoringIntervalRef.current = null;
+      }
+      
+      // Stop simulation immediately
+      setIsSimulating(false);
+      
       const response = await axios.post(`http://localhost:8080/api/sessions/${sessionId}/end`, {
 
       }, {
@@ -371,19 +481,12 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
       if (response.data && response.data.success) {
         console.log('Charging session terminated successfully:', response.data);
         
-        // Stop simulation and monitoring
-        setIsSimulating(false);
-        
-        // Update session status
+        // Update session status to stopped ONLY after successful API call
         setSession(prev => ({
           ...prev,
           status: 'stopped',
           endTime: new Date().toISOString()
         }));
-        
-        // Clear session data from localStorage
-        localStorage.removeItem("currentSessionId");
-        localStorage.removeItem("currentOrderId");
         
         // Show success message
         toast.success(language === 'vi' 
@@ -391,7 +494,7 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
           : 'Charging session stopped successfully'
         );
         
-        // Show payment dialog
+        // Show payment dialog - payment will be initiated when user confirms
         setShowPaymentDialog(true);
         
         return response.data;
@@ -434,6 +537,20 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
         ? `Lỗi: ${errorMessage}` 
         : `Error: ${errorMessage}`
       );
+      
+      // Reset finishing state so user can retry
+      setIsChargingFinishing(false);
+      
+      // Rollback session status to previous state
+      setSession(prev => ({
+        ...prev,
+        status: previousStatus
+      }));
+      
+      // Restart simulation if it was running before
+      if (previousStatus === 'charging') {
+        setIsSimulating(true);
+      }
       
       return null;
     } finally {
@@ -497,26 +614,79 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
   // Initial API call and periodic monitoring (every 2 seconds)
   useEffect(() => {
     const sessionId = localStorage.getItem("currentSessionId");
-    if (!sessionId || !sessionStarted || session.status === 'stopped') return;
-    console.log("Current session id: ", sessionId);
+    const currentToken = localStorage.getItem("token");
+    
+    console.log("🔍 Monitoring useEffect triggered:", {
+      hasSessionId: !!sessionId,
+      sessionId: sessionId,
+      sessionStarted,
+      status: session.status,
+      hasToken: !!currentToken,
+      tokenPreview: currentToken ? currentToken.substring(0, 20) + '...' : 'null'
+    });
+    
+    // Check prerequisites - IMPORTANT: Stop if session is already stopped
+    if (!sessionId || !sessionStarted || session.status === 'stopped' || !currentToken) {
+      console.log("❌ Monitoring skipped - prerequisites not met:", { 
+        hasSessionId: !!sessionId, 
+        sessionStarted, 
+        status: session.status,
+        hasToken: !!currentToken
+      });
+      
+      // Clear any existing interval if session is stopped
+      if (session.status === 'stopped' && monitoringIntervalRef.current) {
+        console.log("Session stopped, clearing any existing monitoring interval");
+        clearInterval(monitoringIntervalRef.current);
+        monitoringIntervalRef.current = null;
+      }
+      
+      return;
+    }
+    
+    console.log("✅ Starting monitoring for session:", sessionId);
 
     // Initial monitoring call to get initial battery (with loading)
     handleChargingMonitoring(sessionId, true);
 
     // Set up periodic monitoring every 2 seconds for smooth updates (no loading)
-    const monitoringInterval = setInterval(() => {
-      // Stop monitoring if session is stopped
+    const monitoringInterval = setInterval(async () => {
+      // Check if monitoring should stop
       if (session.status === 'stopped') {
+        console.log("Session stopped, clearing monitoring interval");
         clearInterval(monitoringInterval);
+        if (monitoringIntervalRef.current === monitoringInterval) {
+          monitoringIntervalRef.current = null;
+        }
         return;
       }
-      handleChargingMonitoring(sessionId, false);
+      
+      // Check token is still valid
+      const freshToken = localStorage.getItem("token");
+      if (!freshToken) {
+        console.log("Token not found, stopping monitoring");
+        clearInterval(monitoringInterval);
+        if (monitoringIntervalRef.current === monitoringInterval) {
+          monitoringIntervalRef.current = null;
+        }
+        return;
+      }
+      
+      // Call monitoring without loading indicator
+      await handleChargingMonitoring(sessionId, false);
     }, 2000); // 2 seconds for smooth updates
 
+    // Store interval ref for manual cleanup
+    monitoringIntervalRef.current = monitoringInterval;
+
     return () => {
+      console.log("Cleaning up monitoring interval");
       clearInterval(monitoringInterval);
+      if (monitoringIntervalRef.current === monitoringInterval) {
+        monitoringIntervalRef.current = null;
+      }
     };
-  }, [sessionStarted, token, session.status]);
+  }, [sessionStarted, session.status]);
 
   // Separate effect for 1-second updates (elapsed time only)
   useEffect(() => {
@@ -681,16 +851,43 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
 
       const res = await axios.get(`http://localhost:8080/api/payment/detail?sessionId=${sessionId}&userId=${userId}`);
       if (res.status === 200 && res.data.success) {
-        const paymentDetail: PaymentDetail = {
-          userName: res.data.data.userName,
-          stationName: res.data.data.stationName,
-          stationAddress: res.data.data.stationAddress,
-          sesionStartTime: res.data.data.sessionStartTime,
-          sessionEndTime: res.data.data.sessionEndTime,
-          powerConsumed: res.data.data.powerConsumed,
-          baseCost: res.data.data.baseCost,
-          totalFee: res.data.data.totalFee
+        console.log('Payment API Response:', res.data.data);
+        
+        // Safely parse numeric values with fallback to 0
+        const parseBaseCost = (value: any): number => {
+          const parsed = Number(value);
+          return isNaN(parsed) ? 0 : parsed;
         };
+        
+        const parsePowerConsumed = (value: any): number => {
+          const parsed = Number(value);
+          return isNaN(parsed) ? 0 : parsed;
+        };
+        
+        // Parse baseCost first
+        const baseCostValue = parseBaseCost(res.data.data.baseCost);
+        
+        // Parse totalFee, fallback to baseCost if totalFee is 0 or invalid
+        const parseTotalFee = (value: any, fallbackValue: number): number => {
+          const parsed = Number(value);
+          if (isNaN(parsed) || parsed === 0) {
+            return fallbackValue; // Use baseCost as fallback
+          }
+          return parsed;
+        };
+        
+        const paymentDetail: PaymentDetail = {
+          userName: res.data.data.userName || 'N/A',
+          stationName: res.data.data.stationName || 'N/A',
+          stationAddress: res.data.data.stationAddress || 'N/A',
+          sesionStartTime: res.data.data.sessionStartTime || new Date().toISOString(),
+          sessionEndTime: res.data.data.sessionEndTime || new Date().toISOString(),
+          powerConsumed: parsePowerConsumed(res.data.data.powerConsumed),
+          baseCost: baseCostValue,
+          totalFee: parseTotalFee(res.data.data.totalFee, baseCostValue) // Fallback to baseCost
+        };
+        
+        console.log('Parsed Payment Detail:', paymentDetail);
         
         setPaymentData(paymentDetail);
         setShowPaymentConfirmation(true);
@@ -747,12 +944,27 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
       });
       
       if (res.status === 200 && res.data.success) {
+        console.log('Payment initiated successfully:', res.data);
+        console.log('Payment URL:', res.data.data.paymentUrl);
+        
         // Close dialogs before redirecting
         setShowPaymentConfirmation(false);
         setShowPaymentDialog(false);
         
+        // Clear session data from localStorage before redirecting to payment
+        localStorage.removeItem("currentSessionId");
+        localStorage.removeItem("currentOrderId");
+        
+        // Show brief success message
+        toast.success(language === 'vi' 
+          ? 'Đang chuyển đến trang thanh toán...' 
+          : 'Redirecting to payment...'
+        );
+        
         // Redirect to payment URL
-        window.location.href = res.data.data.paymentUrl;
+        setTimeout(() => {
+          window.location.href = res.data.data.paymentUrl;
+        }, 500);
       } else {
         throw new Error(res.data?.message || 'Payment initiation failed');
       }
@@ -790,8 +1002,12 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
     return `${minutes}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const formatCurrency = (amount: number) => {
+  const formatCurrency = (amount: number | undefined | null) => {
     // Always use Vietnamese currency (VND) regardless of language
+    // Handle invalid values
+    if (amount === undefined || amount === null || isNaN(amount)) {
+      return '0đ';
+    }
     return `${Math.round(amount).toLocaleString('vi-VN')}đ`;
   };
 
@@ -961,7 +1177,7 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
             </div>
 
             {/* Stats Grid */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
               <div className="text-center p-4 bg-card rounded-lg border">
                 <Clock className="w-8 h-8 mx-auto mb-2 text-primary" />
                 <p className="text-2xl font-bold">{formatTime(elapsedTime)}</p>
@@ -978,14 +1194,6 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
                 <CreditCard className="w-8 h-8 mx-auto mb-2 text-green-500" />
                 <p className="text-2xl font-bold">{formatCurrency(smoothCost)}</p>
                 <p className="text-sm text-muted-foreground">{translations.currentCost}</p>
-              </div>
-              
-              <div className="text-center p-4 bg-card rounded-lg border">
-                <Battery className="w-8 h-8 mx-auto mb-2 text-blue-500" />
-                <p className="text-2xl font-bold">{session.estimatedTimeRemaining}</p>
-                <p className="text-sm text-muted-foreground">
-                  {language === 'vi' ? 'phút' : 'min'}
-                </p>
               </div>
             </div>
           </CardContent>
@@ -1359,13 +1567,13 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
                       <label className="text-sm font-medium text-muted-foreground">
                         {language === 'vi' ? 'Năng lượng tiêu thụ' : 'Energy Consumed'}
                       </label>
-                      <p className="text-sm font-medium">{paymentData.powerConsumed} kWh</p>
+                      <p className="text-sm font-medium">{paymentData?.powerConsumed ?? 0} kWh</p>
                     </div>
                     <div>
                       <label className="text-sm font-medium text-muted-foreground">
                         {language === 'vi' ? 'Chi phí cơ bản' : 'Base Cost'}
                       </label>
-                      <p className="text-sm font-medium">{formatCurrency(paymentData.baseCost)}</p>
+                      <p className="text-sm font-medium">{formatCurrency(paymentData?.baseCost ?? 0)}</p>
                     </div>
                   </div>
                 </CardContent>
@@ -1384,7 +1592,7 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
                       {language === 'vi' ? 'Tổng cộng' : 'Total Amount'}
                     </span>
                     <span className="text-2xl font-bold text-green-600 dark:text-green-400">
-                      {formatCurrency(paymentData.totalFee)}
+                      {formatCurrency(paymentData?.totalFee ?? 0)}
                     </span>
                   </div>
                 </CardContent>
