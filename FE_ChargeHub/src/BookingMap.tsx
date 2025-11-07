@@ -556,7 +556,8 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
 
     useEffect(() => {
         if (batteryLevelBarRef.current) {
-            batteryLevelBarRef.current.style.width = `${currentBatteryLevel}%`;
+            const percent = Math.max(0, Math.min(100, currentBatteryLevel));
+            batteryLevelBarRef.current.style.width = `${percent}%`;
         }
     }, [currentBatteryLevel]);
 
@@ -1294,8 +1295,8 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                 .sort((a, b) => a.distance - b.distance);
 
             if (stationsWithDistance.length > 0) {
-                const nearestStationEntry = stationsWithDistance[0];
-                const nearestStation = nearestStationEntry?.station;
+                const nearestEntry = stationsWithDistance[0];
+                const nearestStation = nearestEntry?.station;
                 if (nearestStation) {
                     setSelectedStation(nearestStation);
                     hasAutoSelectedRef.current = true;
@@ -3536,14 +3537,14 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                                                     className="pl-10 pr-10 bg-black/90 backdrop-blur-sm border-2 border-white/30 shadow-xl focus:ring-2 focus:ring-white/30 focus:border-white/60 text-white placeholder:text-white/60 h-10 rounded-lg"
                                                 />
                                                 {searchQuery && (
-                                                <button
+                                                    <button
+                                                        type="button"
                                                         onClick={() => {
                                                             setSearchQuery("");
                                                             setSearchResults([]);
                                                             setShowSearchResults(false);
                                                         }}
                                                         className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-white/70 hover:text-white transition-colors"
-                                                        type="button"
                                                         aria-label={language === 'vi' ? 'Xóa tìm kiếm' : 'Clear search'}
                                                     >
                                                         <X className="w-4 h-4" />
@@ -3969,7 +3970,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
 
                                                             <div className="flex items-center justify-between">
 
-                                                                <span className="text-sm text-muted-foreground">Current Battery</span>
+                                                                <label className="text-sm text-muted-foreground" htmlFor="currentBatteryInput">Current Battery</label>
 
                                                                 <span className="text-xs text-muted-foreground">Enter 0-100%</span>
 
@@ -4013,10 +4014,13 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                                                                         }}
 
                                                                         className="w-16 h-12 text-center text-xl font-bold bg-transparent border-none outline-none text-primary"
+
                                                                         min="0"
+
                                                                         max="100"
-                                                                        aria-label={language === 'vi' ? 'Mức pin hiện tại' : 'Current battery level'}
-                                                                        title={language === 'vi' ? 'Mức pin hiện tại' : 'Current battery level'}
+
+                                                                        id="currentBatteryInput"
+
                                                                     />
 
                                                                     <div className="text-xs text-muted-foreground">Enter 0-100%</div>
@@ -4052,6 +4056,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                                                                         currentBatteryLevel <= 50 ? 'bg-yellow-500' : 'bg-primary'
 
                                                                     }`}
+
                                                                     ref={batteryLevelBarRef}
 
                                                                 />
@@ -5271,7 +5276,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
 
                                 {/* Initial Battery Level */}
                                 <div className="space-y-1">
-                                    <label className="text-sm font-medium text-center block">
+                                    <label className="text-sm font-medium text-center block" htmlFor="initialBatteryLevelInput">
                                         {language === 'vi' ? 'Mức pin ban đầu' : 'Initial Battery Level'}
                                     </label>
                                     <div className="flex items-center justify-center space-x-3">
@@ -5293,8 +5298,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                                                 className="w-16 h-10 text-center text-lg font-bold bg-transparent border-2 border-primary rounded-lg outline-none focus:ring-2 focus:ring-primary/20"
                                                 min="0"
                                                 max="100"
-                                                aria-label={language === 'vi' ? 'Mức pin ban đầu' : 'Initial battery level'}
-                                                title={language === 'vi' ? 'Mức pin ban đầu' : 'Initial battery level'}
+                                                id="initialBatteryLevelInput"
                                             />
                                             <span className="text-xs text-muted-foreground">%</span>
                                         </div>
@@ -5332,7 +5336,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
 
                                 {/* Target Battery Level */}
                                 <div className="space-y-1">
-                                    <label className="text-sm font-medium text-center block">
+                                    <label className="text-sm font-medium text-center block" htmlFor="targetBatteryLevelInput">
                                         {language === 'vi' ? 'Mức pin mục tiêu' : 'Target Battery Level'}
                                     </label>
                                     <div className="flex items-center justify-center space-x-3">
@@ -5354,8 +5358,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                                                 className="w-16 h-10 text-center text-lg font-bold bg-transparent border-2 border-primary rounded-lg outline-none focus:ring-2 focus:ring-primary/20"
                                                 min={initialBatteryLevel + 5}
                                                 max="100"
-                                                aria-label={language === 'vi' ? 'Mức pin mục tiêu' : 'Target battery level'}
-                                                title={language === 'vi' ? 'Mức pin mục tiêu' : 'Target battery level'}
+                                                id="targetBatteryLevelInput"
                                             />
                                             <span className="text-xs text-muted-foreground">%</span>
                                         </div>
@@ -5387,7 +5390,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                                     </h4>
 
                                     <div className="flex flex-col items-center space-y-2">
-                                        <label className="text-sm font-medium text-center">
+                                        <label className="text-sm font-medium text-center" htmlFor="startChargingTimeInput">
                                             {language === 'vi' ? 'Giờ bắt đầu sạc' : 'Start Charging Time'}
                                         </label>
                                         <Input
@@ -5402,7 +5405,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                                             }}
                                             className="w-32 h-10 text-center text-lg font-medium border-2 border-primary rounded-lg focus:ring-2 focus:ring-primary/20"
                                             placeholder="HH:MM"
-                                            aria-label={language === 'vi' ? 'Giờ bắt đầu sạc' : 'Start charging time'}
+                                            id="startChargingTimeInput"
                                         />
                                         {chargingStartTimeInput && (
                                             <div className="text-xs text-muted-foreground text-center">
