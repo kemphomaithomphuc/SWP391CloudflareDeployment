@@ -25,4 +25,12 @@ public interface StaffService {
      * Xem tất cả stations mà staff đang quản lý
      */
     List<Long> getStationsManagedByStaff(Long staffId);
+
+    TransactionHistoryDTO processOnsitePayment(Long sessionId, Long staffId);
+    List<ChargingPointDTO> getChargingPointsByStation(Long stationId);
+    Object createImmediateSession(OrderRequestDTO request);
+    List<SessionListDTO> getSessionsByStation(Long stationId);
+    Long createIssueReport(IssueReportDTO dto, Long staffId);
+    List<TransactionHistoryDTO> getTransactionHistoryByStation(Long stationId);
+
 }

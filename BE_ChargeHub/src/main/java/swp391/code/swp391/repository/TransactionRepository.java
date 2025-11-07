@@ -86,4 +86,8 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
      */
     Page<Transaction> findByPaymentMethod(Transaction.PaymentMethod paymentMethod, Pageable pageable);
 
+    /**
+     * Tìm transactions theo station ID
+     */
+    List<Transaction> findBySessionOrderChargingPointStationStationIdOrderByCreatedAtDesc(Long stationId);
 }
