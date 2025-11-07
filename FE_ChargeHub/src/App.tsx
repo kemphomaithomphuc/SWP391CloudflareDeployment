@@ -48,8 +48,9 @@ import PremiumSubscriptionView from "./components/PremiumSubscriptionView";
 import PaymentResultView from "./components/PaymentResultView";
 import { ChatbotProvider } from "./contexts/ChatbotContext";
 import { checkAndRefreshToken } from "./services/api";
+import PenaltyPaymentView from "./components/PenaltyPaymentView";
 
-type ViewType = "login" | "register" | "roleSelection" | "profileSetup" | "vehicleSetup" | "staffProfileSetup" | "educationSetup" | "dashboard" | "staffLogin" | "staffDashboard" | "staffReports" | "adminLogin" | "adminDashboard" | "systemConfig" | "adminMap" | "revenue" | "staffManagement" | "usageAnalytics" | "booking" | "history" | "analysis" | "reportIssue" | "wallet" | "notifications" | "staffNotifications" | "postActivating" | "adminChargerPostActivating" | "myBookings" | "chargingSession" | "premiumSubscription" | "issueResolvement";
+type ViewType = "login" | "register" | "roleSelection" | "profileSetup" | "vehicleSetup" | "staffProfileSetup" | "educationSetup" | "dashboard" | "staffLogin" | "staffDashboard" | "staffReports" | "adminLogin" | "adminDashboard" | "systemConfig" | "adminMap" | "revenue" | "staffManagement" | "usageAnalytics" | "booking" | "history" | "analysis" | "reportIssue" | "wallet" | "notifications" | "staffNotifications" | "postActivating" | "adminChargerPostActivating" | "myBookings" | "chargingSession" | "premiumSubscription" | "issueResolvement" | "penaltyPayment";
 
 function AppContent() {
   const navigate = useNavigate();
@@ -96,6 +97,7 @@ const switchToIssueResolvement = () => setCurrentView("issueResolvement");
     setCurrentView("chargingSession");
   };
   const switchToPremiumSubscription = () => setCurrentView("premiumSubscription");
+  const switchToPenaltyPayment = () => setCurrentView("penaltyPayment");
 
   // Check if user needs vehicle setup after profile completion
   const handleProfileCompletion = async () => {
@@ -148,7 +150,7 @@ const switchToIssueResolvement = () => setCurrentView("issueResolvement");
   };
 
   const shouldShowSidebar = () => {
-    const authViews = ['login', 'register', 'roleSelection', 'profileSetup', 'vehicleSetup', 'staffLogin', 'adminLogin', 'staffProfileSetup', 'educationSetup', 'dashboard', 'staffDashboard'];
+    const authViews = ['login', 'register', 'roleSelection', 'profileSetup', 'vehicleSetup', 'staffLogin', 'adminLogin', 'staffProfileSetup', 'educationSetup', 'dashboard', 'staffDashboard', 'penaltyPayment'];
     return !authViews.includes(currentView);
   };
 
@@ -359,6 +361,11 @@ const switchToIssueResolvement = () => setCurrentView("issueResolvement");
       case "premiumSubscription":
         return <PremiumSubscriptionView onBack={() => setCurrentView("dashboard")} userType="driver" />;
 
+      case "penaltyPayment": {
+        const penaltyUserId = Number(localStorage.getItem("userId") || localStorage.getItem("penaltyUserId") || 0);
+        return <PenaltyPaymentView onBack={switchToLogin} userId={penaltyUserId} />;
+      }
+
 
 
       case "vehicleSetup":
@@ -420,6 +427,7 @@ const switchToIssueResolvement = () => setCurrentView("issueResolvement");
               onAdminLogin={completeAdminLogin}
               onSwitchToRoleSelection={switchToRoleSelection}
               onSwitchToVehicleSetup={switchToVehicleSetup}
+              onSwitchToPenaltyPayment={switchToPenaltyPayment}
             />
             <LanguageThemeControls />
           </>
@@ -431,6 +439,9 @@ const switchToIssueResolvement = () => setCurrentView("issueResolvement");
   useEffect(() => {
     if (location.pathname === "/home" && currentView !== "dashboard") {
       setCurrentView("dashboard");
+    }
+    if (location.pathname === "/penalty-payment" && currentView !== "penaltyPayment") {
+      setCurrentView("penaltyPayment");
     }
   }, [location.pathname]);
 
@@ -467,6 +478,20 @@ const switchToIssueResolvement = () => setCurrentView("issueResolvement");
       <Route 
         path="/payment/result" 
         element={<PaymentResultView />} 
+      />
+      <Route
+        path="/penalty-payment"
+        element={
+          <AppLayout
+            userType={userType || "driver"}
+            currentView="penaltyPayment"
+            onNavigate={handleNavigation}
+            onLogout={switchToLogin}
+            showSidebar={false}
+          >
+            <PenaltyPaymentView onBack={switchToLogin} userId={Number(localStorage.getItem("userId") || localStorage.getItem("penaltyUserId") || 0)} />
+          </AppLayout>
+        }
       />
       <Route 
         path="*" 
