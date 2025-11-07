@@ -22,10 +22,13 @@ import swp391.code.swp391.dto.LoginRequestDTO;
 import swp391.code.swp391.dto.LoginResponseDTO;
 import swp391.code.swp391.entity.CustomUserDetails;
 import swp391.code.swp391.entity.User;
+import swp391.code.swp391.repository.SubscriptionRepository;
 import swp391.code.swp391.util.JwtUtil;
 
 import java.io.IOException;
 import java.util.Map;
+
+import static swp391.code.swp391.entity.Subscription.Type.BASIC;
 
 @Service
 @RequiredArgsConstructor // This annotation generates a constructor with required arguments (final fields)
@@ -35,6 +38,7 @@ public class AuthenticationService {
     private final JwtUtil jwtUtil;
     private final UserServiceImpl userServiceImpl;
     private final JwtBlacklistService jwtBlacklistService;
+    private final SubscriptionRepository subscriptionRepository;
 
     @Value("${spring.security.oauth2.client.registration.google.client-id}")
     private String googleClientId;
@@ -276,6 +280,7 @@ public class AuthenticationService {
         // Nếu không có user nào trùng → tạo mới
         user.setStatus(User.UserStatus.ACTIVE);
         user.setRole(User.UserRole.DRIVER);
+        user.setSubscription(subscriptionRepository.findByType(BASIC));
         return userServiceImpl.addUser(user);
     }
 }
