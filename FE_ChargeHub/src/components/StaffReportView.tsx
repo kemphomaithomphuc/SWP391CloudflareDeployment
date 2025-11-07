@@ -357,13 +357,6 @@ export default function StaffReportView({ onBack }: Readonly<StaffReportViewProp
                       <p className="text-sm text-muted-foreground mb-4">{report.description}</p>
 
                       {/* related customer report removed for API shape */}
-
-                      <div className="flex justify-end">
-                        <Button variant="outline" size="sm">
-                          <Eye className="w-4 h-4 mr-2" />
-                          {t('view_details')}
-                        </Button>
-                      </div>
                     </div>
                   ))}
                 </div>

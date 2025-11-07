@@ -2,10 +2,9 @@ import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
 import { Label } from "./components/ui/label";
 import { Checkbox } from "./components/ui/checkbox";
-import { Zap, ArrowLeft, Eye, EyeOff } from "lucide-react";
+import { Zap, ArrowLeft, Eye, EyeOff, Globe } from "lucide-react";
 import { useLanguage } from "./contexts/LanguageContext";
 import { useState } from "react";
-import { toast } from "sonner";
 import axios from "axios";
 
 interface RegisterProps {
@@ -20,7 +19,7 @@ export default function Register({
   onSwitchToLogin,
   onSwitchToRoleSelection,
 }: RegisterProps) {
-  const { t } = useLanguage();
+  const { t, language, setLanguage } = useLanguage();
   const [email, setEmail] = useState("");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -28,9 +27,16 @@ export default function Register({
   const [confirmedPassword, setConfirmedPassword] = useState("");
 
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [errorKey, setErrorKey] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null); // Raw error from API
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  
+  // Email validation theo regex backend
+  const validateEmail = (emailValue: string): boolean => {
+    const emailRegex = /^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$/;
+    return emailRegex.test(emailValue);
+  };
 
   // Google: gọi BE lấy URL Google OAuth, rồi chuyển hướng
   const callApiForGoogleRegister = async (): Promise<void> => {
@@ -48,7 +54,7 @@ export default function Register({
       throw new Error("Missing OAuth URL from backend");
     } catch (err) {
       console.error("Failed to start Google OAuth:", err);
-      setError("Failed to initiate Google registration");
+      setErrorKey("Failed to initiate Google registration");
     }
   };
 
@@ -68,7 +74,7 @@ export default function Register({
       throw new Error("Missing OAuth URL from backend");
     } catch (err) {
       console.error("Failed to start Facebook OAuth:", err);
-      setError("Failed to initiate Facebook registration");
+      setErrorKey("Failed to initiate Facebook registration");
     }
   };
 
@@ -77,6 +83,8 @@ export default function Register({
   const callApiForRegister = async (): Promise<void> => {
     setLoading(true);
     setError(null);
+    setErrorKey(null);
+    console.log("This is call api for registering");
 
     try {
       const payload = {
@@ -92,8 +100,6 @@ export default function Register({
       );
 
       if (res.status === 200 || res.status === 201) {
-        const successMsg = res.data?.message || "Registered successfully";
-        toast.success(successMsg);
         const userId = res.data?.data;
         localStorage.setItem("registeredUserId", userId);
         onSwitchToRoleSelection();
@@ -103,7 +109,6 @@ export default function Register({
     } catch (err: any) {
       const msg = err?.response?.data?.message || "Registration failed";
       setError(msg);
-      toast.error(msg);
       throw err;
     } finally {
       setLoading(false);
@@ -112,54 +117,55 @@ export default function Register({
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (email.trim() === "" || email == null) {
-      const errMsg = "Email is not allowed to empty";
-      setError(errMsg);
-      toast.error(errMsg);
+    setErrorKey(null);
+    setError(null);
+    
+    // Validate email
+    if (!email.trim()) {
+      setErrorKey("Email is required");
       return;
     }
-    if (firstName.trim() === "" || firstName == null) {
-      const errMsg = "First Name is not allowed to empty";
-      setError(errMsg);
-      toast.error(errMsg);
+    if (!validateEmail(email.trim())) {
+      setErrorKey("Invalid email format");
       return;
     }
-    if (lastName.trim() === "" || lastName == null) {
-      const errMsg = "Last Name is not allowed to empty";
-      setError(errMsg);
-      toast.error(errMsg);
+    
+    // Validate first name
+    if (!firstName.trim()) {
+      setErrorKey("First name is required");
       return;
     }
-    if (password.trim() === "" || password == null) {
-      const errMsg = "Password is not allowed to empty";
-      setError(errMsg);
-      toast.error(errMsg);
+    
+    // Validate last name
+    if (!lastName.trim()) {
+      setErrorKey("Last name is required");
+      return;
+    }
+    
+    // Validate password
+    if (!password.trim()) {
+      setErrorKey("Password is required");
       return;
     }
     if (password.length < 8) {
-      const errMsg = "Password length must be at least 8 characters";
-      setError(errMsg);
-      toast.error(errMsg);
+      setErrorKey("Password must be at least 8 characters");
       return;
     }
-    if (confirmedPassword.trim() === "" || confirmedPassword == null) {
-      const errMsg = "Confirmed Password is not allowed to empty";
-      setError(errMsg);
-      toast.error(errMsg);
+    
+    // Validate confirmed password
+    if (!confirmedPassword.trim()) {
+      setErrorKey("Confirm password is required");
       return;
     }
     if (confirmedPassword.length < 8) {
-      const errMsg = "Confirmed Password length must be at least 8 characters";
-      setError(errMsg);
-      toast.error(errMsg);
+      setErrorKey("Confirm password must be at least 8 characters");
       return;
     }
     if (password !== confirmedPassword) {
-      const errMsg = "Confirmed Password does not match";
-      setError(errMsg);
-      toast.error(errMsg);
+      setErrorKey("Passwords do not match");
       return;
     }
+    
     try {
       await callApiForRegister();
     } catch (error) {
@@ -171,7 +177,7 @@ export default function Register({
     <div className="min-h-screen bg-gradient-to-br from-background via-secondary/20 to-accent/30 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="bg-card/80 backdrop-blur-sm border border-border/50 rounded-2xl shadow-2xl shadow-primary/5 p-8 space-y-8">
-          <div className="flex justify-start -mt-2">
+          <div className="flex justify-between items-center -mt-2">
             <button
               onClick={() => {
                 // Clear all localStorage when going back
@@ -183,6 +189,30 @@ export default function Register({
               <ArrowLeft className="w-3.5 h-3.5" />
               <span>{t("back")}</span>
             </button>
+            
+            {/* Language Switcher */}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setLanguage("en")}
+                className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all duration-200 ${
+                  language === "en"
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground hover:bg-accent"
+                }`}
+              >
+                EN
+              </button>
+              <button
+                onClick={() => setLanguage("vi")}
+                className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all duration-200 ${
+                  language === "vi"
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground hover:bg-accent"
+                }`}
+              >
+                VI
+              </button>
+            </div>
           </div>
 
           <div className="text-center space-y-6">
@@ -243,12 +273,12 @@ export default function Register({
                   htmlFor="email"
                   className="text-foreground/90 font-medium"
                 >
-                  Email
+                  {t("email")}
                 </Label>
                 <Input
                   id="email"
                   type="email"
-                  placeholder="Nhập địa chỉ email"
+                  placeholder={t("enter_email")}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="h-12 bg-input-background/50 border-border/60 rounded-xl focus:border-primary/50 focus:ring-primary/20 transition-all duration-200 placeholder:text-muted-foreground/60"
@@ -384,14 +414,13 @@ export default function Register({
           {loading && (
             <div className="bg-primary/10 border border-primary/20 rounded-lg p-3 text-primary text-sm flex items-center justify-center space-x-2">
               <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
-              <span>Processing social login...</span>
+              <span>{t("Processing...")}</span>
             </div>
           )}
 
-
-          {error && (
+          {(error || errorKey) && (
             <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-3 text-destructive text-sm">
-              {error}
+              {error || (errorKey && t(errorKey))}
             </div>
           )}
 
@@ -422,7 +451,7 @@ export default function Register({
                 d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
               />
             </svg>
-            <span className="font-medium">Sign up with Google</span>
+            <span className="font-medium">{t("Sign up with Google")}</span>
           </Button>
 
           <Button
@@ -440,7 +469,7 @@ export default function Register({
                 d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"
               />
             </svg>
-            <span className="font-medium">Sign up with Facebook</span>
+            <span className="font-medium">{t("Sign up with Facebook")}</span>
           </Button>
 
           <div className="text-center pt-2">

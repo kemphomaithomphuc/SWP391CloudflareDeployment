@@ -1,0 +1,3837 @@
+{
+  "type": "FeatureCollection",
+  "generator": "overpass-turbo",
+  "copyright": "The data included in this document is from www.openstreetmap.org. The data is made available under ODbL.",
+  "timestamp": "2025-10-02T22:55:59Z",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "relation/17784018",
+        "addr:city": "Hồ Chí Minh",
+        "addr:district": "2",
+        "addr:housenumber": "237",
+        "addr:street": "Nguyễn Thị Định",
+        "addr:subdistrict": "Bình Trưng Tây",
+        "building": "yes",
+        "name": "Winmart Nguyễn Thị Định",
+        "shop": "supermarket",
+        "type": "multipolygon"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              106.757328,
+              10.7850313
+            ],
+            [
+              106.7574071,
+              10.78484
+            ],
+            [
+              106.7578366,
+              10.78489
+            ],
+            [
+              106.7578088,
+              10.7851648
+            ],
+            [
+              106.757328,
+              10.7850313
+            ]
+          ]
+        ]
+      },
+      "id": "relation/17784018"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/59339647",
+        "addr:city": "Ho Chi Minh City",
+        "addr:housenumber": "168",
+        "addr:street": "Nguyễn Ðình Chiểu",
+        "atm": "yes",
+        "building": "yes",
+        "building:levels": "2",
+        "delivery": "yes",
+        "name": "Co.opmart - Nguyễn Đình Chiểu",
+        "shop": "supermarket"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              106.6927893,
+              10.7815242
+            ],
+            [
+              106.6924603,
+              10.7818166
+            ],
+            [
+              106.6921901,
+              10.7815174
+            ],
+            [
+              106.6920357,
+              10.7816512
+            ],
+            [
+              106.6919843,
+              10.7816168
+            ],
+            [
+              106.6918582,
+              10.7817338
+            ],
+            [
+              106.6915333,
+              10.7813922
+            ],
+            [
+              106.6917102,
+              10.7812312
+            ],
+            [
+              106.6919651,
+              10.7814861
+            ],
+            [
+              106.6924025,
+              10.7810906
+            ],
+            [
+              106.6927893,
+              10.7815242
+            ]
+          ]
+        ]
+      },
+      "id": "way/59339647"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/60118191",
+        "addr:district": "Phú Nhuận",
+        "addr:housenumber": "571-573",
+        "addr:province": "Hồ Chí Minh",
+        "addr:street": "Nguyễn Kiệm",
+        "addr:subdistrict": "Phường 9",
+        "building": "yes",
+        "name": "CO.OP Mart Nguyễn Kiệm",
+        "name:en": "CO.OP Mart",
+        "opening_hours": "Mo-Su 07:30-22:00",
+        "shop": "supermarket"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              106.678236,
+              10.8083709
+            ],
+            [
+              106.6782464,
+              10.8090834
+            ],
+            [
+              106.6779797,
+              10.8090872
+            ],
+            [
+              106.6779693,
+              10.8083747
+            ],
+            [
+              106.678236,
+              10.8083709
+            ]
+          ]
+        ]
+      },
+      "id": "way/60118191"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/112287488",
+        "addr:block": "Khu B",
+        "addr:city": "Thành phố Thủ Đức",
+        "addr:postcode": "700000",
+        "addr:province": "Thành Phố Hồ Chí Minh",
+        "addr:subdistrict": "Phường An Phú",
+        "email": "mailto:contactus@mmvietnam.com",
+        "landuse": "retail",
+        "name": "Mega Market An Phú",
+        "opening_hours": "06:00-22:30",
+        "phone": "0906 571 220",
+        "shop": "supermarket",
+        "website": "https://mmvietnam.com"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              106.7421564,
+              10.8008138
+            ],
+            [
+              106.7425054,
+              10.7989502
+            ],
+            [
+              106.7441739,
+              10.7998852
+            ],
+            [
+              106.7439781,
+              10.8011463
+            ],
+            [
+              106.7421564,
+              10.8008138
+            ]
+          ]
+        ]
+      },
+      "id": "way/112287488"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/112319460",
+        "addr:city": "Hồ Chí Minh",
+        "addr:district": "Thủ Đức",
+        "addr:street": "An Phú",
+        "name": "COOP Mart Food",
+        "note": "tầng trệt",
+        "shop": "supermarket"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              106.7438082,
+              10.798877
+            ],
+            [
+              106.743851,
+              10.7988004
+            ],
+            [
+              106.7439666,
+              10.798856
+            ],
+            [
+              106.7440022,
+              10.7987907
+            ],
+            [
+              106.7440834,
+              10.79883
+            ],
+            [
+              106.7440137,
+              10.7989724
+            ],
+            [
+              106.7438082,
+              10.798877
+            ]
+          ]
+        ]
+      },
+      "id": "way/112319460"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/119153574",
+        "addr:city": "Bà Rịa",
+        "addr:district": "Bà Rịa",
+        "building": "yes",
+        "name": "CoopMart Ba Ria",
+        "shop": "supermarket"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              107.1742396,
+              10.4896612
+            ],
+            [
+              107.1742409,
+              10.4895958
+            ],
+            [
+              107.174131,
+              10.4895967
+            ],
+            [
+              107.1741347,
+              10.4895531
+            ],
+            [
+              107.1740784,
+              10.4895531
+            ],
+            [
+              107.1740793,
+              10.4895168
+            ],
+            [
+              107.1740611,
+              10.4895194
+            ],
+            [
+              107.1740737,
+              10.4892623
+            ],
+            [
+              107.1740377,
+              10.4892641
+            ],
+            [
+              107.1740377,
+              10.4892233
+            ],
+            [
+              107.1740845,
+              10.4892216
+            ],
+            [
+              107.1740863,
+              10.4891967
+            ],
+            [
+              107.1740761,
+              10.4891787
+            ],
+            [
+              107.1740708,
+              10.4891587
+            ],
+            [
+              107.1740721,
+              10.4891452
+            ],
+            [
+              107.1740775,
+              10.4891327
+            ],
+            [
+              107.1740864,
+              10.4891224
+            ],
+            [
+              107.174098,
+              10.4891151
+            ],
+            [
+              107.1741228,
+              10.4891035
+            ],
+            [
+              107.1741469,
+              10.4891014
+            ],
+            [
+              107.1741704,
+              10.4891072
+            ],
+            [
+              107.1742108,
+              10.4891258
+            ],
+            [
+              107.1746471,
+              10.4891684
+            ],
+            [
+              107.1746489,
+              10.4892765
+            ],
+            [
+              107.1747589,
+              10.4892889
+            ],
+            [
+              107.174748,
+              10.4894113
+            ],
+            [
+              107.1747336,
+              10.4896027
+            ],
+            [
+              107.1744596,
+              10.4895832
+            ],
+            [
+              107.1744596,
+              10.4896701
+            ],
+            [
+              107.1742396,
+              10.4896612
+            ]
+          ]
+        ]
+      },
+      "id": "way/119153574"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/152994798",
+        "addr:street": "Cống Quỳnh",
+        "addr:city": "Hồ Chí Minh",
+        "addr:district": "1",
+        "check_date": "2023-11-08",
+        "name": "Co.op Mart Cống Quỳnh",
+        "shop": "supermarket"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              106.6860128,
+              10.7675635
+            ],
+            [
+              106.6859054,
+              10.7673387
+            ],
+            [
+              106.6859254,
+              10.7669327
+            ],
+            [
+              106.6864962,
+              10.7669326
+            ],
+            [
+              106.6864845,
+              10.7673685
+            ],
+            [
+              106.6860128,
+              10.7675635
+            ]
+          ]
+        ]
+      },
+      "id": "way/152994798"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/169081584",
+        "addr:district": "Quận 6",
+        "addr:province": "Hồ Chí Minh",
+        "addr:street": "Bình Phú",
+        "addr:subdistrict": "Phường 11",
+        "building": "yes",
+        "name": "Siêu thị MM Mega Market Bình Phú",
+        "shop": "supermarket"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              106.6306239,
+              10.7427427
+            ],
+            [
+              106.630534,
+              10.7422039
+            ],
+            [
+              106.6308063,
+              10.7421601
+            ],
+            [
+              106.6307777,
+              10.7419886
+            ],
+            [
+              106.6308688,
+              10.7419739
+            ],
+            [
+              106.630857,
+              10.7419036
+            ],
+            [
+              106.6317005,
+              10.7417677
+            ],
+            [
+              106.6317262,
+              10.7419215
+            ],
+            [
+              106.6317695,
+              10.7421813
+            ],
+            [
+              106.6318824,
+              10.7428573
+            ],
+            [
+              106.6310531,
+              10.7429909
+            ],
+            [
+              106.6310476,
+              10.7429583
+            ],
+            [
+              106.631015,
+              10.7429635
+            ],
+            [
+              106.6309689,
+              10.7426871
+            ],
+            [
+              106.6306239,
+              10.7427427
+            ]
+          ]
+        ]
+      },
+      "id": "way/169081584"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/189067538",
+        "addr:city": "Hồ Chí Minh",
+        "addr:district": "10",
+        "addr:street": "Lý Thường Kiệt",
+        "building": "yes",
+        "name": "Coopmart Lý Thường Kiệt",
+        "shop": "supermarket"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              106.6617595,
+              10.7594954
+            ],
+            [
+              106.6615947,
+              10.7602063
+            ],
+            [
+              106.661243,
+              10.7601276
+            ],
+            [
+              106.6614079,
+              10.7594167
+            ],
+            [
+              106.6617595,
+              10.7594954
+            ]
+          ]
+        ]
+      },
+      "id": "way/189067538"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/198047404",
+        "addr:city": "Thành phố Hồ Chí Minh",
+        "addr:district": "Tân Phú",
+        "addr:housenumber": "1/1",
+        "addr:street": "Trường Chinh",
+        "addr:subdistrict": "Tây Hạnh",
+        "building": "supermarket",
+        "building:levels": "6",
+        "building:levels:underground": "1",
+        "name": "Pandora Trường Chinh",
+        "shop": "supermarket"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              106.6343525,
+              10.8071995
+            ],
+            [
+              106.6342174,
+              10.8071935
+            ],
+            [
+              106.6340151,
+              10.8071844
+            ],
+            [
+              106.6339357,
+              10.8071808
+            ],
+            [
+              106.6340016,
+              10.8059454
+            ],
+            [
+              106.6344925,
+              10.8059705
+            ],
+            [
+              106.6344892,
+              10.8060642
+            ],
+            [
+              106.6346028,
+              10.8061273
+            ],
+            [
+              106.6345982,
+              10.8062361
+            ],
+            [
+              106.6345891,
+              10.8064553
+            ],
+            [
+              106.6343525,
+              10.8071995
+            ]
+          ]
+        ]
+      },
+      "id": "way/198047404"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/208937659",
+        "addr:city": "Hồ Chí Minh",
+        "addr:district": "12",
+        "addr:street": "Nguyễn Ảnh Thủ",
+        "building": "yes",
+        "name": "Siêu thị Co.opmart Nguyễn Ảnh Thủ",
+        "shop": "supermarket"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              106.6086462,
+              10.8572216
+            ],
+            [
+              106.6089788,
+              10.8567422
+            ],
+            [
+              106.6095056,
+              10.857297
+            ],
+            [
+              106.6089956,
+              10.857784
+            ],
+            [
+              106.6088809,
+              10.8575701
+            ],
+            [
+              106.6089393,
+              10.8575072
+            ],
+            [
+              106.6086462,
+              10.8572216
+            ]
+          ]
+        ]
+      },
+      "id": "way/208937659"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/256678152",
+        "addr:city": "Hồ Chí Minh",
+        "addr:district": "Thủ Đức",
+        "addr:street": "An Phú",
+        "building": "yes",
+        "name": "An Phu Supermarket",
+        "shop": "supermarket"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              106.7365392,
+              10.8055435
+            ],
+            [
+              106.7363563,
+              10.8053127
+            ],
+            [
+              106.7363861,
+              10.8052312
+            ],
+            [
+              106.7364773,
+              10.8051469
+            ],
+            [
+              106.7366144,
+              10.8050985
+            ],
+            [
+              106.7367998,
+              10.8053466
+            ],
+            [
+              106.7365392,
+              10.8055435
+            ]
+          ]
+        ]
+      },
+      "id": "way/256678152"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/260017030",
+        "addr:city": "HCMC",
+        "addr:district": "Bình Thạnh",
+        "addr:street": "Thanh Đa",
+        "building": "yes",
+        "name": "Chợ Thanh Đa",
+        "shop": "supermarket"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              106.7211011,
+              10.8165409
+            ],
+            [
+              106.7208019,
+              10.8163896
+            ],
+            [
+              106.7208812,
+              10.8162383
+            ],
+            [
+              106.7211804,
+              10.8163895
+            ],
+            [
+              106.7211011,
+              10.8165409
+            ]
+          ]
+        ]
+      },
+      "id": "way/260017030"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/263444626",
+        "addr:district": "Quận 10",
+        "addr:housenumber": "268",
+        "addr:province": "Thành phố Hồ Chí Minh",
+        "addr:street": "Đường Tô Hiến Thành",
+        "addr:subdistrict": "Phường 15",
+        "brand": "Big C",
+        "building": "yes",
+        "name": "Big C",
+        "nohousenumber": "yes",
+        "opening_hours": "08:00-22:00",
+        "shop": "supermarket"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              106.6649203,
+              10.7787436
+            ],
+            [
+              106.6647431,
+              10.778602
+            ],
+            [
+              106.6652011,
+              10.7780359
+            ],
+            [
+              106.6653847,
+              10.7781663
+            ],
+            [
+              106.6654109,
+              10.7781346
+            ],
+            [
+              106.6654941,
+              10.7781875
+            ],
+            [
+              106.6654787,
+              10.7782238
+            ],
+            [
+              106.6655804,
+              10.7782995
+            ],
+            [
+              106.6655973,
+              10.7782919
+            ],
+            [
+              106.6657021,
+              10.7783464
+            ],
+            [
+              106.6656713,
+              10.7783797
+            ],
+            [
+              106.66585,
+              10.7785053
+            ],
+            [
+              106.6654883,
+              10.778964
+            ],
+            [
+              106.6652746,
+              10.7787996
+            ],
+            [
+              106.665155,
+              10.7789335
+            ],
+            [
+              106.6649203,
+              10.7787436
+            ]
+          ]
+        ]
+      },
+      "id": "way/263444626"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/264294902",
+        "addr:housenumber": "215A",
+        "addr:street": "BS Yersin",
+        "addr:city": "Hồ Chí Minh",
+        "addr:district": "Bình Dương",
+        "building": "yes",
+        "name": "Citimart",
+        "shop": "supermarket"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              106.6563252,
+              10.98142
+            ],
+            [
+              106.655948,
+              10.9814465
+            ],
+            [
+              106.6557986,
+              10.9813273
+            ],
+            [
+              106.6557905,
+              10.9809731
+            ],
+            [
+              106.655941,
+              10.9809697
+            ],
+            [
+              106.6559644,
+              10.9809904
+            ],
+            [
+              106.6559854,
+              10.981199
+            ],
+            [
+              106.6560554,
+              10.9812448
+            ],
+            [
+              106.6563111,
+              10.9812268
+            ],
+            [
+              106.6563252,
+              10.98142
+            ]
+          ]
+        ]
+      },
+      "id": "way/264294902"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/264458636",
+        "addr:street": "Ba Mươi Tháng Tư",
+        "addr:city": "Bình Dương",
+        "building": "retail",
+        "name": "Co.opmart Bình Dương",
+        "shop": "supermarket"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              106.6671941,
+              10.9643283
+            ],
+            [
+              106.6674949,
+              10.9640888
+            ],
+            [
+              106.66806,
+              10.9648312
+            ],
+            [
+              106.66806,
+              10.9649031
+            ],
+            [
+              106.6677348,
+              10.9651385
+            ],
+            [
+              106.6675722,
+              10.964919
+            ],
+            [
+              106.6676128,
+              10.9648871
+            ],
+            [
+              106.6671941,
+              10.9643283
+            ]
+          ]
+        ]
+      },
+      "id": "way/264458636"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/290188110",
+        "addr:street": "Nguyễn Hữu Thọ",
+        "addr:city": "Hồ Chí Minh",
+        "addr:district": "7",
+        "building": "yes",
+        "name": "Citimart",
+        "shop": "supermarket"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              106.7015144,
+              10.7195271
+            ],
+            [
+              106.7008448,
+              10.7192909
+            ],
+            [
+              106.7008626,
+              10.7192622
+            ],
+            [
+              106.7009195,
+              10.7191124
+            ],
+            [
+              106.7015537,
+              10.7193221
+            ],
+            [
+              106.7015801,
+              10.719364
+            ],
+            [
+              106.7015144,
+              10.7195271
+            ]
+          ]
+        ]
+      },
+      "id": "way/290188110"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/291139322",
+        "branch": "Green Square",
+        "brand": "Big C",
+        "brand:wikidata": "Q858665",
+        "brand:wikipedia": "en:Big C",
+        "building": "retail",
+        "name": "GO! Dĩ An",
+        "addr:city": "Bình Dương",
+        "addr:district": "Dĩ An",
+        "shop": "supermarket"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              106.7758483,
+              10.8899773
+            ],
+            [
+              106.7752635,
+              10.8893572
+            ],
+            [
+              106.7756614,
+              10.8889575
+            ],
+            [
+              106.7758181,
+              10.8889714
+            ],
+            [
+              106.7764018,
+              10.8894309
+            ],
+            [
+              106.7764055,
+              10.8895067
+            ],
+            [
+              106.7758483,
+              10.8899773
+            ]
+          ]
+        ]
+      },
+      "id": "way/291139322"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/291964018",
+        "addr:housenumber": "934",
+        "addr:street": "Quốc lộ 1A",
+        "addr:city": "Bình Dương",
+        "addr:district": "Dĩ An",
+        "building": "yes",
+        "name": "Co.op Xtra",
+        "shop": "supermarket"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              106.7758195,
+              10.8686943
+            ],
+            [
+              106.7755045,
+              10.8681139
+            ],
+            [
+              106.7765981,
+              10.8675195
+            ],
+            [
+              106.7769308,
+              10.868093
+            ],
+            [
+              106.7758195,
+              10.8686943
+            ]
+          ]
+        ]
+      },
+      "id": "way/291964018"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/304959161",
+        "addr:city": "Hồ Chí Minh",
+        "addr:district": "Bình Chánh",
+        "addr:street": "Vĩnh Lộc B",
+        "name": "Co-op Mart Vĩnh Lộc B",
+        "shop": "supermarket"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              106.5661798,
+              10.7712312
+            ],
+            [
+              106.5656269,
+              10.7708079
+            ],
+            [
+              106.5663831,
+              10.7698893
+            ],
+            [
+              106.5669685,
+              10.7703766
+            ],
+            [
+              106.5661798,
+              10.7712312
+            ]
+          ]
+        ]
+      },
+      "id": "way/304959161"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/327591200",
+        "addr:city": "Phường Tân Thới Hiệp",
+        "addr:housename": "MM Mega Market",
+        "addr:housenumber": "1",
+        "addr:street": "Trương Thị Hoa",
+        "branch": "Hiệp Phú",
+        "building": "yes",
+        "name": "MM Mega Market Hiệp Phú",
+        "shop": "supermarket"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              106.6481689,
+              10.8645035
+            ],
+            [
+              106.6476645,
+              10.8642808
+            ],
+            [
+              106.6476262,
+              10.8643645
+            ],
+            [
+              106.6473087,
+              10.8642243
+            ],
+            [
+              106.647349,
+              10.8641361
+            ],
+            [
+              106.6472091,
+              10.8640743
+            ],
+            [
+              106.6475662,
+              10.8632944
+            ],
+            [
+              106.648528,
+              10.8637191
+            ],
+            [
+              106.6481689,
+              10.8645035
+            ]
+          ]
+        ]
+      },
+      "id": "way/327591200"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/330304844",
+        "addr:city": "Thành phố Hồ Chí Minh",
+        "addr:district": "Quận 10",
+        "addr:housenumber": "460",
+        "addr:province": "Thành phố Hồ Chí Minh",
+        "addr:street": "Đường 3 Tháng 2",
+        "addr:subdistrict": "Phường 12",
+        "building": "yes",
+        "name": "Siêu thị Sài Gòn (SATRA MART)",
+        "opening_hours": "07:30-22:00",
+        "shop": "supermarket"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              106.6677358,
+              10.7690551
+            ],
+            [
+              106.6671212,
+              10.7688834
+            ],
+            [
+              106.6672977,
+              10.7682739
+            ],
+            [
+              106.6673392,
+              10.7682868
+            ],
+            [
+              106.6673806,
+              10.7682508
+            ],
+            [
+              106.6679926,
+              10.7685527
+            ],
+            [
+              106.6677358,
+              10.7690551
+            ]
+          ]
+        ]
+      },
+      "id": "way/330304844"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/330615689",
+        "addr:city": "Hồ Chí Minh",
+        "addr:district": "Thủ Đức",
+        "addr:street": "Linh Trung",
+        "building": "yes",
+        "name": "Co.opFood",
+        "shop": "supermarket"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              106.7667799,
+              10.8388083
+            ],
+            [
+              106.7668203,
+              10.8388337
+            ],
+            [
+              106.7668192,
+              10.8388354
+            ],
+            [
+              106.7668669,
+              10.8388654
+            ],
+            [
+              106.766833,
+              10.8389172
+            ],
+            [
+              106.7667244,
+              10.8390836
+            ],
+            [
+              106.7666363,
+              10.8390281
+            ],
+            [
+              106.7667799,
+              10.8388083
+            ]
+          ]
+        ]
+      },
+      "id": "way/330615689"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/420287572",
+        "addr:city": "Hồ Chí Minh",
+        "addr:district": "Quận 8",
+        "addr:street": "Tuy Lý Vương",
+        "building": "yes",
+        "name": "Co.opMart Tuy Lý Vương",
+        "shop": "supermarket"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              106.6547786,
+              10.7445051
+            ],
+            [
+              106.6550118,
+              10.7440682
+            ],
+            [
+              106.6553895,
+              10.7442628
+            ],
+            [
+              106.655346,
+              10.7443443
+            ],
+            [
+              106.6554018,
+              10.7443731
+            ],
+            [
+              106.6552123,
+              10.7447284
+            ],
+            [
+              106.6547786,
+              10.7445051
+            ]
+          ]
+        ]
+      },
+      "id": "way/420287572"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/422887516",
+        "addr:city": "Ho Chi Minh City",
+        "addr:district": "Thủ Đức",
+        "addr:housenumber": "2/8",
+        "addr:street": "Quốc lộ 13",
+        "addr:subdistrict": "Hiệp Bình Chánh",
+        "building": "yes",
+        "description": "Cung câp các loại: Bánh, Kẹo, Khô mực Bento, Nguyên liệu pha chế, các loại thực phẩm trong và ngoài nước. Nhận đặt hàng theo yêu cầu của khách hàng.",
+        "name": "Siêu Thị Sala",
+        "opening_hours": "24/7",
+        "operator": "Công ty CP Đầu Tư & Xây Dựng Sala Home",
+        "shop": "supermarket"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              106.7142492,
+              10.8223651
+            ],
+            [
+              106.7142177,
+              10.8222386
+            ],
+            [
+              106.7142903,
+              10.8222212
+            ],
+            [
+              106.7143218,
+              10.8223476
+            ],
+            [
+              106.7142492,
+              10.8223651
+            ]
+          ]
+        ]
+      },
+      "id": "way/422887516"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/430615286",
+        "addr:city": "Hồ Chí Minh",
+        "addr:district": "Thủ Đức",
+        "addr:street": "An Phú",
+        "building": "yes",
+        "shop": "supermarket"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              106.746804,
+              10.8067693
+            ],
+            [
+              106.7468117,
+              10.806842
+            ],
+            [
+              106.7467393,
+              10.806842
+            ],
+            [
+              106.7467208,
+              10.8068662
+            ],
+            [
+              106.7466604,
+              10.8068694
+            ],
+            [
+              106.7466515,
+              10.8067769
+            ],
+            [
+              106.746804,
+              10.8067693
+            ]
+          ]
+        ]
+      },
+      "id": "way/430615286"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/457602437",
+        "addr:city": "Hồ Chí Minh",
+        "addr:district": "Bình Tân",
+        "addr:housenumber": "158",
+        "addr:street": "Đường số 19",
+        "addr:subdistrict": "Bình Trị Đông B",
+        "building": "yes",
+        "name": "Siêu thị Co.opmart Bình Tân",
+        "shop": "supermarket"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              106.6131336,
+              10.7537368
+            ],
+            [
+              106.6131122,
+              10.7533731
+            ],
+            [
+              106.613654,
+              10.7533521
+            ],
+            [
+              106.6136647,
+              10.7537263
+            ],
+            [
+              106.6131336,
+              10.7537368
+            ]
+          ]
+        ]
+      },
+      "id": "way/457602437"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/495488270",
+        "addr:city": "Thành phố Thủ Dầu Một",
+        "addr:housenumber": "555B",
+        "addr:province": "Tỉnh Bình Dương",
+        "addr:street": "Đại lộ Bình Dương",
+        "addr:subdistrict": "Phường Hiệp Thành",
+        "brand": "Big C",
+        "brand:wikidata": "Q858665",
+        "building": "yes",
+        "name": "Big C",
+        "shop": "supermarket"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              106.6638813,
+              10.9871258
+            ],
+            [
+              106.6641351,
+              10.9865515
+            ],
+            [
+              106.6648456,
+              10.9868541
+            ],
+            [
+              106.6645918,
+              10.9874283
+            ],
+            [
+              106.6638813,
+              10.9871258
+            ]
+          ]
+        ]
+      },
+      "id": "way/495488270"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/498042986",
+        "addr:city": "Bình Dương",
+        "addr:district": "Thủ Dầu Một",
+        "building": "retail",
+        "name": "Metro Cash and Carry",
+        "shop": "supermarket"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              106.6871636,
+              10.963603
+            ],
+            [
+              106.686615,
+              10.9632475
+            ],
+            [
+              106.686666,
+              10.9631658
+            ],
+            [
+              106.6865721,
+              10.9631086
+            ],
+            [
+              106.6867083,
+              10.9629071
+            ],
+            [
+              106.6865735,
+              10.9628209
+            ],
+            [
+              106.6866687,
+              10.9626602
+            ],
+            [
+              106.6867706,
+              10.9627254
+            ],
+            [
+              106.6868028,
+              10.9626892
+            ],
+            [
+              106.686837,
+              10.9627076
+            ],
+            [
+              106.6870067,
+              10.9624614
+            ],
+            [
+              106.6870248,
+              10.9624739
+            ],
+            [
+              106.6870489,
+              10.9624371
+            ],
+            [
+              106.6870777,
+              10.9624568
+            ],
+            [
+              106.6870945,
+              10.9624279
+            ],
+            [
+              106.6872822,
+              10.962547
+            ],
+            [
+              106.6872407,
+              10.9626175
+            ],
+            [
+              106.6872601,
+              10.9626273
+            ],
+            [
+              106.687301,
+              10.9625654
+            ],
+            [
+              106.6875283,
+              10.9627109
+            ],
+            [
+              106.6874827,
+              10.9627807
+            ],
+            [
+              106.687649,
+              10.9628788
+            ],
+            [
+              106.6875393,
+              10.9630393
+            ],
+            [
+              106.6873805,
+              10.9632826
+            ],
+            [
+              106.6871636,
+              10.963603
+            ]
+          ]
+        ]
+      },
+      "id": "way/498042986"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/509015321",
+        "addr:city": "Ho Chi Minh City",
+        "addr:district": "10",
+        "addr:street": "3 Tháng 2",
+        "branch": "(Maximark) 3 tháng 2",
+        "brand": "WinMart",
+        "brand:wikidata": "Q60245505",
+        "building": "yes",
+        "name": "WinMart",
+        "shop": "supermarket"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              106.6809551,
+              10.7760834
+            ],
+            [
+              106.6811661,
+              10.7764687
+            ],
+            [
+              106.6807521,
+              10.7766874
+            ],
+            [
+              106.6805353,
+              10.7762915
+            ],
+            [
+              106.68063,
+              10.7762415
+            ],
+            [
+              106.6805722,
+              10.7761359
+            ],
+            [
+              106.6808268,
+              10.7760013
+            ],
+            [
+              106.6808905,
+              10.7761176
+            ],
+            [
+              106.6809551,
+              10.7760834
+            ]
+          ]
+        ]
+      },
+      "id": "way/509015321"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/509025844",
+        "addr:city": "Hồ Chí Minh",
+        "addr:district": "Tân Bình",
+        "addr:street": "Lê Văn Quới",
+        "building": "yes",
+        "shop": "supermarket"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              106.6291133,
+              10.7706168
+            ],
+            [
+              106.6290102,
+              10.7699951
+            ],
+            [
+              106.6291745,
+              10.7699688
+            ],
+            [
+              106.6292776,
+              10.7705905
+            ],
+            [
+              106.6291133,
+              10.7706168
+            ]
+          ]
+        ]
+      },
+      "id": "way/509025844"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/509025846",
+        "addr:city": "Hồ Chí Minh",
+        "addr:district": "Bình Tân",
+        "addr:street": "Lê Văn Quới",
+        "addr:subdistrict": "Bình Hưng Hòa B",
+        "building": "yes",
+        "name": "Siêu thị Đại Gia Hỷ",
+        "shop": "supermarket"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              106.6188661,
+              10.7748928
+            ],
+            [
+              106.6188681,
+              10.7746785
+            ],
+            [
+              106.6192485,
+              10.7745683
+            ],
+            [
+              106.6192525,
+              10.7748889
+            ],
+            [
+              106.6188661,
+              10.7748928
+            ]
+          ]
+        ]
+      },
+      "id": "way/509025846"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/515126236",
+        "addr:city": "Hồ Chí Minh",
+        "addr:district": "Cần Giờ",
+        "building": "yes",
+        "name": "Co.op Mart Cần Giờ",
+        "shop": "supermarket"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              106.9677561,
+              10.4128041
+            ],
+            [
+              106.9676313,
+              10.4127118
+            ],
+            [
+              106.9676609,
+              10.4126788
+            ],
+            [
+              106.9675898,
+              10.4126221
+            ],
+            [
+              106.9676206,
+              10.4125759
+            ],
+            [
+              106.9675884,
+              10.4125482
+            ],
+            [
+              106.9676662,
+              10.4124401
+            ],
+            [
+              106.9676984,
+              10.4124599
+            ],
+            [
+              106.9677869,
+              10.4123596
+            ],
+            [
+              106.9680793,
+              10.4125693
+            ],
+            [
+              106.9679183,
+              10.4127936
+            ],
+            [
+              106.9678111,
+              10.4127197
+            ],
+            [
+              106.9677561,
+              10.4128041
+            ]
+          ]
+        ]
+      },
+      "id": "way/515126236"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/589983868",
+        "addr:city": "Phường Hiệp Bình Chánh",
+        "addr:district": "Thành phố Thủ Đức",
+        "addr:housenumber": "137",
+        "addr:province": "Thành phố Hồ Chí Minh",
+        "addr:street": "Quốc lộ 13",
+        "addr:subdistrict": "Phường Hiệp Bình Chánh",
+        "building": "yes",
+        "name": "Siêu thị Điện máy XANH",
+        "shop": "supermarket"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              106.7135402,
+              10.8314087
+            ],
+            [
+              106.7135439,
+              10.8312568
+            ],
+            [
+              106.7139342,
+              10.831266
+            ],
+            [
+              106.7139305,
+              10.831418
+            ],
+            [
+              106.7135402,
+              10.8314087
+            ]
+          ]
+        ]
+      },
+      "id": "way/589983868"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/589984048",
+        "addr:city": "Phường Hiệp Bình Chánh",
+        "addr:district": "Thành phố Thủ Đức",
+        "addr:province": "Thành phố Hồ Chí Minh",
+        "addr:subdistrict": "Phường Hiệp Bình Chánh",
+        "building": "yes",
+        "name": "Siêu thị Co.opMart Bình Triệu",
+        "shop": "supermarket"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              106.7157653,
+              10.8329556
+            ],
+            [
+              106.7152101,
+              10.8328568
+            ],
+            [
+              106.7152424,
+              10.8326815
+            ],
+            [
+              106.715257,
+              10.8326026
+            ],
+            [
+              106.7152718,
+              10.8325657
+            ],
+            [
+              106.7152932,
+              10.832542
+            ],
+            [
+              106.715314,
+              10.8325275
+            ],
+            [
+              106.7153481,
+              10.832515
+            ],
+            [
+              106.7158307,
+              10.8326008
+            ],
+            [
+              106.715821,
+              10.8326546
+            ],
+            [
+              106.7157974,
+              10.8327766
+            ],
+            [
+              106.7157868,
+              10.8328344
+            ],
+            [
+              106.7157653,
+              10.8329556
+            ]
+          ]
+        ]
+      },
+      "id": "way/589984048"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "way/596552736",
+        "addr:city": "TP. Hồ Chí Minh",
+        "addr:housename": "Điện máy Gia Thành",
+        "addr:housenumber": "975",
+        "addr:street": "Trần Hưng Đạo",
+        "name": "Điện máy Gia Thành",
+        "shop": "supermarket",
+        "website": "https://giathanh.vn/"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              106.6764869,
+              10.7539141
+            ],
+            [
+              106.6765835,
+              10.7535216
+            ]
+          ]
+        ]
+      },
+      "id": "way/596552736"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/9585048351",
+        "addr:city": "Hồ Chí Minh",
+        "addr:district": "Gò Vấp",
+        "addr:street": "Phạm Văn Đồng",
+        "name": "Co.opmart Phạm Văn Đồng",
+        "shop": "supermarket"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.6932896,
+          10.7940316
+        ]
+      },
+      "id": "node/9585048351"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/9585117677",
+        "addr:city": "Hồ Chí Minh",
+        "addr:district": "3",
+        "addr:street": "Cao Thắng",
+        "name": "Siêu Thị Co.opmart",
+        "name:en": "Co.opmart Cao Thang Supermarket",
+        "shop": "supermarket"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.6746916,
+          10.7748338
+        ]
+      },
+      "id": "node/9585117677"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/9585186635",
+        "addr:city": "Hồ Chí Minh",
+        "addr:district": "Bình Tân",
+        "name": "Co.op Mart",
+        "shop": "supermarket"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.6339575,
+          10.7544616
+        ]
+      },
+      "id": "node/9585186635"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/9585983486",
+        "addr:city": "Thành phố Thủ Đức",
+        "addr:district": "2",
+        "addr:housenumber": "12",
+        "addr:province": "Hồ Chí Minh",
+        "addr:street": "Quốc Hương",
+        "addr:subdistrict": "Thảo Điền",
+        "name": "Tops Market - Thảo Điền",
+        "opening_hours": "Mo-Su 07:30-22:00",
+        "phone": "+84 28 3519 3224",
+        "shop": "supermarket"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.7331065,
+          10.8014176
+        ]
+      },
+      "id": "node/9585983486"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/9586952125",
+        "addr:city": "Hồ Chí Minh",
+        "addr:district": "Phú Nhuận",
+        "addr:street": "Phan Văn Trị",
+        "name": "Coop Food - Chung cư Phan Văn Trị",
+        "shop": "supermarket"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.6781767,
+          10.7564696
+        ]
+      },
+      "id": "node/9586952125"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/9587171489",
+        "addr:city": "Hồ Chí Minh",
+        "addr:district": "Bình Tân",
+        "name": "Siêu thị Co.opmart Bình Tân 2",
+        "shop": "supermarket"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.6015456,
+          10.7651068
+        ]
+      },
+      "id": "node/9587171489"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/9587252978",
+        "addr:city": "Hồ Chí Minh",
+        "addr:district": "Bình Tân",
+        "name": "Siêu Thị 7Map",
+        "shop": "supermarket"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.6173551,
+          10.7405361
+        ]
+      },
+      "id": "node/9587252978"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/9587252979",
+        "addr:city": "Hồ Chí Minh",
+        "addr:district": "Thủ Đức",
+        "name": "Trung Tâm Thương Mại",
+        "shop": "supermarket"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.7520062,
+          10.805322
+        ]
+      },
+      "id": "node/9587252979"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/9587253814",
+        "addr:city": "Hồ Chí Minh",
+        "addr:district": "7",
+        "name": "Siêu thị Finelife Riviera Point",
+        "shop": "supermarket"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.7288103,
+          10.7324976
+        ]
+      },
+      "id": "node/9587253814"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/9587309943",
+        "addr:city": "Hồ Chí Minh",
+        "addr:district": "Thủ Đức",
+        "name": "Mazda Bình Triệu",
+        "shop": "supermarket"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.7137412,
+          10.8305867
+        ]
+      },
+      "id": "node/9587309943"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/9587566621",
+        "addr:city": "Hồ Chí Minh",
+        "addr:district": "8",
+        "name": "Siêu thị Co.opmart Tuy Lý Vương",
+        "shop": "supermarket"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.6552043,
+          10.7443048
+        ]
+      },
+      "id": "node/9587566621"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/9587618720",
+        "branch": "Phú Thạnh",
+        "brand": "Big C",
+        "brand:wikidata": "Q858665",
+        "addr:city": "Hồ Chí Minh",
+        "addr:district": "Tân Phú",
+        "name": "Big C",
+        "shop": "supermarket"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.6312584,
+          10.7793635
+        ]
+      },
+      "id": "node/9587618720"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/9587618744",
+        "addr:city": "Hồ Chí Minh",
+        "addr:district": "Thủ Đức",
+        "name": "Coopmart Tam Bình",
+        "shop": "supermarket"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.73419,
+          10.8642107
+        ]
+      },
+      "id": "node/9587618744"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/9593240662",
+        "addr:housenumber": "102",
+        "addr:street": "Đường Phan Văn Hớn",
+        "addr:city": "Hồ Chí Minh",
+        "addr:district": "12",
+        "branch": "Phan Văn Hớn",
+        "name": "Co.opmart",
+        "opening_hours": "Mo-Su 08:00-22:00",
+        "phone": "+842838155484",
+        "shop": "supermarket"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.6197414,
+          10.8286526
+        ]
+      },
+      "id": "node/9593240662"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/9593240669",
+        "addr:city": "Bình Dương",
+        "addr:district": "Thủ Dầu Một",
+        "name": "CoopMart - Ngã Tư Chợ Đình",
+        "shop": "supermarket"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.6670087,
+          10.9843561
+        ]
+      },
+      "id": "node/9593240669"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/9593340032",
+        "addr:city": "Bình Dương",
+        "addr:district": "Thủ Dầu Một",
+        "name": "Mega Market Bình Dương",
+        "shop": "supermarket"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.6872464,
+          10.9630515
+        ]
+      },
+      "id": "node/9593340032"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/9593358301",
+        "addr:city": "Hồ Chí Minh",
+        "addr:district": "4",
+        "name": "Southern AEON Citimart Tân Thuận",
+        "shop": "supermarket"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.7352247,
+          10.7515494
+        ]
+      },
+      "id": "node/9593358301"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/9593386627",
+        "addr:city": "Hồ Chí Minh",
+        "addr:district": "Hóc Môn",
+        "name": "CoopMart Hóc Môn",
+        "shop": "supermarket"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.6066732,
+          10.8891434
+        ]
+      },
+      "id": "node/9593386627"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/9593386629",
+        "addr:city": "Hồ Chí Minh",
+        "addr:district": "Nhà Bè",
+        "name": "CoopMart Nguyễn Bình",
+        "shop": "supermarket"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.7359282,
+          10.6738545
+        ]
+      },
+      "id": "node/9593386629"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/9593797953",
+        "addr:city": "Hồ Chí Minh",
+        "addr:district": "12",
+        "name": "CoopMart Hiệp Thành",
+        "shop": "supermarket"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.6399416,
+          10.877816
+        ]
+      },
+      "id": "node/9593797953"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/9593946651",
+        "addr:city": "Hồ Chí Minh",
+        "addr:district": "Củ Chi",
+        "name": "Siêu Thị CoopMart Củ Chi",
+        "shop": "supermarket"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.504235,
+          10.9589138
+        ]
+      },
+      "id": "node/9593946651"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/9593946652",
+        "addr:city": "Hồ Chí Minh",
+        "addr:district": "Hóc Môn",
+        "name": "Co.opmart Đỗ Văn Dậy",
+        "shop": "supermarket"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.5986145,
+          10.8941645
+        ]
+      },
+      "id": "node/9593946652"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/9605255261",
+        "addr:city": "Hồ Chí Minh",
+        "addr:district": "Tân Phú",
+        "addr:housenumber": "80",
+        "addr:postcode": "700000",
+        "addr:province": "Hồ Chí Minh",
+        "addr:street": "Đường Bình Long",
+        "addr:subdistrict": "Phú Thạnh",
+        "brand": "Nội thất Auli Star",
+        "description": "Cửa hàng nội thất Auli Star chuyên nhập khẩu, phân phối và sản xuất thiết bị vệ sinh, thiết bị nhà bếp cao cấp như: Chậu rửa bát, lavabo rửa mặt, bồn cầu auli star, vòi sen tắm, bồn tắm, máy nước nóng năng lượng mặt trời",
+        "name": "Cửa hàng nội thất Auli Star",
+        "opening_hours": "24/7",
+        "operator": "CÔNG TY TNHH XÂY DỰNG TRANG TRÍ NỘI THẤT TRUNG VIỆT",
+        "payment:cash": "yes",
+        "payment:mastercard": "yes",
+        "payment:visa": "yes",
+        "phone": "+84335942468",
+        "shop": "supermarket",
+        "website": "https://aulistar.vn/"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.6216044,
+          10.7764837
+        ]
+      },
+      "id": "node/9605255261"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/9645043685",
+        "addr:city": "Phường 22",
+        "addr:district": "Binh Thanh",
+        "addr:housenumber": "92",
+        "addr:province": "Ho Chi Minh",
+        "addr:street": "Nguyễn Hữu Cảnh",
+        "addr:subdistrict": "Opal Tower, Shophouse SH06-07",
+        "name": "Annam Gourmet",
+        "shop": "supermarket"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.7186066,
+          10.7891717
+        ]
+      },
+      "id": "node/9645043685"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/9776229833",
+        "addr:city": "Thủ Dầu Một",
+        "addr:housenumber": "17",
+        "addr:postcode": "75000",
+        "addr:province": "Bình Dương",
+        "addr:street": "30 Tháng 4",
+        "addr:subdistrict": "Phú Hòa",
+        "name": "USAMua - MUA HÀNG MỸ - CN BÌNH DƯƠNG",
+        "opening_hours": "24/7",
+        "payment:cards": "yes",
+        "payment:cash": "yes",
+        "payment:debit_cards": "yes",
+        "payment:mastercard": "yes",
+        "payment:visa": "yes",
+        "phone": "+84 923901357",
+        "shop": "supermarket",
+        "website": "https://usamua.com"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.6722416,
+          10.9810767
+        ]
+      },
+      "id": "node/9776229833"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/9921298480",
+        "addr:city": "Hồ Chí Minh",
+        "addr:district": "1",
+        "name": "Grove Fresh",
+        "shop": "supermarket"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.6845432,
+          10.7680881
+        ]
+      },
+      "id": "node/9921298480"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/10013330247",
+        "addr:city": "Bà Rịa - Vũng Tàu",
+        "addr:district": "Vũng Tàu",
+        "name": "Bách Hoá Xanh",
+        "payment:cash": "yes",
+        "payment:credit_cards": "yes",
+        "shop": "supermarket"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          107.0582719,
+          10.597146
+        ]
+      },
+      "id": "node/10013330247"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/10079576290",
+        "addr:city": "Dĩ An",
+        "addr:postcode": "820000",
+        "addr:province": "Bình Dương",
+        "addr:street": "Cầu vượt Ngã tư 550",
+        "addr:subdistrict": "Dĩ An",
+        "name": "Korea Mart",
+        "payment:american_express": "yes",
+        "payment:cards": "yes",
+        "payment:cash": "yes",
+        "payment:credit_cards": "yes",
+        "payment:debit_cards": "yes",
+        "payment:mastercard": "yes",
+        "shop": "supermarket"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.7419817,
+          10.9083839
+        ]
+      },
+      "id": "node/10079576290"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/10164648581",
+        "addr:city": "Phường Linh Tây",
+        "addr:district": "Quan Thu Duc",
+        "addr:housenumber": "71",
+        "addr:province": "TPHCM",
+        "addr:street": "Đường Dương Văn Cam",
+        "addr:subdistrict": "phường 4",
+        "description": "- Sản phẩm đa dạng. Có kho hàng lớn, chúng tôi thu mua trọn gói, đủ loại giá kệ. Ngoài ra chúng tôi còn thu mua các đồ cũ khác như thu mua bàn ghế cafe. Đồ gỗ gia đình, đồ cũ, đồ cũ nhà hàng, đồ gỗ khách sạn, đồ gỗ nhà hàng, đồ gỗ cũ ...\n  - Công việc gia",
+        "name": "thu mua kệ siêu thị cũ muskvn",
+        "opening_hours": "Mo-Fr 09:00-18:00",
+        "phone": "0904140007",
+        "shop": "supermarket",
+        "website": "https://musk.vn/thu-mua-ke-sieu-thi-tp-ho-chi-minh"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.7516363,
+          10.8508817
+        ]
+      },
+      "id": "node/10164648581"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/10164648895",
+        "addr:city": "Phường Linh Tây",
+        "addr:district": "quận thủ đức",
+        "addr:housenumber": "71",
+        "addr:street": "Đường Dương Văn Cam",
+        "addr:subdistrict": "phường 4",
+        "description": "Những thương hiệu được niêm yết trên Musk.vn đều là những đơn vị nổi tiếng lâu năm hoạt động trong lĩnh vực nhận và thanh toán hàng đã qua sử dụng.\nWebsite: https://musk.vn/thu-mua-ke-go-tp-ho-chi-minh\nThông tin liên hệ: Phone: 0904140007",
+        "opening_hours": "Mo-Su 09:00-21:00",
+        "shop": "supermarket"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.7508955,
+          10.8515755
+        ]
+      },
+      "id": "node/10164648895"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/10164777466",
+        "addr:city": "Thành phố Thủ Đức",
+        "addr:district": "quận thủ đức",
+        "addr:housenumber": "71",
+        "addr:province": "TPHCM",
+        "addr:street": "Đường Dương Văn Cam",
+        "addr:subdistrict": "phường 4",
+        "description": "Các đơn vị mua hàng do Musk.vn giới thiệu luôn ưu tiên hàng đầu. Quý khách hàng có thể liên hệ và sử dụng dịch vụ thu mua giường gỗ cũ TPHCM không kể thứ 7, chủ nhật hay ngày lễ.\nPhone: 0904140007\nĐịa chỉ: 71 Dương Văn Cam, Khu Phố 6, Thủ Đức, Tphcm",
+        "name": "thumuagiuonggocumuskvn",
+        "opening_hours": "Mo-Sa 08:00-18:00",
+        "phone": "0904140007",
+        "shop": "supermarket",
+        "website": "https://musk.vn/thu-mua-giuong-go-tp-ho-chi-minh"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.7515015,
+          10.8509633
+        ]
+      },
+      "id": "node/10164777466"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/10164939977",
+        "addr:city": "Thành phố Thủ Đức",
+        "addr:district": "Quan Thu Duc",
+        "addr:housenumber": "17",
+        "addr:province": "TPHCM",
+        "addr:street": "Đường Dương Văn Cam",
+        "addr:subdistrict": "phường 4",
+        "description": "các đơn vị thu mua giường tầng cũ công khai, minh bạch và chính xác. Giá sẽ dựa trên tình trạng thực tế của giường. Cam kết không ép giá, ép khách bán với giá quá thấp.\nThông tin liên hệ:\nPhone: 0904140007\nĐịa chỉ: 71 Dương Văn Cam, Khu Phố 6, Thủ Đức, Th",
+        "name": "thumuagiuongtangmuskvn",
+        "opening_hours": "Mo-Fr 09:00-17:00",
+        "phone": "0904140007",
+        "shop": "supermarket",
+        "website": "https://musk.vn/thu-mua-giuong-tang-tp-ho-chi-minh"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.7514141,
+          10.8510494
+        ]
+      },
+      "id": "node/10164939977"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/10224824017",
+        "addr:city": "Bình Dương",
+        "addr:district": "Tân Uyên",
+        "addr:province": "Bình Dương",
+        "addr:street": "Đường số 12",
+        "addr:subdistrict": "Uyên Hưng",
+        "name": "Tee Store",
+        "shop": "supermarket"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.7955559,
+          11.0620479
+        ]
+      },
+      "id": "node/10224824017"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/10229741470",
+        "addr:city": "Hồ Chí Minh",
+        "addr:district": "Tân Phú",
+        "addr:housenumber": "204",
+        "addr:street": "Đường Hòa Bình",
+        "addr:subdistrict": "Hiệp Tân",
+        "name": "USAMua - Mua Hàng Mỹ",
+        "opening_hours": "Mo-Su 08:00-21:00",
+        "payment:cash": "yes",
+        "payment:credit_cards": "yes",
+        "payment:debit_cards": "yes",
+        "phone": "+84 0933726898",
+        "shop": "supermarket"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.6299894,
+          10.771174
+        ]
+      },
+      "id": "node/10229741470"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/10246071319",
+        "addr:city": "Hồ Chí Minh",
+        "addr:district": "Tân Phú",
+        "addr:housenumber": "192/34/1",
+        "addr:province": "Hồ Chí Minh",
+        "addr:street": "Phú Thọ Hoà",
+        "addr:subdistrict": "Phú Thọ Hòa",
+        "name": "Phụ Kiện Bida Minh Điền",
+        "note": "Chuyên Mua Bán Phụ Kiện Bida",
+        "opening_hours": "24/7",
+        "operator": "MINH ĐIỀN BILLIARDS",
+        "payment:mastercard": "yes",
+        "payment:visa": "yes",
+        "shop": "supermarket"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.6309412,
+          10.7850433
+        ]
+      },
+      "id": "node/10246071319"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/10294185712",
+        "brand": "Tops",
+        "brand:th": "ท็อปส์",
+        "brand:wikidata": "Q7825140",
+        "addr:city": "Hồ Chí Minh",
+        "addr:district": "Gò Vấp",
+        "name": "Tops",
+        "shop": "supermarket"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.7626007,
+          10.8444032
+        ]
+      },
+      "id": "node/10294185712"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/10539950899",
+        "addr:city": "Hồ Chí Minh",
+        "addr:district": "Bình Thạnh",
+        "name": "Chợ Vạn Kiếp",
+        "shop": "supermarket"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.6938742,
+          10.7998008
+        ]
+      },
+      "id": "node/10539950899"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/10725532941",
+        "addr:city": "Hồ Chí Minh",
+        "addr:district": "Tân Phú",
+        "addr:housenumber": "555",
+        "addr:street": "Đường Lũy Bán Bích",
+        "name": "USAMua - Mua Hàng Mỹ",
+        "shop": "supermarket"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.634719,
+          10.7778588
+        ]
+      },
+      "id": "node/10725532941"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/10777134131",
+        "addr:city": "Ho Chi Minh City",
+        "addr:district": "Bình Thạnh",
+        "addr:housenumber": "76A",
+        "addr:postcode": "700000",
+        "addr:province": "Hồ Chí Minh",
+        "addr:street": "Đường Phạm Viết Chánh",
+        "addr:subdistrict": "Phường 19",
+        "air_conditioning": "yes",
+        "diet:meat": "yes",
+        "email": "basao.net@gmail.com",
+        "image": "https://www.facebook.com/photo/?fbid=198696639432332&set=a.198696636098999",
+        "internet_access": "yes",
+        "internet_access:fee": "customers",
+        "name": "Cửa hàng Bách hóa Basao Grocery",
+        "opening_hours": "Mo-Su 07:00-22:00",
+        "operator": "Bách hóa Basao",
+        "organic": "only",
+        "payment:app": "yes",
+        "payment:cards": "yes",
+        "payment:cash": "yes",
+        "payment:credit_cards": "yes",
+        "payment:debit_cards": "yes",
+        "payment:mastercard": "yes",
+        "payment:visa": "yes",
+        "payment:visa_debit": "yes",
+        "phone": "0982896297",
+        "shop": "supermarket",
+        "toilets": "yes",
+        "website": "https://www.facebook.com/basao.net",
+        "wikipedia": "vi:https://zalo.me/84982896297"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.7111094,
+          10.7900679
+        ]
+      },
+      "id": "node/10777134131"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/10801342656",
+        "addr:city": "HCMC",
+        "addr:district": "Quan Binh Thanh",
+        "addr:housenumber": "24",
+        "addr:street": "Vũ Huy Tấn",
+        "addr:subdistrict": "3",
+        "name": "Gạo Hồng Nhung",
+        "opening_hours": "Mo-Su 08:00-20:00",
+        "phone": "0979354567",
+        "shop": "supermarket"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.6953508,
+          10.7957801
+        ]
+      },
+      "id": "node/10801342656"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/10807959905",
+        "addr:city": "Hồ Chí Minh",
+        "addr:district": "1",
+        "name:en": "Circle K",
+        "shop": "supermarket"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.7055429,
+          10.7773144
+        ]
+      },
+      "id": "node/10807959905"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/10879939105",
+        "addr:city": "Hồ Chí Minh",
+        "addr:district": "10",
+        "name:en": "Busy Morning Market",
+        "shop": "supermarket"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.6793367,
+          10.7706211
+        ]
+      },
+      "id": "node/10879939105"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/11001842969",
+        "addr:city": "Ho Chi Minh City",
+        "addr:district": "Phú Nhuận",
+        "addr:housenumber": "123",
+        "addr:postcode": "70000",
+        "addr:province": "Hồ Chí Minh",
+        "addr:street": "Trần Hữu Trang",
+        "addr:subdistrict": "Phường 10",
+        "name": "Bách Hóa Xanh grocery store",
+        "opening_hours": "Mo-Su 09:00-21:00",
+        "payment:cash": "yes",
+        "payment:debit_cards": "yes",
+        "shop": "supermarket"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.6722756,
+          10.7931686
+        ]
+      },
+      "id": "node/11001842969"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/11045945955",
+        "addr:city": "Thành phố Vũng Tàu",
+        "addr:district": "Vũng Tàu",
+        "addr:housenumber": "57",
+        "addr:postcode": "790000",
+        "addr:province": "Bà Rịa-Vũng Tàu",
+        "addr:street": "Phạm Hồng Thái",
+        "addr:subdistrict": "Phường 7",
+        "contact:facebook": "https://www.facebook.com/shophoavungtaucom/",
+        "email": "hamyqtc@gmail.com",
+        "mobile": "+84567804444",
+        "name": "Cửa Hàng Hoa Tươi Vũng Tàu",
+        "opening_hours": "24/7",
+        "operator": "Võ Thanh Tiền",
+        "payment:visa": "yes",
+        "phone": "+84567804444",
+        "shop": "supermarket",
+        "website": "https://shophoavungtau.com/"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          107.0774467,
+          10.3659664
+        ]
+      },
+      "id": "node/11045945955"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/11045979326",
+        "addr:city": "Vũng Tàu",
+        "addr:district": "Vũng Tàu",
+        "shop": "supermarket"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          107.0774467,
+          10.3659836
+        ]
+      },
+      "id": "node/11045979326"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/11106925568",
+        "addr:city": "TPHCM",
+        "addr:district": "Bình Chánh",
+        "addr:housenumber": "C7/7",
+        "addr:postcode": "71821",
+        "addr:province": "TPHCM",
+        "addr:street": "Nữ Dân Công",
+        "addr:subdistrict": "Vĩnh Lộc A",
+        "name": "Cổng Nhôm Đúc Hoàng Gia | Lan Can - Cầu Thang - Hàng Rào Nhôm Đúc",
+        "opening_hours": "Mo-Su 07:30-22:00",
+        "operator": "Cổng Nhôm Đúc Hoàng Gia",
+        "payment:jcb": "yes",
+        "payment:mastercard": "yes",
+        "payment:visa": "yes",
+        "phone": "+84376 156 078",
+        "shop": "supermarket"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.5636098,
+          10.8329211
+        ]
+      },
+      "id": "node/11106925568"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/11124634717",
+        "addr:city": "TP. Hồ Chí Minh",
+        "addr:district": "District 1",
+        "addr:housenumber": "116",
+        "addr:postcode": "70000",
+        "addr:street": "Nguyễn Thái Bình",
+        "addr:subdistrict": "Phường Nguyễn Thái Bình",
+        "name": "116 Culture Luxury",
+        "opening_hours": "Mo-Su 09:00-22:00",
+        "phone": "0911 618 116",
+        "shop": "supermarket"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.6986624,
+          10.7684748
+        ]
+      },
+      "id": "node/11124634717"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/11152431366",
+        "addr:city": "Thành phố Thủ Đức",
+        "addr:postcode": "700000",
+        "addr:street": "Đường D4, Tòa S10.02",
+        "addr:subdistrict": "Long Thạnh Mỹ",
+        "name": "King Food Mart - S10.02 Vinhomes Grand Park",
+        "opening_hours": "Mo-Su 09:00-21:00",
+        "shop": "supermarket"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.8387009,
+          10.8451011
+        ]
+      },
+      "id": "node/11152431366"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/11164345794",
+        "addr:city": "Hồ Chí Minh",
+        "addr:district": "Thủ Đức",
+        "operator": "Annam Gourmet",
+        "shop": "supermarket"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.7470369,
+          10.8044555
+        ]
+      },
+      "id": "node/11164345794"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/11328890468",
+        "addr:city": "Thành phố Thủ Đức",
+        "addr:housenumber": "Tòa S10.02",
+        "addr:postcode": "700000",
+        "addr:street": "Đường D4",
+        "addr:subdistrict": "Long Thạnh Mỹ",
+        "name": "HiepDoanShop",
+        "opening_hours": "Mo-Su 09:00-21:00",
+        "operator": "Hiep Doan",
+        "payment:cash": "yes",
+        "payment:credit_cards": "yes",
+        "payment:visa": "yes",
+        "phone": "+84968258804",
+        "shop": "supermarket"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.8387249,
+          10.8451775
+        ]
+      },
+      "id": "node/11328890468"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/11374778363",
+        "addr:city": "Hồ Chí Minh",
+        "addr:district": "Quận 12",
+        "addr:housenumber": "9A",
+        "addr:province": "Hồ Chí Minh",
+        "addr:street": "Đường Thạnh Xuân 13",
+        "addr:subdistrict": "Thạnh Xuân",
+        "brand": "FamilyMart",
+        "name": "FamilyMart",
+        "opening_hours": "24/7",
+        "payment:app": "yes",
+        "payment:contactless": "yes",
+        "payment:debit_cards": "yes",
+        "payment:jcb": "yes",
+        "payment:mastercard": "yes",
+        "payment:visa": "yes",
+        "shop": "supermarket",
+        "website": "https://www.famima.vn/en/home/"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.6644966,
+          10.8651908
+        ]
+      },
+      "id": "node/11374778363"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/11417079493",
+        "addr:city": "Vũng Tàu",
+        "addr:district": "Vũng Tàu",
+        "brand": "WinMart",
+        "brand:wikidata": "Q60245505",
+        "name": "WinMart",
+        "shop": "supermarket"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          107.0810682,
+          10.3443302
+        ]
+      },
+      "id": "node/11417079493"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/11417100835",
+        "addr:city": "Vũng Tàu",
+        "addr:district": "Vũng Tàu",
+        "name": "Bách Hóa XANH",
+        "shop": "supermarket",
+        "website": "https://www.bachhoaxanh.com/"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          107.0811931,
+          10.344475
+        ]
+      },
+      "id": "node/11417100835"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/11424996843",
+        "addr:city": "Vũng Tàu",
+        "addr:district": "Vũng Tàu",
+        "brand": "WinMart",
+        "brand:wikidata": "Q60245505",
+        "name": "WinMart",
+        "shop": "supermarket"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          107.0848122,
+          10.3472388
+        ]
+      },
+      "id": "node/11424996843"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/11430456195",
+        "addr:city": "Vũng Tàu",
+        "addr:district": "Vũng Tàu",
+        "name": "Family Mart",
+        "shop": "supermarket"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          107.0860327,
+          10.3504985
+        ]
+      },
+      "id": "node/11430456195"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/11430464619",
+        "addr:city": "Vũng Tàu",
+        "addr:district": "Vũng Tàu",
+        "brand": "WinMart",
+        "brand:wikidata": "Q60245505",
+        "name": "WinMart",
+        "shop": "supermarket"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          107.0864408,
+          10.3512892
+        ]
+      },
+      "id": "node/11430464619"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/11433411769",
+        "addr:city": "Hồ Chí Minh",
+        "addr:district": "1",
+        "shop": "supermarket"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.6947703,
+          10.7656009
+        ]
+      },
+      "id": "node/11433411769"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/11515855866",
+        "addr:city": "Hồ Chí Minh",
+        "addr:district": "5",
+        "name": "Cửa Hàng Vinh Phát",
+        "shop": "supermarket"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.6747077,
+          10.7532921
+        ]
+      },
+      "id": "node/11515855866"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/11527625171",
+        "addr:city": "Hồ Chí Minh",
+        "addr:district": "Gò Vấp",
+        "name": "Lẩu cá kèo",
+        "shop": "supermarket"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.689306,
+          10.8260415
+        ]
+      },
+      "id": "node/11527625171"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/11533727958",
+        "addr:floor": "B3",
+        "addr:housenumber": "72",
+        "addr:street": "Đường Lê Thánh Tôn",
+        "brand": "WinMart",
+        "brand:wikidata": "Q60245505",
+        "check_date": "2024-01-20",
+        "level": "-3",
+        "name": "WinMart",
+        "payment:cash": "yes",
+        "payment:mastercard": "yes",
+        "payment:visa": "yes",
+        "shop": "supermarket"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.7020738,
+          10.7782504
+        ]
+      },
+      "id": "node/11533727958"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/11612841316",
+        "addr:city": "Thành phố Hồ Chí Minh",
+        "addr:district": "Quận 2",
+        "addr:housenumber": "23",
+        "addr:street": "Trần Bạch Đằng",
+        "addr:subdistrict": "Thủ Thiêm",
+        "name": "Vive Gourmet Food & Wine - The River",
+        "shop": "supermarket"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.7191754,
+          10.782216
+        ]
+      },
+      "id": "node/11612841316"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/11944303584",
+        "addr:city": "Hồ Chí Minh",
+        "addr:district": "Quận 12",
+        "addr:postcode": "71500",
+        "addr:province": "Hồ Chí Minh",
+        "addr:street": "Đường Thạnh Xuân 13",
+        "addr:subdistrict": "Thạnh Xuân",
+        "brand": "WinMart",
+        "brand:wikidata": "Q60245505",
+        "name": "WinMart",
+        "payment:app": "yes",
+        "payment:apple_pay": "yes",
+        "payment:cash": "yes",
+        "payment:contactless": "yes",
+        "payment:credit_cards": "yes",
+        "payment:debit_cards": "yes",
+        "payment:mastercard": "yes",
+        "payment:visa": "yes",
+        "shop": "supermarket"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.6644834,
+          10.8654316
+        ]
+      },
+      "id": "node/11944303584"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/12249396552",
+        "addr:city": "TP. Thủ Đức, TP. Hồ Chí Minh",
+        "addr:district": "P. Hiệp Bình Phước",
+        "addr:housenumber": "2",
+        "addr:postcode": "70000",
+        "addr:province": "Hồ Chí Minh",
+        "addr:street": "Đường số 34",
+        "addr:subdistrict": "Khu đô thị Vạn Phúc",
+        "contact:facebook": "https://www.facebook.com/phimcachnhietNanoX",
+        "email": "contact@nanox.vn",
+        "image": "https://nanox.vn/wp-content/uploads/2024/07/nanox-uv400-skincare-b30s-5.jpg",
+        "name": "Phim cách nhiệt nhà kính NanoX",
+        "opening_hours": "Mo-Fr 09:00-17:00",
+        "operator": "dán kính cách nhiệt NanoX",
+        "payment:cards": "yes",
+        "payment:cash": "yes",
+        "payment:debit_cards": "yes",
+        "payment:visa": "yes",
+        "phone": "0777888797",
+        "shop": "supermarket",
+        "short_name": "phimcachnhietnhakinhnanox",
+        "website": "https://nanox.vn/"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.7103906,
+          10.8460221
+        ]
+      },
+      "id": "node/12249396552"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/12298428762",
+        "addr:city": "Hồ Chí Minh",
+        "addr:district": "7",
+        "name": "Annam Gourmet",
+        "shop": "supermarket"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.7551554,
+          10.7769683
+        ]
+      },
+      "id": "node/12298428762"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/12299044714",
+        "addr:city": "Hồ Chí Minh",
+        "addr:district": "2",
+        "name": "Nam An Market",
+        "shop": "supermarket"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.7350838,
+          10.7804412
+        ]
+      },
+      "id": "node/12299044714"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/12351174664",
+        "brand": "WinMart",
+        "brand:wikidata": "Q60245505",
+        "addr:city": "Hồ Chí Minh",
+        "addr:district": "7",
+        "name": "WinMart",
+        "shop": "supermarket"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.7471246,
+          10.7781697
+        ]
+      },
+      "id": "node/12351174664"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/12543222116",
+        "check_date:opening_hours": "2025-01-30",
+        "addr:city": "Cần Giờ",
+        "addr:district": "Cần Giờ",
+        "name": "Hiệu Vin Store",
+        "opening_hours:signed": "no",
+        "shop": "supermarket"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.6066413,
+          8.6866429
+        ]
+      },
+      "id": "node/12543222116"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/12546141701",
+        "addr:city": "Hồ Chí Minh",
+        "addr:district": "1",
+        "name": "Mini stop",
+        "shop": "supermarket"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.6984934,
+          10.7680533
+        ]
+      },
+      "id": "node/12546141701"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/12558432021",
+        "addr:city": "Phường Tân Quý",
+        "addr:district": "Tân Phú",
+        "addr:housenumber": "38",
+        "addr:postcode": "700000",
+        "addr:province": "Hồ Chí Minh",
+        "addr:street": "Đỗ Công Tường",
+        "addr:subdistrict": "Tân Quý",
+        "name": "Chả cua Huế",
+        "opening_hours": "24/7",
+        "operator": "Chả cua Huế",
+        "payment:cash": "yes",
+        "phone": "0906431619",
+        "shop": "supermarket"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.6182984,
+          10.79726
+        ]
+      },
+      "id": "node/12558432021"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/12558433787",
+        "addr:city": "Phường Tân Quý",
+        "addr:district": "Tân Phú",
+        "addr:housenumber": "36",
+        "addr:postcode": "700000",
+        "addr:province": "Hồ Chí Minh",
+        "addr:street": "Đỗ Công Tường",
+        "addr:subdistrict": "Tân Quý",
+        "name": "Shop Vinafood",
+        "opening_hours": "24/7",
+        "operator": "Vinafood.Shop",
+        "payment:credit_cards": "yes",
+        "phone": "0935655753",
+        "shop": "supermarket"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.6184076,
+          10.7972833
+        ]
+      },
+      "id": "node/12558433787"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/12563213356",
+        "addr:city": "Ho Chi Minh City",
+        "addr:district": "Quận Tân Phú",
+        "addr:housenumber": "34",
+        "addr:postcode": "72015",
+        "addr:province": "Hồ Chí Minh",
+        "addr:street": "Đường Lương Minh Nguyệt",
+        "addr:subdistrict": "Phường Tân Thới Hòa",
+        "air_conditioning": "yes",
+        "branch": "Lương Minh Nguyệt",
+        "name": "Bách Hoá XANH",
+        "opening_hours": "Mo-Su 06:30-21:30",
+        "operator": "Bách Hoá Xanh",
+        "payment:cash": "yes",
+        "payment:contactless": "yes",
+        "payment:credit_cards": "yes",
+        "payment:debit_cards": "yes",
+        "phone": "19001908",
+        "shop": "supermarket"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.6307838,
+          10.7611331
+        ]
+      },
+      "id": "node/12563213356"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/12564990769",
+        "addr:district": "Bình Tân",
+        "addr:housenumber": "428/3",
+        "addr:province": "Hồ Chí Minh",
+        "addr:street": "Chiến Lược",
+        "addr:subdistrict": "Bình Trị Đông A",
+        "name": "Túi Giấy Giá Rẻ",
+        "opening_hours": "Mo-Sa 08:00-17:00",
+        "phone": "0903501844",
+        "shop": "supermarket"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.5995005,
+          10.7631261
+        ]
+      },
+      "id": "node/12564990769"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/12622902601",
+        "addr:city": "Hồ Chí Minh",
+        "addr:district": "Bình Thạnh",
+        "name": "Bach hoa XANX",
+        "shop": "supermarket"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.7067969,
+          10.7934
+        ]
+      },
+      "id": "node/12622902601"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/12633673701",
+        "level": "0",
+        "addr:city": "Hồ Chí Minh",
+        "addr:district": "8",
+        "name": "AEON Tạ Quang Bửu",
+        "name:vi": "AEON Tạ Quang Bửu",
+        "opening_hours": "08:00-22:00",
+        "shop": "supermarket"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.6782814,
+          10.7403675
+        ]
+      },
+      "id": "node/12633673701"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/12701585646",
+        "addr:city": "TP Hồ Chí Minh",
+        "addr:district": "Quận Bình Thạnh",
+        "addr:housenumber": "71B",
+        "addr:postcode": "70000",
+        "addr:province": "Thành phố Hồ Chí Minh",
+        "addr:street": "Lê Quang Định",
+        "addr:subdistrict": "phường 14",
+        "name": "Điện thoại VT Mobile",
+        "opening_hours": "Mo-Su 09:00-21:00",
+        "operator": "VT Mobile",
+        "phone": "0857887777",
+        "shop": "supermarket",
+        "website": "https://linkbio.co/vtmobile"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.6977165,
+          10.8053618
+        ]
+      },
+      "id": "node/12701585646"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/12707715425",
+        "addr:city": "Hồ Chí Minh",
+        "addr:district": "12",
+        "name": "Bách hóa XANH.COM",
+        "opening_hours": "06:30-21:30",
+        "shop": "supermarket"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.6179405,
+          10.8591365
+        ]
+      },
+      "id": "node/12707715425"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/12799703815",
+        "addr:city": "Hồ Chí Minh",
+        "addr:district": "Bình Tân",
+        "name": "Kingfoodmart",
+        "shop": "supermarket"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.6186198,
+          10.7514142
+        ]
+      },
+      "id": "node/12799703815"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/12799901964",
+        "addr:city": "Bà Rịa",
+        "addr:district": "Bà Rịa",
+        "shop": "supermarket"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          107.2123876,
+          10.5207125
+        ]
+      },
+      "id": "node/12799901964"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/12878285661",
+        "addr:city": "Thành Phố Thủ Đức",
+        "addr:housenumber": "21",
+        "addr:street": "Thảo Điền",
+        "addr:subdistrict": "Phường Thảo Điền",
+        "brand": "Nam An Market",
+        "name": "Nam An Market",
+        "opening_hours": "07:00-21:00",
+        "organic": "yes",
+        "pets_allowed": "no",
+        "reusable_packaging:accept": "yes",
+        "shop": "supermarket",
+        "smoking": "no"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.7375898,
+          10.8032814
+        ]
+      },
+      "id": "node/12878285661"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/custom001",
+        "addr:city": "Dĩ An",
+        "addr:province": "Bình Dương",
+        "addr:district": "Dĩ An",
+        "addr:street": "Đường Hàn Thuyên",
+        "amenity": "dormitory",
+        "name": "Ký túc xá khu B - ĐHQG TP.HCM",
+        "name:en": "Dormitory Block B - VNU-HCM",
+        "operator": "Đại học Quốc gia TP.HCM",
+        "description": "Ký túc xá sinh viên khu B, Đại học Quốc gia Thành phố Hồ Chí Minh"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.8004,
+          10.8757
+        ]
+      },
+      "id": "node/custom001"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/custom002",
+        "addr:city": "Thành Phố Thủ Đức",
+        "addr:province": "Hồ Chí Minh",
+        "addr:district": "Quận 9",
+        "addr:street": "Đường D1",
+        "addr:housenumber": "Lô E2a-7",
+        "amenity": "university",
+        "name": "Đại học FPT TP.HCM",
+        "name:en": "FPT University - Ho Chi Minh City",
+        "operator": "Đại học FPT",
+        "description": "Cơ sở Đại học FPT tại Khu Công nghệ cao, Quận 9, TP.HCM",
+        "website": "https://hcmc.fpt.edu.vn"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.8099,
+          10.8413
+        ]
+      },
+      "id": "node/custom002"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/custom003",
+        "addr:city": "Dĩ An",
+        "addr:province": "Bình Dương",
+        "addr:district": "Dĩ An",
+        "addr:street": "Đường Hàn Thuyên",
+        "amenity": "community_centre",
+        "name": "Nhà văn hóa sinh viên ĐHQG TP.HCM",
+        "name:en": "VNU-HCM Student Cultural House",
+        "operator": "Đại học Quốc gia TP.HCM",
+        "description": "Nhà văn hóa sinh viên, Đại học Quốc gia Thành phố Hồ Chí Minh"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.8020,
+          10.8730
+        ]
+      },
+      "id": "node/custom003"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "@id": "node/custom004",
+        "addr:city": "Thành Phố Thủ Đức",
+        "addr:province": "Hồ Chí Minh",
+        "addr:district": "Quận 9",
+        "addr:street": "Nguyễn Xiển",
+        "building": "apartments",
+        "name": "Vinhomes Grand Park",
+        "name:en": "Vinhomes Grand Park",
+        "operator": "Vingroup",
+        "description": "Khu đô thị Vinhomes Grand Park, Quận 9, TP.HCM",
+        "website": "https://vinhomesgrandpark.com"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.8626,
+          10.8450
+        ]
+      },
+      "id": "node/custom004"
+    }
+  ]
+}
