@@ -280,6 +280,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
     const defaultCenterLngLat: [number, number] = useMemo(() => [106.7009, 10.7769], []);
     const [tempMarker, setTempMarker] = useState<maptilersdk.Marker | null>(null);
     const markerMapRef = useRef<Map<string, maptilersdk.Marker>>(new Map());
+    const hasAutoSelectedRef = useRef(false);
 
 
     // Charging session states
@@ -1259,6 +1260,44 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
 
 
     useEffect(() => { handleGetStationList() }, [refreshTrigger]);
+
+    // Auto-get user location on component mount
+    useEffect(() => {
+        getUserLocation();
+    }, []);
+
+    // Auto-select nearest station when user location and stations are available
+    useEffect(() => {
+        if (userLocation && stations.length > 0 && !selectedStation && !hasAutoSelectedRef.current) {
+            // Enable distance sorting
+            setSortByDistance(true);
+            
+            // Calculate distances and find nearest station
+            const stationsWithDistance = stations
+                .filter(station => station.latitude && station.longitude && station.status === "ACTIVE")
+                .map(station => ({
+                    station,
+                    distance: calculateDistance(
+                        userLocation.lat,
+                        userLocation.lng,
+                        station.latitude || 0,
+                        station.longitude || 0
+                    )
+                }))
+                .sort((a, b) => a.distance - b.distance);
+
+            if (stationsWithDistance.length > 0) {
+                const nearestStation = stationsWithDistance[0].station;
+                setSelectedStation(nearestStation);
+                hasAutoSelectedRef.current = true;
+                
+                // Center map on nearest station
+                if (nearestStation.latitude && nearestStation.longitude) {
+                    setMapCenter({ lat: nearestStation.latitude, lng: nearestStation.longitude });
+                }
+            }
+        }
+    }, [userLocation, stations, selectedStation]);
 
     // Load vehicles on component mount
     useEffect(() => {

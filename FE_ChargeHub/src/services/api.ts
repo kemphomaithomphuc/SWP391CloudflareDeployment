@@ -1085,6 +1085,12 @@ export const exportRevenueToPDF = async (filters?: ExportRevenueFilters): Promis
   }
 };
 
+// Re-export Market Trends API from api folder for backward compatibility
+export { getMarketTrends, type MarketTrendsData } from '../api/marketTrends';
+
+// Re-export Connector Suggestions API from api folder for backward compatibility
+export { getConnectorSuggestions, type ConnectorSuggestion, type ConnectorSuggestionsResponse } from '../api/connectorSuggestions';
+
 export default api;
 
 
