@@ -45,13 +45,28 @@ public class IssueReportServiceImpl implements IssueReportService {
         issueReport.setStation(station);
         issueReport.setReporter(staff);
         issueReport.setDescription(dto.getDescription());
-        issueReport.setStatus(IssueReport.Status.INBOX);
+        issueReport.setStatus(IssueReport.Status.IN_PROGRESS);
         issueReport.setReportedTime(LocalDateTime.now());
 
         IssueReport saved = issueReportRepository.save(issueReport);
 
         // Send notification to admin
         notificationService.createIssueNotification(station.getStationId(), IssueEvent.STATION_ERROR_ADMIN, "New issue reported: " + dto.getDescription());
+
+        // Send notification to staff reporter
+        try {
+            notificationService.createGeneralNotification(
+                    List.of(staffId),
+                    "Báo cáo sự cố đã được ghi nhận",
+                    String.format("Bạn đã báo cáo cho quản trị viên vấn đề: %s tại trạm %s. Mã báo cáo: #%d",
+                            dto.getDescription(),
+                            station.getStationName(),
+                            saved.getIssueReportId())
+            );
+        } catch (Exception e) {
+            // Log but don't fail the transaction
+            System.err.println("Lỗi khi tạo thông báo cho staff: " + e.getMessage());
+        }
 
         return saved.getIssueReportId();
     }
@@ -115,15 +130,36 @@ public class IssueReportServiceImpl implements IssueReportService {
         newReport.setStation(station); // Gán trạm sạc
         newReport.setDescription(description); // Gán mô tả đã gộp
 
-        newReport.setStatus(IssueReport.Status.INBOX); // Đặt trạng thái ban đầu
+        newReport.setStatus(IssueReport.Status.IN_PROGRESS); // Đặt trạng thái ban đầu
         newReport.setReportedTime(LocalDateTime.now());
 
         // Lấy user hiện tại từ CSDL
         User currentUser = getCurrentUser();
         // Nếu không có user hiện tại, có thể để null hoặc gán user mặc định
         newReport.setReporter(currentUser); // Gán người báo cáo
+
         // 4. Lưu vào CSDL
-        return issueReportRepository.save(newReport);
+        IssueReport savedReport = issueReportRepository.save(newReport);
+
+        // 5. Gửi thông báo cho người dùng
+        if (currentUser != null) {
+            try {
+                String issueTypeSummary = parsedReport.getIssueType() != null ? parsedReport.getIssueType() : "Sự cố chưa xác định";
+                notificationService.createGeneralNotification(
+                        List.of(currentUser.getUserId()),
+                        "Báo cáo sự cố đã được ghi nhận",
+                        String.format("Bạn đã báo cáo cho quản trị viên vấn đề: %s tại trạm %s. Mã báo cáo: #%d. Chúng tôi sẽ xử lý sớm nhất có thể.",
+                                issueTypeSummary,
+                                station.getStationName(),
+                                savedReport.getIssueReportId())
+                );
+            } catch (Exception e) {
+                // Log but don't fail the transaction
+                System.err.println("Lỗi khi tạo thông báo cho user: " + e.getMessage());
+            }
+        }
+
+        return savedReport;
     }
 
     /**
