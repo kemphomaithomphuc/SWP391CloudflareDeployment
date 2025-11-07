@@ -23,7 +23,7 @@ export default function ChatInput({
   const { language } = useLanguage();
 
   return (
-    <div className="border-t border-gray-200 bg-white px-3 py-2 flex items-center space-x-2 flex-shrink-0">
+    <div className="border-t border-gray-200 bg-white px-3 py-2 flex items-center space-x-2 flex-shrink-0" style={{ width: '100%', minWidth: 0, maxWidth: '100%' }}>
       <Input
         ref={inputRef}
         value={inputMessage}

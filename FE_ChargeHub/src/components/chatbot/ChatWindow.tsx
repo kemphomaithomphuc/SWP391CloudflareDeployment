@@ -14,6 +14,7 @@ interface ChatWindowProps {
   onSendMessage: () => void;
   onKeyPress: (e: React.KeyboardEvent<HTMLInputElement>) => void;
   onClose: () => void;
+  onHeaderMouseDown?: (e: React.MouseEvent) => void;
 }
 
 export default function ChatWindow({
@@ -26,11 +27,12 @@ export default function ChatWindow({
   onSendMessage,
   onKeyPress,
   onClose,
+  onHeaderMouseDown,
 }: ChatWindowProps) {
   return (
-    <Card className="shadow-2xl border border-gray-200 bg-white h-full w-full flex flex-col rounded-t-lg overflow-hidden" style={{ height: '100%', maxHeight: '100%' }}>
-      <ChatHeader onClose={onClose} />
-      <CardContent className="p-3 flex-1 flex flex-col overflow-hidden min-h-0 bg-gray-50" style={{ minHeight: 0, maxHeight: '100%', height: 0 }}>
+    <Card className="shadow-2xl border border-gray-200 bg-white h-full w-full flex flex-col rounded-t-lg overflow-hidden" style={{ height: '100%', maxHeight: '100%', width: '100%', minWidth: '100%', maxWidth: '100%' }}>
+      <ChatHeader onClose={onClose} onMouseDown={onHeaderMouseDown} />
+      <CardContent className="p-3 flex-1 flex flex-col overflow-hidden min-h-0 bg-gray-50" style={{ minHeight: 0, maxHeight: '100%', height: 0, width: '100%', minWidth: '100%', maxWidth: '100%' }}>
         <ChatMessages 
           messages={messages} 
           isLoading={isLoading} 
