@@ -4,8 +4,8 @@ import { useLanguage } from "../contexts/LanguageContext";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
-import { Shield, AlertTriangle, CreditCard, CheckCircle, XCircle } from "lucide-react";
-import { getUserProfile, type UserDTO, api } from "../services/api";
+import { Shield, AlertTriangle, CreditCard, CheckCircle, XCircle, AlertCircle } from "lucide-react";
+import { getUserProfile, type UserDTO, getUnpaidFees, payPenaltyAndUnlock, type FeeDTO } from "../services/api";
 import { toast } from "sonner";
 
 interface PenaltyPaymentViewProps {
@@ -18,26 +18,35 @@ export default function PenaltyPaymentView({ onBack, userId }: PenaltyPaymentVie
   const { language } = useLanguage();
   
   const [userData, setUserData] = useState<UserDTO | null>(null);
+  const [unpaidFees, setUnpaidFees] = useState<FeeDTO[]>([]);
   const [loading, setLoading] = useState(true);
   const [paymentStatus, setPaymentStatus] = useState<'pending' | 'processing' | 'success' | 'failed'>('pending');
-  const [penaltyAmount] = useState(500000); // 500,000 VND fixed penalty fee
 
   useEffect(() => {
-    fetchUserData();
+    fetchData();
   }, [userId]);
 
-  const fetchUserData = async () => {
+  const fetchData = async () => {
     try {
       setLoading(true);
-      const response = await getUserProfile(userId);
-      if (response.success && response.data) {
-        setUserData(response.data);
-      } else {
-        toast.error(language === 'vi' ? 'Không thể lấy thông tin người dùng' : 'Unable to fetch user information');
+      
+      // Fetch user profile
+      const userResponse = await getUserProfile(userId);
+      if (userResponse.success && userResponse.data) {
+        setUserData(userResponse.data);
       }
+      
+      // Fetch unpaid fees
+      const feesResponse = await getUnpaidFees(userId);
+      if (feesResponse.success && feesResponse.data) {
+        setUnpaidFees(feesResponse.data);
+      } else {
+        toast.error(language === 'vi' ? 'Không thể lấy danh sách phí phạt' : 'Unable to fetch penalty fees');
+      }
+      
     } catch (error: any) {
-      console.error('Error fetching user data:', error);
-      toast.error(language === 'vi' ? 'Lỗi khi tải thông tin người dùng' : 'Error loading user information');
+      console.error('Error fetching data:', error);
+      toast.error(language === 'vi' ? 'Lỗi khi tải dữ liệu' : 'Error loading data');
     } finally {
       setLoading(false);
     }
@@ -50,31 +59,45 @@ export default function PenaltyPaymentView({ onBack, userId }: PenaltyPaymentVie
     }).format(amount);
   };
 
+  const getTotalAmount = () => {
+    return unpaidFees.reduce((total, fee) => total + fee.amount, 0);
+  };
+
+  const getFeeTypeLabel = (feeType: string) => {
+    const labels: Record<string, { vi: string; en: string }> = {
+      'CANCEL': { vi: 'Hủy muộn', en: 'Late Cancellation' },
+      'NO_SHOW': { vi: 'Không đến', en: 'No Show' },
+      'OVERTIME': { vi: 'Quá giờ', en: 'Overtime' }
+    };
+    return labels[feeType]?.[language === 'vi' ? 'vi' : 'en'] || feeType;
+  };
+
   const handlePayment = async () => {
     try {
       setPaymentStatus('processing');
       
-      // Call backend API to process penalty payment and unban user
-      const response = await api.post('/api/user/penalty-payment', null, {
-        params: {
-          userId: userId,
-          amount: penaltyAmount
-        }
-      });
+      const feeIds = unpaidFees.map(fee => fee.feeId);
       
-      if (response.data.success) {
+      // Call backend API to process penalty payment and unban user
+      const response = await payPenaltyAndUnlock(userId, feeIds);
+      
+      if (response.success) {
         setPaymentStatus('success');
-        toast.success(language === 'vi' ? 'Thanh toán thành công! Tài khoản của bạn đã được kích hoạt lại' : 'Payment successful! Your account has been reactivated');
+        const message = language === 'vi' 
+          ? 'Thanh toán thành công! Tài khoản của bạn đã được kích hoạt lại' 
+          : 'Payment successful! Your account has been reactivated';
+        toast.success(message);
         
         // Clear localStorage and redirect to login after 3 seconds
         setTimeout(() => {
           localStorage.removeItem('token');
           localStorage.removeItem('refreshToken');
           localStorage.removeItem('userId');
+          localStorage.removeItem('role');
           onBack(); // Return to login
         }, 3000);
       } else {
-        throw new Error(response.data.message || 'Payment failed');
+        throw new Error(response.message || 'Payment failed');
       }
       
     } catch (error: any) {
@@ -185,13 +208,42 @@ export default function PenaltyPaymentView({ onBack, userId }: PenaltyPaymentVie
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
+            {/* Fees List */}
+            {unpaidFees.length > 0 && (
+              <div className="space-y-3">
+                <p className="text-sm font-medium text-muted-foreground">
+                  {language === 'vi' ? 'Danh sách phí chưa thanh toán:' : 'Unpaid Fees:'}
+                </p>
+                {unpaidFees.map((fee) => (
+                  <div 
+                    key={fee.feeId}
+                    className="flex justify-between items-center p-3 bg-muted/30 rounded-lg"
+                  >
+                    <div className="space-y-1">
+                      <p className="font-medium">{getFeeTypeLabel(fee.feeType)}</p>
+                      <p className="text-sm text-muted-foreground">{fee.description}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(fee.createdAt).toLocaleDateString('vi-VN')}
+                      </p>
+                    </div>
+                    <Badge variant="destructive" className="text-base px-3 py-1">
+                      {formatCurrency(fee.amount)}
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+            )}
+
             {/* Amount Display */}
             <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 p-6 rounded-lg border-2 border-blue-200 dark:border-blue-800">
               <p className="text-sm text-muted-foreground mb-2">
-                {language === 'vi' ? 'Số tiền phải thanh toán' : 'Amount Due'}
+                {language === 'vi' ? 'Tổng số tiền phải thanh toán' : 'Total Amount Due'}
               </p>
               <p className="text-4xl font-bold text-blue-600 dark:text-blue-400">
-                {formatCurrency(penaltyAmount)}
+                {formatCurrency(getTotalAmount())}
+              </p>
+              <p className="text-xs text-muted-foreground mt-2">
+                {unpaidFees.length} {language === 'vi' ? 'khoản phí' : 'fee(s)'}
               </p>
             </div>
 

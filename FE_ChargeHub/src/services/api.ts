@@ -21,18 +21,31 @@ api.interceptors.response.use(
     async (error) => {
         const originalRequest = error.config;
 
-    // Check if it's a 403 error (user is banned)
-    if (error.response?.status === 403 && error.response?.data?.error === "User is banned") {
-      // Redirect to penalty payment page
-      window.location.href = "/penalty-payment";
-      return Promise.reject(error);
-    }
-
-        // Check if it's a 403 error (user is banned)
-        if (error.response?.status === 403 && error.response?.data?.error === "User is banned") {
-            // Redirect to penalty payment page
-            window.location.href = "/penalty-payment";
-            return Promise.reject(error);
+        // 🆕 Check if it's a 403 error with USER_BANNED reason
+        if (error.response?.status === 403) {
+            const errorData = error.response?.data;
+            
+            // Check for BANNED status
+            if (errorData?.data?.reason === "USER_BANNED" || 
+                errorData?.message?.includes("banned") ||
+                errorData?.message?.includes("khóa")) {
+                console.log("User is BANNED, redirecting to penalty payment");
+                
+                // Redirect to penalty payment page
+                if (!window.location.pathname.includes('/penalty-payment')) {
+                    window.location.href = "/penalty-payment";
+                }
+                return Promise.reject(error);
+            }
+            
+            // Check for INACTIVE status
+            if (errorData?.data?.reason === "USER_INACTIVE" || 
+                errorData?.message?.includes("inactive") ||
+                errorData?.message?.includes("chưa được kích hoạt")) {
+                console.log("User is INACTIVE, limited access");
+                // Don't redirect, just show error message
+                return Promise.reject(error);
+            }
         }
 
         // Check if it's a 401 error and we haven't already tried to refresh
@@ -1090,6 +1103,108 @@ export { getMarketTrends, type MarketTrendsData } from '../api/marketTrends';
 
 // Re-export Connector Suggestions API from api folder for backward compatibility
 export { getConnectorSuggestions, type ConnectorSuggestion, type ConnectorSuggestionsResponse } from '../api/connectorSuggestions';
+
+// ===== PENALTY/FEE API TYPES =====
+export interface FeeDTO {
+  feeId: number;
+  userId: number;
+  sessionId?: number;
+  orderId?: number;
+  amount: number;
+  feeType: 'CANCEL' | 'NO_SHOW' | 'OVERTIME';
+  description: string;
+  isPaid: boolean;
+  createdAt: string;
+}
+
+export interface FeeDetailDTO {
+  feeId: number;
+  userId: number;
+  sessionId?: number;
+  orderId?: number;
+  amount: number;
+  feeType: string;
+  description: string;
+  isPaid: boolean;
+  createdAt: string;
+}
+
+export interface UnpaidFeesResponse {
+  success: boolean;
+  message: string;
+  data: FeeDTO[];
+}
+
+export interface PayPenaltyResponse {
+  success: boolean;
+  message: string;
+  data: {
+    unlocked: boolean;
+    remainingFees: number;
+  };
+}
+
+// ===== PENALTY/FEE API FUNCTIONS =====
+
+/**
+ * Lấy danh sách phí phạt chưa thanh toán của user
+ */
+export const getUnpaidFees = async (userId: number): Promise<UnpaidFeesResponse> => {
+  try {
+    const response = await api.get<UnpaidFeesResponse>(`/api/penalties/user/${userId}/unpaid`);
+    return response.data;
+  } catch (error: any) {
+    console.error('Error fetching unpaid fees:', error);
+    throw error;
+  }
+};
+
+/**
+ * Lấy lịch sử phí phạt của user
+ */
+export const getUserFeeHistory = async (userId: number): Promise<APIResponse<FeeDetailDTO[]>> => {
+  try {
+    const response = await api.get<APIResponse<FeeDetailDTO[]>>(`/api/penalties/user/${userId}/history`);
+    return response.data;
+  } catch (error: any) {
+    console.error('Error fetching user fee history:', error);
+    throw error;
+  }
+};
+
+/**
+ * Thanh toán phí phạt và mở khóa tài khoản
+ * Gọi POST /api/penalties/pay-and-unlock
+ */
+export const payPenaltyAndUnlock = async (userId: number, feeIds: number[]): Promise<PayPenaltyResponse> => {
+  try {
+    console.log('🔵 Sending payment request:', { userId, feeIds });
+    const response = await api.post<PayPenaltyResponse>('/api/penalties/pay-and-unlock', {
+      userId,
+      feeIds
+    });
+    console.log('✅ Payment response:', response.data);
+    return response.data;
+  } catch (error: any) {
+    console.error('🔴 Error paying penalty:', error);
+    console.error('🔴 Error response:', error.response?.data);
+    console.error('🔴 Error status:', error.response?.status);
+    throw error;
+  }
+};
+
+/**
+ * Kiểm tra xem user có thể mở khóa không
+ */
+export const canUnlockUser = async (userId: number): Promise<APIResponse<boolean>> => {
+  try {
+    const response = await api.get<APIResponse<boolean>>(`/api/penalties/user/${userId}/can-unlock`);
+    return response.data;
+  } catch (error: any) {
+    console.error('Error checking unlock status:', error);
+    throw error;
+  }
+};
 
 export default api;
 
