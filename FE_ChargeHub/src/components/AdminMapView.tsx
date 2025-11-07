@@ -70,6 +70,8 @@ import { useLanguage } from "../contexts/LanguageContext";
 
 type StationStatus = "ACTIVE" | "INACTIVE" | "MAINTENANCE";
 
+type ChargingPointStatus = "AVAILABLE" | "OCCUPIED" | "OUT_OF_SERVICE" | "MAINTENANCE" | "RESERVED";
+
 
 
 interface ConnectorType {
@@ -240,6 +242,30 @@ interface PortType {
 
 
 
+type POIItem = {
+
+    id: string;
+
+    name: string;
+
+    address: string;
+
+    longitude: number;
+
+    latitude: number;
+
+    properties: Record<string, any>;
+
+    normalizedName: string;
+
+    normalizedAddress: string;
+
+    searchText: string;
+
+};
+
+
+
 interface AdminMapViewProps {
 
     onBack: () => void;
@@ -278,8 +304,8 @@ function sanitizeStation(raw: any): ChargingStation {
 
             console.log(`Processing charging point ${index}:`, point);
 
-            
-            
+
+
             // Ưu tiên lấy từ connectorType trước
 
             const connectorType = point.connectorType || {};
@@ -290,8 +316,8 @@ function sanitizeStation(raw: any): ChargingStation {
 
             const pricePerKwh = connectorType.pricePerKWh || point.pricePerKwh || 0;
 
-            
-            
+
+
             console.log(`Point ${index} extracted from connectorType:`, {
 
                 typeName,
@@ -304,8 +330,8 @@ function sanitizeStation(raw: any): ChargingStation {
 
             });
 
-            
-            
+
+
             return {
 
                 chargingPointId: Number(point.chargingPointId ?? 0),
@@ -460,6 +486,15 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
     const [connectorToDelete, setConnectorToDelete] = useState<{ id: string; name: string } | null>(null);
 
+    const [isAddChargingPointDialogOpen, setIsAddChargingPointDialogOpen] = useState(false);
+
+    const [newChargingPoint, setNewChargingPoint] = useState({
+        typeName: "",
+        status: "AVAILABLE" as ChargingPointStatus,
+        connectorTypeId: 0,
+        stationId: 0
+    });
+
     const [carModels, setCarModels] = useState<Array<{ carModelId: number; brand: string; model: string; connectorTypeId: number }>>([]);
 
     const [isCarModelsLoading, setIsCarModelsLoading] = useState(false);
@@ -467,6 +502,10 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
     const [searchQuery, setSearchQuery] = useState("");
 
     const [statusFilter, setStatusFilter] = useState<string>("all");
+
+    // Pagination state
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage] = useState(5); // 5 stations per page
 
     const [mapCenter, setMapCenter] = useState({ lat: 10.7769, lng: 106.7009 });
 
@@ -538,6 +577,15 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
 
 
+
+    // Helper function to get auth headers
+    const getAuthHeaders = () => {
+        const token = localStorage.getItem("token");
+        return {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+        };
+    };
 
     // Gắn token thủ công cho mọi request axios trong file này
     useEffect(() => {
@@ -653,6 +701,8 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
                 payload,
 
+                { headers: getAuthHeaders() }
+
             );
 
 
@@ -711,7 +761,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
         try {
 
-            const res = await axios.get("http://localhost:8080/api/charging-stations",);
+            const res = await axios.get("http://localhost:8080/api/charging-stations", { headers: getAuthHeaders() });
 
 
 
@@ -767,7 +817,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
         try {
 
-            const res = await axios.get("http://localhost:8080/api/charging-points",);
+            const res = await axios.get("http://localhost:8080/api/charging-points", { headers: getAuthHeaders() });
 
 
 
@@ -865,7 +915,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
         try {
 
-            const res = await axios.get("http://localhost:8080/api/connector-types");
+            const res = await axios.get("http://localhost:8080/api/connector-types", { headers: getAuthHeaders() });
 
 
 
@@ -913,30 +963,30 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
         if (isCarModelsLoading) return null;
 
-        
-        
+
+
         setIsCarModelsLoading(true);
 
         try {
 
-            const res = await axios.get("http://localhost:8080/api/carModel");
+            const res = await axios.get("http://localhost:8080/api/carModel", { headers: getAuthHeaders() });
 
-            
-            
+
+
             if (res.status === 200 && res.data.success) {
 
                 console.log("Car Models API Response:", res.data);
 
                 // Filter out invalid entries (where brand or model is null)
 
-                const validModels = res.data.data.filter((model: any) => 
+                const validModels = res.data.data.filter((model: any) =>
 
                     model.brand && model.model && model.brand !== null && model.model !== null
 
                 );
 
-                
-                
+
+
                 const carModelsData = validModels.map((model: any) => ({
 
                     carModelId: model.carModelId,
@@ -949,16 +999,16 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
                 }));
 
-                
-                
+
+
                 setCarModels(carModelsData);
 
                 return carModelsData;
 
             }
 
-            
-            
+
+
             return null;
 
         } catch (err: any) {
@@ -983,7 +1033,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
         try {
 
-            const res = await axios.get(`http://localhost:8080/api/connector-types/${connectorTypeId}`);
+            const res = await axios.get(`http://localhost:8080/api/connector-types/${connectorTypeId}`, { headers: getAuthHeaders() });
 
 
 
@@ -1025,6 +1075,50 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
         }
 
+    };
+
+    // Function to fetch specific charging point details by ID
+    const fetchChargingPointById = async (chargingPointId: number): Promise<ChargingPoint | null> => {
+        try {
+            const res = await axios.get(`http://localhost:8080/api/charging-points/${chargingPointId}`, { headers: getAuthHeaders() });
+
+            if (res.status === 200) {
+                console.log("Charging Point Details API Response:", res.data);
+                return {
+                    chargingPointId: res.data.chargingPointId,
+                    status: res.data.status,
+                    connectorTypeId: res.data.connectorTypeId,
+                    stationId: res.data.stationId,
+                    powerOutput: res.data.powerOutput || res.data.connectorType?.powerOutput || 0,
+                    pricePerKwh: res.data.pricePerKwh || res.data.connectorType?.pricePerKWh || 0,
+                    typeName: res.data.connectorType?.typeName,
+                    connectorType: res.data.connectorType ? {
+                        connectorTypeId: res.data.connectorType.connectorTypeId,
+                        typeName: res.data.connectorType.typeName,
+                        powerOutput: res.data.connectorType.powerOutput,
+                        pricePerKwh: res.data.connectorType.pricePerKWh
+                    } : undefined,
+                    station: res.data.station ? {
+                        stationId: res.data.station.stationId,
+                        stationName: res.data.station.stationName,
+                        address: res.data.station.address,
+                        status: res.data.station.status,
+                        latitude: res.data.station.latitude,
+                        longitude: res.data.station.longitude,
+                        chargingPoint: res.data.station.chargingPoint,
+                        chargingPointNumber: res.data.station.chargingPointNumber
+                    } : undefined
+                };
+            }
+
+            throw new Error("Không thể lấy thông tin chi tiết trụ sạc");
+        } catch (err: any) {
+            console.error("Error fetching charging point details:", err);
+            const msg =
+                err?.response?.data?.message || "Lấy thông tin chi tiết trụ sạc thất bại. Vui lòng thử lại.";
+            toast.error(msg);
+            return null;
+        }
     };
 
     const handleGetConnectorList = async () => {
@@ -1193,6 +1287,8 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
                 payload,
 
+                { headers: getAuthHeaders() }
+
             );
 
 
@@ -1257,6 +1353,8 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
                 `http://localhost:8080/api/charging-stations/${stationId}`,
 
+                { headers: getAuthHeaders() }
+
             );
 
 
@@ -1297,7 +1395,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
     };
 
-    const callApiForConnectorDeleting = async (connectorId: string): Promise<boolean> => {
+    const callApiForChargingPointDeleting = async (chargingPointId: number): Promise<boolean> => {
 
         setLoading(true);
 
@@ -1309,7 +1407,9 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
             const res = await axios.delete(
 
-                `http://localhost:8080/api/connector-types/${connectorId}`,
+                `http://localhost:8080/api/charging-points/${chargingPointId}`,
+
+                { headers: getAuthHeaders() }
 
             );
 
@@ -1351,9 +1451,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
     };
 
-
-
-    const callApiForConnectorAdding = async (): Promise<newPortType | null> => {
+    const callApiForChargingPointAdding = async (): Promise<ChargingPoint | null> => {
 
         setLoading(true);
 
@@ -1363,21 +1461,25 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
             const payload = {
 
-                typeName: newPortType.name.trim(),
+                typeName: newChargingPoint.typeName.trim(),
 
-                powerOutput: Number(newPortType.power),
+                status: newChargingPoint.status,
 
-                pricePerKwh: Number(newPortType.price)
+                connectorTypeId: Number(newChargingPoint.connectorTypeId),
+
+                stationId: Number(newChargingPoint.stationId)
 
             };
 
-
+            console.log("Adding charging point with payload:", payload);
 
             const res = await axios.post(
 
-                "http://localhost:8080/api/connector-types",
+                "http://localhost:8080/api/charging-points",
 
                 payload,
+
+                { headers: getAuthHeaders() }
 
             );
 
@@ -1385,17 +1487,25 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
             if (res.status === 200 || res.status === 201) {
 
-                toast.success(t('success'));
+                toast.success(language === 'vi' ? 'Thêm trụ sạc thành công!' : 'Charging point added successfully!');
 
                 return {
 
-                    connectorId: res.data.connectorTypeId,
+                    chargingPointId: res.data.chargingPointId ?? res.data.id,
 
-                    name: res.data?.typeName ?? payload.typeName,
+                    status: res.data.status ?? payload.status,
 
-                    power: res.data?.powerOutput ?? payload.powerOutput,
+                    connectorTypeId: res.data.connectorTypeId ?? payload.connectorTypeId,
 
-                    price: res.data?.pricePerKwh ?? payload.pricePerKwh
+                    stationId: res.data.stationId ?? payload.stationId,
+
+                    powerOutput: res.data.powerOutput ?? 0,
+
+                    pricePerKwh: res.data.pricePerKwh ?? 0,
+
+                    typeName: res.data.typeName ?? payload.typeName,
+
+                    connectorType: res.data.connectorType
 
                 };
 
@@ -1405,9 +1515,15 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
             throw new Error(t('error_loading_data'));
 
-        } catch (err: any) {
+        } catch (err: unknown) {
 
-            const msg = err?.response?.data?.message || t('error_loading_data');
+            const msg =
+
+                err instanceof AxiosError && err.response?.data?.message
+
+                    ? err.response.data.message
+
+                    : t('error_loading_data');
 
             setError(msg);
 
@@ -1421,7 +1537,10 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
         }
 
-    }
+    };
+
+
+
 
     // ========= HẾT API =========
 
@@ -1571,7 +1690,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
                 </div>
 
-                <div class="absolute top-10 left-1/2 -translate-x-1/2 bg-black border border-gray-600 rounded-lg px-3 py-2 text-xs font-medium whitespace-nowrap shadow-xl text-white">
+                <div class="absolute top-10 left-1/2 -translate-x-1/2 bg-black border border-border rounded-lg px-3 py-2 text-xs font-medium whitespace-nowrap shadow-xl text-white">
 
                     ${poi.name}
 
@@ -1817,15 +1936,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
                 status,
 
-                {
-
-                    headers: {
-
-                        'Content-Type': 'application/json'
-
-                    }
-
-                }
+                { headers: getAuthHeaders() }
 
             );
 
@@ -1923,38 +2034,38 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
         try {
 
-            const res = await axios.get(`http://localhost:8080/api/charging-points/station/${stationId}`);
+            const res = await axios.get(`http://localhost:8080/api/charging-points/station/${stationId}`, { headers: getAuthHeaders() });
 
-            
-            
+
+
             if (res.status === 200 && Array.isArray(res.data) && res.data.length > 0) {
 
                 console.log("Charging Points by Station ID API Response:", res.data);
 
-                
-                
+
+
                 // Get station info from the first charging point's station data
 
                 const firstPoint = res.data[0];
 
                 const stationData = firstPoint.station;
 
-                
-                
+
+
                 // Calculate available and total points
 
                 const totalPoints = res.data.length;
 
                 const availablePoints = res.data.filter(point => point.status === 'AVAILABLE').length;
 
-                
-                
+
+
                 // Process connector types from charging points
 
                 const connectorTypesMap = new Map<string, ConnectorType>();
 
-                
-                
+
+
                 res.data.forEach((point: any) => {
 
                     const connectorType = point.connectorType;
@@ -1963,8 +2074,8 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
                     const existing = connectorTypesMap.get(typeName);
 
-                    
-                    
+
+
                     if (existing) {
 
                         existing.total += 1;
@@ -2001,12 +2112,12 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
                 });
 
-                
-                
+
+
                 const connectorTypes = Array.from(connectorTypesMap.values());
 
-                
-                
+
+
                 // Map charging points to the expected format
 
                 const chargingPoints: ChargingPoint[] = res.data.map((point: any) => ({
@@ -2059,8 +2170,8 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
                 }));
 
-                
-                
+
+
                 // Create the station object with all details
 
                 const station: ChargingStation = {
@@ -2117,14 +2228,14 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
                 };
 
-                
-                
+
+
                 return station;
 
             }
 
-            
-            
+
+
             throw new Error("Không thể lấy thông tin trạm sạc");
 
         } catch (err: any) {
@@ -2147,11 +2258,42 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
 
 
-    const handleAddPortType = async () => {
 
-        if (!newPortType.name.trim() || !newPortType.power.trim() || !newPortType.price.trim()) {
 
-            toast.error("Vui lòng điền đầy đủ thông tin");
+
+    const handleCancelAddPortType = () => {
+
+        setNewPortType({ name: "", power: "", price: "" });
+
+        setShowAddPortTypePopup(false);
+
+    };
+
+    const handleAddChargingPoint = async () => {
+
+        if (!newChargingPoint.typeName.trim()) {
+
+            toast.error(language === 'vi' ? "Vui lòng chọn loại connector" : "Please select connector type");
+
+            return;
+
+        }
+
+
+
+        if (!selectedStation) {
+
+            toast.error(language === 'vi' ? "Vui lòng chọn trạm sạc" : "Please select a station");
+
+            return;
+
+        }
+
+
+
+        if (!newChargingPoint.connectorTypeId || newChargingPoint.connectorTypeId === 0) {
+
+            toast.error(language === 'vi' ? "Vui lòng chọn loại connector hợp lệ" : "Please select valid connector type");
 
             return;
 
@@ -2161,45 +2303,59 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
         try {
 
-            const result = await callApiForConnectorAdding();
+            // Set station ID from selected station
+
+            const updatedPoint = {
+
+                ...newChargingPoint,
+
+                stationId: Number(selectedStation.id)
+
+            };
+
+
+
+            setNewChargingPoint(updatedPoint);
+
+
+
+            const result = await callApiForChargingPointAdding();
 
             if (result) {
 
-                const newPortTypeData = {
+                // Reset form
 
-                    name: result.name,
+                setNewChargingPoint({
 
-                    power: result.power.toString(),
+                    typeName: "",
 
-                    price: result.price.toString()
+                    status: "AVAILABLE",
 
-                };
+                    connectorTypeId: 0,
+
+                    stationId: 0
+
+                });
+
+                setIsAddChargingPointDialogOpen(false);
 
 
 
-                setPortTypes(prev => [...prev, newPortTypeData]);
+                // Refresh station list to show new charging point
 
-                setNewPortType({ name: "", power: "", price: "" });
+                await handleGetStationList();
 
-                setShowAddPortTypePopup(false);
+
+
+                toast.success(language === 'vi' ? 'Đã thêm trụ sạc thành công!' : 'Charging point added successfully!');
 
             }
 
         } catch (error) {
 
-            console.error("Error adding port type:", error);
+            console.error("Error adding charging point:", error);
 
         }
-
-    };
-
-
-
-    const handleCancelAddPortType = () => {
-
-        setNewPortType({ name: "", power: "", price: "" });
-
-        setShowAddPortTypePopup(false);
 
     };
 
@@ -2411,9 +2567,23 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
 
 
+    const RAW_MAPTILER_API_KEY = (import.meta.env.VITE_MAPTILER_API_KEY ?? "").toString().trim();
+
+
+
+    const MAPTILER_API_KEY =
+
+        RAW_MAPTILER_API_KEY && RAW_MAPTILER_API_KEY !== "get_your_free_key_from_maptiler_cloud"
+
+            ? RAW_MAPTILER_API_KEY
+
+            : "Hx1e4dmbVOmTN9A5LuRd";
+
+
+
     const MAPTILER_POI_URL =
 
-        `https://api.maptiler.com/data/0199acb6-5ff7-7e19-8995-ec24562f08ef/features.json?key=${import.meta.env.VITE_MAPTILER_API_KEY}`;
+        `https://api.maptiler.com/data/0199acb6-5ff7-7e19-8995-ec24562f08ef/features.json?key=${MAPTILER_API_KEY}`;
 
 
 
@@ -2443,7 +2613,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
         try {
 
-            const apiKey = import.meta.env.VITE_MAPTILER_API_KEY;
+            const apiKey = MAPTILER_API_KEY;
 
             if (!apiKey) return null;
 
@@ -2591,7 +2761,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
         try {
 
-            const apiKey = import.meta.env.VITE_MAPTILER_API_KEY;
+            const apiKey = MAPTILER_API_KEY;
 
             if (!apiKey) {
 
@@ -2614,10 +2784,22 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
             }
 
 
+            console.log("🔄 Fetching POIs from MapTiler API...");
+            console.log("API Key:", apiKey.substring(0, 10) + "...");
 
             const res = await axios.get(`https://api.maptiler.com/data/0199acb6-5ff7-7e19-8995-ec24562f08ef/features.json?key=${apiKey}`);
 
+            console.log("✅ MapTiler API Response:", res.status);
+            console.log("Response data structure:", {
+                hasData: !!res.data,
+                hasFeatures: !!res.data?.features,
+                featuresType: typeof res.data?.features,
+                isArray: Array.isArray(res.data?.features),
+                featuresLength: res.data?.features?.length
+            });
+
             const features = Array.isArray(res.data?.features) ? res.data.features : [];
+            console.log(`📍 Total features from API: ${features.length}`);
 
 
 
@@ -2681,6 +2863,8 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
                         skippedInvalid++;
 
+                        if (idx < 5) console.log(`⚠️ Skipped invalid coords [${lng}, ${lat}] for feature ${idx}`);
+
                         return null;
 
                     }
@@ -2690,6 +2874,8 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                         [lng, lat] = [lat, lng];
 
                         swappedLatLng++;
+
+                        if (idx < 5) console.log(`🔄 Swapped coords for feature ${idx}: [${lat}, ${lng}]`);
 
                     }
 
@@ -2702,6 +2888,8 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                     if (!inBBox(lngNum, latNum)) {
 
                         skippedOutOfVN++;
+
+                        if (idx < 5) console.log(`🌍 Skipped out of VN [${lngNum}, ${latNum}] for feature ${idx}`);
 
                         return null;
 
@@ -2807,9 +2995,9 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
 
 
-                    return {
+                    const poi = {
 
-                        id: String(props.id ?? props.stationId ?? props._id ?? `poi-${idx}`),
+                        id: String(f.id ?? props["@id"] ?? props.id ?? props.stationId ?? props._id ?? `poi-${idx}`),
 
                         name: String(props.name ?? props.title ?? "POI (chưa có trạm)"),
 
@@ -2821,15 +3009,21 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
                     };
 
+                    console.log(`POI ${idx + 1}:`, poi.name, `at [${poi.longitude}, ${poi.latitude}]`);
+
+                    return poi;
+
                 })
 
                 .filter(Boolean) as Array<{
 
-                    id: string; name: string; address: string; longitude: number; latitude: number;
+                id: string; name: string; address: string; longitude: number; latitude: number;
 
-                }>;
+            }>;
 
 
+            console.log(`✅ Processed ${candidates.length} valid POIs`);
+            console.log(`⚠️ Skipped: ${skippedInvalid} invalid, ${skippedOutOfVN} outside VN, ${swappedLatLng} swapped coords`);
 
             // Không vẽ POI markers nữa - đã tắt hoàn toàn
 
@@ -2937,27 +3131,132 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
             );
 
-        } catch (err) {
+        } catch (err: any) {
 
-            console.error("Lỗi khi fetch POI từ MapTiler:", err);
+            console.error("❌ Lỗi khi fetch POI từ MapTiler API:", err);
+            console.error("Error details:", {
+                message: err.message,
+                response: err.response?.data,
+                status: err.response?.status
+            });
 
-            toast.error("Không thể lấy POI từ MapTiler API");
+            // Try to load from local export.geojson file as fallback
+            try {
+                console.log("🔄 Trying to load from local export.geojson file...");
 
+                const localRes = await axios.get('/export.geojson');
+                const localFeatures = Array.isArray(localRes.data?.features) ? localRes.data.features : [];
 
+                console.log(`📂 Loaded ${localFeatures.length} features from local file`);
 
-            // Fallback to mock data on error
+                if (localFeatures.length > 0) {
+                    // Process local features the same way
+                    let skippedInvalid = 0;
+                    let skippedOutOfVN = 0;
+                    let swappedLatLng = 0;
 
-            const mockPOI = [
+                    const candidates = localFeatures
+                        .filter((f: any) => {
+                            return (f?.geometry?.type === "Point" || f?.geometry?.type === "Polygon") &&
+                                Array.isArray(f?.geometry?.coordinates);
+                        })
+                        .map((f: any, idx: number) => {
+                            let lng, lat;
 
-                { id: "poi-1", name: "Siêu Thị Bình Hòa", address: "123 Nguyễn Huệ, Quận 1, TP.HCM", longitude: 106.6981, latitude: 10.8163 },
+                            if (f.geometry.type === "Point") {
+                                [lng, lat] = f.geometry.coordinates as [number, number];
+                            } else if (f.geometry.type === "Polygon" && f.geometry.coordinates[0] && f.geometry.coordinates[0][0]) {
+                                const coords = f.geometry.coordinates[0];
+                                const center = coords.reduce((acc: number[], coord: number[]) => {
+                                    return [(acc[0] || 0) + (coord[0] || 0), (acc[1] || 0) + (coord[1] || 0)];
+                                }, [0, 0]);
+                                lng = (center[0] || 0) / coords.length;
+                                lat = (center[1] || 0) / coords.length;
+                            } else {
+                                return null;
+                            }
 
-                { id: "poi-2", name: "Co.opmart Nguyễn Đình Chiểu", address: "168 Nguyễn Đình Chiểu, Quận 3, TP.HCM", longitude: 106.6928, latitude: 10.7815 },
+                            if ((lng === 0 && lat === 0) || (nearZero(lng) && nearZero(lat))) {
+                                skippedInvalid++;
+                                return null;
+                            }
 
-                { id: "poi-3", name: "Mega Market An Phú", address: "Khu B, Phường An Phú, Thủ Đức, TP.HCM", longitude: 106.7422, latitude: 10.8008 }
+                            if (lng >= 8 && lng <= 24.8 && lat >= 102 && lat <= 110) {
+                                [lng, lat] = [lat, lng];
+                                swappedLatLng++;
+                            }
 
-            ];
+                            const lngNum = Number(lng);
+                            const latNum = Number(lat);
 
-            setPoiList(mockPOI);
+                            if (!inBBox(lngNum, latNum)) {
+                                skippedOutOfVN++;
+                                return null;
+                            }
+
+                            const props = f?.properties ?? {};
+
+                            // Build address from properties
+                            let address = "";
+
+                            if (props["addr:street"] && props["addr:housenumber"]) {
+                                address = `${props["addr:housenumber"]} ${props["addr:street"]}`;
+                                if (props["addr:subdistrict"]) address += `, ${props["addr:subdistrict"]}`;
+                                if (props["addr:district"]) address += `, ${props["addr:district"]}`;
+                                if (props["addr:city"]) address += `, ${props["addr:city"]}`;
+                                if (props["addr:province"]) address += `, ${props["addr:province"]}`;
+                            } else if (props["addr:street"]) {
+                                address = props["addr:street"];
+                                if (props["addr:city"]) address += `, ${props["addr:city"]}`;
+                                if (props["addr:province"]) address += `, ${props["addr:province"]}`;
+                            } else if (props.description) {
+                                address = props.description;
+                            } else if (props.name) {
+                                const additionalInfo = [];
+                                if (props["addr:city"]) additionalInfo.push(props["addr:city"]);
+                                if (props["addr:district"]) additionalInfo.push(props["addr:district"]);
+                                if (props["addr:province"]) additionalInfo.push(props["addr:province"]);
+
+                                address = props.name;
+                                if (additionalInfo.length > 0) {
+                                    address += ` (${additionalInfo.join(", ")})`;
+                                }
+                            } else {
+                                address = "Địa chỉ chưa xác định";
+                            }
+
+                            address = address.trim().replace(/,\s*,/g, ',').replace(/,\s*$/, '');
+
+                            return {
+                                id: String(f.id ?? props["@id"] ?? props.id ?? `poi-local-${idx}`),
+                                name: String(props.name ?? props.title ?? "POI (chưa có trạm)"),
+                                address: address,
+                                longitude: lngNum,
+                                latitude: latNum,
+                            };
+                        })
+                        .filter(Boolean) as Array<{
+                        id: string; name: string; address: string; longitude: number; latitude: number;
+                    }>;
+
+                    setPoiList(candidates);
+                    console.log(`✅ Loaded ${candidates.length} POIs from local file`);
+
+                    toast.success(
+                        `Đã tải ${candidates.length} địa điểm từ file local. Bỏ ${skippedInvalid} vô hiệu, ${skippedOutOfVN} ngoài VN` +
+                        (swappedLatLng ? `, sửa ${swappedLatLng} điểm đảo lat/lng.` : ".")
+                    );
+
+                    return;
+                }
+            } catch (localErr) {
+                console.error("❌ Cannot load from local file either:", localErr);
+            }
+
+            // Final fallback to mock data
+            toast.error("Không thể lấy POI từ MapTiler API", {
+                description: "Đang sử dụng dữ liệu mẫu"
+            });
 
         }
 
@@ -3233,6 +3532,30 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
         console.log("Starting deletion for station:", stationId);
 
+        // Check if station has any charging points that are OCCUPIED or RESERVED
+        const station = stations.find((s) => s.id === stationId);
+
+        if (station && station.chargingPoints && station.chargingPoints.length > 0) {
+            const busyPoints = station.chargingPoints.filter(
+                point => point.status === 'OCCUPIED' || point.status === 'RESERVED'
+            );
+
+            if (busyPoints.length > 0) {
+                const busyPointIds = busyPoints.map(p => `#${p.chargingPointId}`).join(', ');
+                const statusList = busyPoints.map(p =>
+                    p.status === 'OCCUPIED' ? t('occupied') : t('reserved')
+                ).join(', ');
+
+                toast.error(
+                    t('cannot_delete_station'),
+                    {
+                        description: `${t('station_has_busy_points')}: ${busyPointIds} (${statusList}). ${t('cannot_delete_or_modify')}`
+                    }
+                );
+                return;
+            }
+        }
+
 
 
         try {
@@ -3353,7 +3676,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
         // Check in car models
 
-        const isUsedInCarModels = carModels.some(carModel => 
+        const isUsedInCarModels = carModels.some(carModel =>
 
             carModel.connectorTypeId === Number(connectorId)
 
@@ -3459,47 +3782,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
 
 
-    const confirmDeleteConnectorType = async () => {
 
-        if (!connectorToDelete) return;
-
-
-
-        try {
-
-            const success = await callApiForConnectorDeleting(connectorToDelete.id);
-
-            console.log("Deletion success:", success);
-
-            if (!success) return;
-
-
-
-            // Update state to remove the connector type
-
-            console.log("Removing connector type from state...");
-
-            setPortTypes((prev) => prev.filter((connector) => connector.connectorId !== connectorToDelete.id));
-
-
-
-            toast.success(t('success'));
-
-        } catch (err) {
-
-            console.error("Error deleting connector:", err);
-
-            toast.error(t('error_loading_data'));
-
-        } finally {
-
-            setIsDeleteConnectorDialogOpen(false);
-
-            setConnectorToDelete(null);
-
-        }
-
-    };
 
 
 
@@ -3539,7 +3822,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
             ACTIVE: { label: t('active'), class: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-200" },
 
-            INACTIVE: { label: t('inactive'), class: "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-200" },
+            INACTIVE: { label: t('inactive'), class: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-200" },
 
             MAINTENANCE: {
 
@@ -3573,19 +3856,19 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
             case "ACTIVE":
 
-                return "#00ff88";
+                return "#22c55e"; // Green-500 - đậm và soft hơn
 
             case "INACTIVE":
 
-                return "#ff4444";
+                return "#ef4444"; // Red-500 - đậm và soft hơn
 
             case "MAINTENANCE":
 
-                return "#ffaa00";
+                return "#f59e0b"; // Amber-500 - đậm và soft hơn
 
             default:
 
-                return "#666666";
+                return "#64748b"; // Slate-500 - soft hơn
 
         }
 
@@ -3604,6 +3887,17 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
         return matchesSearch && matchesStatus;
 
     });
+
+    // Pagination logic
+    const totalPages = Math.ceil(filteredStations.length / itemsPerPage);
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    const paginatedStations = filteredStations.slice(startIndex, endIndex);
+
+    // Reset to first page when search/filter changes
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchQuery, statusFilter]);
 
 
 
@@ -3637,8 +3931,8 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
                     setSelectedStation(detailedStation);
 
-                    
-                    
+
+
                     // Use the detailed station data for form fields
 
                     setStationName(detailedStation.name);
@@ -3781,8 +4075,8 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
         setSelectedStationPopup(station);
 
-        
-        
+
+
         // Then fetch complete station details using the new method
 
         try {
@@ -3797,18 +4091,18 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
                 setSelectedStationPopup(detailedStation);
 
-                
-                
+
+
                 // Also update the station in the stations list
 
-                setStations(prev => prev.map(s => 
+                setStations(prev => prev.map(s =>
 
                     s.id === station.id ? detailedStation : s
 
                 ));
 
-                
-                
+
+
                 console.log("Station details updated with complete information:", detailedStation);
 
             }
@@ -3827,351 +4121,351 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
     const handleViewAllChargingPoints = async (station: ChargingStation) => {
 
-  setSelectedStationForAllPoints(station);
+        setSelectedStationForAllPoints(station);
 
 
 
-  // Use the already loaded charging points from the station data (no API call needed)
+        // Use the already loaded charging points from the station data (no API call needed)
 
-  if (station.chargingPoints && station.chargingPoints.length > 0) {
+        if (station.chargingPoints && station.chargingPoints.length > 0) {
 
-    setAllChargingPoints(station.chargingPoints);
+            setAllChargingPoints(station.chargingPoints);
 
-    setIsAllChargingPointsDialogOpen(true);
+            setIsAllChargingPointsDialogOpen(true);
 
-    return;
-
-  }
-
-
-
-  // Fallback: If no charging points in station data, try to fetch them
-
-  try {
-
-    const detailedStation = await fetchChargingPointsByStationId(station.id);
-
-    if (detailedStation && detailedStation.chargingPoints) {
-
-      setAllChargingPoints(detailedStation.chargingPoints);
-
-      setIsAllChargingPointsDialogOpen(true);
-
-      return;
-
-    }
-
-
-
-    // Final fallback to original method
-
-    const points = await fetchChargingPoints();
-
-    if (!points) {
-
-      setAllChargingPoints([]);
-
-      setIsAllChargingPointsDialogOpen(true);
-
-      return;
-
-    }
-
-
-
-    const stationIdNum = Number(station.id);
-
-
-
-    // Lọc trụ thuộc đúng station
-
-    const stationPointsFromAll = points.filter((p: any) => {
-
-      const sid = p.stationId ?? p.station?.stationId ?? p.station_id;
-
-      return Number(sid) === stationIdNum;
-
-    });
-
-
-
-    // Ưu tiên dùng station.chargingPoints nếu có id hợp lệ, ngược lại dùng danh sách đã lọc
-
-    const sourcePoints: any[] =
-
-      Array.isArray(station.chargingPoints) &&
-
-      station.chargingPoints.some((p: any) => p?.chargingPointId ?? p?.id)
-
-        ? station.chargingPoints
-
-        : stationPointsFromAll;
-
-
-
-    if (sourcePoints.length === 0) {
-
-      console.log("No charging points found for this station");
-
-      setAllChargingPoints([]);
-
-      setIsAllChargingPointsDialogOpen(true);
-
-      return;
-
-    }
-
-
-
-    // Các hàm tiện ích NỘI BỘ (đều khai báo trong chính hàm này):
-
-    const getConnectorTypeId = (p: any): number | undefined => {
-
-      return (
-
-        p.connectorTypeId ??
-
-        p.connector_type_id ??
-
-        p.connectorType?.connectorTypeId ??
-
-        p.station?.chargingPoint?.[0]?.connectorType?.connectorTypeId
-
-      );
-
-    };
-
-
-
-     const extractConnectorDetail = (p: any) => {
-
-       // 1) Ưu tiên lấy từ connectorType trực tiếp trên point (theo cấu trúc API mới)
-
-       if (p.connectorType && (p.connectorType.typeName || p.connectorType.powerOutput)) {
-
-         console.log("Using direct connectorType:", p.connectorType);
-
-         return p.connectorType;
-
-       }
-
-       // 2) Fallback: Tìm trong station.chargingPoint khớp chargingPointId
-
-       const cpId = p.chargingPointId ?? p.id;
-
-       const nest = p.station?.chargingPoint;
-
-       if (Array.isArray(nest)) {
-
-         const found = nest.find((x: any) => (x.chargingPointId ?? x.id) === cpId);
-
-         if (found?.connectorType) {
-
-           console.log("Using nested connectorType:", found.connectorType);
-
-           return found.connectorType;
-
-         }
-
-       }
-
-       return undefined;
-
-     };
-
-
-
-    const pickPrice = (obj: any): number | null => {
-
-      if (!obj) return null;
-
-      if (typeof obj.pricePerKWh === "number") return obj.pricePerKWh; // dạng chuẩn trong mẫu JSON
-
-      if (typeof obj.pricePerKwh === "number") return obj.pricePerKwh; // một số API trả khác hoa/thường
-
-      return null;
-
-    };
-
-
-
-    const pickStatus = (p: any): string => {
-
-      if (p.status) return p.status; // ưu tiên ngay trên point
-
-      const cpId = p.chargingPointId ?? p.id;
-
-      const found = p.station?.chargingPoint?.find((x: any) => (x.chargingPointId ?? x.id) === cpId);
-
-      if (found?.status) return found.status;
-
-      return "UNKNOWN";
-
-    };
-
-
-
-    // Cache fetch connectorType theo id để tránh gọi trùng
-
-    const connectorTypeCache = new Map<number, any>();
-
-    const uniqueConnectorTypeIds = Array.from(
-
-      new Set(
-
-        sourcePoints
-
-          .map(getConnectorTypeId)
-
-          .filter((id): id is number => typeof id === "number")
-
-      )
-
-    );
-
-
-
-    await Promise.all(
-
-      uniqueConnectorTypeIds.map(async (id) => {
-
-        if (connectorTypeCache.has(id)) return;
-
-        try {
-
-          const det = await fetchConnectorTypeById(id);
-
-          if (det) connectorTypeCache.set(id, det);
-
-        } catch (e) {
-
-          console.warn("fetchConnectorTypeById failed for id=", id, e);
+            return;
 
         }
 
-      })
 
-    );
 
+        // Fallback: If no charging points in station data, try to fetch them
 
+        try {
 
-    // Chuẩn hoá từng trụ: lấy đúng powerOutput, pricePerKWh/pricePerKwh và status
+            const detailedStation = await fetchChargingPointsByStationId(station.id);
 
-    const enriched = await Promise.all(
+            if (detailedStation && detailedStation.chargingPoints) {
 
-      sourcePoints.map(async (p: any) => {
+                setAllChargingPoints(detailedStation.chargingPoints);
 
-        const chargingPointId = p.chargingPointId ?? p.id;
+                setIsAllChargingPointsDialogOpen(true);
 
-        const status = pickStatus(p);
+                return;
 
+            }
 
 
-        const inlineConn = extractConnectorDetail(p);
 
-        const connectorTypeId =
+            // Final fallback to original method
 
-          getConnectorTypeId(p) ??
+            const points = await fetchChargingPoints();
 
-          inlineConn?.connectorTypeId ??
+            if (!points) {
 
-          inlineConn?.id;
+                setAllChargingPoints([]);
 
+                setIsAllChargingPointsDialogOpen(true);
 
+                return;
 
-        const fetchedConn =
+            }
 
-          typeof connectorTypeId === "number"
 
-            ? connectorTypeCache.get(connectorTypeId)
 
-            : undefined;
+            const stationIdNum = Number(station.id);
 
 
 
-        const typeName =
+            // Lọc trụ thuộc đúng station
 
-          p.typeName ??
+            const stationPointsFromAll = points.filter((p: any) => {
 
-          inlineConn?.typeName ??
+                const sid = p.stationId ?? p.station?.stationId ?? p.station_id;
 
-          fetchedConn?.typeName ??
+                return Number(sid) === stationIdNum;
 
-          "N/A";
+            });
 
 
 
-         // Ưu tiên lấy từ connectorType trước, sau đó mới đến point level
+            // Ưu tiên dùng station.chargingPoints nếu có id hợp lệ, ngược lại dùng danh sách đã lọc
 
-         const powerOutput =
+            const sourcePoints: any[] =
 
-           (typeof inlineConn?.powerOutput === "number" ? inlineConn.powerOutput : null) ??
+                Array.isArray(station.chargingPoints) &&
 
-           (typeof fetchedConn?.powerOutput === "number" ? fetchedConn.powerOutput : null) ??
+                station.chargingPoints.some((p: any) => p?.chargingPointId ?? p?.id)
 
-           (typeof p.powerOutput === "number" && p.powerOutput > 0 ? p.powerOutput : null) ??
+                    ? station.chargingPoints
 
-           null;
+                    : stationPointsFromAll;
 
 
 
-         const pricePerKwh =
+            if (sourcePoints.length === 0) {
 
-           pickPrice(inlineConn) ??
+                console.log("No charging points found for this station");
 
-           pickPrice(fetchedConn) ??
+                setAllChargingPoints([]);
 
-           (typeof p.pricePerKwh === "number" ? p.pricePerKwh : null) ??
+                setIsAllChargingPointsDialogOpen(true);
 
-           null;
+                return;
 
+            }
 
 
-        return {
 
-          ...p,
+            // Các hàm tiện ích NỘI BỘ (đều khai báo trong chính hàm này):
 
-          chargingPointId,
+            const getConnectorTypeId = (p: any): number | undefined => {
 
-          connectorTypeId,
+                return (
 
-          typeName,
+                    p.connectorTypeId ??
 
-          powerOutput,
+                    p.connector_type_id ??
 
-          pricePerKwh,
+                    p.connectorType?.connectorTypeId ??
 
-          status,
+                    p.station?.chargingPoint?.[0]?.connectorType?.connectorTypeId
 
-        };
+                );
 
-      })
+            };
 
-    );
 
 
+            const extractConnectorDetail = (p: any) => {
 
-    // Sắp xếp cho dễ đọc
+                // 1) Ưu tiên lấy từ connectorType trực tiếp trên point (theo cấu trúc API mới)
 
-    enriched.sort((a, b) => (Number(a.chargingPointId) || 0) - (Number(b.chargingPointId) || 0));
+                if (p.connectorType && (p.connectorType.typeName || p.connectorType.powerOutput)) {
 
+                    console.log("Using direct connectorType:", p.connectorType);
 
+                    return p.connectorType;
 
-    console.log("Enriched station points:", enriched);
+                }
 
-    setAllChargingPoints(enriched);
+                // 2) Fallback: Tìm trong station.chargingPoint khớp chargingPointId
 
-    setIsAllChargingPointsDialogOpen(true);
+                const cpId = p.chargingPointId ?? p.id;
 
-  } catch (err) {
+                const nest = p.station?.chargingPoint;
 
-    console.error("Error fetching charging points:", err);
+                if (Array.isArray(nest)) {
 
-    toast.error(t('error_loading_data'));
+                    const found = nest.find((x: any) => (x.chargingPointId ?? x.id) === cpId);
 
-  }
+                    if (found?.connectorType) {
 
-};
+                        console.log("Using nested connectorType:", found.connectorType);
+
+                        return found.connectorType;
+
+                    }
+
+                }
+
+                return undefined;
+
+            };
+
+
+
+            const pickPrice = (obj: any): number | null => {
+
+                if (!obj) return null;
+
+                if (typeof obj.pricePerKWh === "number") return obj.pricePerKWh; // dạng chuẩn trong mẫu JSON
+
+                if (typeof obj.pricePerKwh === "number") return obj.pricePerKwh; // một số API trả khác hoa/thường
+
+                return null;
+
+            };
+
+
+
+            const pickStatus = (p: any): string => {
+
+                if (p.status) return p.status; // ưu tiên ngay trên point
+
+                const cpId = p.chargingPointId ?? p.id;
+
+                const found = p.station?.chargingPoint?.find((x: any) => (x.chargingPointId ?? x.id) === cpId);
+
+                if (found?.status) return found.status;
+
+                return "UNKNOWN";
+
+            };
+
+
+
+            // Cache fetch connectorType theo id để tránh gọi trùng
+
+            const connectorTypeCache = new Map<number, any>();
+
+            const uniqueConnectorTypeIds = Array.from(
+
+                new Set(
+
+                    sourcePoints
+
+                        .map(getConnectorTypeId)
+
+                        .filter((id): id is number => typeof id === "number")
+
+                )
+
+            );
+
+
+
+            await Promise.all(
+
+                uniqueConnectorTypeIds.map(async (id) => {
+
+                    if (connectorTypeCache.has(id)) return;
+
+                    try {
+
+                        const det = await fetchConnectorTypeById(id);
+
+                        if (det) connectorTypeCache.set(id, det);
+
+                    } catch (e) {
+
+                        console.warn("fetchConnectorTypeById failed for id=", id, e);
+
+                    }
+
+                })
+
+            );
+
+
+
+            // Chuẩn hoá từng trụ: lấy đúng powerOutput, pricePerKWh/pricePerKwh và status
+
+            const enriched = await Promise.all(
+
+                sourcePoints.map(async (p: any) => {
+
+                    const chargingPointId = p.chargingPointId ?? p.id;
+
+                    const status = pickStatus(p);
+
+
+
+                    const inlineConn = extractConnectorDetail(p);
+
+                    const connectorTypeId =
+
+                        getConnectorTypeId(p) ??
+
+                        inlineConn?.connectorTypeId ??
+
+                        inlineConn?.id;
+
+
+
+                    const fetchedConn =
+
+                        typeof connectorTypeId === "number"
+
+                            ? connectorTypeCache.get(connectorTypeId)
+
+                            : undefined;
+
+
+
+                    const typeName =
+
+                        p.typeName ??
+
+                        inlineConn?.typeName ??
+
+                        fetchedConn?.typeName ??
+
+                        "N/A";
+
+
+
+                    // Ưu tiên lấy từ connectorType trước, sau đó mới đến point level
+
+                    const powerOutput =
+
+                        (typeof inlineConn?.powerOutput === "number" ? inlineConn.powerOutput : null) ??
+
+                        (typeof fetchedConn?.powerOutput === "number" ? fetchedConn.powerOutput : null) ??
+
+                        (typeof p.powerOutput === "number" && p.powerOutput > 0 ? p.powerOutput : null) ??
+
+                        null;
+
+
+
+                    const pricePerKwh =
+
+                        pickPrice(inlineConn) ??
+
+                        pickPrice(fetchedConn) ??
+
+                        (typeof p.pricePerKwh === "number" ? p.pricePerKwh : null) ??
+
+                        null;
+
+
+
+                    return {
+
+                        ...p,
+
+                        chargingPointId,
+
+                        connectorTypeId,
+
+                        typeName,
+
+                        powerOutput,
+
+                        pricePerKwh,
+
+                        status,
+
+                    };
+
+                })
+
+            );
+
+
+
+            // Sắp xếp cho dễ đọc
+
+            enriched.sort((a, b) => (Number(a.chargingPointId) || 0) - (Number(b.chargingPointId) || 0));
+
+
+
+            console.log("Enriched station points:", enriched);
+
+            setAllChargingPoints(enriched);
+
+            setIsAllChargingPointsDialogOpen(true);
+
+        } catch (err) {
+
+            console.error("Error fetching charging points:", err);
+
+            toast.error(t('error_loading_data'));
+
+        }
+
+    };
 
 
 
@@ -4271,7 +4565,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
             const response = await fetch(
 
-                `https://api.maptiler.com/geocoding/${address}.json?key=${import.meta.env.VITE_MAPTILER_API_KEY || 'YOUR_API_KEY'}`
+                `https://api.maptiler.com/geocoding/${address}.json?key=${MAPTILER_API_KEY}`
 
             );
 
@@ -4354,6 +4648,29 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
 
     const handleChargerDeactivate = async (stationId: string) => {
+        // Check if station has any charging points that are OCCUPIED or RESERVED
+        const station = stations.find((s) => s.id === stationId);
+
+        if (station && station.chargingPoints && station.chargingPoints.length > 0) {
+            const busyPoints = station.chargingPoints.filter(
+                point => point.status === 'OCCUPIED' || point.status === 'RESERVED'
+            );
+
+            if (busyPoints.length > 0) {
+                const busyPointIds = busyPoints.map(p => `#${p.chargingPointId}`).join(', ');
+                const statusList = busyPoints.map(p =>
+                    p.status === 'OCCUPIED' ? t('occupied') : t('reserved')
+                ).join(', ');
+
+                toast.error(
+                    t('cannot_deactivate_station'),
+                    {
+                        description: `${t('station_has_busy_points')}: ${busyPointIds} (${statusList}). ${t('cannot_delete_or_modify')}`
+                    }
+                );
+                return;
+            }
+        }
 
         const success = await updateStationStatus(stationId, "INACTIVE");
 
@@ -4375,8 +4692,6 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
 
 
-            const station = stations.find((s) => s.id === stationId);
-
             if (station) {
 
                 setSelectedStation({ ...station, status: "INACTIVE", availablePoints: station.totalPoints });
@@ -4392,6 +4707,25 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
     const handleChargerRestart = (stationId: string) => {
 
         const station = stations.find((s) => s.id === stationId);
+
+        // Check if station has any charging points that are OCCUPIED
+        if (station && station.chargingPoints && station.chargingPoints.length > 0) {
+            const occupiedPoints = station.chargingPoints.filter(
+                point => point.status === 'OCCUPIED'
+            );
+
+            if (occupiedPoints.length > 0) {
+                const occupiedPointIds = occupiedPoints.map(p => `#${p.chargingPointId}`).join(', ');
+
+                toast.error(
+                    t('cannot_restart_station'),
+                    {
+                        description: `${t('station_has_occupied_points')}: ${occupiedPointIds}. ${t('cannot_restart_while_in_use')}`
+                    }
+                );
+                return;
+            }
+        }
 
         if (station) {
 
@@ -4453,14 +4787,14 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
             // Check for API key
 
-            const apiKey = import.meta.env.VITE_MAPTILER_API_KEY;
+            const apiKey = MAPTILER_API_KEY;
 
-            if (!apiKey || apiKey === "get_your_free_key_from_maptiler_cloud") {
+            if (!apiKey) {
 
-                console.warn("VITE_MAPTILER_API_KEY not configured, using basic map fallback");
+                console.warn("MAPTILER_API_KEY not configured, using basic map fallback");
 
-                
-                
+
+
                 // Use OpenStreetMap as fallback
 
                 const map = new maptilersdk.Map({
@@ -4507,12 +4841,12 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
                 });
 
-                
-                
+
+
                 __mapRef.current = map;
 
-                
-                
+
+
                 // Add basic event handlers
 
                 map.on('load', () => {
@@ -4521,14 +4855,14 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
                 });
 
-                
-                
+
+
                 return;
 
             }
 
-            
-            
+
+
             // Use configured API key
 
             const customStyleUrl = `https://api.maptiler.com/maps/019983ed-809a-7bba-8d9b-f5f42a71219e/style.json?key=${apiKey}`;
@@ -4763,801 +5097,473 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
                         <div className="flex items-center justify-between">
 
-                        <div className="flex items-center space-x-4">
-
-                            <Button
-
-                                variant="ghost"
-
-                                onClick={onBack}
-
-                                className="flex items-center space-x-2 text-muted-foreground hover:text-foreground"
-
-                            >
-
-                                <ArrowLeft className="w-4 h-4" />
-
-                                <span>{t('back')}</span>
-
-                            </Button>
-
-                            <div>
-
-                                <h1 className="text-3xl font-semibold bg-gradient-to-r from-primary to-secondary-foreground bg-clip-text text-transparent">
-
-                                    {t('charging_station_map_management')}
-
-                                </h1>
-
-                                <p className="text-muted-foreground mt-2">
-
-                                    {t('monitor_manage_stations')}
-
-                                </p>
-
-                            </div>
-
-                        </div>
-
-
-
-                        <div className="flex items-center space-x-2">
-
-                            <Button variant="outline" onClick={refreshStations} className="flex items-center space-x-2">
-
-                                <RefreshCw className="w-4 h-4" />
-
-                                <span className="hidden sm:inline">{t('refresh')}</span>
-
-                            </Button>
-
-
-
-                            {/* Charging Port Types Management Button */}
-
-                            <div className="relative port-types-popup-container">
+                            <div className="flex items-center space-x-4">
 
                                 <Button
 
-                                    variant="outline"
+                                    variant="ghost"
 
-                                    onClick={async () => {
+                                    onClick={onBack}
 
-                                        // Ensure car models are loaded before opening popup
-
-                                        if (carModels.length === 0) {
-
-                                            await fetchCarModels();
-
-                                        }
-
-                                        setShowPortTypesPopup(!showPortTypesPopup);
-
-                                    }}
-
-                                    className="flex items-center space-x-2 bg-green-600 hover:bg-green-700 text-white border-green-600 hover:border-green-700"
+                                    className="flex items-center space-x-2 text-muted-foreground hover:text-foreground"
 
                                 >
 
-                                    <Plug className="w-4 h-4" />
+                                    <ArrowLeft className="w-4 h-4" />
 
-                                    <span className="hidden sm:inline">{t('port_types')}</span>
+                                    <span>{t('back')}</span>
+
+                                </Button>
+
+                                <div>
+
+                                    <h1 className="text-3xl font-semibold bg-gradient-to-r from-primary to-secondary-foreground bg-clip-text text-transparent">
+
+                                        {t('charging_station_map_management')}
+
+                                    </h1>
+
+                                    <p className="text-muted-foreground mt-2">
+
+                                        {t('monitor_manage_stations')}
+
+                                    </p>
+
+                                </div>
+
+                            </div>
+
+
+
+                            <div className="flex items-center space-x-2">
+
+                                <Button variant="outline" onClick={refreshStations} className="flex items-center space-x-2">
+
+                                    <RefreshCw className="w-4 h-4" />
+
+                                    <span className="hidden sm:inline">{t('refresh')}</span>
 
                                 </Button>
 
 
 
-                                {/* Port Types Popup */}
 
-                                {showPortTypesPopup && (
 
-                                    <div className="absolute top-full right-0 mt-2 w-96 bg-black border border-gray-600 rounded-xl shadow-2xl z-50">
 
-                                        {/* Header */}
 
-                                        <div className="p-4 border-b border-gray-700">
 
-                                            <div className="flex items-center justify-between">
 
-                                                <h3 className="text-lg font-semibold text-white flex items-center space-x-2">
+                                <Dialog
 
-                                                    <Plug className="w-5 h-5 text-green-400" />
+                                    open={isAddDialogOpen}
 
-                                                    <span>{t('manage_port_types')}</span>
+                                    onOpenChange={(open: boolean) => {
 
-                                                </h3>
+                                        setIsAddDialogOpen(open);
 
-                                                <button
+                                        if (open) {
 
-                                                    onClick={() => setShowPortTypesPopup(false)}
+                                            // Load connector types when opening dialog
 
-                                                    className="text-gray-400 hover:text-white transition-colors"
+                                            handleGetConnectorList();
 
-                                                >
+                                        } else {
 
-                                                    <XCircle className="w-5 h-5" />
+                                            // Clear form and markers when dialog closes
 
-                                                </button>
+                                            setStationName("");
 
-                                            </div>
+                                            setAddress("");
 
-                                        </div>
+                                            setStatus("INACTIVE");
 
+                                            setLatitude(null);
 
+                                            setLongitude(null);
 
-                                        {/* Port Types List */}
+                                            setChargingPosts([]);
 
-                                        <div className="max-h-80 overflow-y-auto">
+                                            setError(null);
 
-                                            {portTypes.map((portType, index) => (
+                                            try {
 
-                                                <div key={index} className="p-4 border-b border-gray-800 last:border-b-0 hover:bg-gray-900 transition-colors">
+                                            } catch (err) {
 
-                                                    <div className="flex items-center justify-between">
+                                                console.error("Error clearing click markers:", err);
 
-                                                        <div className="flex-1">
-
-                                                            <div className="flex items-center space-x-2 mb-1">
-
-                                                                <h4 className="font-medium text-white">{portType.name}</h4>
-
-                                                                {portType.connectorId && (
-
-                                                                    <span className="text-xs bg-gray-700 text-gray-300 px-2 py-1 rounded">
-
-                                                                        ID: {portType.connectorId}
-
-                                                                    </span>
-
-                                                                )}
-
-                                                            </div>
-
-                                                            <div className="flex items-center space-x-4 text-sm text-gray-300">
-
-                                                                <div className="flex items-center space-x-1">
-
-                                                                    <Zap className="w-4 h-4 text-yellow-400" />
-
-                                                                    <span>{portType.power} kWh</span>
-
-                                                                </div>
-
-                                                                <div className="flex items-center space-x-1">
-
-                                                                    <span className="text-green-400">₫</span>
-
-                                                                    <span>{portType.price}/kWh</span>
-
-                                                                </div>
-
-                                                            </div>
-
-                                                        </div>
-
-                                                        {portType.connectorId && (
-
-                                                            <Button
-
-                                                                onClick={() => handleDeletingConnectorType(portType.connectorId!)}
-
-                                                                disabled={isCarModelsLoading}
-
-                                                                className={`h-8 w-8 p-0 text-red-400 hover:text-red-300 hover:bg-red-400/10 ${
-
-                                                                    isCarModelsLoading ? 'opacity-50 cursor-not-allowed' : ''
-
-                                                                }`}
-
-                                                            >
-
-                                                                <Trash2 className="w-4 h-4" />
-
-                                                            </Button>
-
-                                                        )}
-
-                                                    </div>
-
-                                                </div>
-
-                                            ))}
-
-                                        </div>
-
-
-
-                                        {/* Add New Port Type Button */}
-
-                                        <div className="p-4 border-t border-gray-700">
-
-                                            <Button
-
-                                                className="w-full bg-green-600 hover:bg-green-700 text-white"
-
-                                                onClick={() => setShowAddPortTypePopup(true)}
-
-                                            >
-
-                                                <Plus className="w-4 h-4 mr-2" />
-
-                                                {t('add_new_port_type')}
-
-                                            </Button>
-
-                                        </div>
-
-                                    </div>
-
-                                )}
-
-                            </div>
-
-
-
-                            {/* Add New Port Type Popup */}
-
-                            {showAddPortTypePopup && (
-
-                                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 add-port-type-popup-container">
-
-                                    <div className="bg-black border border-gray-600 rounded-xl shadow-2xl w-full max-w-md mx-4">
-
-                                        {/* Header */}
-
-                                        <div className="p-6 border-b border-gray-700">
-
-                                            <div className="flex items-center justify-between">
-
-                                                <h3 className="text-xl font-semibold text-white flex items-center space-x-2">
-
-                                                    <Plus className="w-6 h-6 text-green-400" />
-
-                                                    <span>{t('add_new_port_type')}</span>
-
-                                                </h3>
-
-                                                <button
-
-                                                    onClick={handleCancelAddPortType}
-
-                                                    className="text-red-400 hover:text-red-300 hover:bg-red-400/10 transition-colors"
-
-                                                >
-
-                                                    <XCircle className="w-6 h-6" />
-
-                                                </button>
-
-                                            </div>
-
-                                        </div>
-
-
-
-                                        {/* Form */}
-
-                                        <div className="p-6 space-y-4">
-
-                                            {/* Tên cổng sạc */}
-
-                                            <div className="space-y-2">
-
-                                                <label className="text-sm font-medium text-white">{t('port_type_name')}</label>
-
-                                                <input
-
-                                                    type="text"
-
-                                                    value={newPortType.name}
-
-                                                    onChange={(e) => setNewPortType(prev => ({ ...prev, name: e.target.value }))}
-
-                                                    placeholder={t('port_type_name')}
-
-                                                    className="w-full h-12 bg-gray-900 border border-gray-600 rounded-xl px-4 text-white placeholder-gray-400 focus:border-green-500 focus:ring-2 focus:ring-green-500/20 transition-all duration-200"
-
-                                                />
-
-                                            </div>
-
-
-
-                                            {/* Công suất */}
-
-                                            <div className="space-y-2">
-
-                                                <label className="text-sm font-medium text-white">{t('power_output_kw')}</label>
-
-                                                <input
-
-                                                    type="number"
-
-                                                    value={newPortType.power}
-
-                                                    onChange={(e) => setNewPortType(prev => ({ ...prev, power: e.target.value }))}
-
-                                                    placeholder="Nhập công suất"
-
-                                                    className="w-full h-12 bg-gray-900 border border-gray-600 rounded-xl px-4 text-white placeholder-gray-400 focus:border-green-500 focus:ring-2 focus:ring-green-500/20 transition-all duration-200"
-
-                                                />
-
-                                            </div>
-
-
-
-                                            {/* Giá tiền */}
-
-                                            <div className="space-y-2">
-
-                                                <label className="text-sm font-medium text-white">Giá tiền trên mỗi kWh (₫)</label>
-
-                                                <input
-
-                                                    type="number"
-
-                                                    step="0.1"
-
-                                                    value={newPortType.price}
-
-                                                    onChange={(e) => setNewPortType(prev => ({ ...prev, price: e.target.value }))}
-
-                                                    placeholder="Nhập giá tiền"
-
-                                                    className="w-full h-12 bg-gray-900 border border-gray-600 rounded-xl px-4 text-white placeholder-gray-400 focus:border-green-500 focus:ring-2 focus:ring-green-500/20 transition-all duration-200"
-
-                                                />
-
-                                            </div>
-
-                                        </div>
-
-
-
-                                        {/* Actions */}
-
-                                        <div className="p-6 border-t border-gray-700 flex space-x-3">
-
-                                            <Button
-
-                                                variant="outline"
-
-                                                onClick={handleCancelAddPortType}
-
-                                                className="flex-1 h-12 border-gray-600 text-gray-300 hover:bg-gray-800 hover:text-white"
-
-                                            >
-
-                                                {t('cancel')}
-
-                                            </Button>
-
-                                            <Button
-
-                                                onClick={handleAddPortType}
-
-                                                className="flex-1 h-12 bg-green-600 hover:bg-green-700 text-white"
-
-                                            >
-
-                                                {t('add_port_type')}
-
-                                            </Button>
-
-                                        </div>
-
-                                    </div>
-
-                                </div>
-
-                            )}
-
-
-
-                            <Dialog
-
-                                open={isAddDialogOpen}
-
-                                onOpenChange={(open: boolean) => {
-
-                                    setIsAddDialogOpen(open);
-
-                                    if (open) {
-
-                                        // Load connector types when opening dialog
-
-                                        handleGetConnectorList();
-
-                                    } else {
-
-                                        // Clear form and markers when dialog closes
-
-                                        setStationName("");
-
-                                        setAddress("");
-
-                                        setStatus("INACTIVE");
-
-                                        setLatitude(null);
-
-                                        setLongitude(null);
-
-                                        setChargingPosts([]);
-
-                                        setError(null);
-
-                                        try {
-
-                                        } catch (err) {
-
-                                            console.error("Error clearing click markers:", err);
+                                            }
 
                                         }
 
-                                    }
+                                    }}
 
-                                }}
+                                >
 
-                            >
-
-                                <DialogTrigger asChild>
+                                    <DialogTrigger asChild>
 
 
 
-                                </DialogTrigger>
+                                    </DialogTrigger>
 
-                                <DialogContent className="max-w-4xl max-h-[30vh] overflow-y-auto">
+                                    <DialogContent className="max-w-4xl max-h-[85vh] bg-card/95 backdrop-blur-xl border-border/50">
 
-                                    <DialogHeader className="pb-4">
+                                        <DialogHeader className="pb-4 px-1">
 
-                                        <DialogTitle>{t('add_station')}</DialogTitle>
+                                            <DialogTitle className="text-foreground">{t('add_station')}</DialogTitle>
 
-                                        <DialogDescription>{t('add_station_description')}</DialogDescription>
+                                            <DialogDescription className="text-muted-foreground">{t('add_station_description')}</DialogDescription>
 
-                                    </DialogHeader>
-
-
-
-                                    <form onSubmit={handleAddingStation} className="space-y-4">
-
-                                        <ScrollArea className="max-h-[calc(90vh-200px)] pr-2">
-
-                                            {error &&
-
-                                                <div className="text-red-600 text-sm p-2 bg-red-50 rounded">{error}</div>}
-
-                                            <div>
-
-                                                <Label htmlFor="name">{t('station_name')}</Label>
-
-                                                <Input
-
-                                                    id="name"
-
-                                                    placeholder="ChargeHub Premium - Q1"
-
-                                                    value={stationName}
-
-                                                    onChange={(e) => setStationName(e.target.value)}
-
-                                                    disabled={loading}
-
-                                                />
-
-                                            </div>
+                                        </DialogHeader>
 
 
 
-                                            <div>
+                                        <form onSubmit={handleAddingStation} className="space-y-5">
 
-                                                <Label htmlFor="address">{t('station_address')}</Label>
+                                            <div className="space-y-4 max-h-[calc(85vh-180px)] overflow-y-auto pr-3 scrollbar-thin scrollbar-thumb-border/50 scrollbar-track-transparent">
 
-                                                <Textarea
+                                                {error &&
 
-                                                    id="address"
-
-                                                    placeholder="123 Nguyễn Huệ, Quận 1, TP.HCM"
-
-                                                    value={address}
-
-                                                    onChange={(e) => {
-
-                                                        console.log("Address input changed:", e.target.value);
-
-                                                        setAddress(e.target.value);
-
-                                                    }}
-
-                                                    disabled={loading}
-
-                                                />
-
-                                            </div>
-
-
-
-                                            <div>
-
-                                                <Label htmlFor="status">{t('status')}</Label>
-
-                                                <Select value={status} onValueChange={(v: string) => setStatus(v as StationStatus)}
-
-                                                    disabled={loading}>
-
-                                                    <SelectTrigger id="status">
-
-                                                        <SelectValue placeholder={t('select_status')} />
-
-                                                    </SelectTrigger>
-
-                                                    <SelectContent>
-
-                                                        <SelectItem value="ACTIVE">ACTIVE</SelectItem>
-
-                                                        <SelectItem value="INACTIVE">INACTIVE</SelectItem>
-
-                                                        <SelectItem value="MAINTENANCE">MAINTENANCE</SelectItem>
-
-                                                    </SelectContent>
-
-                                                </Select>
-
-                                            </div>
-
-
-
-                                            <div className="grid grid-cols-2 gap-4">
+                                                    <div className="text-red-600 text-sm p-3 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded-lg">{error}</div>}
 
                                                 <div>
 
-                                                    <Label htmlFor="latitude">{t('latitude')}</Label>
+                                                    <Label htmlFor="name">{t('station_name')}</Label>
 
                                                     <Input
 
-                                                        id="latitude"
+                                                        id="name"
 
-                                                        type="number"
+                                                        placeholder="ChargeHub Premium - Q1"
 
-                                                        step="any"
+                                                        value={stationName}
 
-                                                        placeholder="10.7769"
+                                                        onChange={(e) => setStationName(e.target.value)}
 
-                                                        value={latitude ?? ""}
-
-                                                        onChange={(e) => {
-
-                                                            const val = e.target.value;
-
-                                                            setLatitude(val === "" ? null : parseFloat(val));
-
-                                                        }}
-
-                                                        disabled={true}
-
-                                                        className="bg-gray-100 cursor-not-allowed"
+                                                        disabled={loading}
 
                                                     />
 
                                                 </div>
 
+
+
                                                 <div>
 
-                                                    <Label htmlFor="longitude">{t('longitude')}</Label>
+                                                    <Label htmlFor="address">{t('station_address')}</Label>
 
-                                                    <Input
+                                                    <Textarea
 
-                                                        id="longitude"
+                                                        id="address"
 
-                                                        type="number"
+                                                        placeholder="123 Nguyễn Huệ, Quận 1, TP.HCM"
 
-                                                        step="any"
-
-                                                        placeholder="106.7009"
-
-                                                        value={longitude ?? ""}
+                                                        value={address}
 
                                                         onChange={(e) => {
 
-                                                            const val = e.target.value;
+                                                            console.log("Address input changed:", e.target.value);
 
-                                                            setLongitude(val === "" ? null : parseFloat(val));
+                                                            setAddress(e.target.value);
 
                                                         }}
 
-                                                        disabled={true}
-
-                                                        className="bg-gray-100 cursor-not-allowed"
+                                                        disabled={loading}
 
                                                     />
 
                                                 </div>
 
-                                            </div>
 
 
+                                                <div>
 
-                                            {/* Charging Posts Management */}
+                                                    <Label htmlFor="status">{t('status')}</Label>
 
-                                            <div className="space-y-3">
+                                                    <Select value={status} onValueChange={(v: string) => setStatus(v as StationStatus)}
 
-                                                <div className="flex items-center justify-between">
+                                                            disabled={loading}>
 
-                                                    <Label className="text-foreground/90 font-medium">{t('charging_points')} ({chargingPosts.length})</Label>
+                                                        <SelectTrigger id="status">
 
-                                                    <Button
+                                                            <SelectValue placeholder={t('select_status')} />
 
-                                                        type="button"
+                                                        </SelectTrigger>
 
-                                                        onClick={addChargingPost}
+                                                        <SelectContent>
 
-                                                        className="h-8 w-8 p-0 bg-green-600 hover:bg-green-700 text-white rounded-full"
+                                                            <SelectItem value="ACTIVE">ACTIVE</SelectItem>
 
-                                                    >
+                                                            <SelectItem value="INACTIVE">INACTIVE</SelectItem>
 
-                                                        <Plus className="w-4 h-4" />
+                                                            <SelectItem value="MAINTENANCE">MAINTENANCE</SelectItem>
 
-                                                    </Button>
+                                                        </SelectContent>
+
+                                                    </Select>
 
                                                 </div>
 
 
 
-                                                {chargingPosts.length === 0 && (
+                                                <div className="grid grid-cols-2 gap-4">
 
-                                                    <div className="text-center py-6 text-muted-foreground">
+                                                    <div>
 
-                                                        <Plug className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                                                        <Label htmlFor="latitude">{t('latitude')}</Label>
 
-                                                        <p className="text-sm">Chưa có trụ sạc nào</p>
+                                                        <Input
 
-                                                        <p className="text-xs">Nhấn nút + để thêm trụ sạc</p>
+                                                            id="latitude"
+
+                                                            type="number"
+
+                                                            step="any"
+
+                                                            placeholder="10.7769"
+
+                                                            value={latitude ?? ""}
+
+                                                            onChange={(e) => {
+
+                                                                const val = e.target.value;
+
+                                                                setLatitude(val === "" ? null : parseFloat(val));
+
+                                                            }}
+
+                                                            disabled={true}
+
+                                                            className="bg-gray-100 cursor-not-allowed"
+
+                                                        />
 
                                                     </div>
 
-                                                )}
+                                                    <div>
+
+                                                        <Label htmlFor="longitude">{t('longitude')}</Label>
+
+                                                        <Input
+
+                                                            id="longitude"
+
+                                                            type="number"
+
+                                                            step="any"
+
+                                                            placeholder="106.7009"
+
+                                                            value={longitude ?? ""}
+
+                                                            onChange={(e) => {
+
+                                                                const val = e.target.value;
+
+                                                                setLongitude(val === "" ? null : parseFloat(val));
+
+                                                            }}
+
+                                                            disabled={true}
+
+                                                            className="bg-gray-100 cursor-not-allowed"
+
+                                                        />
+
+                                                    </div>
+
+                                                </div>
 
 
 
-                                                {chargingPosts.length > 0 && (
+                                                {/* Charging Posts Management */}
 
-                                                    <div className="max-h-8 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-500 scrollbar-track-gray-800">
+                                                <div className="space-y-3 border-t border-border/30 pt-4">
 
-                                                        <div className="space-y-2">
+                                                    <div className="flex items-center justify-between px-1">
 
-                                                            {chargingPosts.map((post, index) => (
+                                                        <Label className="text-foreground font-medium">{t('charging_points')} ({chargingPosts.length})</Label>
 
-                                                                <div key={post.id} className="p-3 border border-gray-600 rounded-lg bg-gray-900/30">
+                                                        <Button
 
-                                                                    <div className="flex items-center justify-between mb-2">
+                                                            type="button"
 
-                                                                        <h4 className="text-sm font-medium text-white">#{index + 1}</h4>
+                                                            onClick={addChargingPost}
 
-                                                                        <Button
+                                                            className="h-8 w-8 p-0 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg shadow-sm"
 
-                                                                            type="button"
+                                                        >
 
-                                                                            onClick={() => removeChargingPost(post.id)}
+                                                            <Plus className="w-4 h-4" />
 
-                                                                            className="h-5 w-5 p-0 text-red-400 hover:text-red-300 hover:bg-red-400/10"
+                                                        </Button>
 
-                                                                        >
-
-                                                                            <XCircle className="w-3 h-3" />
-
-                                                                        </Button>
-
-                                                                    </div>
+                                                    </div>
 
 
 
-                                                                    <div className="space-y-3">
+                                                    {chargingPosts.length === 0 && (
 
-                                                                        <div>
+                                                        <div className="text-center py-8 px-4 bg-muted/30 border border-border/30 rounded-xl">
 
-                                                                            <label className="text-xs text-gray-400 mb-1 block">{t('connector_type')}</label>
+                                                            <Plug className="w-10 h-10 mx-auto mb-3 opacity-40 text-muted-foreground" />
 
-                                                                            <select
+                                                            <p className="text-sm text-muted-foreground font-medium">Chưa có trụ sạc nào</p>
 
-                                                                                value={post.connectorType}
-
-                                                                                onChange={(e) => {
-
-                                                                                    const selectedType = portTypes.find(type => type.name === e.target.value);
-
-                                                                                    updateChargingPost(post.id, 'connectorType', e.target.value);
-
-                                                                                    if (selectedType) {
-
-                                                                                        updateChargingPost(post.id, 'power', selectedType.power);
-
-                                                                                        updateChargingPost(post.id, 'price', selectedType.price);
-
-                                                                                    }
-
-                                                                                }}
-
-                                                                                className="w-full h-8 text-sm bg-black border border-gray-600 rounded-lg px-3 text-white focus:border-green-500 focus:ring-1 focus:ring-green-500/20 transition-colors"
-
-                                                                            >
-
-                                                                                <option value="">{t('select_connector_type')}</option>
-
-                                                                                {portTypes.map((type, idx) => (
-
-                                                                                    <option key={idx} value={type.name}>
-
-                                                                                        {type.name} ({type.power} kWh - ₫{type.price}/kWh)
-
-                                                                                    </option>
-
-                                                                                ))}
-
-                                                                            </select>
-
-                                                                        </div>
-
-
-
-                                                                        <div>
-
-                                                                            <label className="text-xs text-gray-400 mb-1 block">{t('status')}</label>
-
-                                                                            <select
-
-                                                                                value={post.status}
-
-                                                                                onChange={(e) => updateChargingPost(post.id, 'status', e.target.value)}
-
-                                                                                className="w-full h-8 text-sm bg-black border border-gray-600 rounded-lg px-3 text-white focus:border-green-500 focus:ring-1 focus:ring-green-500/20 transition-colors"
-
-                                                                            >
-
-                                                                                <option value="AVAILABLE">🟢 {t('available')}</option>
-
-                                                                                <option value="OCCUPIED">🔴 {t('occupied')}</option>
-
-                                                                                <option value="OUT_OF_SERVICE">⚫ {t('out_of_service')}</option>
-
-                                                                                <option value="MAINTENANCE">🔧 {t('maintenance')}</option>
-
-                                                                            </select>
-
-                                                                        </div>
-
-                                                                    </div>
-
-                                                                </div>
-
-                                                            ))}
+                                                            <p className="text-xs text-muted-foreground mt-1">Nhấn nút + để thêm trụ sạc</p>
 
                                                         </div>
 
-                                                    </div>
+                                                    )}
 
-                                                )}
+
+
+                                                    {chargingPosts.length > 0 && (
+
+                                                        <div className="max-h-64 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-border/50 scrollbar-track-transparent">
+
+                                                            <div className="space-y-3">
+
+                                                                {chargingPosts.map((post, index) => (
+
+                                                                    <div key={post.id} className="p-3 border border-border/40 rounded-xl bg-muted/50 shadow-sm">
+
+                                                                        <div className="flex items-center justify-between mb-3">
+
+                                                                            <h4 className="text-sm font-medium text-foreground">#{index + 1}</h4>
+
+                                                                            <Button
+
+                                                                                type="button"
+
+                                                                                onClick={() => removeChargingPost(post.id)}
+
+                                                                                className="h-6 w-6 p-0 text-red-500 hover:text-red-600 hover:bg-red-500/10 rounded-md"
+
+                                                                            >
+
+                                                                                <XCircle className="w-3.5 h-3.5" />
+
+                                                                            </Button>
+
+                                                                        </div>
+
+
+
+                                                                        <div className="space-y-3">
+
+                                                                            <div>
+
+                                                                                <label className="text-xs text-muted-foreground mb-1.5 block font-medium">{t('connector_type')}</label>
+
+                                                                                <select
+
+                                                                                    value={post.connectorType}
+
+                                                                                    onChange={(e) => {
+
+                                                                                        const selectedType = portTypes.find(type => type.name === e.target.value);
+
+                                                                                        updateChargingPost(post.id, 'connectorType', e.target.value);
+
+                                                                                        if (selectedType) {
+
+                                                                                            updateChargingPost(post.id, 'power', selectedType.power);
+
+                                                                                            updateChargingPost(post.id, 'price', selectedType.price);
+
+                                                                                        }
+
+                                                                                    }}
+
+                                                                                    className="w-full h-9 text-sm bg-background border border-border/50 rounded-lg px-3 text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
+
+                                                                                    aria-label="Connector type"
+
+                                                                                >
+
+                                                                                    <option value="">{t('select_connector_type')}</option>
+
+                                                                                    {portTypes.map((type, idx) => (
+
+                                                                                        <option key={idx} value={type.name}>
+
+                                                                                            {type.name} ({type.power} kWh - ₫{type.price}/kWh)
+
+                                                                                        </option>
+
+                                                                                    ))}
+
+                                                                                </select>
+
+                                                                            </div>
+
+
+
+                                                                            <div>
+
+                                                                                <label className="text-xs text-muted-foreground mb-1.5 block font-medium">{t('status')}</label>
+
+                                                                                <select
+
+                                                                                    value={post.status}
+
+                                                                                    onChange={(e) => updateChargingPost(post.id, 'status', e.target.value)}
+
+                                                                                    className="w-full h-9 text-sm bg-background border border-border/50 rounded-lg px-3 text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
+
+                                                                                    aria-label="Charging post status"
+
+                                                                                >
+
+                                                                                    <option value="AVAILABLE">🟢 {t('available')}</option>
+
+                                                                                    <option value="OCCUPIED">🔴 {t('occupied')}</option>
+
+                                                                                    <option value="RESERVED">🟠 {t('reserved')}</option>
+
+                                                                                    <option value="OUT_OF_SERVICE">⚫ {t('out_of_service')}</option>
+
+                                                                                    <option value="MAINTENANCE">🔧 {t('maintenance')}</option>
+
+                                                                                </select>
+
+                                                                            </div>
+
+                                                                        </div>
+
+                                                                    </div>
+
+                                                                ))}
+
+                                                            </div>
+
+                                                        </div>
+
+                                                    )}
+
+                                                </div>
 
                                             </div>
 
-                                        </ScrollArea>
 
 
+                                            <div className="pt-4 border-t border-border/30 px-1">
 
-                                        <div className="pt-4 border-t border-gray-700">
+                                                <Button type="submit" disabled={loading} className="w-full bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm">
 
-                                            <Button type="submit" disabled={loading} className="w-full">
+                                                    {loading ? t('loading') : t('add_station')}
 
-                                                {loading ? t('loading') : t('add_station')}
+                                                </Button>
 
-                                            </Button>
+                                            </div>
 
-                                        </div>
+                                        </form>
 
-                                    </form>
+                                    </DialogContent>
 
-                                </DialogContent>
+                                </Dialog>
 
-                            </Dialog>
+                            </div>
 
                         </div>
 
@@ -5565,29 +5571,27 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
                 </div>
 
-            </div>
 
 
+                {/* Main Content */}
 
-            {/* Main Content */}
+                <div className="container mx-auto px-4 py-6">
 
-            <div className="container mx-auto px-4 py-6">
-
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
                         <div className="lg:col-span-2">
 
-                            <Card className="bg-card/80 backdrop-blur-xl border border-border h-[600px]">
+                            <Card className="bg-card/80 backdrop-blur-xl border border-border overflow-hidden">
 
                                 <CardHeader className="pb-4">
 
-                                    <div className="flex items-center justify-end">
+                                    <div className="flex items-center">
 
-                                        <div className="flex items-center space-x-2">
+                                        <div className="flex items-center space-x-2 w-full">
 
                                             {/* Thanh tìm kiếm tùy chỉnh với UI đẹp */}
 
-                                            <div className="relative group">
+                                            <div className="relative group flex-1">
 
                                                 <div className="relative">
 
@@ -5601,7 +5605,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
                                                         onChange={handleSearchInputChange}
 
-                                                        className="pl-10 pr-10 w-80 h-10 bg-background/80 backdrop-blur-sm border-border/50 focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all duration-200 shadow-sm hover:shadow-md"
+                                                        className="pl-10 pr-10 w-full h-10 bg-background/80 backdrop-blur-sm border-border/50 focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all duration-200 shadow-sm hover:shadow-md"
 
                                                         onFocus={() => setShowSearchResults(true)}
 
@@ -5623,6 +5627,8 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
                                                             className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
 
+                                                            aria-label="Clear search"
+
                                                         >
 
                                                             <XCircle className="w-4 h-4" />
@@ -5639,33 +5645,33 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
                                                 {showSearchResults && (
 
-                                                    <div className="absolute top-full left-0 right-0 mt-3 bg-black border border-gray-600 rounded-2xl shadow-2xl z-50 max-h-96 overflow-hidden animate-in slide-in-from-top-3 duration-300">
+                                                    <div className="absolute top-full left-0 right-0 mt-2 bg-card/95 backdrop-blur-xl border border-border/50 rounded-xl shadow-xl z-50 max-h-96 overflow-hidden animate-in slide-in-from-top-2 duration-200">
 
                                                         {searchResults.length > 0 ? (
 
                                                             <>
 
-                                                                {/* Header với gradient đen */}
+                                                                {/* Header */}
 
-                                                                <div className="bg-black px-4 py-3 border-b border-gray-700">
+                                                                <div className="bg-card/90 backdrop-blur-sm px-4 py-3 border-b border-border/30">
 
-                                                                    <div className="flex items-center space-x-2">
+                                                                    <div className="flex items-center space-x-3">
 
-                                                                        <div className="w-8 h-8 rounded-full bg-gradient-to-r from-blue-500 to-indigo-500 flex items-center justify-center">
+                                                                        <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center">
 
-                                                                            <MapPin className="w-4 h-4 text-white" />
+                                                                            <MapPin className="w-4 h-4 text-primary" />
 
                                                                         </div>
 
                                                                         <div>
 
-                                                                            <span className="text-sm font-semibold text-white">
+                                                                            <span className="text-sm font-medium text-foreground">
 
                                                                                 {searchResults.length} {t('search_results_found')}
 
                                                                             </span>
 
-                                                                            <div className="text-xs text-gray-300 mt-0.5">
+                                                                            <div className="text-xs text-muted-foreground mt-0.5">
 
                                                                                 {t('select_to_view_on_map')}
 
@@ -5681,7 +5687,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
                                                                 {/* Results list với scroll */}
 
-                                                                <div className="max-h-80 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800">
+                                                                <div className="max-h-80 overflow-y-auto scrollbar-thin scrollbar-thumb-border/50 scrollbar-track-transparent">
 
                                                                     {searchResults.map((poi, index) => (
 
@@ -5689,49 +5695,49 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
                                                                             key={poi.id}
 
-                                                                            className="group/item px-4 py-3 hover:bg-gray-900 cursor-pointer border-b border-gray-800 last:border-b-0 transition-all duration-200 hover:shadow-sm"
+                                                                            className="group/item px-4 py-3 hover:bg-accent/5 cursor-pointer border-b border-border/20 last:border-b-0 transition-all duration-150"
 
                                                                             onClick={() => handleSelectPOI(poi)}
 
                                                                         >
 
-                                                                            <div className="flex items-start space-x-3">
+                                                                            <div className="flex items-start gap-3">
 
-                                                                                <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-gradient-to-br from-gray-700 to-gray-600 flex items-center justify-center group-hover/item:from-gray-600 group-hover/item:to-gray-500 transition-all duration-200">
+                                                                                <div className="flex-shrink-0 w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center group-hover/item:bg-primary/20 transition-colors">
 
-                                                                                    <MapPin className="w-5 h-5 text-blue-400" />
+                                                                                    <MapPin className="w-4 h-4 text-primary" />
 
                                                                                 </div>
 
                                                                                 <div className="flex-1 min-w-0">
 
-                                                                                    <div className="font-semibold text-sm text-white group-hover/item:text-blue-300 transition-colors line-clamp-1 mb-1">
+                                                                                    <div className="font-medium text-sm text-foreground group-hover/item:text-primary transition-colors line-clamp-1 mb-1.5">
 
                                                                                         {poi.name}
 
                                                                                     </div>
 
-                                                                                    <div className="text-xs text-gray-400 mb-2 line-clamp-1">
+                                                                                    <div className="text-xs text-muted-foreground mb-2 line-clamp-1">
 
-                                                                                        📍 {poi.address}
+                                                                                        {poi.address}
 
                                                                                     </div>
 
-                                                                                    <div className="flex items-center space-x-2">
+                                                                                    <div className="flex items-center gap-2 flex-wrap">
 
-                                                                                        <div className="inline-flex items-center px-2 py-1 rounded-md text-xs font-mono text-gray-300 bg-gray-900 border border-gray-700">
+                                                                                        <div className="inline-flex items-center px-2 py-1 rounded-md text-xs font-mono text-muted-foreground bg-muted/50 border border-border/30">
 
-                                                                                            <span className="text-gray-500 mr-1">📍</span>
+                                                                                            <MapPin className="w-3 h-3 mr-1 text-muted-foreground/70" />
 
                                                                                             {poi.latitude.toFixed(4)}, {poi.longitude.toFixed(4)}
 
                                                                                         </div>
 
-                                                                                        <div className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-emerald-900/30 text-emerald-300 border border-emerald-700/50">
+                                                                                        <div className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-primary/10 text-primary border border-primary/20">
 
-                                                                                            <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full mr-1.5"></div>
+                                                                                            <div className="w-1.5 h-1.5 bg-primary rounded-full mr-1.5"></div>
 
-                                                                                            POI Dataset
+                                                                                            POI
 
                                                                                         </div>
 
@@ -5739,11 +5745,11 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
                                                                                 </div>
 
-                                                                                <div className="flex-shrink-0 opacity-0 group-hover/item:opacity-100 transition-all duration-200 transform group-hover/item:translate-x-1">
+                                                                                <div className="flex-shrink-0 opacity-0 group-hover/item:opacity-100 transition-opacity duration-150">
 
-                                                                                    <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center">
+                                                                                    <div className="w-7 h-7 rounded-full bg-primary flex items-center justify-center">
 
-                                                                                        <ArrowLeft className="w-4 h-4 text-white rotate-180" />
+                                                                                        <ArrowLeft className="w-3.5 h-3.5 text-primary-foreground rotate-180" />
 
                                                                                     </div>
 
@@ -5763,19 +5769,19 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
                                                             <div className="p-8 text-center">
 
-                                                                <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gray-900 flex items-center justify-center">
+                                                                <div className="w-14 h-14 mx-auto mb-3 rounded-full bg-muted/50 flex items-center justify-center">
 
-                                                                    <Search className="w-8 h-8 text-gray-400" />
+                                                                    <Search className="w-6 h-6 text-muted-foreground" />
 
                                                                 </div>
 
-                                                                <div className="text-base font-medium text-white mb-2">
+                                                                <div className="text-sm font-medium text-foreground mb-1">
 
                                                                     Không tìm thấy địa điểm nào
 
                                                                 </div>
 
-                                                                <div className="text-sm text-gray-400">
+                                                                <div className="text-xs text-muted-foreground">
 
                                                                     Thử tìm kiếm với từ khóa khác
 
@@ -5791,48 +5797,6 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
                                             </div>
 
-                                            <div className="relative">
-
-                                                <Search
-
-                                                    className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
-
-                                                <Input
-
-                                                    placeholder={t('search_locations')}
-
-                                                    value={searchQuery}
-
-                                                    onChange={(e) => setSearchQuery(e.target.value)}
-
-                                                    className="pl-10 w-48"
-
-                                                />
-
-                                            </div>
-
-                                            <Select value={statusFilter} onValueChange={setStatusFilter}>
-
-                                                <SelectTrigger className="w-32">
-
-                                                    <SelectValue />
-
-                                                </SelectTrigger>
-
-                                                <SelectContent>
-
-                                                    <SelectItem value="all">{t('all')}</SelectItem>
-
-                                                    <SelectItem value="ACTIVE">{t('active')}</SelectItem>
-
-                                                    <SelectItem value="INACTIVE">{t('inactive')}</SelectItem>
-
-                                                    <SelectItem value="MAINTENANCE">{t('maintenance')}</SelectItem>
-
-                                                </SelectContent>
-
-                                            </Select>
-
                                         </div>
 
                                     </div>
@@ -5845,35 +5809,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
                                     <div ref={mapContainerRef} className="absolute inset-0 w-full h-full rounded-b-lg z-20" />
 
-                                    <div
-
-                                        className="w-full h-full bg-gradient-to-br from-blue-50 to-green-50 dark:from-blue-950/20 dark:to-green-950/20 rounded-b-lg relative overflow-hidden pointer-events-none z-0">
-
-                                        <div className="absolute inset-0 opacity-20 pointer-events-none">
-
-                                            <svg width="100%" height="100%" className="absolute inset-0">
-
-                                                <defs>
-
-                                                    <pattern id="grid" width="40" height="40"
-
-                                                        patternUnits="userSpaceOnUse">
-
-                                                        <path d="M 40 0 L 0 0 0 40" fill="none" stroke="currentColor"
-
-                                                            strokeWidth="1" opacity="0.3" />
-
-                                                    </pattern>
-
-                                                </defs>
-
-                                                <rect width="100%" height="100%" fill="url(#grid)" />
-
-                                            </svg>
-
-                                        </div>
-
-                                    </div>
+                                    {/* Background gradient removed - using consistent dark theme */}
 
 
 
@@ -6025,11 +5961,11 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
                                         <div
 
-                                            className="absolute top-4 left-4 z-30 bg-black border border-gray-600 rounded-lg p-4 shadow-xl max-w-xs pointer-events-auto">
+                                            className="absolute top-4 left-4 z-30 bg-card/95 backdrop-blur-xl border border-border/50 rounded-xl p-5 shadow-xl max-w-xs pointer-events-auto">
 
-                                            <div className="flex items-start justify-between mb-2">
+                                            <div className="flex items-start justify-between gap-3 mb-4">
 
-                                                <h4 className="font-medium text-sm text-white">{selectedStationPopup.name}</h4>
+                                                <h4 className="font-medium text-sm text-foreground pr-2">{selectedStationPopup.name}</h4>
 
                                                 <Button
 
@@ -6039,7 +5975,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
                                                     onClick={() => setSelectedStationPopup(null)}
 
-                                                    className="h-6 w-6 p-0 text-gray-400 hover:text-white"
+                                                    className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground flex-shrink-0"
 
                                                 >
 
@@ -6049,13 +5985,13 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
                                             </div>
 
-                                            <p className="text-xs text-gray-300 mb-2">{selectedStationPopup.address}</p>
+                                            <p className="text-xs text-muted-foreground mb-4 leading-relaxed">{selectedStationPopup.address}</p>
 
-                                            <div className="flex items-center justify-between mb-2">
+                                            <div className="flex items-center justify-between gap-4 mb-4">
 
                                                 {getStatusBadge(selectedStationPopup.status)}
 
-                                                <span className="text-xs text-gray-300">
+                                                <span className="text-xs text-muted-foreground whitespace-nowrap">
 
                                                     {selectedStationPopup.availablePoints}/{selectedStationPopup.totalPoints} {t('charging_points')}
 
@@ -6063,21 +5999,21 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
                                             </div>
 
-                                            <div className="space-y-1">
+                                            <div className="space-y-2.5">
 
                                                 {(selectedStationPopup.connectorTypes ?? []).map((connector, idx) => (
 
-                                                    <div key={idx} className="bg-gray-800/50 rounded p-2">
+                                                    <div key={idx} className="bg-muted/50 border border-border/30 rounded-lg p-3">
 
-                                                        <div className="flex justify-between text-xs mb-1">
+                                                        <div className="flex justify-between items-center text-xs mb-2.5">
 
-                                                            <span className="font-medium text-white">
+                                                            <span className="font-medium text-foreground">
 
                                                                 {connector.typeName || connector.type}
 
                                                             </span>
 
-                                                            <Badge variant="outline" className="text-xs h-4 border-gray-600 text-gray-300">
+                                                            <Badge variant="outline" className="text-xs h-5 px-2 border-border/50 text-muted-foreground">
 
                                                                 {connector.powerOutput || connector.power} kW
 
@@ -6085,13 +6021,13 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
                                                         </div>
 
-                                                        <div className="flex justify-between text-xs mb-1">
+                                                        <div className="flex justify-between text-xs mb-1.5">
 
-                                                            <span className="text-gray-300">{t('available')}:</span>
+                                                            <span className="text-muted-foreground">{t('available')}:</span>
 
                                                             <span
 
-                                                                className={connector.available > 0 ? "text-green-400 font-medium" : "text-red-400 font-medium"}>
+                                                                className={connector.available > 0 ? "text-green-500 font-medium" : "text-red-500 font-medium"}>
 
                                                                 {connector.available}/{connector.total}
 
@@ -6103,9 +6039,9 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
                                                             <div className="flex justify-between text-xs">
 
-                                                                <span className="text-gray-300">{t('price_per_kwh')}:</span>
+                                                                <span className="text-muted-foreground">{t('price_per_kwh')}:</span>
 
-                                                                <span className="text-yellow-400 font-medium">
+                                                                <span className="text-amber-500 font-medium">
 
                                                                     {connector.pricePerKwh.toLocaleString()} VND/kWh
 
@@ -6131,15 +6067,15 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
                                     {selectedPOI && (
 
-                                        <div className="absolute top-4 right-4 z-30 bg-black border border-gray-600 rounded-lg p-4 shadow-xl max-w-sm pointer-events-auto">
+                                        <div className="absolute top-4 right-4 z-30 bg-card/95 backdrop-blur-xl border border-border/50 rounded-xl p-4 shadow-xl max-w-sm pointer-events-auto">
 
                                             <div className="flex items-start justify-between mb-3">
 
                                                 <div className="flex items-center space-x-2">
 
-                                                    <MapPin className="w-5 h-5 text-blue-400" />
+                                                    <MapPin className="w-5 h-5 text-primary" />
 
-                                                    <h4 className="font-semibold text-white text-sm">{selectedPOI.name}</h4>
+                                                    <h4 className="font-medium text-foreground text-sm">{selectedPOI.name}</h4>
 
                                                 </div>
 
@@ -6163,7 +6099,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
                                                     }}
 
-                                                    className="h-6 w-6 p-0 text-gray-400 hover:text-white"
+                                                    className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
 
                                                 >
 
@@ -6177,17 +6113,17 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
                                             <div className="mb-3">
 
-                                                <div className="text-xs text-gray-400 mb-1">{t('station_address')}:</div>
+                                                <div className="text-xs text-muted-foreground mb-1.5">{t('station_address')}:</div>
 
-                                                <div className="text-xs text-gray-300 bg-gray-900 border border-gray-700 px-2 py-1 rounded mb-2">
+                                                <div className="text-xs text-foreground bg-muted/50 border border-border/30 px-2.5 py-1.5 rounded-md mb-2.5">
 
                                                     {selectedPOI.address}
 
                                                 </div>
 
-                                                <div className="text-xs text-gray-400 mb-1">{t('coordinates')}:</div>
+                                                <div className="text-xs text-muted-foreground mb-1.5">{t('coordinates')}:</div>
 
-                                                <div className="text-xs font-mono text-gray-300 bg-gray-900 border border-gray-700 px-2 py-1 rounded">
+                                                <div className="text-xs font-mono text-foreground bg-muted/50 border border-border/30 px-2.5 py-1.5 rounded-md">
 
                                                     {selectedPOI.latitude.toFixed(4)}, {selectedPOI.longitude.toFixed(4)}
 
@@ -6223,17 +6159,19 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
                                                         <div className="space-y-2">
 
-                                                            <div className="text-xs text-green-400 font-medium">
+                                                            <div className="flex items-center gap-1.5 text-xs text-green-500 font-medium">
 
-                                                                ✓ {t('nearby_station_found')}
+                                                                <CheckCircle className="w-3.5 h-3.5" />
+
+                                                                {t('nearby_station_found')}
 
                                                             </div>
 
-                                                            <div className="bg-gray-900 border border-gray-700 rounded p-2">
+                                                            <div className="bg-muted/50 border border-border/30 rounded-lg p-2.5">
 
-                                                                <div className="text-xs text-white font-medium">{nearbyStation.name}</div>
+                                                                <div className="text-xs text-foreground font-medium">{nearbyStation.name}</div>
 
-                                                                <div className="text-xs text-gray-400 mt-1">
+                                                                <div className="text-xs text-muted-foreground mt-1">
 
                                                                     {nearbyStation.availablePoints}/{nearbyStation.totalPoints} {t('charging_points')}
 
@@ -6257,9 +6195,19 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
                                                         <div className="space-y-3">
 
-                                                            <div className="text-xs text-yellow-400 font-medium">
+                                                            <div className="flex items-center gap-1.5 px-3 py-2 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
 
-                                                                ⚠ Chưa có trạm sạc tại vị trí này
+                                                                <div className="flex-shrink-0 w-5 h-5 rounded-full bg-yellow-500/20 flex items-center justify-center">
+
+                                                                    <span className="text-yellow-500 text-xs">⚠</span>
+
+                                                                </div>
+
+                                                                <span className="text-xs text-yellow-600 dark:text-yellow-500 font-medium">
+
+                                                                    Chưa có trạm sạc tại vị trí này
+
+                                                                </span>
 
                                                             </div>
 
@@ -6301,7 +6249,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
                                                                 }}
 
-                                                                className="w-full bg-blue-600 hover:bg-blue-700 text-white text-xs py-2 border border-blue-500"
+                                                                className="w-full bg-primary hover:bg-primary/90 text-primary-foreground text-xs py-2.5 shadow-sm"
 
                                                             >
 
@@ -6331,7 +6279,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
                             {selectedStation && (
 
-                                <Card className="mt-4 bg-black/80 backdrop-blur-xl border border-gray-600">
+                                <Card className="mt-4 bg-card/80 backdrop-blur-xl border border-border">
 
                                     <CardHeader>
 
@@ -6341,7 +6289,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
                                     <CardContent>
 
-                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                                        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
 
                                             <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
 
@@ -6349,7 +6297,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
                                                     <Button variant="outline" className="flex items-center space-x-2"
 
-                                                        onClick={handleEditStation}>
+                                                            onClick={handleEditStation}>
 
                                                         <Edit className="w-4 h-4" />
 
@@ -6359,13 +6307,13 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
                                                 </DialogTrigger>
 
-                                                <DialogContent className="max-w-4xl max-h-[30vh] overflow-y-auto">
+                                                <DialogContent className="max-w-4xl max-h-[85vh] bg-card/95 backdrop-blur-xl border-border/50">
 
-                                                    <DialogHeader>
+                                                    <DialogHeader className="px-1 pb-4">
 
-                                                        <DialogTitle>{t('edit')} {selectedStation.name}</DialogTitle>
+                                                        <DialogTitle className="text-foreground">{t('edit')} {selectedStation.name}</DialogTitle>
 
-                                                        <DialogDescription>{t('update_station_info')}</DialogDescription>
+                                                        <DialogDescription className="text-muted-foreground">{t('update_station_info')}</DialogDescription>
 
                                                     </DialogHeader>
 
@@ -6373,11 +6321,11 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
                                                         onSubmit={(e) => handleUpdatingStation(e, selectedStation.id)}>
 
-                                                        <div className="grid gap-4">
+                                                        <div className="space-y-4 max-h-[calc(85vh-180px)] overflow-y-auto pr-3 scrollbar-thin scrollbar-thumb-border/50 scrollbar-track-transparent">
 
                                                             {error && <div
 
-                                                                className="text-red-600 text-sm p-2 bg-red-50 rounded">{error}</div>}
+                                                                className="text-red-600 text-sm p-3 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded-lg">{error}</div>}
 
                                                             <div>
 
@@ -6463,7 +6411,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
                                                                     {showAddressSearchResults && (
 
-                                                                        <div className="address-search-results-container absolute top-full left-0 right-0 mt-1 bg-black border border-gray-600 rounded-lg shadow-xl z-50 max-h-60 overflow-y-auto">
+                                                                        <div className="address-search-results-container absolute top-full left-0 right-0 mt-1 bg-black border border-border rounded-lg shadow-xl z-50 max-h-60 overflow-y-auto">
 
                                                                             <div className="p-3 border-b border-gray-700">
 
@@ -6503,7 +6451,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
                                                                                             key={poi.id}
 
-                                                                                            className="group/item px-4 py-3 hover:bg-gray-900 cursor-pointer border-b border-gray-800 last:border-b-0 transition-all duration-200 hover:shadow-sm"
+                                                                                            className="group/item px-4 py-3 hover:bg-muted cursor-pointer border-b border-border last:border-b-0 transition-all duration-200 hover:shadow-sm"
 
                                                                                             onClick={() => handleSelectAddressPOI(poi)}
 
@@ -6533,7 +6481,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
                                                                                                     <div className="flex items-center space-x-2">
 
-                                                                                                        <div className="inline-flex items-center px-2 py-1 rounded-md text-xs font-mono text-gray-300 bg-gray-900 border border-gray-700">
+                                                                                                        <div className="inline-flex items-center px-2 py-1 rounded-md text-xs font-mono text-gray-300 bg-muted border border-border">
 
                                                                                                             <span className="text-gray-500 mr-1">📍</span>
 
@@ -6657,11 +6605,11 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
                                                             {/* Charging Points Management for Edit - Editable */}
 
-                                                            <div className="space-y-3">
+                                                            <div className="space-y-3 border-t border-border/30 pt-4">
 
-                                                                <div className="flex items-center justify-between">
+                                                                <div className="flex items-center justify-between px-1">
 
-                                                                    <Label className="text-foreground/90 font-medium">{t('charging_points')} ({chargingPosts.length})</Label>
+                                                                    <Label className="text-foreground font-medium">{t('charging_points')} ({chargingPosts.length})</Label>
 
                                                                 </div>
 
@@ -6669,11 +6617,11 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
                                                                 {chargingPosts.length === 0 && (
 
-                                                                    <div className="text-center py-6 text-muted-foreground">
+                                                                    <div className="text-center py-8 px-4 bg-muted/30 border border-border/30 rounded-xl">
 
-                                                                        <Plug className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                                                                        <Plug className="w-10 h-10 mx-auto mb-3 opacity-40 text-muted-foreground" />
 
-                                                                        <p className="text-sm">Chưa có trụ sạc nào</p>
+                                                                        <p className="text-sm text-muted-foreground font-medium">Chưa có trụ sạc nào</p>
 
                                                                     </div>
 
@@ -6683,17 +6631,17 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
                                                                 {chargingPosts.length > 0 && (
 
-                                                                    <div className="max-h-8 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-500 scrollbar-track-gray-800">
+                                                                    <div className="max-h-64 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-border/50 scrollbar-track-transparent">
 
-                                                                        <div className="space-y-2 pr-2">
+                                                                        <div className="space-y-3">
 
                                                                             {chargingPosts.map((post, index) => (
 
-                                                                                <div key={post.id} className="p-2 border border-gray-600 rounded-lg bg-gray-900/30">
+                                                                                <div key={post.id} className="p-3 border border-border/40 rounded-xl bg-muted/50 shadow-sm">
 
-                                                                                    <div className="flex items-center justify-between mb-2">
+                                                                                    <div className="flex items-center justify-between mb-3">
 
-                                                                                        <h4 className="text-sm font-medium text-white">{t('charging_points')} #{index + 1}</h4>
+                                                                                        <h4 className="text-sm font-medium text-foreground">{t('charging_points')} #{index + 1}</h4>
 
                                                                                         <Button
 
@@ -6705,11 +6653,11 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
                                                                                             onClick={() => removeChargingPost(post.id)}
 
-                                                                                            className="text-red-400 hover:text-red-300 hover:bg-red-900/20"
+                                                                                            className="h-6 w-6 p-0 text-red-500 hover:text-red-600 hover:bg-red-500/10 rounded-md"
 
                                                                                         >
 
-                                                                                            <XCircle className="w-3 h-3" />
+                                                                                            <XCircle className="w-3.5 h-3.5" />
 
                                                                                         </Button>
 
@@ -6717,11 +6665,11 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
 
 
-                                                                                    <div className="space-y-2">
+                                                                                    <div className="space-y-3">
 
                                                                                         <div>
 
-                                                                                            <label className="text-xs text-gray-400 mb-1 block">{t('connector_type')}</label>
+                                                                                            <label className="text-xs text-muted-foreground mb-1.5 block font-medium">{t('connector_type')}</label>
 
                                                                                             <select
 
@@ -6743,7 +6691,9 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
                                                                                                 }}
 
-                                                                                                className="w-full h-8 text-sm bg-black border border-gray-600 rounded-lg px-3 text-white focus:border-green-500 focus:ring-1 focus:ring-green-500/20 transition-colors"
+                                                                                                className="w-full h-9 text-sm bg-background border border-border/50 rounded-lg px-3 text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
+
+                                                                                                aria-label="Connector type"
 
                                                                                             >
 
@@ -6767,7 +6717,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
                                                                                         <div>
 
-                                                                                            <label className="text-xs text-gray-400 mb-1 block">{t('status')}</label>
+                                                                                            <label className="text-xs text-muted-foreground mb-1.5 block font-medium">{t('status')}</label>
 
                                                                                             <select
 
@@ -6775,13 +6725,17 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
                                                                                                 onChange={(e) => updateChargingPost(post.id, 'status', e.target.value)}
 
-                                                                                                className="w-full h-8 text-sm bg-black border border-gray-600 rounded-lg px-3 text-white focus:border-green-500 focus:ring-1 focus:ring-green-500/20 transition-colors"
+                                                                                                className="w-full h-9 text-sm bg-background border border-border/50 rounded-lg px-3 text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
+
+                                                                                                aria-label="Connector status"
 
                                                                                             >
 
                                                                                                 <option value="AVAILABLE">🟢 {t('available')}</option>
 
                                                                                                 <option value="OCCUPIED">🔴 {t('occupied')}</option>
+
+                                                                                                <option value="RESERVED">🟠 {t('reserved')}</option>
 
                                                                                                 <option value="OUT_OF_SERVICE">⚫ {t('out_of_service')}</option>
 
@@ -6805,9 +6759,13 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
                                                             </div>
 
+                                                        </div>
 
 
-                                                            <Button type="submit" disabled={loading}>
+
+                                                        <div className="pt-4 border-t border-border/30 px-1">
+
+                                                            <Button type="submit" disabled={loading} className="w-full bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm">
 
                                                                 {loading ? t('loading') : t('update')}
 
@@ -6829,7 +6787,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
                                                     <Button variant="destructive"
 
-                                                        className="flex items-center space-x-2">
+                                                            className="flex items-center space-x-2">
 
                                                         <Trash2 className="w-4 h-4" />
 
@@ -6841,9 +6799,9 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
                                                 <DialogContent
 
-                                                    className="bg-black border border-gray-600">
+                                                    className="bg-card/95 backdrop-blur-xl border-border/50">
 
-                                                    <DialogHeader>
+                                                    <DialogHeader className="px-1">
 
                                                         <DialogTitle>{t('confirm_delete')} {t('charging_stations')}</DialogTitle>
 
@@ -6905,7 +6863,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
                                                                             <div key={idx}
 
-                                                                                className="flex justify-between text-sm">
+                                                                                 className="flex justify-between text-sm">
 
                                                                                 <span>
 
@@ -6983,7 +6941,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
                                                             <Button variant="outline" type="button"
 
-                                                                onClick={() => setIsDeleteDialogOpen(false)}>
+                                                                    onClick={() => setIsDeleteDialogOpen(false)}>
 
                                                                 {t('cancel')}
 
@@ -7003,182 +6961,199 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
                                             </Dialog>
 
-
-
-                                            {/* Connector Type Deletion Confirmation Dialog */}
-
-                                            <Dialog open={isDeleteConnectorDialogOpen} onOpenChange={setIsDeleteConnectorDialogOpen}>
-
-                                                <DialogContent className="bg-black border border-gray-600">
-
+                                            {/* Add Charging Point Dialog */}
+                                            <Dialog open={isAddChargingPointDialogOpen} onOpenChange={setIsAddChargingPointDialogOpen}>
+                                                <DialogTrigger asChild>
+                                                    <Button
+                                                        variant="default"
+                                                        className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white"
+                                                        onClick={async () => {
+                                                            // Load connector types when opening dialog
+                                                            try {
+                                                                const types = await fetchConnectorTypes();
+                                                                if (types) {
+                                                                    setNewPortTypes(types);
+                                                                }
+                                                            } catch (err) {
+                                                                console.error("Error loading connector types:", err);
+                                                            }
+                                                        }}
+                                                    >
+                                                        <Plus className="w-4 h-4" />
+                                                        <span>{t('add_charging_point')}</span>
+                                                    </Button>
+                                                </DialogTrigger>
+                                                <DialogContent className="max-w-md bg-card/95 backdrop-blur-xl border-border/50">
                                                     <DialogHeader>
-
-                                                        <DialogTitle className="flex items-center space-x-2">
-
-                                                            <Trash2 className="w-5 h-5 text-red-400" />
-
-                                                            <span>{t('confirm_delete')} {t('port_types')}</span>
-
+                                                        <DialogTitle className="text-foreground">
+                                                            {t('add_new_charging_point')}
                                                         </DialogTitle>
-
-                                                        <DialogDescription>
-
-                                                            {t('are_you_sure_delete')} {t('port_types')}? {t('warning')}: {t('cannot_delete_in_use')}
-
+                                                        <DialogDescription className="text-muted-foreground">
+                                                            {language === 'vi'
+                                                                ? `Thêm trụ sạc vào trạm ${selectedStation?.name}`
+                                                                : `Add charging point to station ${selectedStation?.name}`
+                                                            }
                                                         </DialogDescription>
-
                                                     </DialogHeader>
 
-                                                    
-                                                    
-                                                    {connectorToDelete && (() => {
-
-                                                        const isInUse = isConnectorTypeInUse(connectorToDelete.id);
-
-                                                        const usageCounts = isInUse ? getConnectorUsageDetails(connectorToDelete.id) : { chargingPoints: 0, carModels: 0 };
-
-                                                        
-                                                        
-                                                        return (
-
-                                                            <div className="space-y-4">
-
-                                                                <div className="p-4 bg-gray-900/50 rounded-lg border border-gray-700">
-
-                                                                    <div className="flex items-center space-x-2 mb-2">
-
-                                                                        <Plug className="w-4 h-4 text-green-400" />
-
-                                                                        <h4 className="font-medium text-white">{connectorToDelete.name}</h4>
-
-                                                                    </div>
-
-                                                                    <p className="text-sm text-gray-400">
-
-                                                                        Loại cổng sạc này sẽ bị xóa vĩnh viễn khỏi hệ thống.
-
-                                                                    </p>
-
-                                                                </div>
-
-                                                                
-                                                                
-                                                                {isInUse ? (
-
-                                                                    <div className="bg-red-900/20 border border-red-600/30 rounded-lg p-3">
-
-                                                                        <div className="flex items-start space-x-2">
-
-                                                                            <div className="w-5 h-5 text-red-400 mt-0.5">🚫</div>
-
-                                                                            <div className="text-sm text-red-200">
-
-                                                                                <p className="font-medium mb-1">Không thể xóa:</p>
-
-                                                                                <p className="mb-2">Loại cổng sạc này đang được sử dụng trong hệ thống.</p>
-
-                                                                                <div className="mt-2 space-y-1">
-
-                                                                                    {usageCounts.carModels > 0 && (
-
-                                                                                        <p className="text-xs">• {usageCounts.carModels} mẫu xe đang sử dụng</p>
-
-                                                                                    )}
-
-                                                                                    {usageCounts.chargingPoints > 0 && (
-
-                                                                                        <p className="text-xs">• {usageCounts.chargingPoints} trụ sạc đang sử dụng</p>
-
-                                                                                    )}
-
-                                                                                </div>
-
-                                                                            </div>
-
-                                                                        </div>
-
-                                                                    </div>
-
-                                                                ) : (
-
-                                                                    <div className="bg-yellow-900/20 border border-yellow-600/30 rounded-lg p-3">
-
-                                                                        <div className="flex items-start space-x-2">
-
-                                                                            <div className="w-5 h-5 text-yellow-400 mt-0.5">⚠️</div>
-
-                                                                            <div className="text-sm text-yellow-200">
-
-                                                                                <p className="font-medium mb-1">Lưu ý quan trọng:</p>
-
-                                                                                <p>Đảm bảo rằng không có trụ sạc nào đang sử dụng loại cổng sạc này trước khi xóa.</p>
-
-                                                                            </div>
-
-                                                                        </div>
-
-                                                                    </div>
-
-                                                                )}
-
+                                                    <div className="space-y-6 py-4">
+                                                        {error && (
+                                                            <div className="text-red-600 text-sm p-3 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded-lg">
+                                                                {error}
                                                             </div>
+                                                        )}
 
-                                                        );
+                                                        {/* Connector Type Selection */}
+                                                        <div className="space-y-2">
+                                                            <Label htmlFor="chargingPointConnectorType" className="text-sm font-medium">
+                                                                {language === 'vi' ? 'Loại Connector' : 'Connector Type'} <span className="text-red-500">*</span>
+                                                            </Label>
+                                                            <Select
+                                                                value={newChargingPoint.connectorTypeId ? newChargingPoint.connectorTypeId.toString() : ""}
+                                                                onValueChange={(value: string) => {
+                                                                    const connectorType = newPortTypes.find(type => type.connectorId === value);
+                                                                    if (connectorType) {
+                                                                        console.log("Selected connector:", connectorType);
+                                                                        setNewChargingPoint(prev => ({
+                                                                            ...prev,
+                                                                            typeName: connectorType.name,
+                                                                            connectorTypeId: Number(connectorType.connectorId)
+                                                                        }));
+                                                                    }
+                                                                }}
+                                                            >
+                                                                <SelectTrigger id="chargingPointConnectorType" className="mt-1.5">
+                                                                    <SelectValue placeholder={language === 'vi' ? 'Chọn loại connector' : 'Select connector type'}>
+                                                                        {newChargingPoint.typeName ? (
+                                                                            <div className="flex items-center gap-2">
+                                                                                <Zap className="w-4 h-4 text-yellow-500" />
+                                                                                <span className="font-medium">{newChargingPoint.typeName}</span>
+                                                                                {(() => {
+                                                                                    const selectedType = newPortTypes.find(t => t.connectorId === newChargingPoint.connectorTypeId.toString());
+                                                                                    return selectedType ? (
+                                                                                        <span className="text-xs text-muted-foreground">
+                                                                                            ({selectedType.power}kW - ₫{Number(selectedType.price).toLocaleString()}/kWh)
+                                                                                        </span>
+                                                                                    ) : null;
+                                                                                })()}
+                                                                            </div>
+                                                                        ) : (
+                                                                            <span>{language === 'vi' ? 'Chọn loại connector' : 'Select connector type'}</span>
+                                                                        )}
+                                                                    </SelectValue>
+                                                                </SelectTrigger>
+                                                                <SelectContent>
+                                                                    {newPortTypes.length > 0 ? (
+                                                                        newPortTypes.map((type) => (
+                                                                            <SelectItem key={type.connectorId} value={type.connectorId}>
+                                                                                <div className="flex items-center gap-2">
+                                                                                    <Zap className="w-4 h-4 text-yellow-500" />
+                                                                                    <span className="font-medium">{type.name}</span>
+                                                                                    <span className="text-xs text-muted-foreground">
+                                                                                        ({type.power}kW - ₫{Number(type.price).toLocaleString()}/kWh)
+                                                                                    </span>
+                                                                                </div>
+                                                                            </SelectItem>
+                                                                        ))
+                                                                    ) : (
+                                                                        <SelectItem value="0" disabled>
+                                                                            {language === 'vi' ? 'Đang tải...' : 'Loading...'}
+                                                                        </SelectItem>
+                                                                    )}
+                                                                </SelectContent>
+                                                            </Select>
+                                                        </div>
 
-                                                    })()}
+                                                        {/* Status Selection */}
+                                                        <div className="space-y-2">
+                                                            <Label htmlFor="chargingPointStatus" className="text-sm font-medium">
+                                                                {language === 'vi' ? 'Trạng thái' : 'Status'} <span className="text-red-500">*</span>
+                                                            </Label>
+                                                            <Select
+                                                                value={newChargingPoint.status}
+                                                                onValueChange={(value: string) => {
+                                                                    setNewChargingPoint(prev => ({ ...prev, status: value as ChargingPointStatus }));
+                                                                }}
+                                                            >
+                                                                <SelectTrigger id="chargingPointStatus" className="mt-1.5">
+                                                                    <SelectValue />
+                                                                </SelectTrigger>
+                                                                <SelectContent>
+                                                                    <SelectItem value="AVAILABLE">
+                                                                        <div className="flex items-center gap-2">
+                                                                            <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                                                                            <span>{t('available')}</span>
+                                                                        </div>
+                                                                    </SelectItem>
+                                                                    <SelectItem value="OCCUPIED">
+                                                                        <div className="flex items-center gap-2">
+                                                                            <div className="w-2 h-2 rounded-full bg-red-500"></div>
+                                                                            <span>{t('occupied')}</span>
+                                                                        </div>
+                                                                    </SelectItem>
+                                                                    <SelectItem value="RESERVED">
+                                                                        <div className="flex items-center gap-2">
+                                                                            <div className="w-2 h-2 rounded-full bg-orange-500"></div>
+                                                                            <span>{t('reserved')}</span>
+                                                                        </div>
+                                                                    </SelectItem>
+                                                                    <SelectItem value="OUT_OF_SERVICE">
+                                                                        <div className="flex items-center gap-2">
+                                                                            <div className="w-2 h-2 rounded-full bg-gray-500"></div>
+                                                                            <span>{t('out_of_service')}</span>
+                                                                        </div>
+                                                                    </SelectItem>
+                                                                    <SelectItem value="MAINTENANCE">
+                                                                        <div className="flex items-center gap-2">
+                                                                            <div className="w-2 h-2 rounded-full bg-yellow-500"></div>
+                                                                            <span>{t('maintenance')}</span>
+                                                                        </div>
+                                                                    </SelectItem>
+                                                                </SelectContent>
+                                                            </Select>
+                                                        </div>
 
-                                                    
-                                                    
-                                                    <div className="flex justify-end space-x-2 mt-4">
-
-                                                        <Button 
-
-                                                            variant="outline" 
-
-                                                            type="button"
-
-                                                            onClick={() => {
-
-                                                                setIsDeleteConnectorDialogOpen(false);
-
-                                                                setConnectorToDelete(null);
-
-                                                            }}
-
-                                                        >
-
-                                                            {t('cancel')}
-
-                                                        </Button>
-
-                                                        <Button 
-
-                                                            variant="destructive" 
-
-                                                            type="button"
-
-                                                            onClick={confirmDeleteConnectorType}
-
-                                                            disabled={connectorToDelete ? isConnectorTypeInUse(connectorToDelete.id) : true}
-
-                                                            className={connectorToDelete && isConnectorTypeInUse(connectorToDelete.id) 
-
-                                                                ? "opacity-50 cursor-not-allowed" 
-
-                                                                : ""
-
-                                                            }
-
-                                                        >
-
-                                                            {t('confirm_delete')}
-
-                                                        </Button>
-
+                                                        {/* Station Info (Read-only) */}
+                                                        <div className="space-y-2">
+                                                            <Label className="text-sm font-medium">{language === 'vi' ? 'Trạm sạc' : 'Station'}</Label>
+                                                            <Input
+                                                                value={selectedStation?.name || ''}
+                                                                disabled
+                                                                className="mt-1.5 bg-muted/50 cursor-not-allowed"
+                                                            />
+                                                            <p className="text-xs text-muted-foreground">
+                                                                ID: {selectedStation?.id}
+                                                            </p>
+                                                        </div>
                                                     </div>
 
+                                                    <div className="flex justify-end space-x-2 pt-4 border-t border-border/30">
+                                                        <Button
+                                                            variant="outline"
+                                                            onClick={() => {
+                                                                setIsAddChargingPointDialogOpen(false);
+                                                                // Reset form
+                                                                setNewChargingPoint({
+                                                                    typeName: "",
+                                                                    status: "AVAILABLE",
+                                                                    connectorTypeId: 0,
+                                                                    stationId: 0
+                                                                });
+                                                                setError(null);
+                                                            }}
+                                                            disabled={loading}
+                                                        >
+                                                            {t('cancel')}
+                                                        </Button>
+                                                        <Button
+                                                            onClick={handleAddChargingPoint}
+                                                            disabled={loading || !newChargingPoint.connectorTypeId}
+                                                            className="bg-blue-600 hover:bg-blue-700 text-white"
+                                                        >
+                                                            {loading ? t('loading') : t('add_charging_point')}
+                                                        </Button>
+                                                    </div>
                                                 </DialogContent>
-
                                             </Dialog>
 
 
@@ -7187,7 +7162,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
                                             <Dialog open={isAllChargingPointsDialogOpen} onOpenChange={setIsAllChargingPointsDialogOpen}>
 
-                                                <DialogContent className="bg-black border border-gray-600 max-w-6xl max-h-[80vh] overflow-hidden">
+                                                <DialogContent className="bg-card/95 backdrop-blur-xl border border-border/50 rounded-xl max-w-6xl max-h-[80vh] overflow-hidden">
 
                                                     <DialogHeader>
 
@@ -7213,11 +7188,11 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
                                                         <div className="space-y-4 flex flex-col h-full">
 
-                                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-gray-900/30 rounded-lg">
+                                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-muted/50 border border-border/30 rounded-xl">
 
                                                                 <div>
 
-                                                                    <h4 className="font-medium text-white">{selectedStationForAllPoints.name}</h4>
+                                                                    <h4 className="font-medium text-foreground">{selectedStationForAllPoints.name}</h4>
 
                                                                     <p className="text-sm text-muted-foreground">{selectedStationForAllPoints.address}</p>
 
@@ -7227,7 +7202,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
                                                                     <span className="text-sm text-muted-foreground">{t('total_points')}:</span>
 
-                                                                    <span className="font-medium text-white">
+                                                                    <span className="font-medium text-foreground">
 
                                                                         {allChargingPoints.length}
 
@@ -7241,49 +7216,45 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
                                                             <div className="space-y-3 flex-1 overflow-hidden">
 
-                                                                <h5 className="font-medium text-white">{t('all_charging_points_list')}</h5>
+                                                                <h5 className="font-medium text-foreground">{t('all_charging_points_list')}</h5>
 
                                                                 {allChargingPoints.length > 0 ? (
 
                                                                     <ScrollArea className="h-96 w-full">
 
-                                                                        <div className="space-y-2 pr-4">
+                                                                        <div className="space-y-3 pr-4">
 
                                                                             {allChargingPoints.map((point, index) => (
 
-                                                                                <Card key={`${point.chargingPointId}-${index}-${selectedStationForAllPoints?.id}`} className="bg-gray-900/50 border border-gray-600">
+                                                                                <Card key={`${point.chargingPointId}-${index}-${selectedStationForAllPoints?.id}`} className="bg-muted/50 border border-border/40 rounded-xl shadow-sm hover:shadow-md transition-shadow">
 
                                                                                     <CardContent className="p-4">
 
-                                                                                        <div className="flex items-start justify-between mb-2">
+                                                                                        <div className="flex items-start justify-between mb-3">
 
                                                                                             <div className="flex items-center space-x-2">
 
                                                                                                 <Plug className="w-4 h-4 text-primary" />
 
-                                                                                                <h6 className="font-medium text-white">{t('charging_points')} #{point.chargingPointId}</h6>
+                                                                                                <h6 className="font-medium text-foreground">{t('charging_points')} #{point.chargingPointId}</h6>
 
                                                                                             </div>
 
                                                                                             <div className="flex items-center space-x-2">
 
-                                                                                                <div className={`px-2 py-1 rounded-full text-xs font-medium ${point.status === 'AVAILABLE' ? 'bg-green-600/20 text-green-400' :
-
-                                                                                                        point.status === 'OCCUPIED' ? 'bg-red-600/20 text-red-400' :
-
-                                                                                                            point.status === 'OUT_OF_SERVICE' ? 'bg-gray-600/20 text-gray-400' :
-
-                                                                                                                'bg-yellow-600/20 text-yellow-400'
-
-                                                                                                    }`}>
+                                                                                                <div className={`px-2.5 py-1 rounded-lg text-xs font-medium ${
+                                                                                                    point.status === 'AVAILABLE' ? 'bg-green-500/15 text-green-600 dark:text-green-400' :
+                                                                                                        point.status === 'OCCUPIED' ? 'bg-red-500/15 text-red-600 dark:text-red-400' :
+                                                                                                            point.status === 'RESERVED' ? 'bg-orange-500/15 text-orange-600 dark:text-orange-400' :
+                                                                                                                point.status === 'OUT_OF_SERVICE' ? 'bg-gray-500/15 text-gray-600 dark:text-gray-400' :
+                                                                                                                    'bg-yellow-500/15 text-yellow-600 dark:text-yellow-400'
+                                                                                                }`}>
 
                                                                                                     {point.status === 'AVAILABLE' ? `🟢 ${t('available')}` :
-
                                                                                                         point.status === 'OCCUPIED' ? `🔴 ${t('occupied')}` :
-
-                                                                                                            point.status === 'OUT_OF_SERVICE' ? `⚫ ${t('out_of_service')}` :
-
-                                                                                                                `🔧 ${t('maintenance')}`}
+                                                                                                            point.status === 'RESERVED' ? `🟠 ${t('reserved')}` :
+                                                                                                                point.status === 'OUT_OF_SERVICE' ? `⚫ ${t('out_of_service')}` :
+                                                                                                                    `🔧 ${t('maintenance')}`}
 
                                                                                                 </div>
 
@@ -7293,15 +7264,59 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
                                                                                                     variant="outline"
 
-                                                                                                    onClick={() => {
+                                                                                                    onClick={async () => {
+                                                                                                        // Validate charging point status before deleting
+                                                                                                        if (point.status === 'OCCUPIED' || point.status === 'RESERVED') {
+                                                                                                            const statusText = point.status === 'OCCUPIED' ? t('occupied') : t('reserved');
+                                                                                                            toast.error(
+                                                                                                                t('cannot_delete_charging_point'),
+                                                                                                                {
+                                                                                                                    description: `${t('charging_points')} #${point.chargingPointId} ${t('is_currently')} ${statusText}. ${t('cannot_delete_or_modify')}`
+                                                                                                                }
+                                                                                                            );
+                                                                                                            return;
+                                                                                                        }
 
-                                                                                                        // TODO: Add delete functionality
+                                                                                                        // Fetch latest status to double-check
+                                                                                                        const latestPoint = await fetchChargingPointById(point.chargingPointId);
+                                                                                                        if (latestPoint && (latestPoint.status === 'OCCUPIED' || latestPoint.status === 'RESERVED')) {
+                                                                                                            const statusText = latestPoint.status === 'OCCUPIED' ? t('occupied') : t('reserved');
+                                                                                                            toast.error(
+                                                                                                                t('cannot_delete_charging_point'),
+                                                                                                                {
+                                                                                                                    description: `${t('charging_points')} #${point.chargingPointId} ${t('is_currently')} ${statusText}. ${t('cannot_delete_or_modify')}`
+                                                                                                                }
+                                                                                                            );
+                                                                                                            return;
+                                                                                                        }
 
-                                                                                                        console.log("Delete charging point:", point.chargingPointId);
+                                                                                                        // Call API to delete charging point
+                                                                                                        const success = await callApiForChargingPointDeleting(point.chargingPointId);
 
+                                                                                                        if (success) {
+                                                                                                            // Remove from local state
+                                                                                                            setAllChargingPoints(prev => prev.filter(p => p.chargingPointId !== point.chargingPointId));
+
+                                                                                                            // Refresh station list to update counts
+                                                                                                            await handleGetStationList();
+
+                                                                                                            toast.success(t('charging_point_deleted'));
+                                                                                                        }
                                                                                                     }}
 
-                                                                                                    className="h-6 px-2 text-red-400 border-red-400 hover:bg-red-400/10"
+                                                                                                    disabled={point.status === 'OCCUPIED' || point.status === 'RESERVED'}
+
+                                                                                                    className={`h-7 px-2 rounded-md ${
+                                                                                                        point.status === 'OCCUPIED' || point.status === 'RESERVED'
+                                                                                                            ? 'opacity-50 cursor-not-allowed text-muted-foreground border-border/50'
+                                                                                                            : 'text-red-500 border-red-500/50 hover:bg-red-500/10 hover:border-red-500'
+                                                                                                    }`}
+
+                                                                                                    title={
+                                                                                                        point.status === 'OCCUPIED' || point.status === 'RESERVED'
+                                                                                                            ? `Không thể xóa trụ đang ${point.status === 'OCCUPIED' ? 'sử dụng' : 'được đặt chỗ'}`
+                                                                                                            : 'Xóa trụ sạc'
+                                                                                                    }
 
                                                                                                 >
 
@@ -7315,53 +7330,53 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
 
 
-                                                                                        <div className="grid grid-cols-2 gap-4 text-sm">
+                                                                                        <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
 
                                                                                             <div>
 
-                                                                                                <span className="text-muted-foreground">{t('status')}:</span>
+                                                                                                <span className="text-muted-foreground text-xs">{t('status')}:</span>
 
-                                                                                                <p className="font-medium text-white">{point.status || "Unknown"}</p>
+                                                                                                <p className="font-medium text-foreground">{point.status || "Unknown"}</p>
 
                                                                                             </div>
 
                                                                                             <div>
 
-                                                                                                <span className="text-muted-foreground">{t('type')}:</span>
+                                                                                                <span className="text-muted-foreground text-xs">{t('type')}:</span>
 
-                                                                                                <p className="font-medium text-white">{point.typeName || "Unknown"}</p>
-
-                                                                                            </div>
-
-                                                                                            <div>
-
-                                                                                                <span className="text-muted-foreground">{t('capacity')}:</span>
-
-                                                                                                <p className="font-medium text-white">{point.powerOutput || 0} kW</p>
+                                                                                                <p className="font-medium text-foreground">{point.typeName || "Unknown"}</p>
 
                                                                                             </div>
 
                                                                                             <div>
 
-                                                                                                <span className="text-muted-foreground">{t('price_per_kwh')}:</span>
+                                                                                                <span className="text-muted-foreground text-xs">{t('capacity')}:</span>
 
-                                                                                                <p className="font-medium text-white">₫{(point.pricePerKwh || 0).toLocaleString()}/kWh</p>
-
-                                                                                            </div>
-
-                                                                                            <div>
-
-                                                                                                <span className="text-muted-foreground">ID:</span>
-
-                                                                                                <p className="font-medium text-white">#{point.chargingPointId}</p>
+                                                                                                <p className="font-medium text-foreground">{point.powerOutput || 0} kW</p>
 
                                                                                             </div>
 
                                                                                             <div>
 
-                                                                                                <span className="text-muted-foreground">{t('station')}:</span>
+                                                                                                <span className="text-muted-foreground text-xs">{t('price_per_kwh')}:</span>
 
-                                                                                                <p className="font-medium text-white">{selectedStationForAllPoints?.name || "Unknown Station"}</p>
+                                                                                                <p className="font-medium text-foreground">₫{(point.pricePerKwh || 0).toLocaleString()}/kWh</p>
+
+                                                                                            </div>
+
+                                                                                            <div>
+
+                                                                                                <span className="text-muted-foreground text-xs">ID:</span>
+
+                                                                                                <p className="font-medium text-foreground">#{point.chargingPointId}</p>
+
+                                                                                            </div>
+
+                                                                                            <div>
+
+                                                                                                <span className="text-muted-foreground text-xs">{t('station')}:</span>
+
+                                                                                                <p className="font-medium text-foreground">{selectedStationForAllPoints?.name || "Unknown Station"}</p>
 
                                                                                             </div>
 
@@ -7399,7 +7414,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
 
 
-                                                    <div className="flex justify-end pt-4 border-t border-gray-600">
+                                                    <div className="flex justify-end pt-4 border-t border-border/30">
 
                                                         <Button
 
@@ -7407,7 +7422,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
                                                             onClick={() => setIsAllChargingPointsDialogOpen(false)}
 
-                                                            className="bg-gray-800 hover:bg-gray-700 text-white border-gray-600"
+                                                            className="hover:bg-accent"
 
                                                         >
 
@@ -7503,9 +7518,9 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
                                                 <Button variant="outline"
 
-                                                    onClick={() => handleChargerRestart(selectedStation.id)}
+                                                        onClick={() => handleChargerRestart(selectedStation.id)}
 
-                                                    className="flex items-center space-x-2">
+                                                        className="flex items-center space-x-2">
 
                                                     <RotateCw className="w-4 h-4" />
 
@@ -7549,13 +7564,39 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
                         <div className="space-y-4">
 
-                            <Card className="bg-black/80 backdrop-blur-xl border border-gray-600">
+                            <Card className="bg-card/80 backdrop-blur-xl border border-border">
 
                                 <CardHeader>
 
                                     <CardTitle>{t('station_list')}</CardTitle>
 
-                                    <p className="text-sm text-muted-foreground">{filteredStations.length} {t('charging_stations')}</p>
+                                    <p className="text-sm text-muted-foreground mb-4">{filteredStations.length} {t('charging_stations')}</p>
+
+                                    {/* Search and Filter for Station List */}
+                                    <div className="flex items-center gap-2 w-full">
+                                        <div className="relative flex-1">
+                                            <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
+                                            <Input
+                                                placeholder={t('search_stations')}
+                                                value={searchQuery}
+                                                onChange={(e) => setSearchQuery(e.target.value)}
+                                                className="pl-10 w-full"
+                                            />
+                                        </div>
+                                        <div className="w-32">
+                                            <Select value={statusFilter} onValueChange={setStatusFilter}>
+                                                <SelectTrigger className="w-full">
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="all">{t('all')}</SelectItem>
+                                                    <SelectItem value="ACTIVE">{t('active')}</SelectItem>
+                                                    <SelectItem value="INACTIVE">{t('inactive')}</SelectItem>
+                                                    <SelectItem value="MAINTENANCE">{t('maintenance')}</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                    </div>
 
                                 </CardHeader>
 
@@ -7565,7 +7606,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
                                         <div className="space-y-2 p-4">
 
-                                            {filteredStations.map((station) => (
+                                            {paginatedStations.map((station) => (
 
                                                 <Card
 
@@ -7573,7 +7614,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
                                                     className={`cursor-pointer transition-all hover:shadow-md ${selectedStation?.id === station.id ? "border-primary bg-primary/5" : "border-border/50"
 
-                                                        }`}
+                                                    }`}
 
                                                     onClick={() => handleStationClick(station)}
 
@@ -7661,7 +7702,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
 
 
-                                                        <div className="mt-3 pt-2 border-t border-gray-600">
+                                                        <div className="mt-3 pt-2 border-t border-border">
 
                                                             <Button
 
@@ -7696,6 +7737,68 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                                         </div>
 
                                     </ScrollArea>
+
+                                    {/* Pagination Controls */}
+                                    {totalPages > 1 && (
+                                        <div className="border-t border-border p-4">
+                                            <div className="flex items-center justify-between">
+                                                <div className="text-sm text-muted-foreground">
+                                                    {language === 'vi'
+                                                        ? `Hiển thị ${startIndex + 1}-${Math.min(endIndex, filteredStations.length)} trong ${filteredStations.length} trạm`
+                                                        : `Showing ${startIndex + 1}-${Math.min(endIndex, filteredStations.length)} of ${filteredStations.length} stations`
+                                                    }
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                                                        disabled={currentPage === 1}
+                                                        className="h-8 w-8 p-0"
+                                                    >
+                                                        <ArrowLeft className="w-4 h-4" />
+                                                    </Button>
+
+                                                    <div className="flex items-center gap-1">
+                                                        {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                                                            let pageNum;
+                                                            if (totalPages <= 5) {
+                                                                pageNum = i + 1;
+                                                            } else if (currentPage <= 3) {
+                                                                pageNum = i + 1;
+                                                            } else if (currentPage >= totalPages - 2) {
+                                                                pageNum = totalPages - 4 + i;
+                                                            } else {
+                                                                pageNum = currentPage - 2 + i;
+                                                            }
+
+                                                            return (
+                                                                <Button
+                                                                    key={i}
+                                                                    variant={currentPage === pageNum ? "default" : "outline"}
+                                                                    size="sm"
+                                                                    onClick={() => setCurrentPage(pageNum)}
+                                                                    className="h-8 w-8 p-0"
+                                                                >
+                                                                    {pageNum}
+                                                                </Button>
+                                                            );
+                                                        })}
+                                                    </div>
+
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                                                        disabled={currentPage === totalPages}
+                                                        className="h-8 w-8 p-0"
+                                                    >
+                                                        <ArrowLeft className="w-4 h-4 rotate-180" />
+                                                    </Button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
 
                                 </CardContent>
 

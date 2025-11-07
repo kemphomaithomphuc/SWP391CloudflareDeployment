@@ -10,6 +10,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.util.AntPathMatcher;
 import org.springframework.web.filter.OncePerRequestFilter;
+import swp391.code.swp391.config.SecurityConstants;
 import swp391.code.swp391.entity.User;
 import swp391.code.swp391.repository.UserRepository;
 
@@ -22,22 +23,13 @@ public class AuthorizationFilter extends OncePerRequestFilter {
 
     public final UserRepository userRepository;
 
-    private static final String[] EXCLUDED_PATHS = {
-            "/api/auth/**",
-            "/api/otp/send/forgot-password",
-            "/api/otp/verify/forgot-password",
-            "/api/otp/reset-password",
-            "/api/staff/**",
-            "/api/transactions/**",
-            "/api/payment/**",
-            "/api/admin/revenue/**",
-    };
+
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
         AntPathMatcher pathMatcher = new AntPathMatcher();
         String path = request.getRequestURI();
-        return Arrays.stream(EXCLUDED_PATHS).anyMatch(pattern -> pathMatcher.match(pattern, path));
+        return Arrays.stream(SecurityConstants.PUBLIC_ENDPOINTS_EXCLUDED).anyMatch(pattern -> pathMatcher.match(pattern, path));
     }
 
     @Override

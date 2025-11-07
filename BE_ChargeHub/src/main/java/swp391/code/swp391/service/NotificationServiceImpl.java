@@ -2,6 +2,7 @@ package swp391.code.swp391.service;
 
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import swp391.code.swp391.dto.NotificationDTO;
@@ -19,6 +20,7 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class NotificationServiceImpl implements NotificationService {
 
     private final NotificationRepository notificationRepository;
@@ -29,9 +31,23 @@ public class NotificationServiceImpl implements NotificationService {
     @Override
     @Transactional
     public List<NotificationDTO> getNotificationDTOs(Long userId) {
+        log.info("=== getNotificationDTOs SERVICE DEBUG ===");
+        log.info("Looking for notifications for userId: {}", userId);
+
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
+
+        log.info("User found: {} (email: {})", user.getUserId(), user.getEmail());
+
         List<Notification> notifications = notificationRepository.findByUserOrderBySentTimeDesc(user);
+        log.info("Raw notifications from DB: {}", notifications.size());
+
+        if (notifications.isEmpty()) {
+            log.warn("No notifications found for user {}", userId);
+        } else {
+            log.info("First notification: {}", notifications.get(0));
+        }
+
         return notifications.stream()
                 .map(n -> new NotificationDTO(n.getNotificationId(), n.getUser().getUserId(),
                         n.getTitle(), n.getContent(),
@@ -49,9 +65,18 @@ public class NotificationServiceImpl implements NotificationService {
 
     @Override
     public Long getUnreadCountForUser(Long userId) {
+        log.info("=== getUnreadCountForUser SERVICE DEBUG ===");
+        log.info("Counting unread notifications for userId: {}", userId);
+
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
-        return notificationRepository.countUnreadByUser(user);
+
+        log.info("User found: {} (email: {})", user.getUserId(), user.getEmail());
+
+        Long count = notificationRepository.countUnreadByUser(user);
+        log.info("Unread count from DB: {}", count);
+
+        return count;
     }
 
     @Override
@@ -202,6 +227,10 @@ public class NotificationServiceImpl implements NotificationService {
 
         // Push via WebSocket
         pushNotificationToUser(notification,Notification.Type.PAYMENT);
+
+        // Push updated unread count after creating notification
+        Long updatedCount = getUnreadCountForUser(user.getUserId());
+        pushUnreadCountToUser(user, updatedCount);
     }
 
     //=====================ISSUE NOTIFICATION==========================
@@ -315,6 +344,10 @@ public class NotificationServiceImpl implements NotificationService {
 
         // Push via WebSocket
         pushNotificationToUser(notification,Notification.Type.PENALTY);
+
+        // Push updated unread count after creating notification
+        Long updatedCount = getUnreadCountForUser(user.getUserId());
+        pushUnreadCountToUser(user, updatedCount);
     }
 
     //=====================GENERAL NOTIFICATION==========================
@@ -351,6 +384,28 @@ public class NotificationServiceImpl implements NotificationService {
             // Push via WebSocket
             pushNotificationToAll(notification);
         }
+    }
+
+    // Push unread count to user via WebSocket
+    public void pushUnreadCountToUser(User user, Long count) {
+        String username = user.getEmail() != null ? user.getEmail() : user.getPhone();
+        if (username == null) {
+            log.warn("User {} has no email or phone to send notification count", user.getUserId());
+            return;
+        }
+
+        NotificationSignalDTO dto = new NotificationSignalDTO();
+        dto.setType(Notification.Type.GENERAL); // Hoặc type phù hợp
+        dto.setNotificationCount(count.intValue());
+
+        // Gửi đến user cụ thể
+        simpMessagingTemplate.convertAndSendToUser(
+                username,
+                "/queue/notification-count",
+                dto
+        );
+
+        log.info("Pushed unread count {} to user {}", count, username);
     }
 
     // Helper method to convert Notification to NotificationDTO

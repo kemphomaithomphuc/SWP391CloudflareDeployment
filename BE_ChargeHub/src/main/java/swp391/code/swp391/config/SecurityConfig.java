@@ -37,20 +37,6 @@ import java.util.List;
 @EnableMethodSecurity
 public class SecurityConfig {
 
-    private final String[] PUBLIC_URLS = {
-            "/api/auth/**",
-            "/api/otp/send/forgot-password",
-            "/api/otp/verify/forgot-password",
-            "/api/otp/reset-password",
-            "api/otp/**",
-            "api/**",
-            "/api/payment/**",
-            "/api/staff/**",
-            "/api/transactions/**",
-            "/api/admin/revenue/**",
-            "/api/test/**", // them de test thoi, khong dung nua thi xoa
-            "/api/notifications/connection/ws/**" // WebSocket endpoint
-    };
     private final JwtDecoder jwtDecoder; // Tự động được Spring inject JwtDecoderConfig
     private final CustomUserDetailService userDetailsService;
     private final JwtBlacklistFilter jwtBlacklistFilter;
@@ -72,7 +58,7 @@ public class SecurityConfig {
                         .authenticationEntryPoint(new BearerTokenAuthenticationEntryPoint())
                 )
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(PUBLIC_URLS).permitAll()
+                        .requestMatchers(SecurityConstants.PUBLIC_ENDPOINTS_EXCLUDED).permitAll()
                         .requestMatchers("/api/admin/**").hasRole(User.UserRole.ADMIN.name())
                         .requestMatchers("/api/staff/**").hasAnyRole( "STAFF", "ADMIN")
                         .requestMatchers("/api/staff-management/**").hasAnyRole( "STAFF", "ADMIN")
@@ -110,7 +96,7 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOriginPatterns(List.of("http://localhost:3000"));
+        config.setAllowedOriginPatterns(List.of("http://localhost:3000","https://api.maptiler.com"));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
         config.setAllowCredentials(true);

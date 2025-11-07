@@ -3,6 +3,7 @@ package swp391.code.swp391.controller;
 import com.nimbusds.jose.JOSEException;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import swp391.code.swp391.dto.NotificationDTO;
@@ -16,6 +17,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/notifications")
 @RequiredArgsConstructor
+@Slf4j
 public class NotificationController {
 
     private final NotificationService notificationService;
@@ -26,12 +28,20 @@ public class NotificationController {
         User user;
         try {
             user = jwtUtil.getUserByTokenThroughSecurityContext();
+            log.info("=== GET NOTIFICATIONS DEBUG ===");
+            log.info("User ID: {}", user.getUserId());
+            log.info("User Email: {}", user.getEmail());
         } catch (ParseException | JOSEException e) {
+            log.error("JWT parsing error", e);
             return ResponseEntity.badRequest().build();
         } catch (Exception e) {
+            log.error("Unexpected error", e);
             throw new RuntimeException(e);
         }
-        return ResponseEntity.ok(notificationService.getNotificationDTOs(user.getUserId()));
+        List<NotificationDTO> notifications = notificationService.getNotificationDTOs(user.getUserId());
+        log.info("Notifications count returned: {}", notifications.size());
+        log.info("Notifications: {}", notifications);
+        return ResponseEntity.ok(notifications);
     }
 
     @GetMapping("/unread/count")
@@ -39,12 +49,19 @@ public class NotificationController {
         User user;
         try {
             user = jwtUtil.getUserByTokenThroughSecurityContext();
+            log.info("=== GET UNREAD COUNT DEBUG ===");
+            log.info("User ID: {}", user.getUserId());
+            log.info("User Email: {}", user.getEmail());
         } catch (ParseException | JOSEException e) {
+            log.error("JWT parsing error in getUnreadCount", e);
             throw new RuntimeException(e);
         } catch (Exception e) {
+            log.error("Unexpected error in getUnreadCount", e);
             throw new RuntimeException(e);
         }
-        return ResponseEntity.ok(notificationService.getUnreadCountForUser(user.getUserId()));
+        Long count = notificationService.getUnreadCountForUser(user.getUserId());
+        log.info("Unread count returned: {}", count);
+        return ResponseEntity.ok(count);
     }
 
     @PutMapping("/{id}/read")
