@@ -594,6 +594,7 @@ function AppContent() {
               onAdminLogin={() => navigate("/adminDashboard")}
               onSwitchToRoleSelection={switchToRoleSelection}
               onSwitchToVehicleSetup={switchToVehicleSetup}
+              onSwitchToPenaltyPayment={switchToPenaltyPayment}
             />
             <LanguageThemeControls />
           </>

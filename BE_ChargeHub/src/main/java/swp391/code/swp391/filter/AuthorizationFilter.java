@@ -55,13 +55,6 @@ public class AuthorizationFilter extends OncePerRequestFilter {
             response.getWriter().write("{\"error\": \"User not found\"}");
             return;
         }
-
-        if (user.getStatus().name().equals("BANNED") || user.getViolations()>=3) {
-            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
-            response.setContentType("application/json");
-            response.getWriter().write("{\"error\": \"User is banned\"}");
-            return;
-        }
         filterChain.doFilter(request, response);
     }
 }

@@ -33,6 +33,7 @@ import ProfileView from "./components/ProfileView";
 import VehicleView from "./components/VehicleView";
 import SubscriptionView from "./components/SubscriptionView";
 import TransactionHistoryView from "./components/TransactionHistoryView";
+import UserStatusBanner from "./components/UserStatusBanner"; // 🆕 Import UserStatusBanner
 import { logoutUser, getUnreadNotificationCount, getNotifications } from "./services/api";
 import { toast } from "sonner";
 
@@ -349,6 +350,9 @@ export default function MainDashboard({ onLogout, onBooking, onHistory, onAnalys
         <div className="flex-1 p-6">
           {activeSection === "dashboard" && (
             <div className="max-w-7xl mx-auto">
+              {/* 🆕 User Status Banner */}
+              <UserStatusBanner userId={parseInt(localStorage.getItem("userId") || "0")} />
+              
               {/* Hero Section with Background Video */}
               <div className="relative mb-16 overflow-hidden rounded-3xl h-[600px]">
                 {/* Background Video */}
