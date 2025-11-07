@@ -19,13 +19,6 @@ public class SecurityConstants {
         "/api/notifications/connection/ws/**"
     };
 
-//    // For backward compatibility - same as above
-//    @Deprecated
-//    public static final String[] PUBLIC_ENDPOINTS = PUBLIC_ENDPOINTS_EXCLUDED;
-//
-//    // For backward compatibility - same as above
-//    @Deprecated
-//    public static final String[] EXCLUDED_PATHS = PUBLIC_ENDPOINTS_EXCLUDED;
 
     // WebSocket paths excluded from JWT filters
     public static final String[] WEBSOCKET_EXCLUDED_PATHS = {

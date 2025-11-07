@@ -7,6 +7,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
+import swp391.code.swp391.config.SecurityConstants;
 import swp391.code.swp391.service.JwtBlacklistService;
 
 import java.io.IOException;
