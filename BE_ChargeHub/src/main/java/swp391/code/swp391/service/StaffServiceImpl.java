@@ -508,7 +508,7 @@ public class StaffServiceImpl implements StaffService {
         issueReport.setStation(station);
         issueReport.setReporter(staff);
         issueReport.setDescription(dto.getDescription());
-        issueReport.setStatus(IssueReport.Status.INBOX);
+        issueReport.setStatus(IssueReport.Status.IN_PROGRESS);
         issueReport.setReportedTime(LocalDateTime.now());
 
         // Lưu vào CSDL
@@ -517,12 +517,26 @@ public class StaffServiceImpl implements StaffService {
         log.info("Staff {} created issue report {} for station {}",
                 staff.getFullName(), savedReport.getIssueReportId(), station.getStationName());
 
-        // Tạo thông báo
+        // Tạo thông báo cho admin
         notificationService.createIssueNotification(
                 station.getStationId(),
                 NotificationServiceImpl.IssueEvent.STATION_ERROR_STAFF,
                 "New issue reported by staff: " + dto.getDescription()
         );
+
+        // Tạo thông báo cho staff reporter
+        try {
+            notificationService.createGeneralNotification(
+                    List.of(staffId),
+                    "Báo cáo sự cố đã được ghi nhận",
+                    String.format("Bạn đã báo cáo cho quản trị viên vấn đề: %s tại trạm %s. Mã báo cáo: #%d",
+                            dto.getDescription(),
+                            station.getStationName(),
+                            savedReport.getIssueReportId())
+            );
+        } catch (Exception e) {
+            log.error("Lỗi khi tạo thông báo cho staff: {}", e.getMessage());
+        }
 
         return savedReport.getIssueReportId();
     }

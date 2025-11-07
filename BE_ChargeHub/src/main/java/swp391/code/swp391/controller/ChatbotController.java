@@ -54,7 +54,15 @@ public class ChatbotController {
                     issueReportService.createReportFromParsedData(
                             decision.getReportDetails(),
                             chatRequest.getMessage() // Hoặc gửi toàn bộ history
-                    ); // "Cảm ơn, tôi đã ghi nhận"
+                    );
+
+                    // Tạo response rõ ràng cho user
+                    String issueType = decision.getReportDetails().getIssueType() != null ?
+                            decision.getReportDetails().getIssueType() : "sự cố";
+                    botReply = String.format("Cảm ơn bạn đã báo cáo! Bạn đã báo cáo cho quản trị viên vấn đề: %s tại trạm %s. " +
+                            "Chúng tôi sẽ xử lý sớm nhất có thể. Bạn sẽ nhận được thông báo về tình trạng xử lý.",
+                            issueType,
+                            decision.getReportDetails().getStationName());
                 } catch (Exception e) {
                     return ResponseEntity.ok(new ChatResponse("Tôi ghi nhận lỗi, nhưng: " + e.getMessage()));
                 }

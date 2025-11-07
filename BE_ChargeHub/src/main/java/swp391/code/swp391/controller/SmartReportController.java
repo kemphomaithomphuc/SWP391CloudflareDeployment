@@ -5,8 +5,12 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import swp391.code.swp391.dto.ParsedIssueReportDTO;
 import swp391.code.swp391.dto.SmartReportRequest;
+import swp391.code.swp391.entity.IssueReport;
 import swp391.code.swp391.service.GeminiService;
 import swp391.code.swp391.service.IssueReportService;
+
+import java.util.HashMap;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/reports")
@@ -29,8 +33,19 @@ public class SmartReportController {
         }
 
         try {
-            issueReportService.createReportFromParsedData(parsedReport, request.getUserFeedback());
-            return ResponseEntity.ok(parsedReport); // Trả về JSON đã bóc tách
+            IssueReport createdReport = issueReportService.createReportFromParsedData(parsedReport, request.getUserFeedback());
+
+            // Tạo response với thông tin báo cáo
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("message", String.format("Bạn đã báo cáo cho quản trị viên vấn đề: %s tại trạm %s",
+                    parsedReport.getIssueType() != null ? parsedReport.getIssueType() : "Sự cố",
+                    parsedReport.getStationName()));
+            response.put("issueReportId", createdReport.getIssueReportId());
+            response.put("parsedData", parsedReport);
+            response.put("status", createdReport.getStatus().name());
+
+            return ResponseEntity.ok(response);
         } catch (Exception e) {
             return ResponseEntity.status(404).body("Lỗi: " + e.getMessage());
         }
