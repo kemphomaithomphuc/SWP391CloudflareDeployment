@@ -420,6 +420,7 @@ const switchToIssueResolvement = () => setCurrentView("issueResolvement");
               onAdminLogin={completeAdminLogin}
               onSwitchToRoleSelection={switchToRoleSelection}
               onSwitchToVehicleSetup={switchToVehicleSetup}
+              onSwitchToPenaltyPayment={switchToPenaltyPayment}
             />
             <LanguageThemeControls />
           </>

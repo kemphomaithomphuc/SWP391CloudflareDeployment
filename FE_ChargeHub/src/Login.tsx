@@ -19,9 +19,10 @@ interface LoginProps {
     onAdminLogin?: () => void;
     onSwitchToRoleSelection? : () => void;
     onSwitchToVehicleSetup?: () => void;
+    onSwitchToPenaltyPayment?: () => void; // 🆕 Thêm callback cho penalty payment
 }
 
-export default function Login({ onSwitchToRegister, onLogin, onStaffLogin, onAdminLogin, onSwitchToRoleSelection, onSwitchToVehicleSetup }: LoginProps) {
+export default function Login({ onSwitchToRegister, onLogin, onStaffLogin, onAdminLogin, onSwitchToRoleSelection, onSwitchToVehicleSetup, onSwitchToPenaltyPayment }: LoginProps) {
     const { t } = useLanguage();
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
@@ -204,6 +205,10 @@ export default function Login({ onSwitchToRegister, onLogin, onStaffLogin, onAdm
                 toast.error("Login Failed - Invalid response structure");
             }
         } catch (err: any) {
+            console.error("🔴 Login failed - Full error:", err);
+            console.error("🔴 Response data:", err.response?.data);
+            console.error("🔴 Status:", err.response?.status);
+            
             const errorMsg = err.response?.data?.message || '';
             
             // Kiểm tra message trước để xác định lỗi sai username/password
@@ -221,8 +226,8 @@ export default function Login({ onSwitchToRegister, onLogin, onStaffLogin, onAdm
                 setError("Server error. Please try again later.");
                 toast.error("Server error. Please try again later.");
             } else if (err.response?.status === 400) {
-                setError("Bad request. Please check your input.");
-                toast.error("Bad request. Please check your input.");
+                setError(`Bad request: ${errorMsg || 'Please check your input'}`);
+                toast.error(`Bad request: ${errorMsg || 'Please check your input'}`);
             } else if (err.code === "ECONNREFUSED" || err.message?.includes("Network Error")) {
                 setError("Cannot connect to server. Please try again later.");
                 toast.error("Cannot connect to server. Please try again later.");
@@ -247,6 +252,26 @@ export default function Login({ onSwitchToRegister, onLogin, onStaffLogin, onAdm
             if (res.status === 200 && res.data) {
                 const userProfile = res.data;
                 console.log("Fetched user profile:", userProfile);
+                
+                // 🆕 KIỂM TRA USER STATUS TRƯỚC
+                const userStatus = userProfile?.data?.status;
+                console.log("User status:", userStatus);
+                
+                // Nếu user bị BANNED → redirect to penalty payment
+                if (userStatus === 'BANNED') {
+                    console.log("User is BANNED, redirecting to penalty payment");
+                    toast.error("Your account has been banned. Please pay the penalty to unlock.");
+                    onSwitchToPenaltyPayment?.();
+                    return;
+                }
+                
+                // Nếu user INACTIVE → show warning nhưng vẫn cho login (limited access)
+                if (userStatus === 'INACTIVE') {
+                    console.log("User is INACTIVE, showing warning");
+                    toast.warning("Your account is inactive. Some features may be limited.");
+                    // Vẫn tiếp tục flow bình thường
+                }
+                
                 // Determine role from profile API and route accordingly
                 try {
                     const roleFromProfile = (userProfile?.data?.role || "driver").toString().toLowerCase();
