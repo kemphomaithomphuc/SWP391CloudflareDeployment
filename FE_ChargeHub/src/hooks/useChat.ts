@@ -25,17 +25,20 @@ export function useChat() {
     scrollToBottom(messagesEndRef);
   }, [messages]);
 
-  const handleSendMessage = async () => {
-    if (inputMessage.trim() && !isLoading) {
+  const sendMessage = async (messageText?: string) => {
+    const textToSend = messageText || inputMessage.trim();
+    if (textToSend && !isLoading) {
       const userMessage: Message = {
         id: Date.now().toString(),
-        text: inputMessage.trim(),
+        text: textToSend.trim(),
         sender: 'user',
         timestamp: new Date()
       };
       
       setMessages(prev => [...prev, userMessage]);
-      setInputMessage("");
+      if (!messageText) {
+        setInputMessage("");
+      }
       setIsLoading(true);
       
       try {
@@ -73,6 +76,10 @@ export function useChat() {
     }
   };
 
+  const handleSendMessage = async () => {
+    await sendMessage();
+  };
+
   const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -88,6 +95,7 @@ export function useChat() {
     messagesEndRef,
     inputRef,
     handleSendMessage,
+    sendMessage,
     handleKeyPress,
   };
 }

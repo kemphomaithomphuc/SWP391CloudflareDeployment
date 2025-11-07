@@ -402,20 +402,22 @@ export default function Login({ onSwitchToRegister, onLogin, onStaffLogin, onAdm
     };
 
     const handleVerifyResetOTP = async () => {
-        if (!otpCode.trim()) {
+        const trimmedOtp = otpCode.trim();
+        if (!trimmedOtp) {
             setResetMessage("Please enter OTP code");
             toast.error("Please enter OTP code");
             return;
         }
-        if (!validateOTP(otpCode.trim())) {
+        if (!validateOTP(trimmedOtp)) {
             setResetMessage("Invalid OTP format (6 digits)");
             toast.error("Invalid OTP format (6 digits)");
             return;
         }
         try {
+            console.log("Verifying OTP for email:", resetEmail, "OTP:", trimmedOtp);
             const res = await axios.post("http://localhost:8080/api/otp/verify/forgot-password", {
-                email: resetEmail,
-                otpCode,
+                email: resetEmail.trim(),
+                otpCode: trimmedOtp,
             });
 
             console.log("OTP verify response:", res.data);
@@ -428,12 +430,15 @@ export default function Login({ onSwitchToRegister, onLogin, onStaffLogin, onAdm
                 toast.success("OTP verified successfully!");
                 setIsResetStep(true);
             } else {
-                setResetMessage("Invalid or expired OTP.");
-                toast.error("Invalid or expired OTP.");
+                const errorMsg = res.data?.message || "Invalid or expired OTP.";
+                setResetMessage(errorMsg);
+                toast.error(errorMsg);
             }
         } catch (err: any) {
-            setResetMessage("Verification failed.");
-            toast.error("Verification failed.");
+            console.error("OTP verification error:", err);
+            const errorMsg = err.response?.data?.message || err.message || "Verification failed.";
+            setResetMessage(errorMsg);
+            toast.error(errorMsg);
         }
     };
 
