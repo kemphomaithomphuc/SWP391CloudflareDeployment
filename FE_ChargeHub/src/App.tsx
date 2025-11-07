@@ -4,6 +4,7 @@ import { LanguageProvider } from "./contexts/LanguageContext";
 import { BookingProvider } from "./contexts/BookingContext";
 import { StationProvider } from "./contexts/StationContext";
 import { NotificationProvider } from "./contexts/NotificationContext";
+import { ChatbotProvider } from "./contexts/ChatbotContext";
 import { Toaster } from "./components/ui/sonner";
 import AppLayout from "./components/AppLayout";
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom'
@@ -672,8 +673,10 @@ export default function App() {
         <BookingProvider>
           <StationProvider>
             <NotificationProvider>
-              <AppContent />
-              <Toaster />
+              <ChatbotProvider>
+                <AppContent />
+                <Toaster />
+              </ChatbotProvider>
             </NotificationProvider>
           </StationProvider>
         </BookingProvider>

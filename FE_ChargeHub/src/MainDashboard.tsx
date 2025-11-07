@@ -28,6 +28,7 @@ import { Button } from "./components/ui/button";
 import { Avatar, AvatarFallback } from "./components/ui/avatar";
 import { useTheme } from "./contexts/ThemeContext";
 import { useLanguage } from "./contexts/LanguageContext";
+import { useChatbot } from "./contexts/ChatbotContext";
 import ProfileView from "./components/ProfileView";
 import VehicleView from "./components/VehicleView";
 import SubscriptionView from "./components/SubscriptionView";
@@ -59,6 +60,7 @@ export default function MainDashboard({ onLogout, onBooking, onHistory, onAnalys
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const { theme, toggleTheme } = useTheme();
   const { language, setLanguage, t } = useLanguage();
+  const { sendAutoMessage } = useChatbot();
 
   // Load notification count on component mount
   useEffect(() => {
@@ -339,14 +341,6 @@ export default function MainDashboard({ onLogout, onBooking, onHistory, onAnalys
                 )}
               </button>
               <span className="text-sm text-muted-foreground cursor-pointer hover:text-foreground transition-colors" onClick={onNotifications}>{t('notification')}</span>
-              
-              {/* Budget Button */}
-              <button 
-                onClick={onWallet}
-                className="text-sm text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-              >
-                {t('show_budget')}
-              </button>
             </div>
           </div>
         </div>
@@ -408,7 +402,10 @@ export default function MainDashboard({ onLogout, onBooking, onHistory, onAnalys
                         variant="secondary"
                         size="lg"
                         className="px-10 py-7 text-lg font-semibold bg-white/10 backdrop-blur-sm hover:bg-white/20 text-white border-2 border-white/30 hover:border-white/50 transition-all duration-300"
-                        onClick={onHistory}
+                        onClick={() => {
+                          const message = language === 'vi' ? 'tìm trạm gần vị trí của tôi' : 'find stations near my location';
+                          sendAutoMessage(message);
+                        }}
                       >
                         <MapPin className="w-5 h-5 mr-2" />
                         {language === 'vi' ? 'Tìm trạm gần' : 'Find Stations'}
@@ -452,14 +449,14 @@ export default function MainDashboard({ onLogout, onBooking, onHistory, onAnalys
               </div> */}
 
               {/* Quick Actions - Simplified */}
-              <div className="mb-16">
+              <div className="mb-16 mt-12">
                 <h2 className="text-3xl font-bold text-foreground mb-8 text-center">
                   {language === 'vi' ? 'Dịch vụ của chúng tôi' : 'Our Services'}
                 </h2>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   <div 
-                    className="bg-card rounded-2xl p-6 border border-border hover:shadow-lg hover:border-primary/50 transition-all cursor-pointer"
+                    className="bg-card rounded-2xl p-6 border border-border hover:shadow-lg hover:border-primary/50 transition-all cursor-pointer w-full"
                     onClick={onMyBookings}
                   >
                     <BookOpen className="w-8 h-8 text-primary mb-4" />
@@ -472,7 +469,7 @@ export default function MainDashboard({ onLogout, onBooking, onHistory, onAnalys
                   </div>
 
                   <div 
-                    className="bg-card rounded-2xl p-6 border border-border hover:shadow-lg hover:border-primary/50 transition-all cursor-pointer"
+                    className="bg-card rounded-2xl p-6 border border-border hover:shadow-lg hover:border-primary/50 transition-all cursor-pointer w-full"
                     onClick={() => setActiveSection("transaction-history")}
                   >
                     <Receipt className="w-8 h-8 text-primary mb-4" />
@@ -485,7 +482,7 @@ export default function MainDashboard({ onLogout, onBooking, onHistory, onAnalys
                   </div>
 
                   <div 
-                    className="bg-card rounded-2xl p-6 border border-border hover:shadow-lg hover:border-primary/50 transition-all cursor-pointer"
+                    className="bg-card rounded-2xl p-6 border border-border hover:shadow-lg hover:border-primary/50 transition-all cursor-pointer w-full"
                     onClick={onHistory}
                   >
                     <Calendar className="w-8 h-8 text-primary mb-4" />
@@ -498,7 +495,7 @@ export default function MainDashboard({ onLogout, onBooking, onHistory, onAnalys
                   </div>
 
                   <div 
-                    className="bg-card rounded-2xl p-6 border border-border hover:shadow-lg hover:border-primary/50 transition-all cursor-pointer"
+                    className="bg-card rounded-2xl p-6 border border-border hover:shadow-lg hover:border-primary/50 transition-all cursor-pointer w-full"
                     onClick={onPremiumSubscription}
                   >
                     <CreditCard className="w-8 h-8 text-primary mb-4" />
@@ -511,7 +508,7 @@ export default function MainDashboard({ onLogout, onBooking, onHistory, onAnalys
                   </div>
 
                   <div 
-                    className="bg-card rounded-2xl p-6 border border-border hover:shadow-lg hover:border-primary/50 transition-all cursor-pointer"
+                    className="bg-card rounded-2xl p-6 border border-border hover:shadow-lg hover:border-primary/50 transition-all cursor-pointer w-full"
                     onClick={onAnalysis}
                   >
                     <FileText className="w-8 h-8 text-primary mb-4" />
@@ -524,7 +521,7 @@ export default function MainDashboard({ onLogout, onBooking, onHistory, onAnalys
                   </div>
 
                   <div 
-                    className="bg-card rounded-2xl p-6 border border-border hover:shadow-lg hover:border-primary/50 transition-all cursor-pointer"
+                    className="bg-card rounded-2xl p-6 border border-border hover:shadow-lg hover:border-primary/50 transition-all cursor-pointer w-full"
                     onClick={onReportIssue}
                   >
                     <AlertTriangle className="w-8 h-8 text-primary mb-4" />

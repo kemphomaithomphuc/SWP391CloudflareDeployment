@@ -21,6 +21,8 @@ import {
 
 import { useLanguage } from "./contexts/LanguageContext";
 import DriverManagementView from "./components/DriverManagementView";
+import MarketTrendsWidget from "./components/MarketTrendsWidget";
+import ConnectorSuggestionsWidget from "./components/ConnectorSuggestionsWidget";
 
 interface AdminDashboardProps {
     onLogout: () => void;
@@ -39,6 +41,8 @@ export default function AdminDashboard({ onLogout, onSystemConfig, onAdminMap, o
     const [showSalary, setShowSalary] = useState(false);
     const [isLoggingOut, setIsLoggingOut] = useState(false);
     const [currentView, setCurrentView] = useState<'dashboard' | 'driverManagement'>('dashboard');
+    const [marketTrendsExpanded, setMarketTrendsExpanded] = useState(false);
+    const [connectorSuggestionsExpanded, setConnectorSuggestionsExpanded] = useState(false);
 
     const toggleLanguage = () => {
         setLanguage(language === 'en' ? 'vi' : 'en');
@@ -210,6 +214,38 @@ export default function AdminDashboard({ onLogout, onSystemConfig, onAdminMap, o
             {/* Main Content */}
             <div className="container mx-auto px-6 py-12 max-w-4xl">
                 <div className="space-y-12">
+                    {/* Widgets Row - Market Trends & Connector Suggestions */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className={`transition-all duration-300 ${
+                            marketTrendsExpanded ? 'md:col-span-2' : ''
+                        } ${connectorSuggestionsExpanded && !marketTrendsExpanded ? 'hidden md:block' : ''}`}>
+                            <MarketTrendsWidget 
+                                className="w-full" 
+                                isExpanded={marketTrendsExpanded}
+                                onExpandChange={(expanded) => {
+                                    setMarketTrendsExpanded(expanded);
+                                    if (expanded) {
+                                        setConnectorSuggestionsExpanded(false);
+                                    }
+                                }}
+                            />
+                        </div>
+                        <div className={`transition-all duration-300 ${
+                            connectorSuggestionsExpanded ? 'md:col-span-2' : ''
+                        } ${marketTrendsExpanded && !connectorSuggestionsExpanded ? 'hidden md:block' : ''}`}>
+                            <ConnectorSuggestionsWidget 
+                                className="w-full" 
+                                isExpanded={connectorSuggestionsExpanded}
+                                onExpandChange={(expanded) => {
+                                    setConnectorSuggestionsExpanded(expanded);
+                                    if (expanded) {
+                                        setMarketTrendsExpanded(false);
+                                    }
+                                }}
+                            />
+                        </div>
+                    </div>
+                    
                     {/* 2x2 Grid Buttons */}
                     <motion.div
                         initial={{ opacity: 0, y: 20 }}
