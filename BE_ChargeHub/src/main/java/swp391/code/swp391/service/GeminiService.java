@@ -30,16 +30,21 @@ public class GeminiService {
     private final ConnectorTypeRepository connectorTypeRepository;
     private final KnowledgeBaseRepository knowledgeBaseRepository;
 
+    // NEW: Context Window Manager để tránh vượt token limit
+    private final ContextWindowManager contextWindowManager;
+
     @Autowired
     public GeminiService(GeminiApiCaller apiCaller, ObjectMapper objectMapper,
                          ChargingStationRepository stationRepository,
                          ConnectorTypeRepository connectorTypeRepository,
-                         KnowledgeBaseRepository knowledgeBaseRepository) {
+                         KnowledgeBaseRepository knowledgeBaseRepository,
+                         ContextWindowManager contextWindowManager) {
         this.apiCaller = apiCaller;
         this.objectMapper = objectMapper;
         this.stationRepository = stationRepository;
         this.connectorTypeRepository = connectorTypeRepository;
         this.knowledgeBaseRepository = knowledgeBaseRepository;
+        this.contextWindowManager = contextWindowManager;
     }
 
     // --- CÁC HÀM STATELESS (KHÔNG CẦN CONTEXT) ---
@@ -97,9 +102,11 @@ public class GeminiService {
     }
 
     /**
-     * HÀM 3.2: Phân tích Xu hướng Thị trường (Đã sửa)
+     * HÀM 3.2: Phân tích Xu hướng Thị trường (Đã sửa + CACHE)
      */
+    @org.springframework.cache.annotation.Cacheable(value = "market-trends", key = "'weekly'")
     public String getMarketTrends() {
+        logger.info("Fetching fresh market trends from Gemini (cache miss)");
         String promptText = """
             Bạn là một nhà phân tích thị trường xe điện (EV) chuyên nghiệp tại Việt Nam.
             Hãy tóm tắt 3 xu hướng quan trọng nhất trong tuần này
@@ -162,9 +169,15 @@ public class GeminiService {
     // --- HÀM STATEFUL (CẦN CONTEXT) ---
 
     /**
-     * HÀM 3.3 (Chatbot): ĐÃ NÂNG CẤP ĐỂ NHỚ CONTEXT (Đã sửa)
+     * HÀM 3.3 (Chatbot): ĐÃ NÂNG CẤP ĐỂ NHỚ CONTEXT (Đã sửa + OPTIMIZED)
      */
     public GeminiChatDecision handleChatIntent(List<ChatMessage> history) {
+
+        // NEW: Optimize history để tránh vượt token limit
+        List<ChatMessage> optimizedHistory = contextWindowManager.optimizeHistory(history);
+        int estimatedTokens = contextWindowManager.estimateTokenCount(optimizedHistory);
+        logger.info("Processing chat with {} messages (~{} tokens)",
+                    optimizedHistory.size(), estimatedTokens);
 
         // 1. Xây dựng Master Prompt
         String knownStations = getDynamicStationsJson();
@@ -174,7 +187,7 @@ public class GeminiService {
 
         String masterPrompt = String.format(
                 """
-                Bạn là một trợ lý AI. Xem toàn bộ LỊCH SỬ TRÒ CHUYỆN.
+                Bạn là một trợ lý AI tạo ra bởi google nhưng được train bởi Nguyên. Xem toàn bộ LỊCH SỬ TRÒ CHUYỆN.
                 Dựa vào tin nhắn CUỐI CÙNG của user, phân tích ý định (intent).
                 Chỉ trả lời bằng MỘT cấu trúc JSON DUY NHẤT.
 
@@ -182,16 +195,16 @@ public class GeminiService {
 
                 Nếu intent = "ASKING_QUESTION":
                 - Dùng LỊCH SỬ và kiến thức sau để trả lời.
-                - JSON: { "intent": "ASKING_QUESTION", "answer": "[Câu trả lời]" }
+                - JSON: { "intent": "ASKING_QUESTION", "answer": "[Câu trả lời]", "sentiment": "[POSITIVE/NEGATIVE/NEUTRAL]", "confidence": [0.0-1.0] }
                 KIẾN THỨC: %s
 
                 Nếu intent = "REPORTING_ISSUE":
                 - Dùng LỊCH SỬ để bóc tách thông tin (user có thể cung cấp tên trạm, trụ, lỗi ở nhiều tin nhắn).
-                - JSON: { "intent": "REPORTING_ISSUE", "answer": "[Câu trả lời xác nhận]", "report_details": { ... } }
+                - JSON: { "intent": "REPORTING_ISSUE", "answer": "[Câu trả lời xác nhận]", "sentiment": "[POSITIVE/NEGATIVE/NEUTRAL]", "report_details": { ... } }
                 Nếu intent = "CHECK_AVAILABILITY":
                 - User đang hỏi về tình trạng trạm (ví dụ: "còn chỗ không", "có đông không").
                 - Bóc tách TÊN TRẠM và GIỜ (0-23). Nếu là "sáng", "chiều", "tối", hãy ước lượng (vd: sáng=7, chiều=15, tối=19).
-                - JSON: { "intent": "CHECK_AVAILABILITY", "answer": "[Câu trả lời chờ]", "station_name": "[Tên trạm]", "hour": [số giờ 0-23] }
+                - JSON: { "intent": "CHECK_AVAILABILITY", "answer": "[Câu trả lời chờ]", "station_name": "[Tên trạm]", "hour": [số giờ 0-23], "sentiment": "[POSITIVE/NEGATIVE/NEUTRAL]" }
                 THÔNG TIN BÓC TÁCH:
                 - Trạm đã biết: %s
                 - Trụ đã biết: %s
@@ -204,10 +217,10 @@ public class GeminiService {
                 knownStations, knownConnectors, knownIssues
         );
 
-        // 2. Xây dựng List<GeminiContent> (Lịch sử chat)
+        // 2. Xây dựng List<GeminiContent> (Lịch sử chat) - SỬ DỤNG OPTIMIZED HISTORY
         List<GeminiContent> contents = new ArrayList<>();
-        for (int i = 0; i < history.size(); i++) {
-            ChatMessage msg = history.get(i);
+        for (int i = 0; i < optimizedHistory.size(); i++) {
+            ChatMessage msg = optimizedHistory.get(i);
             String text = msg.getText();
 
             // Gắn master prompt vào tin nhắn đầu tiên của user
@@ -237,6 +250,15 @@ public class GeminiService {
             if (decision.getIntent() == null || decision.getChatResponse() == null) {
                 return createErrorDecision("Tôi chưa hiểu rõ ý của bạn. Bạn có thể nói rõ hơn không?");
             }
+
+            // NEW: Ensure sentiment and confidence are set
+            if (decision.getSentiment() == null) {
+                decision.setSentiment("NEUTRAL");
+            }
+            if (decision.getConfidence() == null) {
+                decision.setConfidence(0.8);
+            }
+
             return decision;
 
         } catch (Exception e) {

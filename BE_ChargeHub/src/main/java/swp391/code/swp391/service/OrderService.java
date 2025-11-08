@@ -31,4 +31,12 @@ public interface OrderService {
      * @throws ApiRequestException nếu không thể hủy
      */
     OrderResponseDTO cancelOrder(CancelOrderDTO request);
+
+    /**
+     * Kiểm tra xe có đang trong phiên sạc (CHARGING) hay không.
+     *
+     * @param vehicleId ID của xe cần kiểm tra
+     * @return true nếu xe đang sạc, false nếu không
+     */
+    boolean isVehicleCurrentlyCharging(Long vehicleId);
 }

@@ -16,6 +16,14 @@ import java.time.LocalDateTime;
 @Builder
 public class AvailableTimeSlotDTO {
 
+    // NEW: Fields used by OrderServiceImpl when creating slot DTOs
+    private String slotId; // e.g. FIXED_02:00_04:00 or MINI_09:30_10:45
+    private LocalDateTime slotStart;
+    private LocalDateTime slotEnd;
+    private Integer slotDurationMinutes;
+    private Double slotPrice;
+
+    // Backward-compatible fields (kept for other usages)
     // Khoảng thời gian TRỐNG
     private LocalDateTime freeFrom; // Bắt đầu khoảng trống
     private LocalDateTime freeTo;   // Kết thúc khoảng trống

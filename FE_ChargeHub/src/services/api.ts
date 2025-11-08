@@ -232,6 +232,8 @@ export interface ConfirmOrderDTO {
   notes?: string;
   connectorTypeId: number;
   initialStatus?: string; // "BOOKED" for scheduled, "CHARGING" for immediate
+  // IDs of slots selected by user (e.g. "FIXED_02:00_04:00", "MINI_09:30_10:45")
+  slotIds?: string[];
 }
 
 export interface CancelOrderDTO {
@@ -242,11 +244,19 @@ export interface CancelOrderDTO {
 
 // Response DTOs
 export interface AvailableTimeSlotDTO {
-  freeFrom: string; // ISO string format
-  freeTo: string; // ISO string format
-  availableMinutes: number;
-  requiredMinutes: number;
-  estimatedCost: number;
+  // New slot fields returned by backend
+  slotId?: string;
+  slotStart?: string; // ISO string format
+  slotEnd?: string;   // ISO string format
+  slotDurationMinutes?: number;
+  slotPrice?: number;
+
+  // Backward-compatible fields
+  freeFrom?: string; // ISO string format
+  freeTo?: string; // ISO string format
+  availableMinutes?: number;
+  requiredMinutes?: number;
+  estimatedCost?: number;
 }
 
 export interface ChargingPointAvailabilityDTO {
@@ -920,28 +930,6 @@ export const unassignStaffFromStation = async (userId: number): Promise<APIRespo
   return response.data;
 };
 
-// ===== CHATBOT API FUNCTIONS =====
-export interface ChatResponse {
-  message: string;
-}
-
-export const sendChatMessage = async (message: string): Promise<any> => {
-  try {
-    console.log('Sending chat message to:', '/api/chatbot/send');
-    console.log('Message payload:', { message });
-    const response = await api.post('/api/chatbot/send', { message });
-    console.log('Chat API full response:', response);
-    console.log('Chat API response.data:', response.data);
-    console.log('Chat API response.data type:', typeof response.data);
-    return response.data;
-  } catch (error: any) {
-    console.error('Error calling chatbot API:', error);
-    console.error('Error response:', error.response?.data);
-    console.error('Error status:', error.response?.status);
-    throw error;
-  }
-};
-
 // ===== ADMIN REVENUE API FUNCTIONS =====
 export interface RevenueData {
   month: string;
@@ -1207,7 +1195,4 @@ export const canUnlockUser = async (userId: number): Promise<APIResponse<boolean
 };
 
 export default api;
-
-
-
 

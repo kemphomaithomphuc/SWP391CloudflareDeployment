@@ -2,7 +2,9 @@ import { Card, CardContent } from "../ui/card";
 import ChatHeader from "./ChatHeader";
 import ChatMessages from "./ChatMessages";
 import ChatInput from "./ChatInput";
+import SuggestedMessages from "./SuggestedMessages";
 import { Message } from "../../hooks/useChat";
+import { LocationData } from "../../api/chatbot";
 
 interface ChatWindowProps {
   messages: Message[];
@@ -12,6 +14,7 @@ interface ChatWindowProps {
   messagesEndRef: React.RefObject<HTMLDivElement>;
   inputRef: React.RefObject<HTMLInputElement>;
   onSendMessage: () => void;
+  onSendMessageWithLocation: (message: string, location?: LocationData) => void;
   onKeyPress: (e: React.KeyboardEvent<HTMLInputElement>) => void;
   onClose: () => void;
   onHeaderMouseDown?: (e: React.MouseEvent) => void;
@@ -25,6 +28,7 @@ export default function ChatWindow({
   messagesEndRef,
   inputRef,
   onSendMessage,
+  onSendMessageWithLocation,
   onKeyPress,
   onClose,
   onHeaderMouseDown,
@@ -38,6 +42,12 @@ export default function ChatWindow({
           isLoading={isLoading} 
           messagesEndRef={messagesEndRef} 
         />
+        {messages.length === 0 && (
+          <SuggestedMessages 
+            onSendMessage={onSendMessageWithLocation}
+            isLoading={isLoading}
+          />
+        )}
         <ChatInput
           inputMessage={inputMessage}
           setInputMessage={setInputMessage}
