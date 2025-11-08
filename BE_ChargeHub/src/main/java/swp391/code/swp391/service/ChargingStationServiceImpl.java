@@ -227,6 +227,65 @@ public class ChargingStationServiceImpl implements ChargingStationService {
         return chargingStationRepository.findStationIdByName(stationName);
     }
 
+    @Override
+    public List<ChargingStationDTO> findNearbyStations(Double latitude, Double longitude, Double radiusKm) {
+        if (latitude == null || longitude == null) {
+            throw new RuntimeException("Latitude và Longitude không được để trống");
+        }
+
+        // Lấy tất cả stations
+        List<ChargingStation> allStations = chargingStationRepository.findAll();
+
+        // Tính khoảng cách và filter
+        List<ChargingStationDTO> result = new ArrayList<>();
+
+        for (ChargingStation station : allStations) {
+            // Skip stations without valid coordinates
+            if (station.getLatitude() == 0.0 && station.getLongitude() == 0.0) {
+                continue;
+            }
+
+            // Tính khoảng cách bằng Haversine formula
+            double distance = calculateDistance(
+                latitude, longitude,
+                station.getLatitude(), station.getLongitude()
+            );
+
+            // Filter by radius
+            if (distance <= radiusKm) {
+                ChargingStationDTO dto = convertToDTO(station);
+                dto.setDistance(distance);
+                result.add(dto);
+            }
+        }
+
+        // Sort by distance and limit to 10
+        result.sort((a, b) -> Double.compare(a.getDistance(), b.getDistance()));
+
+        return result.stream()
+                .limit(10)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Tính khoảng cách giữa 2 điểm dựa trên Haversine formula
+     * @return khoảng cách tính bằng km
+     */
+    private double calculateDistance(double lat1, double lon1, double lat2, double lon2) {
+        final int R = 6371; // Bán kính Trái Đất (km)
+
+        double latDistance = Math.toRadians(lat2 - lat1);
+        double lonDistance = Math.toRadians(lon2 - lon1);
+
+        double a = Math.sin(latDistance / 2) * Math.sin(latDistance / 2)
+                + Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2))
+                * Math.sin(lonDistance / 2) * Math.sin(lonDistance / 2);
+
+        double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+        return R * c; // Khoảng cách tính bằng km
+    }
+
     // Helper methods
     private ChargingStation convertToEntity(ChargingStationDTO chargingStationDTO) {
         ChargingStation chargingStation = new ChargingStation();

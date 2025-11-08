@@ -33,6 +33,7 @@ public class OrderServiceImpl implements OrderService {
     // ========== CẤU HÌNH SLOT ==========
     private static final int SLOT_DURATION_MINUTES = 120; // 2 giờ mỗi slot
     private static final int MIN_GAP_MINUTES = 30; // Thời gian tối thiểu cho mini-slot
+    private static final int BUFFER_MINUTES = 15; // Buffer 15 phút giữa các slot
     private static final LocalTime OPENING_TIME = LocalTime.of(0, 30);
     // NOTE: CLOSING_TIME là 00:00 ngày hôm sau để slot 22:00-00:00 (24:00) được tạo
     private static final LocalTime CLOSING_TIME = LocalTime.of(23, 50);
@@ -171,8 +172,8 @@ public class OrderServiceImpl implements OrderService {
     }
 
     /**
-     * Tạo tất cả các slot cố định trong ngày (mỗi slot 2 giờ)
-     * VD: 00:00-02:00, 02:00-04:00, 04:00-06:00, ...
+     * Tạo tất cả các slot cố định trong ngày (mỗi slot 2 giờ + buffer 15 phút giữa các slot)
+     * Mỗi slot cách nhau 15 phút buffer time
      */
     private List<TimeSlot> generateFixedSlots(LocalDateTime dayStart, LocalDateTime dayEnd) {
         List<TimeSlot> slots = new ArrayList<>();
@@ -182,7 +183,9 @@ public class OrderServiceImpl implements OrderService {
                 slotStart.plusMinutes(SLOT_DURATION_MINUTES).isEqual(dayEnd)) {
             LocalDateTime slotEnd = slotStart.plusMinutes(SLOT_DURATION_MINUTES);
             slots.add(new TimeSlot(slotStart, slotEnd, SLOT_DURATION_MINUTES, SlotType.FIXED));
-            slotStart = slotEnd;
+
+            // Slot tiếp theo bắt đầu sau buffer time (15 phút)
+            slotStart = slotEnd.plusMinutes(BUFFER_MINUTES);
         }
 
         return slots;
@@ -202,13 +205,19 @@ public class OrderServiceImpl implements OrderService {
 
     /**
      * Kiểm tra slot có bị order nào chiếm không
+     * THÊM: Buffer 15 phút giữa các slot để tránh sát nhau quá
      */
     private boolean isSlotOccupied(TimeSlot slot, List<Order> orders) {
+        // Thêm buffer vào slot để kiểm tra
+        // Slot thực tế cần: [start - BUFFER, end + BUFFER]
+        LocalDateTime slotStartWithBuffer = slot.start.minusMinutes(BUFFER_MINUTES);
+        LocalDateTime slotEndWithBuffer = slot.end.plusMinutes(BUFFER_MINUTES);
+
         return orders.stream().anyMatch(order ->
-                // Order overlap với slot nếu:
-                // start < order.end && end > order.start
-                slot.start.isBefore(order.getEndTime()) &&
-                        slot.end.isAfter(order.getStartTime())
+                // Order overlap với slot (có buffer) nếu:
+                // slotStartWithBuffer < order.end && slotEndWithBuffer > order.start
+                slotStartWithBuffer.isBefore(order.getEndTime()) &&
+                        slotEndWithBuffer.isAfter(order.getStartTime())
         );
     }
 
@@ -404,10 +413,14 @@ public class OrderServiceImpl implements OrderService {
         validateSlotIds(request.getSlotIds(), request.getStartTime(), request.getEndTime(), chargingPoint);
 
         // ===== 8. KIỂM TRA TRÙNG LỊCH - DOUBLE CHECK SAU KHI LOCK =====
+        // THÊM: Kiểm tra với buffer 15 phút
+        LocalDateTime bookingStartWithBuffer = request.getStartTime().minusMinutes(BUFFER_MINUTES);
+        LocalDateTime bookingEndWithBuffer = request.getEndTime().plusMinutes(BUFFER_MINUTES);
+
         List<Order> overlappingOrders = orderRepository.findOverlappingOrders(
                 chargingPoint.getChargingPointId(),
-                request.getStartTime(),
-                request.getEndTime()
+                bookingStartWithBuffer,
+                bookingEndWithBuffer
         );
 
         boolean hasConflict = overlappingOrders.stream()
@@ -415,7 +428,7 @@ public class OrderServiceImpl implements OrderService {
                         order.getStatus() == Order.Status.CHARGING);
 
         if (hasConflict) {
-            throw new ApiRequestException("Slot này đã có người đặt. Vui lòng chọn slot khác.");
+            throw new ApiRequestException("Slot này quá gần với đơn đặt chỗ khác (cần buffer 15 phút). Vui lòng chọn slot khác.");
         }
 
         // ===== 9. KIỂM TRA USER ĐÃ CÓ ORDER TRÙNG THỜI GIAN CHƯA =====
@@ -552,15 +565,43 @@ public class OrderServiceImpl implements OrderService {
      * - Các slot phải khả dụng
      * - Thời gian start/end phải khớp với slot boundaries
      * - Hỗ trợ STAFF slot ID (cho walk-in booking)
+     * - Book Now: BỎ QUA validation boundaries, cho phép slot động từ thời điểm hiện tại
      */
     private void validateSlotIds(List<String> slotIds, LocalDateTime startTime, LocalDateTime endTime, ChargingPoint point) {
         if (slotIds == null || slotIds.isEmpty()) {
             throw new ApiRequestException("Phải chọn ít nhất 1 slot");
         }
 
-        // Kiểm tra nếu là STAFF slot (walk-in booking), skip validation chi tiết
+        LocalDateTime now = LocalDateTime.now();
+        boolean isBookNow = !startTime.isAfter(now.plusMinutes(IMMEDIATE_START_THRESHOLD_MINUTES));
+
+        // ===== BOOK NOW: BỎ QUA VALIDATION CHI TIẾT, CHỈ CHECK OVERLAP =====
+        if (isBookNow) {
+            // Book Now tạo slot động từ thời điểm hiện tại
+            // Chỉ cần kiểm tra không overlap với order khác
+            List<Order> existingOrders = orderRepository.findActiveOrdersByChargingPoint(
+                    point.getChargingPointId(),
+                    LocalDateTime.now()
+            );
+
+            TimeSlot dynamicSlot = new TimeSlot(startTime, endTime,
+                    (int) Duration.between(startTime, endTime).toMinutes(), SlotType.MINI);
+
+            if (isSlotOccupied(dynamicSlot, existingOrders)) {
+                throw new ApiRequestException("Thời gian này đã có người đặt. Vui lòng chọn thời gian khác.");
+            }
+
+            // Kiểm tra thời gian tối thiểu
+            int bookingMinutes = (int) Duration.between(startTime, endTime).toMinutes();
+            if (bookingMinutes < MIN_GAP_MINUTES) {
+                throw new ApiRequestException("Thời gian đặt tối thiểu là " + MIN_GAP_MINUTES + " phút");
+            }
+
+            return; // Skip rest of validation for Book Now
+        }
+
+        // ===== STAFF SLOT: VALIDATION LINH HOẠT =====
         if (slotIds.size() == 1 && slotIds.get(0).startsWith("STAFF_")) {
-            // Staff booking được phép linh hoạt hơn, chỉ cần kiểm tra overlap
             List<Order> existingOrders = orderRepository.findActiveOrdersByChargingPoint(
                     point.getChargingPointId(),
                     LocalDateTime.now()
@@ -572,9 +613,10 @@ public class OrderServiceImpl implements OrderService {
             if (isSlotOccupied(staffSlot, existingOrders)) {
                 throw new ApiRequestException("Thời gian này đã có người đặt");
             }
-            return; // Skip rest of validation for staff booking
+            return;
         }
 
+        // ===== SCHEDULE (ĐặT LỊCH TRƯỚC): VALIDATION NGHIÊM NGẶT =====
         // Parse slot IDs để lấy thông tin slot
         List<TimeSlot> requestedSlots = new ArrayList<>();
         for (String slotId : slotIds) {
@@ -598,27 +640,12 @@ public class OrderServiceImpl implements OrderService {
             }
         }
 
-        // Kiểm tra thời gian start/end phải khớp với slot boundaries
-        // THAY ĐỔI: Nới lỏng validation cho Book Now (tolerance ±2 phút)
+        // Đặt lịch trước: Yêu cầu khớp CHÍNH XÁC với slot boundaries
         TimeSlot firstSlot = requestedSlots.get(0);
         TimeSlot lastSlot = requestedSlots.get(requestedSlots.size() - 1);
 
-        LocalDateTime now = LocalDateTime.now();
-        boolean isBookNow = !startTime.isAfter(now.plusMinutes(IMMEDIATE_START_THRESHOLD_MINUTES));
-
-        if (isBookNow) {
-            // Book Now: Cho phép startTime trong khoảng ±2 phút so với slot.start (do network latency)
-            long startDiffSeconds = Math.abs(Duration.between(startTime, firstSlot.start).getSeconds());
-            long endDiffSeconds = Math.abs(Duration.between(endTime, lastSlot.end).getSeconds());
-
-            if (startDiffSeconds > 120 || endDiffSeconds > 120) { // 120 giây = 2 phút
-                throw new ApiRequestException("Thời gian order phải gần khớp với thời gian của slot (tolerance 2 phút)");
-            }
-        } else {
-            // Đặt lịch trước: Yêu cầu khớp CHÍNH XÁC
-            if (!startTime.equals(firstSlot.start) || !endTime.equals(lastSlot.end)) {
-                throw new ApiRequestException("Thời gian order phải khớp với thời gian của slot");
-            }
+        if (!startTime.equals(firstSlot.start) || !endTime.equals(lastSlot.end)) {
+            throw new ApiRequestException("Thời gian order phải khớp với thời gian của slot");
         }
 
         // Kiểm tra các slot có khả dụng không

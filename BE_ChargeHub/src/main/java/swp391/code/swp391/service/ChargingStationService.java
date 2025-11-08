@@ -49,6 +49,9 @@ public interface ChargingStationService {
     // Tìm kiếm stations theo địa chỉ và status
     List<ChargingStationDTO> searchStationsByAddressAndStatus(String address, ChargingStationStatus status);
 
+    // Tìm stations gần vị trí (latitude, longitude)
+    List<ChargingStationDTO> findNearbyStations(Double latitude, Double longitude, Double radiusKm);
+
     // Tìm kiếm stations theo tên và status
     List<ChargingStationDTO> searchStationsByNameAndStatus(String stationName, ChargingStationStatus status);
 
