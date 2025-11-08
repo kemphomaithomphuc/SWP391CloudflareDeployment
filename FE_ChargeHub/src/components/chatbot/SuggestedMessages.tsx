@@ -43,12 +43,12 @@ export default function SuggestedMessages({ onSendMessage, isLoading }: Suggeste
       // Lấy vị trí hiện tại
       const location = await getCurrentLocation();
       
-      // Gửi tin nhắn kèm theo vị trí
+      // Gửi tin nhắn với vị trí được nhúng trong message
       const message = language === 'vi' 
-        ? 'Tìm trạm sạc gần đây' 
-        : 'Find nearby charging stations';
+        ? `Tìm trạm sạc gần đây. Vị trí hiện tại của tôi: latitude ${location.latitude}, longitude ${location.longitude}` 
+        : `Find nearby charging stations. My current location: latitude ${location.latitude}, longitude ${location.longitude}`;
       
-      onSendMessage(message, location);
+      onSendMessage(message);
       
     } catch (error: any) {
       console.error('Error getting location:', error);

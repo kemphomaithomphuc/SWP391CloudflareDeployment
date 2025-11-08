@@ -34,4 +34,7 @@ public class OrderRequestDTO {
     // Optional fields for staff-initiated sessions
     private Long staffId; // ID của staff tạo booking (nếu có)
     private Long chargingPointId; // ID của trụ sạc cụ thể (optional)
+
+    // Optional: Ngày muốn tìm slot (mặc định là hôm nay)
+    private String searchDate; // Format: "yyyy-MM-dd" (VD: "2025-11-10")
 }

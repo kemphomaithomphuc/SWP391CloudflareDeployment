@@ -16,6 +16,7 @@ import java.util.List;
 public class ChargingPointAvailabilityDTO {
 
     private Long chargingPointId;
+    private String chargingPointName; // Số thứ tự/tên của charging point (VD: "A1", "A2", "B1")
     private String connectorTypeName;
     private Double chargingPower; // kW
     private Double pricePerKwh; // VND/kWh

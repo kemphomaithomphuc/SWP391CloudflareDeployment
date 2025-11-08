@@ -193,6 +193,7 @@ public class ChargingPointServiceImpl implements ChargingPointService {
     private ChargingPoint convertToEntity(ChargingPointDTO chargingPointDTO) {
         ChargingPoint chargingPoint = new ChargingPoint();
         chargingPoint.setChargingPointId(chargingPointDTO.getChargingPointId());
+        chargingPoint.setChargingPointName(chargingPointDTO.getChargingPointName());
         chargingPoint.setStatus(
                 chargingPointDTO.getStatus() != null ? chargingPointDTO.getStatus() : ChargingPointStatus.AVAILABLE
         );
@@ -224,6 +225,7 @@ public class ChargingPointServiceImpl implements ChargingPointService {
     private ChargingPointDTO convertToDTO (ChargingPoint chargingPoint){
             ChargingPointDTO dto = new ChargingPointDTO();
             dto.setChargingPointId(chargingPoint.getChargingPointId());
+            dto.setChargingPointName(chargingPoint.getChargingPointName());
             dto.setStatus(chargingPoint.getStatus());
 
             // Output: full object nếu cần

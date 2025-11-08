@@ -305,6 +305,7 @@ public class StaffServiceImpl implements StaffService {
                 .map(point -> {
                     ChargingPointDTO dto = new ChargingPointDTO();
                     dto.setChargingPointId(point.getChargingPointId());
+                    dto.setChargingPointName(point.getChargingPointName());
                     dto.setStatus(point.getStatus());
                     dto.setStationId(point.getStation().getStationId()); // CHỈ ID
                     dto.setConnectorTypeId(point.getConnectorType().getConnectorTypeId()); // CHỈ ID
@@ -407,7 +408,7 @@ public class StaffServiceImpl implements StaffService {
                     conflictingOrders.add(ConflictingOrderDTO.builder()
                             .orderId(current.getOrderId())
                             .chargingPointId(point.getChargingPointId())
-                            .chargingPointName("Trụ #" + point.getChargingPointId())
+                            .chargingPointName(point.getChargingPointName())
                             .driverName(current.getUser().getFullName())
                             .driverEmail(current.getUser().getEmail())
                             .driverPhone(current.getUser().getPhone())
@@ -426,7 +427,7 @@ public class StaffServiceImpl implements StaffService {
                     conflictingOrders.add(ConflictingOrderDTO.builder()
                             .orderId(next.getOrderId())
                             .chargingPointId(point.getChargingPointId())
-                            .chargingPointName("Trụ #" + point.getChargingPointId())
+                            .chargingPointName(point.getChargingPointName())
                             .driverName(next.getUser().getFullName())
                             .driverEmail(next.getUser().getEmail())
                             .driverPhone(next.getUser().getPhone())
@@ -449,7 +450,7 @@ public class StaffServiceImpl implements StaffService {
             if (!conflictingOrders.isEmpty()) {
                 conflictGroups.add(StationConflictResponseDTO.ConflictGroup.builder()
                         .chargingPointId(point.getChargingPointId())
-                        .chargingPointName("Trụ #" + point.getChargingPointId())
+                        .chargingPointName(point.getChargingPointName())
                         .connectorType(point.getConnectorType().getTypeName())
                         .orders(conflictingOrders)
                         .conflictCount(conflictingOrders.size() / 2) // Mỗi conflict tính 2 orders
@@ -737,6 +738,7 @@ public class StaffServiceImpl implements StaffService {
                 .map(point -> {
                     ChargingPointDTO dto = new ChargingPointDTO();
                     dto.setChargingPointId(point.getChargingPointId());
+                    dto.setChargingPointName(point.getChargingPointName());
                     dto.setStatus(point.getStatus());
                     dto.setStationId(point.getStation().getStationId());
                     dto.setConnectorTypeId(point.getConnectorType().getConnectorTypeId());

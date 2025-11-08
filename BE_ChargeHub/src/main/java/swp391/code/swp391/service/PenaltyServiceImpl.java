@@ -31,7 +31,7 @@ public class PenaltyServiceImpl implements PenaltyService {
 
     // Cấu hình phí (AC7 - có thể move sang SystemConfig)
     private static final int LATE_CANCEL_MINUTES = 10; // Hủy muộn nếu < 10 phút
-    private static final int NO_SHOW_GRACE_MINUTES = 15; // No-show nếu không đến sau 15 phút
+    private static final int NO_SHOW_GRACE_MINUTES = 30; // No-show nếu không đến sau 30 phút
     private static final int AUTO_LOCK_VIOLATIONS = 3; // Auto lock sau 3 vi phạm
 
     @Override
@@ -127,7 +127,7 @@ public class PenaltyServiceImpl implements PenaltyService {
                 return null;
             }
 
-            // Kiểm tra đã quá 15 phút sau startTime
+            // Kiểm tra đã quá 30 phút sau startTime
             LocalDateTime now = LocalDateTime.now();
             Duration timeSinceStart = Duration.between(order.getStartTime(), now);
             long minutesSinceStart = timeSinceStart.toMinutes();
@@ -159,7 +159,7 @@ public class PenaltyServiceImpl implements PenaltyService {
                         orderId,
                         NotificationServiceImpl.PenaltyEvent.NO_SHOW_PENALTY,
                         noShowFee.getAmount(),
-                        "Không đến sau 15 phút." + additionalInfo
+                        "Không đến sau 30 phút." + additionalInfo
                 );
 
                 // TODO: Gửi email qua EmailService

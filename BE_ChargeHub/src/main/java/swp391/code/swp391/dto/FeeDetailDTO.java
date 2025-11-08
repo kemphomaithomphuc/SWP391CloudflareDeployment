@@ -83,7 +83,7 @@ public class FeeDetailDTO {
                    .userName(fee.getOrder().getUser().getFullName());
 
             if (fee.getOrder().getChargingPoint() != null) {
-                builder.chargingPointName("Point #" + fee.getOrder().getChargingPoint().getChargingPointId());
+                builder.chargingPointName(fee.getOrder().getChargingPoint().getChargingPointName());
 
                 if (fee.getOrder().getChargingPoint().getStation() != null) {
                     builder.chargingStationName(
@@ -106,7 +106,7 @@ public class FeeDetailDTO {
 
                 if (fee.getSession().getOrder().getChargingPoint() != null) {
                     builder.chargingPointName(
-                        "Point #" + fee.getSession().getOrder().getChargingPoint().getChargingPointId()
+                        fee.getSession().getOrder().getChargingPoint().getChargingPointName()
                     );
 
                     if (fee.getSession().getOrder().getChargingPoint().getStation() != null) {
