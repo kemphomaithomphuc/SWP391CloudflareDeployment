@@ -300,7 +300,6 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
     const [chargingPower, setChargingPower] = useState(0);
 
     const [chargingIntervalRef, setChargingIntervalRef] = useState<NodeJS.Timeout | null>(null);
-    const batteryLevelBarRef = useRef<HTMLDivElement | null>(null);
 
     const [completedSession, setCompletedSession] = useState<any>(null);
 
@@ -579,13 +578,6 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
             loadAllStationChargingPoints();
         }
     }, [stations]);
-
-    useEffect(() => {
-        if (batteryLevelBarRef.current) {
-            const percent = Math.max(0, Math.min(100, currentBatteryLevel));
-            batteryLevelBarRef.current.style.width = `${percent}%`;
-        }
-    }, [currentBatteryLevel]);
 
     // Search function with scoring mechanism
     const searchStations = (query: string) => {
@@ -3680,14 +3672,12 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                                                 />
                                                 {searchQuery && (
                                                     <button
-                                                        type="button"
                                                         onClick={() => {
                                                             setSearchQuery("");
                                                             setSearchResults([]);
                                                             setShowSearchResults(false);
                                                         }}
                                                         className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-white/70 hover:text-white transition-colors"
-                                                        aria-label={language === 'vi' ? 'Xóa tìm kiếm' : 'Clear search'}
                                                     >
                                                         <X className="w-4 h-4" />
                                                     </button>
@@ -4112,7 +4102,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
 
                                                             <div className="flex items-center justify-between">
 
-                                                                <label className="text-sm text-muted-foreground" htmlFor="currentBatteryInput">Current Battery</label>
+                                                                <span className="text-sm text-muted-foreground">Current Battery</span>
 
                                                                 <span className="text-xs text-muted-foreground">Enter 0-100%</span>
 
@@ -4161,8 +4151,6 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
 
                                                                         max="100"
 
-                                                                        id="currentBatteryInput"
-
                                                                     />
 
                                                                     <div className="text-xs text-muted-foreground">Enter 0-100%</div>
@@ -4199,7 +4187,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
 
                                                                     }`}
 
-                                                                    ref={batteryLevelBarRef}
+                                                                    style={{ width: `${currentBatteryLevel}%` }}
 
                                                                 />
 
@@ -5027,7 +5015,6 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                                             }
                                         }}
                                         className="w-16 h-8 px-2 text-center border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary"
-                                        aria-label={language === 'vi' ? 'Nhập số trang' : 'Enter page number'}
                                     />
                                     <span className="text-muted-foreground">/ {totalPages}</span>
                                 </div>
@@ -6652,7 +6639,6 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                                     // Calculate end time
                                     const startTime = slot.freeFrom ? new Date(slot.freeFrom) : new Date();
                                     const endTime = new Date(startTime.getTime() + chargingDuration * 60000);
-                                    const formattedStartForInput = `${startTime.getHours().toString().padStart(2, '0')}:${startTime.getMinutes().toString().padStart(2, '0')}`;
 
                                     return (
                                         <div
@@ -6665,7 +6651,6 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                                             onClick={() => {
                                                 console.log("Selected slot:", slot);
                                                 setSelectedSlot(slot);
-                                                setChargingStartTimeInput(formattedStartForInput);
                                                 setIsSlotsPopupOpen(false);
                                                 toast.success(
                                                     language === 'vi'
