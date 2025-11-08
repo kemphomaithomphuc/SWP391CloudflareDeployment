@@ -1,9 +1,10 @@
 # Ignore Java (Spring Boot)
 backend/target/
-
+/BE_ChargeHub/API_TEST_VEHICLE_CHARGING_STATUS.md
 # Ignore Node.js (React/Vue)
 frontend/node_modules/
-
+/FE_ChargeHub/CHANGES_SUMMARY.md
+/FE_ChargeHub/IMPLEMENTATION_SUMMARY.md
 # IDE
 *.iml
 .idea/

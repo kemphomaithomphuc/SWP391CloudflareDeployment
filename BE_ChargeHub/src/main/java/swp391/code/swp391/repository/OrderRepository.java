@@ -122,6 +122,17 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     boolean isVehicleCurrentlyBooked(@Param("vehicleId") Long vehicleId);
 
     /**
+     * Kiểm tra xe đang trong trạng thái CHARGING hay không (chỉ CHARGING)
+     */
+    @Query("""
+        SELECT CASE WHEN COUNT(o) > 0 THEN true ELSE false END
+        FROM Order o
+        WHERE o.vehicle.id = :vehicleId
+        AND o.status = 'CHARGING'
+        """)
+    boolean isVehicleCurrentlyCharging(@Param("vehicleId") Long vehicleId);
+
+    /**
      * Tìm các order bị conflict về thời gian cho một charging point cụ thể
      * Loại trừ order hiện tại (để tránh tự check với chính nó)
      */
@@ -151,3 +162,4 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
             @Param("fromTime") LocalDateTime fromTime
     );
 }
+
