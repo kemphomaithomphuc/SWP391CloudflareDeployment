@@ -5779,12 +5779,12 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
 
                                                                         // Check if slot is adjacent to first selected slot
                                                                         const isAdjacent = selectedSlots.length === 1 && startTime && selectedSlots[0]?.freeTo && 
-                                                                            Math.abs(new Date(selectedSlots[0].freeTo).getTime() - startTime.getTime()) < 60000; // Within 1 minute
+                                                                            Math.abs(new Date(selectedSlots[0].freeTo).getTime() - startTime.getTime()) <= 15 * 60 * 1000; // Within 15 minutes
 
                                                                         return (
                                                                             <div
                                                                                 key={slotIndex}
-                                                                                className={`relative p-2.5 rounded-xl cursor-pointer transition-all duration-200 border-2 shadow-sm ${
+                                                                                className={`relative p-1.5 rounded-xl cursor-pointer transition-all duration-200 border-2 shadow-sm ${
                                                                                     isSelected
                                                                                         ? 'border-primary bg-gradient-to-br from-primary/20 to-primary/10 ring-2 ring-primary/30 shadow-md scale-105'
                                                                                         : isAdjacent
@@ -5797,45 +5797,62 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                                                                                     e.stopPropagation();
                                                                                     if (isAvailable) {
                                                                                         setSelectedSlots((prevSlots) => {
+                                                                                            // Helper to compare slots by time
+                                                                                            const isSameSlot = (s1: any, s2: any) => {
+                                                                                                return s1?.freeFrom === s2?.freeFrom && s1?.freeTo === s2?.freeTo;
+                                                                                            };
+                                                                                            
                                                                                             if (prevSlots.length === 0) {
                                                                                                 // First slot selection
                                                                                                 setSelectedSlot(slot);
-                                                                                                console.log("First slot selected:", slot);
+                                                                                                console.log("✅ First slot selected:", slot.freeFrom, "to", slot.freeTo);
                                                                                                 return [slot];
                                                                                             } else if (prevSlots.length === 1) {
+                                                                                                // Check if clicking the same slot - deselect
+                                                                                                if (isSameSlot(slot, prevSlots[0])) {
+                                                                                                    setSelectedSlot(null);
+                                                                                                    console.log("❌ Slot deselected");
+                                                                                                    return [];
+                                                                                                }
+                                                                                                
                                                                                                 // Check if this slot is adjacent to the first one
                                                                                                 const firstSlotEnd = prevSlots[0]?.freeTo ? new Date(prevSlots[0].freeTo) : null;
                                                                                                 const thisSlotStart = startTime;
                                                                                                 
-                                                                                                if (firstSlotEnd && thisSlotStart && 
-                                                                                                    Math.abs(firstSlotEnd.getTime() - thisSlotStart.getTime()) < 60000) {
-                                                                                                    // Adjacent slot - add as second slot
-                                                                                                    setSelectedSlot(slot);
-                                                                                                    console.log("Second adjacent slot selected:", slot);
-                                                                                                    return [prevSlots[0], slot];
-                                                                                                } else if (slot === prevSlots[0]) {
-                                                                                                    // Clicking the same slot - deselect
-                                                                                                    setSelectedSlot(null);
-                                                                                                    console.log("Slot deselected");
-                                                                                                    return [];
-                                                                                                } else {
-                                                                                                    // Not adjacent - replace first slot
-                                                                                                    setSelectedSlot(slot);
-                                                                                                    console.log("Slot replaced:", slot);
-                                                                                                    return [slot];
+                                                                                                console.log("🔍 Checking adjacency:");
+                                                                                                console.log("  First slot ends at:", firstSlotEnd?.toISOString());
+                                                                                                console.log("  This slot starts at:", thisSlotStart?.toISOString());
+                                                                                                
+                                                                                                if (firstSlotEnd && thisSlotStart) {
+                                                                                                    const timeDiff = Math.abs(firstSlotEnd.getTime() - thisSlotStart.getTime());
+                                                                                                    console.log("  Time difference (ms):", timeDiff);
+                                                                                                    console.log("  Time difference (minutes):", timeDiff / 60000);
+                                                                                                    
+                                                                                                    // Allow up to 20 minutes difference for flexibility (slots can be 15 or 30 min apart)
+                                                                                                    if (timeDiff < 20 * 60 * 1000) {
+                                                                                                        // Adjacent slot - add as second slot
+                                                                                                        setSelectedSlot(slot);
+                                                                                                        console.log("✅ Second adjacent slot selected!");
+                                                                                                        return [prevSlots[0], slot];
+                                                                                                    }
                                                                                                 }
+                                                                                                
+                                                                                                // Not adjacent - replace first slot
+                                                                                                setSelectedSlot(slot);
+                                                                                                console.log("⚠️ Not adjacent - Slot replaced");
+                                                                                                return [slot];
                                                                                             } else if (prevSlots.length === 2) {
                                                                                                 // Already have 2 slots - replace with new selection
-                                                                                                if (slot === prevSlots[0] || slot === prevSlots[1]) {
+                                                                                                if (isSameSlot(slot, prevSlots[0]) || isSameSlot(slot, prevSlots[1])) {
                                                                                                     // Clicking selected slot - deselect
-                                                                                                    const newSlots = prevSlots.filter(s => s !== slot);
+                                                                                                    const newSlots = prevSlots.filter(s => !isSameSlot(s, slot));
                                                                                                     setSelectedSlot(newSlots.length > 0 ? newSlots[0] : null);
-                                                                                                    console.log("Slot deselected, remaining:", newSlots.length);
+                                                                                                    console.log("❌ Slot deselected, remaining:", newSlots.length);
                                                                                                     return newSlots;
                                                                                                 } else {
                                                                                                     // Replace with new single selection
                                                                                                     setSelectedSlot(slot);
-                                                                                                    console.log("Replaced with new slot:", slot);
+                                                                                                    console.log("🔄 Replaced with new slot");
                                                                                                     return [slot];
                                                                                                 }
                                                                                             }
@@ -5862,25 +5879,19 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                                                                                 {isAvailable && !isSelected && (
                                                                                     <div className="absolute top-2 right-2 w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
                                                                                 )}
-                                                                                <div className="text-center space-y-1">
+                                                                                <div className="text-center space-y-0.5">
                                                                                     {startTime && endTime ? (
                                                                                         <>
-                                                                                            <div className="space-y-0.5">
-                                                                                                <p className="text-[4px] text-muted-foreground font-medium uppercase tracking-wide">
-                                                                                                    {language === 'vi' ? 'Từ' : 'From'}
-                                                                                                </p>
-                                                                                                <p className="text-base font-bold text-foreground leading-tight">
+                                                                                            <div className="space-y-0">
+                                                                                                <p className="text-sm font-bold text-foreground leading-tight">
                                                                                                     {startTime.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
                                                                                                 </p>
                                                                                             </div>
-                                                                                            <div className="flex items-center justify-center py-0.5">
-                                                                                                <div className="h-px w-6 bg-gradient-to-r from-transparent via-muted-foreground/40 to-transparent"></div>
+                                                                                            <div className="flex items-center justify-center">
+                                                                                                <div className="h-px w-4 bg-gradient-to-r from-transparent via-muted-foreground/40 to-transparent"></div>
                                                                                             </div>
-                                                                                            <div className="space-y-0.5">
-                                                                                                <p className="text-[4px] text-muted-foreground font-medium uppercase tracking-wide">
-                                                                                                    {language === 'vi' ? 'Đến' : 'To'}
-                                                                                                </p>
-                                                                                                <p className="text-base font-bold text-foreground leading-tight">
+                                                                                            <div className="space-y-0">
+                                                                                                <p className="text-sm font-bold text-foreground leading-tight">
                                                                                                     {endTime.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
                                                                                                 </p>
                                                                                             </div>
@@ -6247,6 +6258,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                                     targetBattery: parseFloat(targetBatteryLevelConfig.toString()),
                                     energyToCharge: energyToCharge,
                                     estimatedCost: estimatedCost,
+                                    initialStatus: initialStatus,  // ✅ THÊM TRƯỜNG NÀY - Backend cần để biết status ban đầu
                                     slotIds: slotIds.length > 0 ? slotIds : undefined
                                 };
 
@@ -6669,7 +6681,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                                     return (
                                         <div
                                             key={index}
-                                            className={`p-4 border rounded-lg cursor-pointer transition-all ${
+                                            className={`p-3 border rounded-lg cursor-pointer transition-all ${
                                                 selectedSlot === slot
                                                     ? 'border-primary bg-primary/10 ring-2 ring-primary/20'
                                                     : 'border-border hover:border-primary/50 hover:bg-accent/50'
@@ -6695,30 +6707,26 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                                                         </Badge>
                                                     </div>
 
-                                                    <div className="grid grid-cols-2 gap-4 text-sm">
-                                                        <div>
-                                                            <p className="text-muted-foreground">
-                                                                {language === 'vi' ? 'Thời gian bắt đầu:' : 'Start Time:'}
-                                                            </p>
-                                                            <p className="font-medium">
+                                                    <div className="flex items-center gap-2 text-sm">
+                                                        <div className="flex items-center gap-1">
+                                                            <Clock className="w-3.5 h-3.5 text-muted-foreground" />
+                                                            <span className="font-medium">
                                                                 {startTime.toLocaleTimeString('en-US', {
                                                                     hour: '2-digit',
                                                                     minute: '2-digit',
                                                                     hour12: true
                                                                 })}
-                                                            </p>
+                                                            </span>
                                                         </div>
+                                                        <span className="text-muted-foreground">→</span>
                                                         <div>
-                                                            <p className="text-muted-foreground">
-                                                                {language === 'vi' ? 'Thời gian kết thúc:' : 'End Time:'}
-                                                            </p>
-                                                            <p className="font-medium">
+                                                            <span className="font-medium">
                                                                 {endTime.toLocaleTimeString('en-US', {
                                                                     hour: '2-digit',
                                                                     minute: '2-digit',
                                                                     hour12: true
                                                                 })}
-                                                            </p>
+                                                            </span>
                                                         </div>
                                                     </div>
 

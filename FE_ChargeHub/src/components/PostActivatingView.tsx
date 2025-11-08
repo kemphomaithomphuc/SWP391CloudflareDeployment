@@ -12,7 +12,7 @@ import { Label } from "./ui/label";
 import { Textarea } from "./ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "./ui/alert-dialog";
-import { toast } from "sonner@2.0.3";
+import { toast } from "sonner";
 import { Progress } from "./ui/progress";
 
 interface PostActivatingViewProps {
@@ -380,9 +380,13 @@ export default function PostActivatingView({ onBack }: PostActivatingViewProps) 
 
   const handleForceStop = (customer: Customer) => {
     setCustomers(prev => prev.filter(c => c.id !== customer.id));
-    setStations(prev => prev.map(s =>
-      s.id === customer.currentStation ? { ...s, status: 'active' as const, currentUser: undefined } : s
-    ));
+    setStations(prev => prev.map(s => {
+      if (s.id === customer.currentStation) {
+        const { currentUser, ...rest } = s;
+        return { ...rest, status: 'active' as const };
+      }
+      return s;
+    }));
     toast.success(t.force_stop_success);
   };
 
@@ -397,27 +401,30 @@ export default function PostActivatingView({ onBack }: PostActivatingViewProps) 
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="container mx-auto px-4 py-6 space-y-8">
-        {/* Header */}
-        <div className="space-y-6">
-          <div className="flex items-center gap-3">
-            <Button
-              variant="ghost"
-              onClick={onBack}
-              className="text-primary hover:text-primary/80 hover:bg-primary/10 -ml-2"
-            >
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              {t.back}
-            </Button>
-            <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-blue-600 rounded-2xl flex items-center justify-center shadow-lg">
-              <Activity className="w-6 h-6 text-white" />
+      {/* Header */}
+      <div className="sticky top-0 z-40 bg-card/80 backdrop-blur-sm border-b border-border shadow-sm">
+        <div className="container mx-auto px-4 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-4">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onBack}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Back to Dashboard
+              </Button>
+            </div>
+            <div className="text-right">
+              <h1 className="text-lg font-semibold text-foreground">{t.title}</h1>
+              <p className="text-sm text-muted-foreground">{t.subtitle}</p>
             </div>
           </div>
-          <div className="space-y-1">
-            <h1 className="text-foreground font-semibold">{t.title}</h1>
-            <p className="text-muted-foreground">{t.subtitle}</p>
-          </div>
         </div>
+      </div>
+
+      <div className="container mx-auto px-4 py-6 space-y-8">
 
         {/* Quick Stats */}
         <div className="space-y-6">

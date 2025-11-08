@@ -261,6 +261,7 @@ export interface AvailableTimeSlotDTO {
 
 export interface ChargingPointAvailabilityDTO {
   chargingPointId: number;
+  chargingPointName?: string;  // ✅ NEW - Tên charging point (e.g., "A1", "B2")
   connectorTypeName: string;
   chargingPower: number;
   pricePerKwh: number;
@@ -298,6 +299,8 @@ export interface AvailableSlotsResponseDTO {
 
 export interface OrderResponseDTO {
   orderId: number;
+  chargingPointId?: number;
+  chargingPointName?: string;  // ✅ NEW - Tên charging point (e.g., "A1", "B2")
   stationName: string;
   stationAddress: string;
   connectorType: string;
@@ -318,6 +321,7 @@ export interface StationOrderItemDTO {
     userName?: string;
     vehiclePlate?: string;
     chargingPointId: number;
+    chargingPointName?: string;  // ✅ NEW - Tên charging point (e.g., "A1", "B2")
     connectorType?: string;
     status: 'BOOKED' | 'CHARGING' | 'COMPLETED' | string;
     startTime: string;
@@ -341,6 +345,7 @@ export interface APIResponse<T> {
 // ===== STAFF: CHANGE CHARGING POINT TYPES =====
 export interface ChargingPointDTO {
     chargingPointId: number;
+    chargingPointName?: string;  // ✅ NEW - Tên charging point (e.g., "A1", "B2")
     status: string;
     stationId: number;
     connectorTypeId: number;
@@ -361,6 +366,7 @@ export interface ChangeChargingPointResponseDTO {
     orderId: number;
     oldChargingPointId: number;
     oldChargingPointInfo?: string;
+    chargingPointName?: string;  // ✅ NEW - Tên charging point mới (e.g., "A1", "B2")
     newChargingPointId: number;
     newChargingPointInfo?: string;
     driverName?: string;
@@ -370,6 +376,7 @@ export interface ChangeChargingPointResponseDTO {
     changedByStaff?: string;
     notificationSent?: boolean;
     message?: string;
+    stationName?: string;  // ✅ Tên trạm
 }
 
 // ===== ORDER API FUNCTIONS =====
@@ -547,41 +554,6 @@ export const upgradeUserSubscription = async (
   return response.data;
 };
 
-// 5. Get transactions history (paginated)
-export interface TransactionHistoryParams {
-  userId: number;
-  page?: number;
-  size?: number;
-  sortBy?: string;
-  sortDirection?: 'ASC' | 'DESC';
-}
-
-export interface PaginatedResponse<T> {
-  content?: T[];
-  totalElements?: number;
-  totalPages?: number;
-  pageNumber?: number;
-  pageSize?: number;
-}
-
-export const getTransactionHistory = async ({ userId, page = 0, size = 10, sortBy = 'createdAt', sortDirection = 'DESC' }: TransactionHistoryParams): Promise<APIResponse<PaginatedResponse<any> | any[]>> => {
-  const params = new URLSearchParams();
-  params.append('userId', userId.toString());
-  params.append('page', String(page));
-  params.append('size', String(size));
-  params.append('sortBy', sortBy);
-  params.append('sortDirection', sortDirection);
-  const url = `/api/transactions/history?${params.toString()}`;
-  console.log('[API] getTransactionHistory →', url);
-  const response = await api.get<APIResponse<PaginatedResponse<any> | any[]>>(url);
-  console.log('[API] getTransactionHistory status:', response.status);
-  try {
-    const payload: any = response.data?.data;
-    const list = Array.isArray(payload) ? payload : (payload?.content ?? []);
-    console.log('[API] getTransactionHistory items:', list?.length ?? 0, 'totalPages:', payload?.totalPages ?? 'n/a');
-  } catch {}
-  return response.data;
-};
 
 // ===== AUTH API FUNCTIONS =====
 
