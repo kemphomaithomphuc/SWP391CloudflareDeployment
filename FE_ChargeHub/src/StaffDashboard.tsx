@@ -6,6 +6,7 @@ import { Button } from "./components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "./components/ui/popover";
 import { Separator } from "./components/ui/separator";
 import StaffInvoiceView from "./components/StaffInvoiceView";
+import StaffReportView from "./components/StaffReportView";
 import {
     Menu,
     X,
@@ -94,9 +95,7 @@ export default function StaffDashboard({ onLogout, onNotifications, onReports, o
 
     // Handle menu item clicks
     const handleMenuClick = (itemId: string) => {
-        if (itemId === "reports" && onReports) {
-            onReports();
-        } else if (itemId === "chargingManagement" && onChargingManagement) {
+        if (itemId === "chargingManagement" && onChargingManagement) {
             onChargingManagement();
         } else if (itemId === "notifications" && onNotifications) {
             onNotifications();
@@ -169,6 +168,11 @@ export default function StaffDashboard({ onLogout, onNotifications, onReports, o
       case "billing":
         return (
           <StaffInvoiceView onBack={() => setActiveSection("dashboard")} />
+        );
+
+      case "reports":
+        return (
+          <StaffReportView onBack={() => setActiveSection("dashboard")} />
         );
 
       case "postActivating":
@@ -493,7 +497,10 @@ export default function StaffDashboard({ onLogout, onNotifications, onReports, o
                 </div>
               </div>
 
-              <div className="bg-card rounded-xl p-6 shadow-sm border border-border">
+              <div 
+                className="bg-card rounded-xl p-6 shadow-sm border border-border cursor-pointer hover:shadow-md hover:border-orange-600/30 transition-all duration-200"
+                onClick={() => setActiveSection("reports")}
+              >
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-muted-foreground">{t('open_reports')}</p>
@@ -554,7 +561,7 @@ export default function StaffDashboard({ onLogout, onNotifications, onReports, o
 
                 <div 
                   className="group p-6 border border-border rounded-xl hover:shadow-md transition-all duration-200 cursor-pointer hover:border-primary/30 bg-gradient-to-br from-card to-card/80"
-                  onClick={onReports}
+                  onClick={() => setActiveSection("reports")}
                 >
                   <div className="flex flex-col items-center text-center space-y-3">
                     <div className="w-12 h-12 bg-orange-100 dark:bg-orange-900 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform duration-200">
@@ -590,105 +597,6 @@ export default function StaffDashboard({ onLogout, onNotifications, onReports, o
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <div className="sticky top-0 z-40 bg-card border-b border-border shadow-sm">
-        <div className="flex items-center justify-between h-16 px-4">
-          <div className="flex items-center space-x-4">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="md:hidden"
-            >
-              <Menu className="w-5 h-5" />
-            </Button>
-
-          </div>
-
-          <div className="flex items-center space-x-2">
-            <Button 
-              variant="ghost" 
-              size="sm"
-              onClick={onNotifications}
-              className="relative"
-            >
-              <Bell className="w-4 h-4" />
-              {/* Notification badge - mock unread count */}
-              <div className="absolute -top-1 -right-1 w-3 h-3 bg-destructive rounded-full animate-pulse"></div>
-            </Button>
-
-                        {/* Settings Popover */}
-                        <Popover>
-                            <PopoverTrigger asChild>
-                                <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground">
-                                    <Settings className="w-4 h-4" />
-                                </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-56 p-3" align="end">
-                                <div className="space-y-1">
-                                    <div className="px-2 py-1">
-                                        <p className="text-sm font-medium">
-                                            {t("settings")}
-                                        </p>
-                                        <p className="text-xs text-muted-foreground">
-                                            {language === "vi" ? "Tùy chọn hệ thống" : "System preferences"}
-                                        </p>
-                                    </div>
-                                    <Separator />
-
-                                    {/* Theme Toggle */}
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={toggleTheme}
-                                        className="w-full justify-start h-8"
-                                    >
-                                        {theme === "light" ? (
-                                            <>
-                                                <Moon className="w-3 h-3 mr-2" />
-                                                {t("switch_to_dark")}
-                                            </>
-                                        ) : (
-                                            <>
-                                                <Sun className="w-3 h-3 mr-2" />
-                                                {t("switch_to_light")}
-                                            </>
-                                        )}
-                                    </Button>
-
-                                    {/* Language Toggle */}
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={handleLanguageChange}
-                                        className="w-full justify-start h-8"
-                                    >
-                                        <Globe className="w-3 h-3 mr-2" />
-                                        {language === "en" ? t("tieng_viet") : t("english")}
-                                    </Button>
-
-                                    <Separator />
-
-                                    {/* Settings Page Link */}
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => {
-                                            setActiveSection("settings");
-                                            setSidebarOpen(false);
-                                        }}
-                                        className="w-full justify-start h-8"
-                                    >
-                                        <Settings className="w-3 h-3 mr-2" />
-                                        {t("all_settings")}
-                                    </Button>
-                                </div>
-                            </PopoverContent>
-                        </Popover>
-                    </div>
-                </div>
-            </div>
-
             <div className="flex">
                 {/* Sidebar */}
                 <div className={`fixed inset-y-0 left-0 z-30 w-64 bg-sidebar border-r border-sidebar-border transform ${
@@ -803,9 +711,23 @@ export default function StaffDashboard({ onLogout, onNotifications, onReports, o
                 )}
 
                 {/* Main Content */}
-                <div className="flex-1 md:ml-0">
-                    <main className="p-6">
-                        {renderContent()}
+                <div className="flex-1 md:ml-0 overflow-y-auto">
+                    <main className="min-h-screen bg-background">
+                        <div className="container mx-auto px-4 sm:px-6 py-6 max-w-7xl">
+                            {/* Mobile Menu Button */}
+                            <div className="md:hidden mb-6">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setSidebarOpen(!sidebarOpen)}
+                                    className="shadow-sm"
+                                >
+                                    <Menu className="w-5 h-5 mr-2" />
+                                    Menu
+                                </Button>
+                            </div>
+                            {renderContent()}
+                        </div>
                     </main>
                 </div>
             </div>

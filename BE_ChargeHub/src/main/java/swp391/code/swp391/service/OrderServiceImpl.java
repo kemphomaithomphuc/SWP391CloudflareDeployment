@@ -630,22 +630,37 @@ public class OrderServiceImpl implements OrderService {
         // Sắp xếp theo thời gian
         requestedSlots.sort(Comparator.comparing(slot -> slot.start));
 
-        // Kiểm tra các slot phải liên tiếp
+        // Kiểm tra các slot phải liên tiếp (cho phép buffer 15 phút giữa các slot)
         for (int i = 0; i < requestedSlots.size() - 1; i++) {
             TimeSlot current = requestedSlots.get(i);
             TimeSlot next = requestedSlots.get(i + 1);
 
-            if (!current.end.equals(next.start)) {
-                throw new ApiRequestException("Các slot phải liên tiếp nhau");
+            long gapMinutes = Duration.between(current.end, next.start).toMinutes();
+
+            // Cho phép:
+            // - Gap = 0: Slots liền kề (không có buffer)
+            // - Gap = BUFFER_MINUTES (15): Slots có buffer chuẩn giữa chúng
+            if (gapMinutes != 0 && gapMinutes != BUFFER_MINUTES) {
+                throw new ApiRequestException(String.format(
+                    "Các slot phải liên tiếp hoặc cách nhau đúng %d phút. " +
+                    "Slot kết thúc %s nhưng slot tiếp theo bắt đầu %s (gap: %d phút)",
+                    BUFFER_MINUTES, current.end.toLocalTime(), next.start.toLocalTime(), gapMinutes
+                ));
             }
         }
 
-        // Đặt lịch trước: Yêu cầu khớp CHÍNH XÁC với slot boundaries
+        // Đặt lịch trước: startTime = slot đầu tiên, endTime = slot cuối cùng
+        // BỎ QUA buffer giữa các slot (xem như 1 order liên tục)
         TimeSlot firstSlot = requestedSlots.get(0);
         TimeSlot lastSlot = requestedSlots.get(requestedSlots.size() - 1);
 
         if (!startTime.equals(firstSlot.start) || !endTime.equals(lastSlot.end)) {
-            throw new ApiRequestException("Thời gian order phải khớp với thời gian của slot");
+            throw new ApiRequestException(String.format(
+                "Thời gian order phải khớp: startTime=%s (slot đầu), endTime=%s (slot cuối). " +
+                "Nhận được: startTime=%s, endTime=%s",
+                firstSlot.start.toLocalTime(), lastSlot.end.toLocalTime(),
+                startTime.toLocalTime(), endTime.toLocalTime()
+            ));
         }
 
         // Kiểm tra các slot có khả dụng không
