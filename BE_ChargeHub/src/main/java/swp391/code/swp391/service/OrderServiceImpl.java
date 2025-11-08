@@ -28,12 +28,14 @@ public class OrderServiceImpl implements OrderService {
     private final ChargingPointRepository chargingPointRepository;
     private final SubscriptionService subscriptionService;
     private final NotificationService notificationService;
+    private final SessionRepository sessionRepository;
 
     // ========== CẤU HÌNH SLOT ==========
     private static final int SLOT_DURATION_MINUTES = 120; // 2 giờ mỗi slot
     private static final int MIN_GAP_MINUTES = 30; // Thời gian tối thiểu cho mini-slot
-    private static final LocalTime OPENING_TIME = LocalTime.of(0, 0);
-    private static final LocalTime CLOSING_TIME = LocalTime.of(23, 30);
+    private static final LocalTime OPENING_TIME = LocalTime.of(0, 30);
+    // NOTE: CLOSING_TIME là 00:00 ngày hôm sau để slot 22:00-00:00 (24:00) được tạo
+    private static final LocalTime CLOSING_TIME = LocalTime.of(0, 0);
     // Nếu người dùng chọn "book now" (bắt đầu trong khoảng ngắn), chuyển trạng thái ngay thành CHARGING
     private static final int IMMEDIATE_START_THRESHOLD_MINUTES = 5; // start <= now + 5 minutes sẽ được coi là "book now"
 
@@ -79,7 +81,7 @@ public class OrderServiceImpl implements OrderService {
         List<ChargingPointAvailabilityDTO> chargingPointsAvailability = new ArrayList<>();
         for (ChargingPoint point : compatiblePoints) {
             int requiredMinutes = calculateChargingDuration(energyToCharge, point.getConnectorType().getPowerOutput());
-            ChargingPointAvailabilityDTO availability = findAvailableSlotsForPoint(point, requiredMinutes, energyToCharge);
+            ChargingPointAvailabilityDTO availability = findAvailableSlotsForPoint(point, requiredMinutes);
             if (!availability.getAvailableSlots().isEmpty()) {
                 chargingPointsAvailability.add(availability);
             }
@@ -112,11 +114,17 @@ public class OrderServiceImpl implements OrderService {
      * Bao gồm:
      * - Fixed slots (2 giờ): các slot cố định còn trống
      * - Mini slots (< 2 giờ): các khoảng trống từ đơn kết thúc sớm
+     *
+     * THAY ĐỔI: Không lọc theo requiredMinutes, trả về TẤT CẢ slots trống
      */
-    private ChargingPointAvailabilityDTO findAvailableSlotsForPoint(ChargingPoint point, int requiredMinutes, double energyToCharge) {
+    private ChargingPointAvailabilityDTO findAvailableSlotsForPoint(ChargingPoint point, int requiredMinutes) {
         LocalDate today = LocalDate.now();
         LocalDateTime dayStart = LocalDateTime.of(today, OPENING_TIME);
-        LocalDateTime dayEnd = LocalDateTime.of(today, CLOSING_TIME);
+
+        // CLOSING_TIME là 00:00, nên cần +1 ngày để đến 00:00 ngày hôm sau
+        LocalDateTime dayEnd = CLOSING_TIME.equals(LocalTime.MIDNIGHT)
+                ? LocalDateTime.of(today.plusDays(1), CLOSING_TIME)
+                : LocalDateTime.of(today, CLOSING_TIME);
 
         // Lấy các đơn đang hoạt động
         List<Order> existingOrders = orderRepository.findActiveOrdersByChargingPoint(
@@ -139,15 +147,10 @@ public class OrderServiceImpl implements OrderService {
         allAvailableSlots.addAll(availableFixedSlots);
         allAvailableSlots.addAll(miniSlots);
 
-        // Lọc ra các slot đủ thời gian sạc
-        List<AvailableTimeSlotDTO> sufficientSlots = allAvailableSlots.stream()
-                .filter(slot -> slot.durationMinutes >= requiredMinutes)
-                .map(slot -> createAvailableSlotDTO(point, slot, requiredMinutes, energyToCharge))
+        // Convert TẤT CẢ slots sang DTO (không lọc theo requiredMinutes)
+        List<AvailableTimeSlotDTO> slotDTOs = allAvailableSlots.stream()
+                .map(slot -> createAvailableSlotDTO(point, slot, requiredMinutes))
                 .collect(Collectors.toList());
-
-        int totalAvailableMinutes = sufficientSlots.stream()
-                .mapToInt(AvailableTimeSlotDTO::getAvailableMinutes)
-                .sum();
 
         ConnectorType connector = point.getConnectorType();
 
@@ -156,9 +159,7 @@ public class OrderServiceImpl implements OrderService {
                 .connectorTypeName(connector.getTypeName())
                 .chargingPower(connector.getPowerOutput())
                 .pricePerKwh(connector.getPricePerKWh())
-                .requiredMinutes(requiredMinutes)
-                .availableSlots(sufficientSlots)
-                .totalAvailableMinutes(totalAvailableMinutes)
+                .availableSlots(slotDTOs)
                 .build();
     }
 
@@ -257,19 +258,45 @@ public class OrderServiceImpl implements OrderService {
 
     /**
      * Tạo AvailableTimeSlotDTO từ TimeSlot
+     * THAY ĐỔI: Tính giá cho toàn bộ slot
      */
-    private AvailableTimeSlotDTO createAvailableSlotDTO(ChargingPoint point, TimeSlot slot, int requiredMinutes, double energyToCharge) {
+    private AvailableTimeSlotDTO createAvailableSlotDTO(ChargingPoint point, TimeSlot slot, int requiredMinutes) {
         ConnectorType connector = point.getConnectorType();
-        double estimatedCost = energyToCharge * connector.getPricePerKWh();
 
-        return AvailableTimeSlotDTO.builder()
-                .freeFrom(slot.start)
-                .freeTo(slot.end)
-                .availableMinutes(slot.durationMinutes)
-                .requiredMinutes(requiredMinutes)
-                .estimatedCost(estimatedCost)
-                .slotType(slot.type.name()) // "FIXED" hoặc "MINI"
-                .build();
+        // Tính giá cho toàn bộ slot
+        // Giả sử sạc liên tục với công suất tối đa trong suốt slot
+        double slotHours = slot.durationMinutes / 60.0;
+        double maxEnergyInSlot = connector.getPowerOutput() * slotHours; // kWh
+        double slotPrice = maxEnergyInSlot * connector.getPricePerKWh(); // VND
+
+        // Tạo slot ID để frontend có thể reference khi order
+        String slotId = generateSlotId(slot);
+
+        // Build DTO via setters to avoid potential Lombok builder method resolution issues in tooling
+        AvailableTimeSlotDTO dto = new AvailableTimeSlotDTO();
+        dto.setSlotId(slotId);
+        dto.setSlotStart(slot.start);
+        dto.setSlotEnd(slot.end);
+        dto.setSlotDurationMinutes(slot.durationMinutes);
+        dto.setSlotPrice(slotPrice);
+        dto.setSlotType(slot.type.name()); // "FIXED" hoặc "MINI"
+
+        // Backward-compatible fields for other consumers
+        dto.setFreeFrom(slot.start);
+        dto.setFreeTo(slot.end);
+        dto.setAvailableMinutes(slot.durationMinutes);
+        dto.setRequiredMinutes(requiredMinutes);
+        dto.setEstimatedCost(slotPrice);
+
+        return dto;
+    }
+
+    /**
+     * Tạo slot ID duy nhất
+     */
+    private String generateSlotId(TimeSlot slot) {
+        String timeRange = slot.start.toLocalTime().toString() + "_" + slot.end.toLocalTime().toString();
+        return slot.type.name() + "_" + timeRange;
     }
 
     /**
@@ -333,6 +360,10 @@ public class OrderServiceImpl implements OrderService {
         // Kiểm tra thời gian đặt có hợp lệ với slot system không
         validateSlotBooking(request.getStartTime(), request.getEndTime());
 
+        // ===== 7.1. VALIDATE SLOT IDs - THÊM MỚI =====
+        // Kiểm tra các slot IDs có hợp lệ, liên tiếp và khả dụng không
+        validateSlotIds(request.getSlotIds(), request.getStartTime(), request.getEndTime(), chargingPoint);
+
         // ===== 8. KIỂM TRA TRÙNG LỊCH - DOUBLE CHECK SAU KHI LOCK =====
         List<Order> overlappingOrders = orderRepository.findOverlappingOrders(
                 chargingPoint.getChargingPointId(),
@@ -371,9 +402,35 @@ public class OrderServiceImpl implements OrderService {
         // ===== 11. Nếu người dùng bấm "Book Now" (start time gần bằng hiện tại), chuyển trạng thái ngay sang CHARGING =====
         LocalDateTime now = LocalDateTime.now();
         if (!request.getStartTime().isAfter(now.plusMinutes(IMMEDIATE_START_THRESHOLD_MINUTES))) {
+
+            // NEW: Kiểm tra xe đã đang trong phiên CHARGING hay chưa
+            boolean vehicleCharging = orderRepository.isVehicleCurrentlyCharging(vehicle.getId());
+            if (vehicleCharging) {
+                // Nếu xe đang CHARGING thì rollback bằng cách hủy order mới tạo và báo lỗi
+                order.setStatus(Order.Status.CANCELED);
+                order.setCanceledAt(LocalDateTime.now());
+                order.setCancellationReason("Xe đang trong phiên sạc khác. Không thể book now.");
+                orderRepository.save(order);
+                throw new ApiRequestException("Xe này đang sạc. Không thể 'Book Now'. Vui lòng đặt lịch (Schedule) thay thế.");
+            }
+
             order.setStatus(Order.Status.CHARGING);
             // Persist change so frontend immediately sees CHARGING
             order = orderRepository.save(order);
+
+            // ===== TẠO SESSION NGAY KHI BOOK NOW =====
+            Session session = new Session();
+            session.setOrder(order);
+            session.setStartTime(now); // Bắt đầu ngay
+            session.setPowerConsumed(0.0); // Chưa sạc gì
+            session.setBaseCost(0.0); // Chi phí ban đầu = 0, sẽ tính sau
+            session.setStatus(Session.SessionStatus.CHARGING);
+            sessionRepository.save(session);
+
+            // ===== CẬP NHẬT TRẠNG THÁI CHARGING POINT =====
+            chargingPoint.setStatus(ChargingPoint.ChargingPointStatus.OCCUPIED);
+            chargingPointRepository.save(chargingPoint);
+
             // Gửi notification (best-effort)
             try {
                 notificationService.createBookingOrderNotification(
@@ -405,8 +462,7 @@ public class OrderServiceImpl implements OrderService {
 
     /**
      * Validate booking time có hợp lệ với slot system không
-     * - Nếu là fixed slot: phải trùng khớp với slot boundary
-     * - Nếu là mini slot: có thể linh động hơn
+     * THAY ĐỔI: Kiểm tra thời gian order phải khớp với slot boundaries
      */
     private void validateSlotBooking(LocalDateTime startTime, LocalDateTime endTime) {
         LocalDateTime now = LocalDateTime.now();
@@ -416,16 +472,142 @@ public class OrderServiceImpl implements OrderService {
             throw new ApiRequestException("Không thể đặt lịch trong quá khứ");
         }
 
-        // Kiểm tra trong giờ mở cửa
-        if (startTime.toLocalTime().isBefore(OPENING_TIME) ||
-                endTime.toLocalTime().isAfter(CLOSING_TIME)) {
-            throw new ApiRequestException("Thời gian đặt phải trong giờ hoạt động của trạm");
+        // Kiểm tra startTime trong giờ mở cửa
+        if (startTime.toLocalTime().isBefore(OPENING_TIME)) {
+            throw new ApiRequestException("Thời gian bắt đầu phải sau " + OPENING_TIME);
+        }
+
+        // Kiểm tra endTime:
+        // - Nếu CLOSING_TIME = 00:00, cho phép endTime là 00:00 ngày hôm sau (slot 22:00-00:00)
+        // - Nếu endTime.toLocalTime() > CLOSING_TIME và CLOSING_TIME != 00:00, báo lỗi
+        LocalTime endLocalTime = endTime.toLocalTime();
+        if (CLOSING_TIME.equals(LocalTime.MIDNIGHT)) {
+            // Cho phép endTime là 00:00 của ngày hôm sau (hoặc cùng ngày nếu là slot đầu tiên)
+            // Kiểm tra endTime không được quá 1 ngày
+            if (endTime.isAfter(startTime.plusDays(1))) {
+                throw new ApiRequestException("Thời gian order không được quá 1 ngày");
+            }
+        } else {
+            // CLOSING_TIME khác 00:00 (VD: 23:59)
+            if (endLocalTime.isAfter(CLOSING_TIME)) {
+                throw new ApiRequestException("Thời gian kết thúc phải trước " + CLOSING_TIME);
+            }
         }
 
         // Kiểm tra thời gian tối thiểu
         int bookingMinutes = (int) Duration.between(startTime, endTime).toMinutes();
         if (bookingMinutes < MIN_GAP_MINUTES) {
             throw new ApiRequestException("Thời gian đặt tối thiểu là " + MIN_GAP_MINUTES + " phút");
+        }
+
+        // THÊM: Kiểm tra thời gian order phải là bội số của slot duration hoặc khớp với mini slot
+        // (Validation chi tiết hơn sẽ được thực hiện ở validateSlotIds)
+    }
+
+    /**
+     * Validate danh sách slot IDs có hợp lệ không
+     * - Các slot phải liên tiếp
+     * - Các slot phải khả dụng
+     * - Thời gian start/end phải khớp với slot boundaries
+     * - Hỗ trợ STAFF slot ID (cho walk-in booking)
+     */
+    private void validateSlotIds(List<String> slotIds, LocalDateTime startTime, LocalDateTime endTime, ChargingPoint point) {
+        if (slotIds == null || slotIds.isEmpty()) {
+            throw new ApiRequestException("Phải chọn ít nhất 1 slot");
+        }
+
+        // Kiểm tra nếu là STAFF slot (walk-in booking), skip validation chi tiết
+        if (slotIds.size() == 1 && slotIds.get(0).startsWith("STAFF_")) {
+            // Staff booking được phép linh hoạt hơn, chỉ cần kiểm tra overlap
+            List<Order> existingOrders = orderRepository.findActiveOrdersByChargingPoint(
+                    point.getChargingPointId(),
+                    LocalDateTime.now()
+            );
+
+            TimeSlot staffSlot = new TimeSlot(startTime, endTime,
+                    (int) Duration.between(startTime, endTime).toMinutes(), SlotType.MINI);
+
+            if (isSlotOccupied(staffSlot, existingOrders)) {
+                throw new ApiRequestException("Thời gian này đã có người đặt");
+            }
+            return; // Skip rest of validation for staff booking
+        }
+
+        // Parse slot IDs để lấy thông tin slot
+        List<TimeSlot> requestedSlots = new ArrayList<>();
+        for (String slotId : slotIds) {
+            TimeSlot slot = parseSlotId(slotId, startTime.toLocalDate());
+            if (slot == null) {
+                throw new ApiRequestException("Slot ID không hợp lệ: " + slotId);
+            }
+            requestedSlots.add(slot);
+        }
+
+        // Sắp xếp theo thời gian
+        requestedSlots.sort(Comparator.comparing(slot -> slot.start));
+
+        // Kiểm tra các slot phải liên tiếp
+        for (int i = 0; i < requestedSlots.size() - 1; i++) {
+            TimeSlot current = requestedSlots.get(i);
+            TimeSlot next = requestedSlots.get(i + 1);
+
+            if (!current.end.equals(next.start)) {
+                throw new ApiRequestException("Các slot phải liên tiếp nhau");
+            }
+        }
+
+        // Kiểm tra thời gian start/end phải khớp với slot boundaries
+        TimeSlot firstSlot = requestedSlots.get(0);
+        TimeSlot lastSlot = requestedSlots.get(requestedSlots.size() - 1);
+
+        if (!startTime.equals(firstSlot.start) || !endTime.equals(lastSlot.end)) {
+            throw new ApiRequestException("Thời gian order phải khớp với thời gian của slot");
+        }
+
+        // Kiểm tra các slot có khả dụng không
+        List<Order> existingOrders = orderRepository.findActiveOrdersByChargingPoint(
+                point.getChargingPointId(),
+                LocalDateTime.now()
+        );
+
+        for (TimeSlot slot : requestedSlots) {
+            if (isSlotOccupied(slot, existingOrders)) {
+                throw new ApiRequestException("Slot " + generateSlotId(slot) + " đã có người đặt");
+            }
+        }
+    }
+
+    /**
+     * Parse slot ID thành TimeSlot object
+     * Format: "FIXED_02:00_04:00" hoặc "MINI_09:30_10:45" hoặc "STAFF_HH:mm_HH:mm"
+     */
+    private TimeSlot parseSlotId(String slotId, LocalDate date) {
+        try {
+            String[] parts = slotId.split("_");
+            if (parts.length != 3) {
+                return null;
+            }
+
+            String typeString = parts[0];
+            SlotType type;
+
+            // Xử lý STAFF slot type
+            if ("STAFF".equals(typeString)) {
+                type = SlotType.MINI; // Staff slots được coi như MINI slots
+            } else {
+                type = SlotType.valueOf(typeString);
+            }
+
+            LocalTime startTime = LocalTime.parse(parts[1]);
+            LocalTime endTime = LocalTime.parse(parts[2]);
+
+            LocalDateTime start = LocalDateTime.of(date, startTime);
+            LocalDateTime end = LocalDateTime.of(date, endTime);
+            int durationMinutes = (int) Duration.between(start, end).toMinutes();
+
+            return new TimeSlot(start, end, durationMinutes, type);
+        } catch (Exception e) {
+            return null;
         }
     }
 
@@ -515,46 +697,46 @@ public class OrderServiceImpl implements OrderService {
     }
     public OrderResponseDTO convertToDTO(Order order) {
         if (order == null) return null;
-    
+
         int estimatedDuration = calculateChargingDuration(
                 (order.getExpectedBattery() - order.getStartedBattery()) / 100.0 * order.getVehicle().getCarModel().getCapacity(),
                 order.getChargingPoint().getConnectorType().getPowerOutput());
-    
+
         double energyToCharge = order.getExpectedBattery() - order.getStartedBattery();
         double estimatedCost = energyToCharge * order.getChargingPoint().getConnectorType().getPricePerKWh();
-    
+
         return OrderResponseDTO.builder()
                 .orderId(order.getOrderId())
-                
+
                 // Station info
-                .stationId(order.getChargingPoint().getStation() != null ? 
-                    order.getChargingPoint().getStation().getStationId() : null)
-                .stationName(order.getChargingPoint().getStation() != null ? 
-                    order.getChargingPoint().getStation().getStationName() : null)
-                .stationAddress(order.getChargingPoint().getStation() != null ? 
-                    order.getChargingPoint().getStation().getAddress() : null)
-                
+                .stationId(order.getChargingPoint().getStation() != null ?
+                        order.getChargingPoint().getStation().getStationId() : null)
+                .stationName(order.getChargingPoint().getStation() != null ?
+                        order.getChargingPoint().getStation().getStationName() : null)
+                .stationAddress(order.getChargingPoint().getStation() != null ?
+                        order.getChargingPoint().getStation().getAddress() : null)
+
                 // Charging point info
-                .chargingPointId(order.getChargingPoint() != null ? 
-                    order.getChargingPoint().getChargingPointId() : null)
-                .connectorType(order.getChargingPoint().getConnectorType() != null ? 
-                    order.getChargingPoint().getConnectorType().getTypeName() : null)
+                .chargingPointId(order.getChargingPoint() != null ?
+                        order.getChargingPoint().getChargingPointId() : null)
+                .connectorType(order.getChargingPoint().getConnectorType() != null ?
+                        order.getChargingPoint().getConnectorType().getTypeName() : null)
                 .chargingPower(order.getChargingPoint().getConnectorType() != null ?
-                    order.getChargingPoint().getConnectorType().getPowerOutput() : null)
+                        order.getChargingPoint().getConnectorType().getPowerOutput() : null)
                 .pricePerKwh(order.getChargingPoint().getConnectorType() != null ?
-                    order.getChargingPoint().getConnectorType().getPricePerKWh() : null)
-                
+                        order.getChargingPoint().getConnectorType().getPricePerKWh() : null)
+
                 // User info
                 .userId(order.getUser() != null ? order.getUser().getUserId() : null)
                 .userName(order.getUser() != null ? order.getUser().getFullName() : null)
                 .userPhone(order.getUser() != null ? order.getUser().getPhone() : null)
-                
+
                 // Vehicle info - Hiển thị PLATE NUMBER cho Vehicle ID
                 .vehicleId(order.getVehicle() != null ? order.getVehicle().getId() : null)
                 .vehiclePlate(order.getVehicle() != null ? order.getVehicle().getPlateNumber() : null)
-                .vehicleModel(order.getVehicle() != null && order.getVehicle().getCarModel() != null ? 
-                    order.getVehicle().getCarModel().getModel() : null)
-                
+                .vehicleModel(order.getVehicle() != null && order.getVehicle().getCarModel() != null ?
+                        order.getVehicle().getCarModel().getModel() : null)
+
                 // Battery info
                 .startedBattery(order.getStartedBattery())
                 .expectedBattery(order.getExpectedBattery())
@@ -588,5 +770,13 @@ public class OrderServiceImpl implements OrderService {
     private enum SlotType {
         FIXED,  // Slot cố định 2 giờ
         MINI    // Slot ngắn hơn (từ khoảng trống)
+    }
+
+    /**
+     * Kiểm tra xe có đang trong phiên sạc (CHARGING) hay không
+     */
+    @Override
+    public boolean isVehicleCurrentlyCharging(Long vehicleId) {
+        return orderRepository.isVehicleCurrentlyCharging(vehicleId);
     }
 }

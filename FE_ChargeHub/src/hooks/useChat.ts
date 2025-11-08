@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { sendChatMessage } from "../services/api";
+import { sendChatMessage, LocationData } from "../api/chatbot";
 import { parseBotResponse } from "../utils/parseBotResponse";
 import { scrollToBottom } from "../utils/scrollToBottom";
 import { useLanguage } from "../contexts/LanguageContext";
@@ -25,7 +25,7 @@ export function useChat() {
     scrollToBottom(messagesEndRef);
   }, [messages]);
 
-  const sendMessage = async (messageText?: string) => {
+  const sendMessage = async (messageText?: string, location?: LocationData) => {
     const textToSend = messageText || inputMessage.trim();
     if (textToSend && !isLoading) {
       const userMessage: Message = {
@@ -42,7 +42,7 @@ export function useChat() {
       setIsLoading(true);
       
       try {
-        const response = await sendChatMessage(userMessage.text);
+        const response = await sendChatMessage(userMessage.text, location);
         console.log('Full API response:', response);
         
         const botResponseText = parseBotResponse(response);

@@ -28,7 +28,7 @@ public class SessionServiceImpl implements SessionService {
     private final SessionWebSocketService sessionWebSocketService;
 
     // Khoảng cách tối đa cho phép (tính bằng mét)
-    private static final double MAX_DISTANCE_METERS = 1000.0; // 100 mét
+    private static final double MAX_DISTANCE_METERS = 10000000.0; // 100 mét
 
     @Override
     public boolean isValidTime(Long orderId, int maxStartDelayMinutes) {

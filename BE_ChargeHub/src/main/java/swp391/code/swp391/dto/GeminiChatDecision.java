@@ -13,4 +13,12 @@ public class GeminiChatDecision {
 
     @JsonProperty("hour")
     private Integer hour; // Dùng cho CHECK_AVAILABILITY
+
+    // NEW: Sentiment analysis
+    @JsonProperty("sentiment")
+    private String sentiment; // POSITIVE, NEGATIVE, NEUTRAL
+
+    // NEW: Confidence score
+    @JsonProperty("confidence")
+    private Double confidence; // 0.0 - 1.0
 }

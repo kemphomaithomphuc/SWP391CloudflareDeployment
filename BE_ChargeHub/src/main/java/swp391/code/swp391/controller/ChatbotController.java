@@ -4,10 +4,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import swp391.code.swp391.dto.*;
-import swp391.code.swp391.service.AnalyticsService;
-import swp391.code.swp391.service.ChargingStationService;
-import swp391.code.swp391.service.GeminiService;
-import swp391.code.swp391.service.IssueReportService;
+import swp391.code.swp391.service.*;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -26,6 +23,8 @@ public class ChatbotController {
     private AnalyticsService analyticsService;
     @Autowired
     private ChargingStationService chargingStationService;
+    @Autowired
+    private ProactiveSuggestionService proactiveSuggestionService;
 
     @PostMapping("/send")
     public ResponseEntity<ChatResponse> handleChatMessage(@RequestBody ChatRequest chatRequest) {
@@ -79,8 +78,19 @@ public class ChatbotController {
         }
         // Lưu câu trả lời của Bot vào "bộ nhớ"
         chatHistory.addMessage("model", botReply);
-        // Trả về câu trả lời của Bot cho frontend
-        return ResponseEntity.ok(new ChatResponse(botReply));
+
+        // NEW: Tạo proactive suggestions
+        List<ProactiveSuggestionDTO> suggestions =
+            proactiveSuggestionService.generateSuggestions(decision, chatRequest.getMessage());
+
+        // Trả về câu trả lời của Bot với các thông tin mới
+        return ResponseEntity.ok(ChatResponse.builder()
+                .reply(botReply)
+                .userSentiment(decision.getSentiment())
+                .confidence(decision.getConfidence())
+                .suggestions(suggestions)
+                .detectedLanguage("vi")
+                .build());
     }
 
     /**
