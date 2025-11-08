@@ -21,6 +21,9 @@ public class ChargingPoint {
     @Column(name = "charging_point_id")
     private Long chargingPointId;
 
+    @Column(name = "charging_point_name", nullable = false)
+    private String chargingPointName; // Số thứ tự/tên của charging point tại trạm (VD: "A1", "A2", "B1")
+
     @ToString.Exclude
     @ManyToOne
     @JsonBackReference("station-points")

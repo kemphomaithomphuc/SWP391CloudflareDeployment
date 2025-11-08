@@ -35,7 +35,7 @@ public class OrderServiceImpl implements OrderService {
     private static final int MIN_GAP_MINUTES = 30; // Thời gian tối thiểu cho mini-slot
     private static final LocalTime OPENING_TIME = LocalTime.of(0, 30);
     // NOTE: CLOSING_TIME là 00:00 ngày hôm sau để slot 22:00-00:00 (24:00) được tạo
-    private static final LocalTime CLOSING_TIME = LocalTime.of(0, 0);
+    private static final LocalTime CLOSING_TIME = LocalTime.of(23, 50);
     // Nếu người dùng chọn "book now" (bắt đầu trong khoảng ngắn), chuyển trạng thái ngay thành CHARGING
     private static final int IMMEDIATE_START_THRESHOLD_MINUTES = 5; // start <= now + 5 minutes sẽ được coi là "book now"
 
@@ -44,9 +44,14 @@ public class OrderServiceImpl implements OrderService {
      * 1. Chia ngày thành các slot cố định 2 tiếng
      * 2. Tìm các slot trống
      * 3. Tìm các mini-slot (khoảng trống < 2 tiếng từ các đơn kết thúc sớm)
+     *
+     * HỖ TRỢ: Tìm slot cho ngày cụ thể (searchDate trong request)
      */
     @Transactional(readOnly = true)
     public AvailableSlotsResponseDTO findAvailableSlots(OrderRequestDTO request) {
+
+        // 0. Xác định ngày cần tìm slot
+        LocalDate searchDate = parseSearchDate(request.getSearchDate());
 
         // 1. Lấy thông tin xe
         Vehicle vehicle = vehicleRepository.findById(request.getVehicleId())
@@ -81,14 +86,15 @@ public class OrderServiceImpl implements OrderService {
         List<ChargingPointAvailabilityDTO> chargingPointsAvailability = new ArrayList<>();
         for (ChargingPoint point : compatiblePoints) {
             int requiredMinutes = calculateChargingDuration(energyToCharge, point.getConnectorType().getPowerOutput());
-            ChargingPointAvailabilityDTO availability = findAvailableSlotsForPoint(point, requiredMinutes);
+            ChargingPointAvailabilityDTO availability = findAvailableSlotsForPoint(point, requiredMinutes, searchDate);
             if (!availability.getAvailableSlots().isEmpty()) {
                 chargingPointsAvailability.add(availability);
             }
         }
 
         if (chargingPointsAvailability.isEmpty()) {
-            throw new ApiRequestException("Không tìm thấy slot trống phù hợp trong ngày hôm nay");
+            String dateStr = searchDate.equals(LocalDate.now()) ? "ngày hôm nay" : "ngày " + searchDate;
+            throw new ApiRequestException("Không tìm thấy slot trống phù hợp trong " + dateStr);
         }
 
         // 7. Build response
@@ -116,15 +122,15 @@ public class OrderServiceImpl implements OrderService {
      * - Mini slots (< 2 giờ): các khoảng trống từ đơn kết thúc sớm
      *
      * THAY ĐỔI: Không lọc theo requiredMinutes, trả về TẤT CẢ slots trống
+     * HỖ TRỢ: Tìm slot cho ngày cụ thể (searchDate)
      */
-    private ChargingPointAvailabilityDTO findAvailableSlotsForPoint(ChargingPoint point, int requiredMinutes) {
-        LocalDate today = LocalDate.now();
-        LocalDateTime dayStart = LocalDateTime.of(today, OPENING_TIME);
+    private ChargingPointAvailabilityDTO findAvailableSlotsForPoint(ChargingPoint point, int requiredMinutes, LocalDate searchDate) {
+        LocalDateTime dayStart = LocalDateTime.of(searchDate, OPENING_TIME);
 
         // CLOSING_TIME là 00:00, nên cần +1 ngày để đến 00:00 ngày hôm sau
         LocalDateTime dayEnd = CLOSING_TIME.equals(LocalTime.MIDNIGHT)
-                ? LocalDateTime.of(today.plusDays(1), CLOSING_TIME)
-                : LocalDateTime.of(today, CLOSING_TIME);
+                ? LocalDateTime.of(searchDate.plusDays(1), CLOSING_TIME)
+                : LocalDateTime.of(searchDate, CLOSING_TIME);
 
         // Lấy các đơn đang hoạt động
         List<Order> existingOrders = orderRepository.findActiveOrdersByChargingPoint(
@@ -156,6 +162,7 @@ public class OrderServiceImpl implements OrderService {
 
         return ChargingPointAvailabilityDTO.builder()
                 .chargingPointId(point.getChargingPointId())
+                .chargingPointName(point.getChargingPointName())
                 .connectorTypeName(connector.getTypeName())
                 .chargingPower(connector.getPowerOutput())
                 .pricePerKwh(connector.getPricePerKWh())
@@ -188,7 +195,7 @@ public class OrderServiceImpl implements OrderService {
         LocalDateTime now = LocalDateTime.now();
 
         return allSlots.stream()
-                .filter(slot -> slot.start.isAfter(now)) // Chỉ lấy slot trong tương lai
+                .filter(slot -> slot.end.isAfter(now)) // Lấy slot chưa kết thúc (bao gồm cả slot đang diễn ra)
                 .filter(slot -> !isSlotOccupied(slot, existingOrders))
                 .collect(Collectors.toList());
     }
@@ -206,8 +213,8 @@ public class OrderServiceImpl implements OrderService {
     }
 
     /**
-     * Tìm các mini-slot (khoảng trống < 2 giờ do đơn kết thúc sớm)
-     * Phù hợp cho các đơn sạc nhanh
+     * Tìm các mini-slot (khoảng trống 30-119 phút)
+     * THAY ĐỔI: Tạo mini slot cho MỌI khoảng trống đáp ứng điều kiện, bao gồm cả khoảng trống sau fixed slot cuối cùng
      */
     private List<TimeSlot> findMiniSlots(List<Order> existingOrders, LocalDateTime dayStart, LocalDateTime dayEnd) {
         List<TimeSlot> miniSlots = new ArrayList<>();
@@ -218,11 +225,39 @@ public class OrderServiceImpl implements OrderService {
             return miniSlots;
         }
 
-        if (existingOrders.isEmpty()) {
-            return miniSlots; // Không có mini-slot nếu không có order nào
+        // ===== LUÔN KIỂM TRA KHOẢNG TRỐNG SAU FIXED SLOT CUỐI CÙNG =====
+        // Tạo fixed slots để tìm vị trí slot cuối cùng
+        List<TimeSlot> allFixedSlots = generateFixedSlots(dayStart, dayEnd);
+
+        if (!allFixedSlots.isEmpty()) {
+            // Lấy fixed slot cuối cùng
+            TimeSlot lastFixedSlot = allFixedSlots.get(allFixedSlots.size() - 1);
+            LocalDateTime lastFixedEnd = lastFixedSlot.end;
+
+            // Kiểm tra khoảng trống từ fixed slot cuối cùng đến dayEnd
+            if (lastFixedEnd.isBefore(dayEnd)) {
+                int gapMinutes = (int) Duration.between(lastFixedEnd, dayEnd).toMinutes();
+
+                // Tạo mini slot nếu khoảng trống >= 30 phút VÀ < 120 phút
+                // VD: 22:30-23:50 = 80 phút
+                if (gapMinutes >= MIN_GAP_MINUTES && gapMinutes < SLOT_DURATION_MINUTES) {
+                    // Chỉ tạo nếu slot này chưa bị chiếm bởi order
+                    TimeSlot endDayMiniSlot = new TimeSlot(lastFixedEnd, dayEnd, gapMinutes, SlotType.MINI);
+                    if (!isSlotOccupied(endDayMiniSlot, existingOrders)) {
+                        miniSlots.add(endDayMiniSlot);
+                    }
+                }
+            }
         }
 
-        // Kiểm tra gap trước order đầu tiên
+        // ===== NẾU KHÔNG CÓ ORDER, CHỈ TRẢ VỀ MINI SLOT CUỐI NGÀY (nếu có) =====
+        if (existingOrders.isEmpty()) {
+            return miniSlots;
+        }
+
+        // ===== NẾU CÓ ORDER, TIẾP TỤC TÌM CÁC GAP KHÁC =====
+
+        // Kiểm tra gap TRƯỚC order đầu tiên
         Order firstOrder = existingOrders.get(0);
         if (searchStart.isBefore(firstOrder.getStartTime())) {
             int gapMinutes = (int) Duration.between(searchStart, firstOrder.getStartTime()).toMinutes();
@@ -231,7 +266,7 @@ public class OrderServiceImpl implements OrderService {
             }
         }
 
-        // Kiểm tra gap giữa các orders
+        // Kiểm tra gap GIỮA các orders
         for (int i = 0; i < existingOrders.size() - 1; i++) {
             LocalDateTime gapStart = existingOrders.get(i).getEndTime();
             LocalDateTime gapEnd = existingOrders.get(i + 1).getStartTime();
@@ -244,12 +279,16 @@ public class OrderServiceImpl implements OrderService {
             }
         }
 
-        // Kiểm tra gap sau order cuối cùng
+        // Kiểm tra gap SAU order cuối cùng (nhưng TRƯỚC lastFixedSlot.end)
         Order lastOrder = existingOrders.get(existingOrders.size() - 1);
-        if (lastOrder.getEndTime().isBefore(dayEnd)) {
-            int gapMinutes = (int) Duration.between(lastOrder.getEndTime(), dayEnd).toMinutes();
+        LocalDateTime lastOrderEnd = lastOrder.getEndTime();
+
+        if (lastOrderEnd.isBefore(dayEnd)) {
+            int gapMinutes = (int) Duration.between(lastOrderEnd, dayEnd).toMinutes();
+
+            // Tạo mini slot nếu gap đáp ứng điều kiện (30-119 phút)
             if (gapMinutes >= MIN_GAP_MINUTES && gapMinutes < SLOT_DURATION_MINUTES) {
-                miniSlots.add(new TimeSlot(lastOrder.getEndTime(), dayEnd, gapMinutes, SlotType.MINI));
+                miniSlots.add(new TimeSlot(lastOrderEnd, dayEnd, gapMinutes, SlotType.MINI));
             }
         }
 
@@ -463,12 +502,15 @@ public class OrderServiceImpl implements OrderService {
     /**
      * Validate booking time có hợp lệ với slot system không
      * THAY ĐỔI: Kiểm tra thời gian order phải khớp với slot boundaries
+     * THAY ĐỔI: Cho phép startTime trong quá khứ GẦN (tolerance 2 phút) cho Book Now
      */
     private void validateSlotBooking(LocalDateTime startTime, LocalDateTime endTime) {
         LocalDateTime now = LocalDateTime.now();
 
-        // Không được book trong quá khứ
-        if (startTime.isBefore(now)) {
+        // Cho phép Book Now với startTime trong quá khứ GẦN (tolerance 2 phút)
+        // Nếu startTime < now NHƯNG chỉ muộn <= 2 phút, coi như hợp lệ (do network latency)
+        if (startTime.isBefore(now.minusMinutes(2))) {
+            // Chỉ báo lỗi nếu muộn QUÁ 2 phút
             throw new ApiRequestException("Không thể đặt lịch trong quá khứ");
         }
 
@@ -557,11 +599,26 @@ public class OrderServiceImpl implements OrderService {
         }
 
         // Kiểm tra thời gian start/end phải khớp với slot boundaries
+        // THAY ĐỔI: Nới lỏng validation cho Book Now (tolerance ±2 phút)
         TimeSlot firstSlot = requestedSlots.get(0);
         TimeSlot lastSlot = requestedSlots.get(requestedSlots.size() - 1);
 
-        if (!startTime.equals(firstSlot.start) || !endTime.equals(lastSlot.end)) {
-            throw new ApiRequestException("Thời gian order phải khớp với thời gian của slot");
+        LocalDateTime now = LocalDateTime.now();
+        boolean isBookNow = !startTime.isAfter(now.plusMinutes(IMMEDIATE_START_THRESHOLD_MINUTES));
+
+        if (isBookNow) {
+            // Book Now: Cho phép startTime trong khoảng ±2 phút so với slot.start (do network latency)
+            long startDiffSeconds = Math.abs(Duration.between(startTime, firstSlot.start).getSeconds());
+            long endDiffSeconds = Math.abs(Duration.between(endTime, lastSlot.end).getSeconds());
+
+            if (startDiffSeconds > 120 || endDiffSeconds > 120) { // 120 giây = 2 phút
+                throw new ApiRequestException("Thời gian order phải gần khớp với thời gian của slot (tolerance 2 phút)");
+            }
+        } else {
+            // Đặt lịch trước: Yêu cầu khớp CHÍNH XÁC
+            if (!startTime.equals(firstSlot.start) || !endTime.equals(lastSlot.end)) {
+                throw new ApiRequestException("Thời gian order phải khớp với thời gian của slot");
+            }
         }
 
         // Kiểm tra các slot có khả dụng không
@@ -719,6 +776,8 @@ public class OrderServiceImpl implements OrderService {
                 // Charging point info
                 .chargingPointId(order.getChargingPoint() != null ?
                         order.getChargingPoint().getChargingPointId() : null)
+                .chargingPointName(order.getChargingPoint() != null ?
+                        order.getChargingPoint().getChargingPointName() : null)
                 .connectorType(order.getChargingPoint().getConnectorType() != null ?
                         order.getChargingPoint().getConnectorType().getTypeName() : null)
                 .chargingPower(order.getChargingPoint().getConnectorType() != null ?
@@ -749,6 +808,32 @@ public class OrderServiceImpl implements OrderService {
                 .status(order.getStatus() != null ? order.getStatus().name() : null)
                 .createdAt(order.getCreatedAt())
                 .build();
+    }
+
+    // ========== HELPER METHODS ==========
+
+    /**
+     * Parse search date từ string.
+     * Nếu null hoặc empty, trả về ngày hôm nay.
+     * Format: "yyyy-MM-dd" (VD: "2025-11-10")
+     */
+    private LocalDate parseSearchDate(String searchDateStr) {
+        if (searchDateStr == null || searchDateStr.isBlank()) {
+            return LocalDate.now();
+        }
+
+        try {
+            LocalDate searchDate = LocalDate.parse(searchDateStr);
+
+            // Không cho phép tìm slot trong quá khứ
+            if (searchDate.isBefore(LocalDate.now())) {
+                throw new ApiRequestException("Không thể tìm slot trong quá khứ");
+            }
+
+            return searchDate;
+        } catch (Exception e) {
+            throw new ApiRequestException("Định dạng ngày không hợp lệ. Vui lòng sử dụng format yyyy-MM-dd (VD: 2025-11-10)");
+        }
     }
 
     // ========== HELPER CLASSES ==========

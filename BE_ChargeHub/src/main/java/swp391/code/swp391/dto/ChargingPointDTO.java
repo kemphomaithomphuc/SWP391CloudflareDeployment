@@ -19,6 +19,8 @@ public class ChargingPointDTO {
 
     private Long chargingPointId;
 
+    private String chargingPointName; // Số thứ tự/tên của charging point (VD: "A1", "A2", "B1")
+
     @NotNull(message = "Type name is required")
     private String typeName;
 

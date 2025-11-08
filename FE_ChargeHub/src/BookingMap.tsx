@@ -139,6 +139,7 @@ interface ConnectorType {
 
 interface ChargingPoint {
     chargingPointId?: number;
+    chargingPointName?: string;  // ✅ NEW - Tên charging point (e.g., "A1", "B2")
     status: string;
     connectorTypeId?: number;
     stationId?: number;
@@ -886,9 +887,11 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                                     powerOutput: slot.powerOutput || cp.powerOutput || slot.connectorType?.powerOutput,
                                     pricePerKwh: slot.pricePerKwh || cp.pricePerKwh || slot.connectorType?.pricePerKwh,
                                     chargingPointId: slot.chargingPointId || cp.chargingPointId || cp.id,
+                                    chargingPointName: slot.chargingPointName || cp.chargingPointName,  // ✅ NEW
                                     // Add charging point info for reference
                                     chargingPointInfo: {
                                         id: cp.id || cp.chargingPointId,
+                                        chargingPointName: cp.chargingPointName,  // ✅ NEW
                                         connectorType: cp.connectorType,
                                         powerOutput: cp.powerOutput,
                                         pricePerKwh: cp.pricePerKwh,
@@ -992,7 +995,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
     }
 
     // API call to find available slots and filter by start time on frontend
-    const callApiForFindAvailableSlotsWithTime = async (stationId: string, startTime: string): Promise<any[] | null> => {
+    const callApiForFindAvailableSlotsWithTime = async (stationId: string, startTime: string, searchDate?: string): Promise<any[] | null> => {
         try {
             const userId = localStorage.getItem("userId");
             if (!userId) {
@@ -1028,7 +1031,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                 }
             }
 
-            const requestData = {
+            const requestData: any = {
                 userId: parseInt(userId),
                 vehicleId: actualVehicleId,
                 stationId: parseInt(stationId),
@@ -1036,7 +1039,16 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                 targetBattery: parseFloat(targetBatteryLevelConfig.toString()) // Convert to Double
             };
 
-            console.log("=== Requesting available slots (will filter by time on frontend) ===");
+            // Add searchDate if provided (for future date searches)
+            if (searchDate) {
+                requestData.searchDate = searchDate;
+                console.log("=== Searching slots for specific date ===");
+                console.log("Search date:", searchDate);
+            } else {
+                console.log("=== Searching slots for today ===");
+            }
+
+            console.log("=== Requesting available slots ===");
             console.log("Request data:", requestData);
 
             const response = await api.post("/api/orders/find-available-slots", requestData);
@@ -1055,6 +1067,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                                 ...slot,
                                 chargingPointInfo: {
                                     id: cp.chargingPointId,
+                                    chargingPointName: cp.chargingPointName,  // ✅ NEW
                                     connectorType: cp.connectorTypeName,
                                     powerOutput: cp.chargingPower,
                                     pricePerKwh: cp.pricePerKwh
@@ -1074,29 +1087,21 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                         const slotStartTime = new Date(slot.freeFrom);
                         const preferredTime = new Date(startTime);
 
-                        // Debug logging
+                        // Only include slots that start AT or AFTER the preferred time
+                        const isValid = slotStartTime >= preferredTime;
+                        
                         console.log("=== Time Filtering Debug ===");
                         console.log("Slot start time:", slotStartTime.toISOString());
                         console.log("Preferred time:", preferredTime.toISOString());
-                        console.log("Slot start >= preferred:", slotStartTime >= preferredTime);
+                        console.log("Slot start >= preferred:", isValid);
 
-                        // Allow slots that start within 30 minutes of the preferred time
-                        const timeDifference = Math.abs(slotStartTime.getTime() - preferredTime.getTime());
-                        const thirtyMinutes = 30 * 60 * 1000; // 30 minutes in milliseconds
-
-                        // Include slots that start at or after preferred time, or within 30 minutes before
-                        return slotStartTime >= preferredTime || timeDifference <= thirtyMinutes;
+                        return isValid;
                     }
-                    return true; // Include slots without time info
+                    return false; // Exclude slots without time info when filtering by time
                 });
 
                 console.log("Filtered slots by start time:", filteredSlots.length);
-
-                // If no slots match the time filter, return all available slots
-                if (filteredSlots.length === 0 && allSlots.length > 0) {
-                    console.log("No time-filtered slots found, returning all available slots");
-                    return allSlots;
-                }
+                console.log("Total slots before filter:", allSlots.length);
 
                 return filteredSlots;
             }
@@ -1182,9 +1187,19 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
             console.log("Combined datetime:", selectedDateTime.toISOString());
             console.log("Station ID:", configStation.stationId);
 
+            // Check if search date is different from today
+            const today = new Date();
+            const todayDateStr = today.toISOString().split('T')[0]; // YYYY-MM-DD format
+            const isSearchingFutureDate = selectedDate !== todayDateStr;
+
+            console.log("Today:", todayDateStr);
+            console.log("Selected date:", selectedDate);
+            console.log("Is searching future date:", isSearchingFutureDate);
+
             const slots = await callApiForFindAvailableSlotsWithTime(
                 configStation.stationId?.toString() || '',
-                selectedDateTime.toISOString()
+                selectedDateTime.toISOString(),
+                isSearchingFutureDate ? selectedDate : undefined // Only pass searchDate if not today
             );
 
             if (slots && slots.length > 0) {
@@ -5680,6 +5695,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                                             slotsByChargingPoint.set(chargingPointId, []);
                                             chargingPointsMap.set(chargingPointId, slot.chargingPointInfo || {
                                                 id: chargingPointId,
+                                                chargingPointName: slot.chargingPointName || slot.chargingPointInfo?.chargingPointName || `Point ${chargingPointId}`,
                                                 connectorType: slot.connectorType,
                                                 powerOutput: slot.powerOutput,
                                                 pricePerKwh: slot.pricePerKwh
@@ -5733,7 +5749,9 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                                                                 <div className="flex-1">
                                                                     <div className="flex items-center space-x-2">
                                                                         <Zap className="w-4 h-4 text-primary" />
-                                                                        <p className="text-sm font-medium">{connectorTypeName}</p>
+                                                                        <p className="text-sm font-medium">
+                                                                            {cp.chargingPointName ? `${cp.chargingPointName} • ` : ''}{connectorTypeName}
+                                                                        </p>
                                                                         <Badge variant="outline" className="text-xs">
                                                                             {slots.length} {language === 'vi' ? 'slot' : 'slots'}
                                                                         </Badge>
@@ -6006,7 +6024,17 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                                         return;
                                     }
 
-                                    finalStartTime = firstSlotStart;
+                                    // For Book Now: always use current time, not slot time
+                                    // For Schedule: use slot time
+                                    if (bookingMode === "now") {
+                                        finalStartTime = vietnamTime;
+                                        console.log("Book Now - Using current time instead of slot time");
+                                        console.log("Book Now - Slot start time (ignored):", firstSlotStart.toISOString());
+                                        console.log("Book Now - Actual start time (current):", finalStartTime.toISOString());
+                                    } else {
+                                        finalStartTime = firstSlotStart;
+                                        console.log("Schedule - Using slot start time:", finalStartTime.toISOString());
+                                    }
 
                                     // Get end time from last slot (if multiple slots) or from first slot
                                     if (slotsToUseForTime.length >= 2) {
@@ -6055,9 +6083,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                                 } else if (bookingMode === "now") {
                                     // For "Book Now" without selected slot, use current Vietnam time as start time
                                     console.log("=== BOOK NOW MODE (NO SLOT SELECTED) ===");
-                                    // Add 1 minute buffer to account for network latency (avoid "booking in past" error)
-                                    // This ensures by the time request reaches backend, the time is still in future
-                                    finalStartTime = new Date(vietnamTime.getTime() + 1 * 60 * 1000);
+                                    finalStartTime = vietnamTime;
 
                                     // Calculate duration from auto-selected slot
                                     const rawRequired = Number(slotToUse?.requiredMinutes);
@@ -6069,7 +6095,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
 
                                     console.log("Book Now - UTC Current time:", now.toISOString());
                                     console.log("Book Now - Vietnam Current time:", vietnamTime.toISOString());
-                                    console.log("Book Now - Start time (with 1min buffer for latency):", finalStartTime.toISOString());
+                                    console.log("Book Now - Start time:", finalStartTime.toISOString());
                                     console.log("Book Now - End time:", finalEndTime.toISOString());
                                     console.log("Book Now - Duration (minutes):", durationMinutes);
 
