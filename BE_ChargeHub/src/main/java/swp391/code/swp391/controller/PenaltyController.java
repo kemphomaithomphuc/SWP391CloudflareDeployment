@@ -36,7 +36,7 @@ public class PenaltyController {
      * Hiển thị: loại phí, số tiền, lý do, thời gian
      */
     @GetMapping("/user/{userId}/history")
-    @PreAuthorize("hasAnyRole('ADMIN', 'DRIVER') and #userId == authentication.principal.user.userId or hasRole('ADMIN')")
+    @PreAuthorize("hasRole('DRIVER') or hasRole('ADMIN')")
     public ResponseEntity<APIResponse<List<FeeDetailDTO>>> getUserFeeHistory(@PathVariable Long userId) {
         try {
             log.info("Getting fee history for user {}", userId);
@@ -80,7 +80,7 @@ public class PenaltyController {
      * Lấy các phí chưa thanh toán của user
      */
     @GetMapping("/user/{userId}/unpaid")
-    @PreAuthorize("hasAnyRole('ADMIN', 'DRIVER') and #userId == authentication.principal.user.userId or hasRole('ADMIN')")
+    @PreAuthorize("hasRole('DRIVER') or hasRole('ADMIN')")
     public ResponseEntity<APIResponse<List<Fee>>> getUnpaidFees(@PathVariable Long userId) {
         try {
             log.info("Getting unpaid fees for user {}", userId);
@@ -232,6 +232,97 @@ public class PenaltyController {
 
         } catch (Exception e) {
             log.error("Error getting all unpaid fees: {}", e.getMessage(), e);
+            return ResponseEntity.badRequest()
+                    .body(APIResponse.error("Lỗi: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * Thanh toán tất cả phí phạt và mở khóa tài khoản
+     * POST /api/penalties/pay-and-unlock
+     */
+    @PostMapping("/pay-and-unlock")
+    @PreAuthorize("hasRole('DRIVER') or hasRole('ADMIN')")
+    public ResponseEntity<APIResponse<Map<String, Object>>> payAndUnlock(
+            @RequestBody Map<String, Object> requestBody
+    ) {
+        try {
+            log.info("📥 Received payment request: {}", requestBody);
+            
+            // Validate request body
+            if (requestBody.get("userId") == null) {
+                log.error("❌ userId is null");
+                return ResponseEntity.badRequest()
+                        .body(APIResponse.error("userId is required"));
+            }
+            
+            if (requestBody.get("feeIds") == null) {
+                log.error("❌ feeIds is null");
+                return ResponseEntity.badRequest()
+                        .body(APIResponse.error("feeIds is required"));
+            }
+            
+            Long userId = Long.valueOf(requestBody.get("userId").toString());
+            
+            @SuppressWarnings("unchecked")
+            List<Long> feeIds = ((List<?>) requestBody.get("feeIds")).stream()
+                    .map(id -> Long.valueOf(id.toString()))
+                    .collect(java.util.stream.Collectors.toList());
+
+            log.info("User {} attempting to pay fees and unlock account. Fee IDs: {}", userId, feeIds);
+
+            // Đánh dấu fees đã thanh toán
+            penaltyService.markFeesAsPaid(feeIds);
+
+            // Kiểm tra nếu không còn phí chưa thanh toán thì mở khóa
+            boolean unlocked = penaltyService.unlockUserAfterPayment(userId);
+
+            int remainingFees = penaltyService.getUnpaidFees(userId).size();
+
+            if (unlocked) {
+                return ResponseEntity.ok(APIResponse.success(
+                        "Thanh toán thành công! Tài khoản đã được mở khóa.",
+                        Map.of(
+                                "unlocked", true,
+                                "remainingFees", remainingFees
+                        )
+                ));
+            } else {
+                return ResponseEntity.ok(APIResponse.success(
+                        "Thanh toán thành công! Vẫn còn phí chưa thanh toán.",
+                        Map.of(
+                                "unlocked", false,
+                                "remainingFees", remainingFees
+                        )
+                ));
+            }
+
+        } catch (Exception e) {
+            log.error("Error paying and unlocking: {}", e.getMessage(), e);
+            return ResponseEntity.badRequest()
+                    .body(APIResponse.error("Lỗi khi thanh toán: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * Kiểm tra user có thể mở khóa không
+     * GET /api/penalties/user/{userId}/can-unlock
+     */
+    @GetMapping("/user/{userId}/can-unlock")
+    @PreAuthorize("hasRole('DRIVER') or hasRole('ADMIN')")
+    public ResponseEntity<APIResponse<Boolean>> canUnlockUser(@PathVariable Long userId) {
+        try {
+            log.info("Checking if user {} can be unlocked", userId);
+            boolean canUnlock = penaltyService.canUnlockUser(userId);
+
+            String message = canUnlock
+                    ? "User có thể mở khóa (đã thanh toán hết phí)"
+                    : "User chưa thể mở khóa (còn phí chưa thanh toán hoặc không bị banned)";
+
+            return ResponseEntity.ok(APIResponse.success(message, canUnlock));
+
+        } catch (Exception e) {
+            log.error("Error checking unlock status: {}", e.getMessage(), e);
             return ResponseEntity.badRequest()
                     .body(APIResponse.error("Lỗi: " + e.getMessage()));
         }

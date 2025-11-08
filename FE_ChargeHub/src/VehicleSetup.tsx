@@ -3,7 +3,8 @@ import { Button } from "./components/ui/button";
 import { Input } from "./components/ui/input";
 import { Label } from "./components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./components/ui/select";
-import { ArrowLeft, Car } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "./components/ui/dialog";
+import { ArrowLeft, Car, AlertTriangle } from "lucide-react";
 import { useLanguage } from "./contexts/LanguageContext";
 import axios from "axios";
 import { api } from "./services/api";
@@ -12,6 +13,7 @@ import { api } from "./services/api";
 interface VehicleSetupProps {
   onNext: () => void;
   onBack: () => void;
+  onBackToLogin?: () => void;
 }
 
 interface ConnectorType {
@@ -37,8 +39,8 @@ interface CarModel {
 }
 
 
-export default function VehicleSetup({ onNext, onBack }: VehicleSetupProps) {
-  const { t, language } = useLanguage();
+export default function VehicleSetup({ onNext, onBack, onBackToLogin }: VehicleSetupProps) {
+  const { t, language, setLanguage } = useLanguage();
   const [formData, setFormData] = useState({
     plateNumber: "",
     brand: "",
@@ -47,7 +49,8 @@ export default function VehicleSetup({ onNext, onBack }: VehicleSetupProps) {
 
   const [carModels, setCarModels] = useState<CarModel[] | null>(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [errorKey, setErrorKey] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null); // Raw error từ API
   const [plateNumber, setPlateNumber] = useState("");
   const [selectedBrand, setSelectedBrand] = useState<string>("");
   const [selectedModel, setSelectedModel] = useState<string>("");
@@ -55,18 +58,92 @@ export default function VehicleSetup({ onNext, onBack }: VehicleSetupProps) {
   const [selectedCarModelId, setSelectedCarModelId] = useState<number | null>(null);
   const [connectorTypes, setConnectorTypes] = useState<ConnectorType[] | null>(null);
   const [connectorTypeId, setConnectorTypeId] = useState("");
+  const [showExitConfirm, setShowExitConfirm] = useState(false);
   
+  // Check if user came from login (has dateOfBirth but no vehicle)
+  const isFromLogin = localStorage.getItem("token") && localStorage.getItem("userId");
+  
+  // Handle back button click - LUÔN hiện popup confirm
+  const handleBackClick = () => {
+    setShowExitConfirm(true);
+  };
+  
+  // Confirm exit và về Login.tsx
+  const handleConfirmExit = () => {
+    // Clear all auth data
+    localStorage.removeItem("token");
+    localStorage.removeItem("refreshToken");
+    localStorage.removeItem("userId");
+    localStorage.removeItem("registeredUserId");
+    localStorage.removeItem("role");
+    localStorage.removeItem("email");
+    
+    // Close popup và về Login.tsx
+    setShowExitConfirm(false);
+    
+    // Sử dụng onBackToLogin nếu có, fallback về onBack
+    if (onBackToLogin) {
+      onBackToLogin();
+    } else {
+      onBack();
+    }
+  };
+  
+  // Check if license plate already exists
+  const checkLicensePlateExists = async (plate: string): Promise<boolean> => {
+    try {
+      const res = await api.get(`/api/vehicles/${plate}`);
+      // Nếu status 200 = license plate đã tồn tại
+      if (res.status === 200) {
+        return true;
+      }
+    } catch (err: any) {
+      // Nếu 404 = license plate chưa tồn tại (OK)
+      if (err.response?.status === 404) {
+        return false;
+      }
+      // Các lỗi khác
+      console.error("Error checking license plate:", err);
+    }
+    return false;
+  };
 
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedBrand || !selectedModel || !plateNumber.trim()) {
-      setError(language === 'vi' ? 'Vui lòng điền đầy đủ thông tin' : 'Please fill in all information');
+    setErrorKey(null);
+    setError(null);
+    
+    // Validate license plate
+    if (!plateNumber.trim()) {
+      setErrorKey('License plate is required');
+      return;
+    }
+    
+    // Validate brand
+    if (!selectedBrand || selectedBrand === "") {
+      setErrorKey('Brand is required');
+      return;
+    }
+    
+    // Validate model
+    if (!selectedModel || selectedModel === "") {
+      setErrorKey('Model is required');
       return;
     }
     
     if (!selectedCarModelId) {
-      setError(language === 'vi' ? 'Không tìm thấy thông tin xe' : 'Car model not found');
+      setErrorKey('Car model not found');
+      return;
+    }
+    
+    // Check license plate duplicate
+    setLoading(true);
+    const exists = await checkLicensePlateExists(plateNumber.trim());
+    setLoading(false);
+    
+    if (exists) {
+      setErrorKey('License plate already exists');
       return;
     }
     
@@ -99,6 +176,7 @@ export default function VehicleSetup({ onNext, onBack }: VehicleSetupProps) {
   const fetchCarModels = async(): Promise<CarModel[] | null> => {
     setLoading(true);
     setError(null);
+    setErrorKey(null);
     try {
       const res = await api.get("/api/carModel");
       if (res.status === 200 && res.data.success) {
@@ -118,7 +196,7 @@ export default function VehicleSetup({ onNext, onBack }: VehicleSetupProps) {
       }
     } catch (err) {
       console.error("Error fetching car models:", err);
-      setError(language === 'vi' ? 'Lỗi khi tải danh sách xe' : 'Error loading car models');
+      setErrorKey('Error loading car models');
       return null;
     }
     return null;
@@ -127,6 +205,7 @@ export default function VehicleSetup({ onNext, onBack }: VehicleSetupProps) {
   const filterCarModesByConnector = async(): Promise<CarModel[] | null> => {
     setLoading(true);
     setError(null);
+    setErrorKey(null);
     try {
       var connectorTypes = await fetchConnectorType();
       var carModels = await fetchCarModels();
@@ -145,13 +224,14 @@ export default function VehicleSetup({ onNext, onBack }: VehicleSetupProps) {
       return carModels;
     } catch (err) {
       console.error("Error filtering car models:", err);
-      setError(language === 'vi' ? 'Lỗi khi lọc danh sách xe' : 'Error filtering car models');
+      setErrorKey('Error filtering car models');
       return null;
     }
   }
   const addingUserVehicle = async(vehicle: UserVehicle) => {
     setLoading(true);
     setError(null);
+    setErrorKey(null);
     const userId = localStorage.getItem("userId") || localStorage.getItem("registeredUserId");
     console.log("Adding vehicle for userId:", userId, plateNumber, selectedCarModelId);
     try {
@@ -165,12 +245,16 @@ export default function VehicleSetup({ onNext, onBack }: VehicleSetupProps) {
       if (response.status === 200 || response.status === 201) {
         console.log("Vehicle added successfully");
         setLoading(false);
-        onNext();
         return true;
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error adding user vehicle:", err);
-      setError(language === 'vi' ? 'Lỗi khi thêm xe của người dùng' : 'Error adding user vehicle');
+      const apiError = err?.response?.data?.message;
+      if (apiError) {
+        setError(apiError); // Raw message từ API
+      } else {
+        setErrorKey('Error adding vehicle');
+      }
       setLoading(false);
       return false;
     }
@@ -210,6 +294,7 @@ export default function VehicleSetup({ onNext, onBack }: VehicleSetupProps) {
     setSelectedCarModelId(null); // Reset selected car model ID
     setFormData({ ...formData, brand, model: "" });
     setError(null); // Clear error when brand is selected
+    setErrorKey(null);
   };
 
   // Handle model selection
@@ -217,6 +302,7 @@ export default function VehicleSetup({ onNext, onBack }: VehicleSetupProps) {
     setSelectedModel(model);
     setFormData({ ...formData, model });
     setError(null); // Clear error when model is selected
+    setErrorKey(null);
     
     // Find and set the selected car model for image display and ID
     if (carModels && selectedBrand) {
@@ -237,7 +323,7 @@ export default function VehicleSetup({ onNext, onBack }: VehicleSetupProps) {
         setCarModels(models);
       } catch (err) {
         console.error("Error loading car models:", err);
-        setError(language === 'vi' ? 'Lỗi khi tải dữ liệu xe' : 'Error loading car data');
+        setErrorKey('Error loading car data');
       } finally {
         setLoading(false);
       }
@@ -250,6 +336,32 @@ export default function VehicleSetup({ onNext, onBack }: VehicleSetupProps) {
   return (
     <div className="min-h-screen bg-background p-6">
       <div className="max-w-6xl mx-auto">
+        {/* Language Switcher - Top Right */}
+        <div className="flex justify-end mb-4">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setLanguage("en")}
+              className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all duration-200 ${
+                language === "en"
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground hover:bg-accent"
+              }`}
+            >
+              EN
+            </button>
+            <button
+              onClick={() => setLanguage("vi")}
+              className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all duration-200 ${
+                language === "vi"
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground hover:bg-accent"
+              }`}
+            >
+              VI
+            </button>
+          </div>
+        </div>
+        
         {/* Progress Header */}
         <div className="mb-8">
           <div className="flex items-center mb-4">
@@ -286,7 +398,7 @@ export default function VehicleSetup({ onNext, onBack }: VehicleSetupProps) {
                 <SelectTrigger className="h-12 bg-input-background border-border rounded-lg text-base">
                   <SelectValue placeholder={
                     loading 
-                      ? (language === 'vi' ? 'Đang tải...' : 'Loading...')
+                      ? t('Loading...')
                       : t('select_brand')
                   } />
                 </SelectTrigger>
@@ -312,10 +424,10 @@ export default function VehicleSetup({ onNext, onBack }: VehicleSetupProps) {
                   <SelectValue 
                     placeholder={
                       loading
-                        ? (language === 'vi' ? 'Đang tải...' : 'Loading...')
+                        ? t('Loading...')
                         : !selectedBrand 
-                          ? (language === 'vi' ? 'Chọn hãng xe trước' : 'Select brand first')
-                          : (language === 'vi' ? 'Chọn mẫu xe' : 'Select model')
+                          ? t('Select brand first')
+                          : t('select_model')
                     } 
                   />
                 </SelectTrigger>
@@ -330,10 +442,10 @@ export default function VehicleSetup({ onNext, onBack }: VehicleSetupProps) {
             </div>
 
             {/* Error Display */}
-            {error && (
+            {(error || errorKey) && (
               <div className="space-y-3">
                 <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
-                  <p className="text-sm text-destructive">{error}</p>
+                  <p className="text-sm text-destructive">{error || (errorKey && t(errorKey))}</p>
                 </div>
               </div>
             )}
@@ -382,13 +494,13 @@ export default function VehicleSetup({ onNext, onBack }: VehicleSetupProps) {
                   <div className="grid grid-cols-2 gap-3 text-sm">
                     <div>
                       <span className="text-muted-foreground">
-                        {language === 'vi' ? 'Hãng:' : 'Brand:'}
+                        {t('Brand:')}
                       </span>
                       <span className="ml-2 text-card-foreground">{selectedBrand}</span>
                     </div>
                     <div>
                       <span className="text-muted-foreground">
-                        {language === 'vi' ? 'Mẫu:' : 'Model:'}
+                        {t('Model:')}
                       </span>
                       <span className="ml-2 text-card-foreground">{selectedModel}</span>
                     </div>
@@ -401,18 +513,15 @@ export default function VehicleSetup({ onNext, onBack }: VehicleSetupProps) {
                   <div className="text-center">
                     <Car className="h-12 w-12 text-muted-foreground mx-auto mb-2" />
                     <p className="text-muted-foreground">
-                      {language === 'vi' ? 'Hình ảnh xe' : 'Vehicle Image'}
+                      {t('Vehicle Image')}
                     </p>
                   </div>
                 </div>
                 <h3 className="text-xl text-muted-foreground">
-                  {language === 'vi' ? 'Tên xe' : 'Vehicle Name'}
+                  {t('Vehicle Name')}
                 </h3>
                 <p className="text-sm text-muted-foreground mt-2">
-                  {language === 'vi'
-                    ? 'Chọn hãng và mẫu xe để xem chi tiết'
-                    : 'Select brand and model to see details'
-                  }
+                  {t('Select brand and model to see details')}
                 </p>
               </div>
             )}
@@ -424,7 +533,7 @@ export default function VehicleSetup({ onNext, onBack }: VehicleSetupProps) {
           <Button
             type="button"
             variant="ghost"
-            onClick={onBack}
+            onClick={handleBackClick}
             className="text-primary hover:bg-primary/10"
           >
             <ArrowLeft className="h-5 w-5 mr-2" />
@@ -433,12 +542,50 @@ export default function VehicleSetup({ onNext, onBack }: VehicleSetupProps) {
           
           <Button
             onClick={handleSubmit}
-            className="px-8 py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg"
+            disabled={loading}
+            className="px-8 py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg disabled:opacity-50"
           >
-            {t('complete_setup')}
+            {loading ? t('Loading...') : t('complete_setup')}
           </Button>
         </div>
       </div>
+      
+      {/* Exit Confirmation Dialog */}
+      <Dialog open={showExitConfirm} onOpenChange={setShowExitConfirm}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-900/20">
+                <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-500" />
+              </div>
+              <DialogTitle className="text-xl font-semibold">
+                {t('Exit vehicle setup?')}
+              </DialogTitle>
+            </div>
+          </DialogHeader>
+          
+          <DialogDescription className="text-muted-foreground leading-relaxed pt-2">
+            {t('If you exit now, you need to add vehicle information when you log in again to use the charging service. Are you sure you want to exit?')}
+          </DialogDescription>
+          
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              onClick={() => setShowExitConfirm(false)}
+              className="flex-1 sm:flex-none"
+            >
+              {t('Stay and continue')}
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleConfirmExit}
+              className="flex-1 sm:flex-none"
+            >
+              {t('Exit and logout')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

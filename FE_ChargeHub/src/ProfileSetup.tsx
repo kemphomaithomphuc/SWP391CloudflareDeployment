@@ -23,7 +23,7 @@ interface RegisterUser {
 }
 
 export default function ProfileSetup({ onNext, onBack }: ProfileSetupProps) {
-  const { t } = useLanguage();
+  const { t, language, setLanguage } = useLanguage();
   const [formData, setFormData] = useState({
     dateOfBirth: "",
     phone: "",
@@ -32,21 +32,49 @@ export default function ProfileSetup({ onNext, onBack }: ProfileSetupProps) {
     address: ""
   });
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [errorKey, setErrorKey] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null); // Raw error từ API
 
   const [availableProvinces, setAvailableProvinces] = useState<Province[]>([]);
   const [profileImage, setProfileImage] = useState<string | null>(null);
+  
+  // Validation functions
+  const validatePhone = (phone: string): boolean => {
+    // 10 số, số đầu phải là 0
+    const phoneRegex = /^0\d{9}$/;
+    return phoneRegex.test(phone.replace(/\s/g, ''));
+  };
+  
+  const validateAge = (dateOfBirth: string): boolean => {
+    const birthDate = new Date(dateOfBirth);
+    const today = new Date();
+    const age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+    
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      return age - 1 >= 18;
+    }
+    return age >= 18;
+  };
+  
+  const validateDateInPast = (date: string): boolean => {
+    const selectedDate = new Date(date);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return selectedDate < today;
+  };
 
   const callApiForProfileSetup = async (data: RegisterUser) => {
     setLoading(true);
     setError(null);
+    setErrorKey(null);
     try {
       // Try to get userId from different sources
       const userId = localStorage.getItem("registeredUserId") || localStorage.getItem("userId") || "";
       console.log("Submitting profile for userId:", userId);
       
       if (!userId) {
-        setError(t('user_id_not_found'));
+        setErrorKey('User ID not found');
         setLoading(false);
         return;
       }
@@ -63,20 +91,69 @@ export default function ProfileSetup({ onNext, onBack }: ProfileSetupProps) {
         setLoading(false);
         onNext();
       } else {
-        setError(t('error_submitting_profile'));
+        setErrorKey('Error submitting profile');
         setLoading(false);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Profile submission error:', err);
-      setError(t('error_submitting_profile'));
+      const apiError = err?.response?.data?.message;
+      if (apiError) {
+        setError(apiError); // Raw message từ API
+      } else {
+        setErrorKey('Error submitting profile');
+      }
       setLoading(false);
     }
   };
 
   const handleSubmit = () => {
-    // Validate required fields
-    if (!formData.dateOfBirth || !formData.phone || !formData.country || !formData.province || !formData.address) {
-      setError(t('please_fill_all_fields'));
+    // Reset errors
+    setErrorKey(null);
+    setError(null);
+    
+    // Validate date of birth
+    if (!formData.dateOfBirth) {
+      setErrorKey('Date of birth is required');
+      return;
+    }
+    if (!validateDateInPast(formData.dateOfBirth)) {
+      setErrorKey('Date of birth must be in the past');
+      return;
+    }
+    if (!validateAge(formData.dateOfBirth)) {
+      setErrorKey('You must be at least 18 years old');
+      return;
+    }
+    
+    // Validate phone
+    if (!formData.phone.trim()) {
+      setErrorKey('Phone number is required');
+      return;
+    }
+    if (!validatePhone(formData.phone)) {
+      setErrorKey('Phone must be 10 digits and start with 0');
+      return;
+    }
+    
+    // Validate country
+    if (!formData.country) {
+      setErrorKey('Country is required');
+      return;
+    }
+    
+    // Validate province
+    if (!formData.province) {
+      setErrorKey('Province is required');
+      return;
+    }
+    
+    // Validate address
+    if (!formData.address.trim()) {
+      setErrorKey('Address is required');
+      return;
+    }
+    if (formData.address.length > 500) {
+      setErrorKey('Address must not exceed 500 characters');
       return;
     }
 
@@ -117,16 +194,19 @@ export default function ProfileSetup({ onNext, onBack }: ProfileSetupProps) {
     if (file) {
       // Validate file type - chỉ cho phép ảnh
       if (!file.type.startsWith('image/')) {
-        alert(t('please_select_image_file'));
+        setErrorKey('Please select an image file');
         return;
       }
       
       // Validate file size (max 5MB)
       if (file.size > 5 * 1024 * 1024) {
-        alert(t('image_too_large'));
+        setErrorKey('Image file is too large');
         return;
       }
 
+      // Clear any previous errors
+      setErrorKey(null);
+      
       // Đọc file và chuyển thành base64 để hiển thị
       const reader = new FileReader();
       reader.onload = (e) => {
@@ -144,6 +224,32 @@ export default function ProfileSetup({ onNext, onBack }: ProfileSetupProps) {
     <div className="min-h-screen bg-background flex items-center justify-center p-6">
       <div className="w-full max-w-4xl">
         <div className="bg-card rounded-2xl shadow-sm border border-border p-8">
+          {/* Language Switcher - Top Right */}
+          <div className="flex justify-end mb-4">
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setLanguage("en")}
+                className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all duration-200 ${
+                  language === "en"
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground hover:bg-accent"
+                }`}
+              >
+                EN
+              </button>
+              <button
+                onClick={() => setLanguage("vi")}
+                className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all duration-200 ${
+                  language === "vi"
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground hover:bg-accent"
+                }`}
+              >
+                VI
+              </button>
+            </div>
+          </div>
+          
           {/* Main Content Grid */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {/* Left Side - Form Fields */}
@@ -155,9 +261,9 @@ export default function ProfileSetup({ onNext, onBack }: ProfileSetupProps) {
                 </p>
                 
                 {/* Error Display */}
-                {error && (
-                  <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
-                    {error}
+                {(error || errorKey) && (
+                  <div className="bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 px-4 py-3 rounded-lg mt-2">
+                    {error || (errorKey && t(errorKey))}
                   </div>
                 )}
               </div>
@@ -201,6 +307,7 @@ export default function ProfileSetup({ onNext, onBack }: ProfileSetupProps) {
                       id="country"
                       value={formData.country}
                       onChange={(e) => handleCountryChange(e.target.value)}
+                      aria-label={t('country')}
                       className="h-11 w-full border border-border rounded-lg focus:border-primary focus:ring-1 focus:ring-primary bg-input-background px-3 text-sm text-foreground"
                     >
                       <option value="">{t('select_country')}</option>
@@ -220,6 +327,7 @@ export default function ProfileSetup({ onNext, onBack }: ProfileSetupProps) {
                       value={formData.province}
                       onChange={(e) => handleProvinceChange(e.target.value)}
                       disabled={!formData.country}
+                      aria-label={t('province_state')}
                       className={`h-11 w-full border border-border rounded-lg focus:border-primary focus:ring-1 focus:ring-primary bg-input-background px-3 text-sm text-foreground ${
                         !formData.country ? 'bg-muted text-muted-foreground cursor-not-allowed' : ''
                       }`}
@@ -273,6 +381,8 @@ export default function ProfileSetup({ onNext, onBack }: ProfileSetupProps) {
                 {profileImage ? (
                   <button
                     onClick={handleRemoveImage}
+                    aria-label={t('Remove image')}
+                    title={t('Remove image')}
                     className="absolute -top-2 -right-2 w-8 h-8 bg-red-500 hover:bg-red-600 rounded-full flex items-center justify-center shadow-lg transition-colors"
                   >
                     <X className="w-4 h-4 text-white" />
@@ -291,6 +401,7 @@ export default function ProfileSetup({ onNext, onBack }: ProfileSetupProps) {
                 accept="image/*"
                 onChange={handleImageUpload}
                 className="hidden"
+                aria-label={t('Upload profile image')}
               />
 
               {/* Upload Button */}
@@ -299,14 +410,19 @@ export default function ProfileSetup({ onNext, onBack }: ProfileSetupProps) {
                 onClick={() => document.getElementById('profile-image-upload')?.click()}
                 className="px-6 py-2 border-border text-foreground hover:bg-accent rounded-lg"
               >
-                {profileImage ? t('change_image') : t('select_image_from_computer')}
+                {profileImage ? t('change_image') : t('upload_image')}
               </Button>
               
               {/* File info */}
-              <p className="text-xs text-muted-foreground text-center max-w-32">
-                {t('supported_formats')}<br/>
-                {t('max_size')}
-              </p>
+              <div className="text-center space-y-1">
+                <p className="text-xs text-muted-foreground max-w-32">
+                  {t('supported_formats')}<br/>
+                  {t('max_size')}
+                </p>
+                <p className="text-xs text-primary/70 italic max-w-40">
+                  {t('Avatar can be updated later')}
+                </p>
+              </div>
             </div>
           </div>
 
