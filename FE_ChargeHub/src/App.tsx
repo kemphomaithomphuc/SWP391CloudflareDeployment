@@ -59,45 +59,140 @@ function AppContent() {
   const [vehicleBatteryLevel, setVehicleBatteryLevel] = useState(75);
   const [currentBookingId, setCurrentBookingId] = useState<string>("");
 
-  const switchToLogin = () => setCurrentView("login");
-  const switchToRegister = () => setCurrentView("register");
+  const switchToLogin = () => {
+    setCurrentView("login");
+    navigate("/login");
+  };
+  const switchToRegister = () => {
+    setCurrentView("register");
+    navigate("/register");
+  };
   const switchToRoleSelection = () => {
     console.log("Switching to roleSelection view");
     setCurrentView("roleSelection");
+    navigate("/role-selection");
   };
-  const switchToProfileSetup = () => setCurrentView("profileSetup");
-  const switchToVehicleSetup = () => setCurrentView("vehicleSetup");
-  const switchToStaffProfileSetup = () => setCurrentView("staffProfileSetup");
-  const switchToEducationSetup = () => setCurrentView("educationSetup");
-  const completeSetup = () => setCurrentView("login");
-  const completeStaffSetup = () => setCurrentView("staffDashboard");
-  const switchToStaffLogin = () => setCurrentView("staffLogin");
-  const completeStaffLogin = () => setCurrentView("staffDashboard");
-  const switchToStaffReports = () => setCurrentView("staffReports");
-  const switchToAdminLogin = () => setCurrentView("adminLogin");
-  const completeAdminLogin = () => setCurrentView("adminDashboard");
-  const switchToBooking = () => setCurrentView("booking");
-  const switchToHistory = () => setCurrentView("history");
-  const switchToAnalysis = () => setCurrentView("analysis");
-  const switchToReportIssue = () => setCurrentView("reportIssue");
-  const switchToWallet = () => setCurrentView("wallet");
-  const switchToNotifications = () => setCurrentView("notifications");
-  const switchToStaffNotifications = () => setCurrentView("staffNotifications");
-  const switchToSystemConfig = () => setCurrentView("systemConfig");
-  const switchToAdminMap = () => setCurrentView("adminMap");
-  const switchToRevenue = () => setCurrentView("revenue");
-  const switchToStaffManagement = () => setCurrentView("staffManagement");
-  const switchToUsageAnalytics = () => setCurrentView("usageAnalytics");
-  const switchToPostActivating = () => setCurrentView("postActivating");
-  const switchToAdminChargerPostActivating = () => setCurrentView("adminChargerPostActivating");
-const switchToIssueResolvement = () => setCurrentView("issueResolvement");
-  const switchToMyBookings = () => setCurrentView("myBookings");
+  const switchToProfileSetup = () => {
+    setCurrentView("profileSetup");
+    navigate("/profile-setup");
+  };
+  const switchToVehicleSetup = () => {
+    setCurrentView("vehicleSetup");
+    navigate("/vehicle-setup");
+  };
+  const switchToStaffProfileSetup = () => {
+    setCurrentView("staffProfileSetup");
+    navigate("/staff-profile-setup");
+  };
+  const switchToEducationSetup = () => {
+    setCurrentView("educationSetup");
+    navigate("/education-setup");
+  };
+  const completeSetup = () => {
+    setCurrentView("login");
+    navigate("/login");
+  };
+  const completeStaffSetup = () => {
+    setCurrentView("staffDashboard");
+    navigate("/staff/dashboard");
+  };
+  const switchToStaffLogin = () => {
+    setCurrentView("staffLogin");
+    navigate("/staff/login");
+  };
+  const completeStaffLogin = () => {
+    setCurrentView("staffDashboard");
+    navigate("/staff/dashboard");
+  };
+  const switchToStaffReports = () => {
+    setCurrentView("staffReports");
+    navigate("/staff/reports");
+  };
+  const switchToAdminLogin = () => {
+    setCurrentView("adminLogin");
+    navigate("/admin/login");
+  };
+  const completeAdminLogin = () => {
+    setCurrentView("adminDashboard");
+    navigate("/admin/dashboard");
+  };
+  const switchToBooking = () => {
+    setCurrentView("booking");
+    navigate("/booking");
+  };
+  const switchToHistory = () => {
+    setCurrentView("history");
+    navigate("/history");
+  };
+  const switchToAnalysis = () => {
+    setCurrentView("analysis");
+    navigate("/analysis");
+  };
+  const switchToReportIssue = () => {
+    setCurrentView("reportIssue");
+    navigate("/report-issue");
+  };
+  const switchToWallet = () => {
+    setCurrentView("wallet");
+    navigate("/wallet");
+  };
+  const switchToNotifications = () => {
+    setCurrentView("notifications");
+    navigate("/notifications");
+  };
+  const switchToStaffNotifications = () => {
+    setCurrentView("staffNotifications");
+    navigate("/staff/notifications");
+  };
+  const switchToSystemConfig = () => {
+    setCurrentView("systemConfig");
+    navigate("/admin/system-config");
+  };
+  const switchToAdminMap = () => {
+    setCurrentView("adminMap");
+    navigate("/admin/map");
+  };
+  const switchToRevenue = () => {
+    setCurrentView("revenue");
+    navigate("/admin/revenue");
+  };
+  const switchToStaffManagement = () => {
+    setCurrentView("staffManagement");
+    navigate("/admin/staff-management");
+  };
+  const switchToUsageAnalytics = () => {
+    setCurrentView("usageAnalytics");
+    navigate("/admin/usage-analytics");
+  };
+  const switchToPostActivating = () => {
+    setCurrentView("postActivating");
+    navigate("/staff/post-activating");
+  };
+  const switchToAdminChargerPostActivating = () => {
+    setCurrentView("adminChargerPostActivating");
+    navigate("/admin/charger-post-activating");
+  };
+  const switchToIssueResolvement = () => {
+    setCurrentView("issueResolvement");
+    navigate("/admin/issue-resolvement");
+  };
+  const switchToMyBookings = () => {
+    setCurrentView("myBookings");
+    navigate("/my-bookings");
+  };
   const switchToChargingSession = (bookingId: string) => {
     setCurrentBookingId(bookingId);
     setCurrentView("chargingSession");
+    navigate(`/charging-session/${bookingId}`);
   };
-  const switchToPremiumSubscription = () => setCurrentView("premiumSubscription");
-  const switchToPenaltyPayment = () => setCurrentView("penaltyPayment");
+  const switchToPremiumSubscription = () => {
+    setCurrentView("premiumSubscription");
+    navigate("/premium-subscription");
+  };
+  const switchToPenaltyPayment = () => {
+    setCurrentView("penaltyPayment");
+    navigate("/penalty-payment");
+  };
 
   // Check if user needs vehicle setup after profile completion
   const handleProfileCompletion = async () => {
@@ -111,18 +206,22 @@ const switchToIssueResolvement = () => setCurrentView("issueResolvement");
           if (res.data && res.data.vehicles && res.data.vehicles.length > 0) {
             // User has vehicles, go to dashboard
             setCurrentView("dashboard");
+            navigate("/dashboard");
           } else {
             // User needs vehicle setup
             setCurrentView("vehicleSetup");
+            navigate("/vehicle-setup");
           }
         } else {
           // Fallback to vehicle setup
           setCurrentView("vehicleSetup");
+          navigate("/vehicle-setup");
         }
       } catch (err) {
         console.error("Error checking user vehicles:", err);
         // Fallback to vehicle setup
         setCurrentView("vehicleSetup");
+        navigate("/vehicle-setup");
       }
     } else {
       // For new users, go to vehicle setup
@@ -132,7 +231,46 @@ const switchToIssueResolvement = () => setCurrentView("issueResolvement");
 
   // Generic navigation handler for layout
   const handleNavigation = (view: string) => {
-    setCurrentView(view as ViewType);
+    const viewToPath: { [key: string]: string } = {
+      "login": "/login",
+      "register": "/register",
+      "roleSelection": "/role-selection",
+      "profileSetup": "/profile-setup",
+      "vehicleSetup": "/vehicle-setup",
+      "staffProfileSetup": "/staff-profile-setup",
+      "educationSetup": "/education-setup",
+      "dashboard": "/dashboard",
+      "booking": "/booking",
+      "history": "/history",
+      "analysis": "/analysis",
+      "reportIssue": "/report-issue",
+      "wallet": "/wallet",
+      "notifications": "/notifications",
+      "myBookings": "/my-bookings",
+      "premiumSubscription": "/premium-subscription",
+      "penaltyPayment": "/penalty-payment",
+      "staffLogin": "/staff/login",
+      "staffDashboard": "/staff/dashboard",
+      "staffNotifications": "/staff/notifications",
+      "staffReports": "/staff/reports",
+      "postActivating": "/staff/post-activating",
+      "adminLogin": "/admin/login",
+      "adminDashboard": "/admin/dashboard",
+      "systemConfig": "/admin/system-config",
+      "adminMap": "/admin/map",
+      "revenue": "/admin/revenue",
+      "staffManagement": "/admin/staff-management",
+      "usageAnalytics": "/admin/usage-analytics",
+      "adminChargerPostActivating": "/admin/charger-post-activating",
+      "issueResolvement": "/admin/issue-resolvement",
+      "chargingSession": "/charging-session",
+    };
+    
+    const path = viewToPath[view];
+    if (path) {
+      setCurrentView(view as ViewType);
+      navigate(path);
+    }
   };
 
   // Determine user type and whether to show sidebar based on current view
@@ -233,24 +371,29 @@ const switchToIssueResolvement = () => setCurrentView("issueResolvement");
           // Điều hướng vào RoleSelection hoặc dashboard tùy theo source
           if (source === "register") {
             console.log("OAuth success with code/state from register, navigating to roleSelection");
-            setCurrentView("roleSelection")
+            setCurrentView("roleSelection");
+            navigate("/role-selection");
           } else {
             // Từ login, kiểm tra role để điều hướng đúng
             try {
               const decoded: any = jwtDecode(at);
               if (decoded) {
                 setCurrentView("dashboard");
+                navigate("/dashboard");
               } else {
                 setCurrentView("roleSelection");
+                navigate("/role-selection");
               }
             } catch (e) {
               console.error("JWT decode failed:", e);
               setCurrentView("login");
+              navigate("/login");
             }
           }
         } catch (e) {
           console.error("OAuth callback exchange failed:", e);
           setCurrentView("login");
+          navigate("/login");
         }
       })();
     }
@@ -283,31 +426,31 @@ const switchToIssueResolvement = () => setCurrentView("issueResolvement");
         return <MainDashboard onLogout={switchToLogin} onBooking={switchToBooking} onHistory={switchToHistory} onAnalysis={switchToAnalysis} onReportIssue={switchToReportIssue} onWallet={switchToWallet} onNotifications={switchToNotifications} onMyBookings={switchToMyBookings} onPremiumSubscription={switchToPremiumSubscription} vehicleBatteryLevel={vehicleBatteryLevel} setVehicleBatteryLevel={setVehicleBatteryLevel} />;
 
       case "booking":
-        return <BookingMap onBack={() => setCurrentView("dashboard")} currentBatteryLevel={vehicleBatteryLevel} setCurrentBatteryLevel={setVehicleBatteryLevel} onStartCharging={switchToChargingSession} />;
+        return <BookingMap onBack={() => navigate("/dashboard")} currentBatteryLevel={vehicleBatteryLevel} setCurrentBatteryLevel={setVehicleBatteryLevel} onStartCharging={switchToChargingSession} />;
 
       case "history":
-        return <HistoryView onBack={() => setCurrentView("dashboard")} />;
+        return <HistoryView onBack={() => navigate("/dashboard")} />;
 
       case "analysis":
-        return <PersonalAnalysisView onBack={() => setCurrentView("dashboard")} />;
+        return <PersonalAnalysisView onBack={() => navigate("/dashboard")} />;
 
       case "reportIssue":
-        return <ReportIssueView onBack={() => setCurrentView("dashboard")} />;
+        return <ReportIssueView onBack={() => navigate("/dashboard")} />;
 
       case "wallet":
-        return <WalletView onBack={() => setCurrentView("dashboard")} />;
+        return <WalletView onBack={() => navigate("/dashboard")} />;
 
       case "notifications":
-        return <NotificationView onBack={() => setCurrentView("dashboard")} />;
+        return <NotificationView onBack={() => navigate("/dashboard")} />;
 
       case "staffNotifications":
-        return <StaffNotificationView onBack={() => setCurrentView("staffDashboard")} />;
+        return <StaffNotificationView onBack={() => navigate("/staff/dashboard")} />;
 
       case "staffDashboard":
         return <StaffDashboard onLogout={switchToLogin} onNotifications={switchToStaffNotifications} onPostActivating={switchToPostActivating} onReports={switchToStaffReports} />;
 
       case "staffReports":
-        return <StaffReportView onBack={() => setCurrentView("staffDashboard")} />;
+        return <StaffReportView onBack={() => navigate("/staff/dashboard")} />;
 
       case "staffLogin":
         return (
@@ -329,37 +472,41 @@ const switchToIssueResolvement = () => setCurrentView("issueResolvement");
         return <AdminDashboard onLogout={switchToLogin} onSystemConfig={switchToSystemConfig} onAdminMap={switchToAdminMap} onRevenue={switchToRevenue} onStaffManagement={switchToStaffManagement} onUsageAnalytics={switchToUsageAnalytics} onAdminChargerPostActivating={switchToAdminChargerPostActivating} onIssueResolvement={switchToIssueResolvement} />;
 
       case "systemConfig":
-        return <SystemConfigView onBack={() => setCurrentView("adminDashboard")} />;
+        return <SystemConfigView onBack={() => navigate("/admin/dashboard")} />;
 
       case "adminMap":
-        return <AdminMapView onBack={() => setCurrentView("adminDashboard")} />;
+        return <AdminMapView onBack={() => navigate("/admin/dashboard")} />;
 
       case "revenue":
-        return <RevenueView onBack={() => setCurrentView("adminDashboard")} />;
+        return <RevenueView onBack={() => navigate("/admin/dashboard")} />;
 
       case "staffManagement":
-        return <StaffManagementView onBack={() => setCurrentView("adminDashboard")} />;
+        return <StaffManagementView onBack={() => navigate("/admin/dashboard")} />;
 
       case "usageAnalytics":
-        return <UsageAnalyticsView onBack={() => setCurrentView("adminDashboard")} />;
+        return <UsageAnalyticsView onBack={() => navigate("/admin/dashboard")} />;
 
       case "adminChargerPostActivating":
-        return <AdminChargerPostActivatingView onBack={() => setCurrentView("adminDashboard")} />;
+        return <AdminChargerPostActivatingView onBack={() => navigate("/admin/dashboard")} />;
 
       case "issueResolvement":
-        return <IssueResolvementView onBack={() => setCurrentView("adminDashboard")} />;
+        return <IssueResolvementView onBack={() => navigate("/admin/dashboard")} />;
 
       case "postActivating":
-        return <PostActivatingView onBack={() => setCurrentView("staffDashboard")} />;
+        return <PostActivatingView onBack={() => navigate("/staff/dashboard")} />;
 
       case "myBookings":
-        return <MyBookingView onBack={() => setCurrentView("dashboard")} onStartCharging={switchToChargingSession} />;
+        return <MyBookingView onBack={() => navigate("/dashboard")} onStartCharging={switchToChargingSession} />;
 
-      case "chargingSession":
-        return <ChargingSessionView onBack={() => setCurrentView("myBookings")} bookingId={currentBookingId} />;
+      case "chargingSession": {
+        // Get bookingId from URL params or state
+        const urlBookingId = location.pathname.split("/charging-session/")[1];
+        const finalBookingId = urlBookingId || currentBookingId;
+        return <ChargingSessionView onBack={() => navigate("/my-bookings")} bookingId={finalBookingId} />;
+      }
 
       case "premiumSubscription":
-        return <PremiumSubscriptionView onBack={() => setCurrentView("dashboard")} userType="driver" />;
+        return <PremiumSubscriptionView onBack={() => navigate("/dashboard")} userType="driver" />;
 
       case "penaltyPayment": {
         const penaltyUserId = Number(localStorage.getItem("userId") || localStorage.getItem("penaltyUserId") || 0);
@@ -372,7 +519,7 @@ const switchToIssueResolvement = () => setCurrentView("issueResolvement");
         return (
           <VehicleSetup 
             onNext={completeSetup}
-            onBack={() => setCurrentView("profileSetup")}
+            onBack={() => navigate("/profile-setup")}
             onBackToLogin={switchToLogin}
           />
         );
@@ -381,7 +528,7 @@ const switchToIssueResolvement = () => setCurrentView("issueResolvement");
         return (
           <ProfileSetup 
             onNext={handleProfileCompletion}
-            onBack={() => setCurrentView("roleSelection")}
+            onBack={() => navigate("/role-selection")}
           />
         );
 
@@ -389,7 +536,7 @@ const switchToIssueResolvement = () => setCurrentView("issueResolvement");
         return (
           <StaffProfileSetup 
             onNext={switchToEducationSetup}
-            onBack={() => setCurrentView("roleSelection")}
+            onBack={() => navigate("/role-selection")}
           />
         );
 
@@ -397,7 +544,7 @@ const switchToIssueResolvement = () => setCurrentView("issueResolvement");
         return (
           <EducationSetup 
             onNext={completeStaffSetup}
-            onBack={() => setCurrentView("staffProfileSetup")}
+            onBack={() => navigate("/staff-profile-setup")}
           />
         );
 
@@ -405,7 +552,7 @@ const switchToIssueResolvement = () => setCurrentView("issueResolvement");
         return (
           <RoleSelection 
             onSelectRole={handleRoleSelection}
-            onBack={() => setCurrentView("login")}
+            onBack={() => navigate("/login")}
           />
         );
 
@@ -422,7 +569,10 @@ const switchToIssueResolvement = () => setCurrentView("issueResolvement");
           <>
             <Login 
               onSwitchToRegister={switchToRegister} 
-              onLogin={() => setCurrentView("dashboard")}
+              onLogin={() => {
+                setCurrentView("dashboard");
+                navigate("/dashboard");
+              }}
               onStaffLogin={completeStaffLogin}
               onAdminLogin={completeAdminLogin}
               onSwitchToRoleSelection={switchToRoleSelection}
@@ -435,18 +585,67 @@ const switchToIssueResolvement = () => setCurrentView("issueResolvement");
     }
   };
 
-  // Sync currentView with URL
+  // Sync currentView with URL - handle browser back/forward
   useEffect(() => {
-    if (location.pathname === "/home" && currentView !== "dashboard") {
-      setCurrentView("dashboard");
+    const path = location.pathname;
+    const pathToView: { [key: string]: ViewType } = {
+      "/": "login",
+      "/login": "login",
+      "/register": "register",
+      "/role-selection": "roleSelection",
+      "/profile-setup": "profileSetup",
+      "/vehicle-setup": "vehicleSetup",
+      "/staff-profile-setup": "staffProfileSetup",
+      "/education-setup": "educationSetup",
+      "/home": "dashboard",
+      "/dashboard": "dashboard",
+      "/booking": "booking",
+      "/history": "history",
+      "/analysis": "analysis",
+      "/report-issue": "reportIssue",
+      "/wallet": "wallet",
+      "/notifications": "notifications",
+      "/my-bookings": "myBookings",
+      "/premium-subscription": "premiumSubscription",
+      "/penalty-payment": "penaltyPayment",
+      "/staff/login": "staffLogin",
+      "/staff/dashboard": "staffDashboard",
+      "/staff/notifications": "staffNotifications",
+      "/staff/reports": "staffReports",
+      "/staff/post-activating": "postActivating",
+      "/admin/login": "adminLogin",
+      "/admin/dashboard": "adminDashboard",
+      "/admin/system-config": "systemConfig",
+      "/admin/map": "adminMap",
+      "/admin/revenue": "revenue",
+      "/admin/staff-management": "staffManagement",
+      "/admin/usage-analytics": "usageAnalytics",
+      "/admin/charger-post-activating": "adminChargerPostActivating",
+      "/admin/issue-resolvement": "issueResolvement",
+    };
+
+    // Handle charging session with dynamic bookingId
+    if (path.startsWith("/charging-session")) {
+      const bookingId = path.split("/")[2];
+      if (bookingId && currentBookingId !== bookingId) {
+        setCurrentBookingId(bookingId);
+      }
+      if (currentView !== "chargingSession") {
+        setCurrentView("chargingSession");
+      }
+      return;
     }
-    if (location.pathname === "/penalty-payment" && currentView !== "penaltyPayment") {
-      setCurrentView("penaltyPayment");
+
+    // Update view based on path
+    const newView = pathToView[path];
+    if (newView && currentView !== newView) {
+      setCurrentView(newView);
     }
-  }, [location.pathname]);
+  }, [location.pathname, currentView, currentBookingId]);
 
   return (
     <Routes>
+      {/* Auth Routes */}
       <Route 
         path="/" 
         element={
@@ -462,6 +661,106 @@ const switchToIssueResolvement = () => setCurrentView("issueResolvement");
         } 
       />
       <Route 
+        path="/login" 
+        element={
+          <AppLayout
+            userType={userType || "driver"}
+            currentView="login"
+            onNavigate={handleNavigation}
+            onLogout={switchToLogin}
+            showSidebar={false}
+          >
+            {renderContent()}
+          </AppLayout>
+        } 
+      />
+      <Route 
+        path="/register" 
+        element={
+          <AppLayout
+            userType={userType || "driver"}
+            currentView="register"
+            onNavigate={handleNavigation}
+            onLogout={switchToLogin}
+            showSidebar={false}
+          >
+            {renderContent()}
+          </AppLayout>
+        } 
+      />
+      <Route 
+        path="/role-selection" 
+        element={
+          <AppLayout
+            userType={userType || "driver"}
+            currentView="roleSelection"
+            onNavigate={handleNavigation}
+            onLogout={switchToLogin}
+            showSidebar={false}
+          >
+            {renderContent()}
+          </AppLayout>
+        } 
+      />
+      <Route 
+        path="/profile-setup" 
+        element={
+          <AppLayout
+            userType={userType || "driver"}
+            currentView="profileSetup"
+            onNavigate={handleNavigation}
+            onLogout={switchToLogin}
+            showSidebar={false}
+          >
+            {renderContent()}
+          </AppLayout>
+        } 
+      />
+      <Route 
+        path="/vehicle-setup" 
+        element={
+          <AppLayout
+            userType={userType || "driver"}
+            currentView="vehicleSetup"
+            onNavigate={handleNavigation}
+            onLogout={switchToLogin}
+            showSidebar={false}
+          >
+            {renderContent()}
+          </AppLayout>
+        } 
+      />
+      <Route 
+        path="/staff-profile-setup" 
+        element={
+          <AppLayout
+            userType={userType || "driver"}
+            currentView="staffProfileSetup"
+            onNavigate={handleNavigation}
+            onLogout={switchToLogin}
+            showSidebar={false}
+          >
+            {renderContent()}
+          </AppLayout>
+        } 
+      />
+      <Route 
+        path="/education-setup" 
+        element={
+          <AppLayout
+            userType={userType || "driver"}
+            currentView="educationSetup"
+            onNavigate={handleNavigation}
+            onLogout={switchToLogin}
+            showSidebar={false}
+          >
+            {renderContent()}
+          </AppLayout>
+        } 
+      />
+      
+      {/* Driver Routes */}
+      <Route 
         path="/home" 
         element={
           <AppLayout
@@ -475,6 +774,348 @@ const switchToIssueResolvement = () => setCurrentView("issueResolvement");
           </AppLayout>
         } 
       />
+      <Route 
+        path="/dashboard" 
+        element={
+          <AppLayout
+            userType={userType || "driver"}
+            currentView="dashboard"
+            onNavigate={handleNavigation}
+            onLogout={switchToLogin}
+            showSidebar={showSidebar}
+          >
+            {renderContent()}
+          </AppLayout>
+        } 
+      />
+      <Route 
+        path="/booking" 
+        element={
+          <AppLayout
+            userType="driver"
+            currentView="booking"
+            onNavigate={handleNavigation}
+            onLogout={switchToLogin}
+            showSidebar={showSidebar}
+          >
+            {renderContent()}
+          </AppLayout>
+        } 
+      />
+      <Route 
+        path="/history" 
+        element={
+          <AppLayout
+            userType="driver"
+            currentView="history"
+            onNavigate={handleNavigation}
+            onLogout={switchToLogin}
+            showSidebar={showSidebar}
+          >
+            {renderContent()}
+          </AppLayout>
+        } 
+      />
+      <Route 
+        path="/analysis" 
+        element={
+          <AppLayout
+            userType="driver"
+            currentView="analysis"
+            onNavigate={handleNavigation}
+            onLogout={switchToLogin}
+            showSidebar={showSidebar}
+          >
+            {renderContent()}
+          </AppLayout>
+        } 
+      />
+      <Route 
+        path="/report-issue" 
+        element={
+          <AppLayout
+            userType="driver"
+            currentView="reportIssue"
+            onNavigate={handleNavigation}
+            onLogout={switchToLogin}
+            showSidebar={showSidebar}
+          >
+            {renderContent()}
+          </AppLayout>
+        } 
+      />
+      <Route 
+        path="/wallet" 
+        element={
+          <AppLayout
+            userType="driver"
+            currentView="wallet"
+            onNavigate={handleNavigation}
+            onLogout={switchToLogin}
+            showSidebar={showSidebar}
+          >
+            {renderContent()}
+          </AppLayout>
+        } 
+      />
+      <Route 
+        path="/notifications" 
+        element={
+          <AppLayout
+            userType="driver"
+            currentView="notifications"
+            onNavigate={handleNavigation}
+            onLogout={switchToLogin}
+            showSidebar={showSidebar}
+          >
+            {renderContent()}
+          </AppLayout>
+        } 
+      />
+      <Route 
+        path="/my-bookings" 
+        element={
+          <AppLayout
+            userType="driver"
+            currentView="myBookings"
+            onNavigate={handleNavigation}
+            onLogout={switchToLogin}
+            showSidebar={showSidebar}
+          >
+            {renderContent()}
+          </AppLayout>
+        } 
+      />
+      <Route 
+        path="/charging-session/:bookingId?" 
+        element={
+          <AppLayout
+            userType="driver"
+            currentView="chargingSession"
+            onNavigate={handleNavigation}
+            onLogout={switchToLogin}
+            showSidebar={showSidebar}
+          >
+            {renderContent()}
+          </AppLayout>
+        } 
+      />
+      <Route 
+        path="/premium-subscription" 
+        element={
+          <AppLayout
+            userType="driver"
+            currentView="premiumSubscription"
+            onNavigate={handleNavigation}
+            onLogout={switchToLogin}
+            showSidebar={showSidebar}
+          >
+            {renderContent()}
+          </AppLayout>
+        } 
+      />
+      
+      {/* Staff Routes */}
+      <Route 
+        path="/staff/login" 
+        element={
+          <AppLayout
+            userType="staff"
+            currentView="staffLogin"
+            onNavigate={handleNavigation}
+            onLogout={switchToLogin}
+            showSidebar={false}
+          >
+            {renderContent()}
+          </AppLayout>
+        } 
+      />
+      <Route 
+        path="/staff/dashboard" 
+        element={
+          <AppLayout
+            userType="staff"
+            currentView="staffDashboard"
+            onNavigate={handleNavigation}
+            onLogout={switchToLogin}
+            showSidebar={showSidebar}
+          >
+            {renderContent()}
+          </AppLayout>
+        } 
+      />
+      <Route 
+        path="/staff/notifications" 
+        element={
+          <AppLayout
+            userType="staff"
+            currentView="staffNotifications"
+            onNavigate={handleNavigation}
+            onLogout={switchToLogin}
+            showSidebar={showSidebar}
+          >
+            {renderContent()}
+          </AppLayout>
+        } 
+      />
+      <Route 
+        path="/staff/reports" 
+        element={
+          <AppLayout
+            userType="staff"
+            currentView="staffReports"
+            onNavigate={handleNavigation}
+            onLogout={switchToLogin}
+            showSidebar={showSidebar}
+          >
+            {renderContent()}
+          </AppLayout>
+        } 
+      />
+      <Route 
+        path="/staff/post-activating" 
+        element={
+          <AppLayout
+            userType="staff"
+            currentView="postActivating"
+            onNavigate={handleNavigation}
+            onLogout={switchToLogin}
+            showSidebar={showSidebar}
+          >
+            {renderContent()}
+          </AppLayout>
+        } 
+      />
+      
+      {/* Admin Routes */}
+      <Route 
+        path="/admin/login" 
+        element={
+          <AppLayout
+            userType="admin"
+            currentView="adminLogin"
+            onNavigate={handleNavigation}
+            onLogout={switchToLogin}
+            showSidebar={false}
+          >
+            {renderContent()}
+          </AppLayout>
+        } 
+      />
+      <Route 
+        path="/admin/dashboard" 
+        element={
+          <AppLayout
+            userType="admin"
+            currentView="adminDashboard"
+            onNavigate={handleNavigation}
+            onLogout={switchToLogin}
+            showSidebar={showSidebar}
+          >
+            {renderContent()}
+          </AppLayout>
+        } 
+      />
+      <Route 
+        path="/admin/system-config" 
+        element={
+          <AppLayout
+            userType="admin"
+            currentView="systemConfig"
+            onNavigate={handleNavigation}
+            onLogout={switchToLogin}
+            showSidebar={showSidebar}
+          >
+            {renderContent()}
+          </AppLayout>
+        } 
+      />
+      <Route 
+        path="/admin/map" 
+        element={
+          <AppLayout
+            userType="admin"
+            currentView="adminMap"
+            onNavigate={handleNavigation}
+            onLogout={switchToLogin}
+            showSidebar={showSidebar}
+          >
+            {renderContent()}
+          </AppLayout>
+        } 
+      />
+      <Route 
+        path="/admin/revenue" 
+        element={
+          <AppLayout
+            userType="admin"
+            currentView="revenue"
+            onNavigate={handleNavigation}
+            onLogout={switchToLogin}
+            showSidebar={showSidebar}
+          >
+            {renderContent()}
+          </AppLayout>
+        } 
+      />
+      <Route 
+        path="/admin/staff-management" 
+        element={
+          <AppLayout
+            userType="admin"
+            currentView="staffManagement"
+            onNavigate={handleNavigation}
+            onLogout={switchToLogin}
+            showSidebar={showSidebar}
+          >
+            {renderContent()}
+          </AppLayout>
+        } 
+      />
+      <Route 
+        path="/admin/usage-analytics" 
+        element={
+          <AppLayout
+            userType="admin"
+            currentView="usageAnalytics"
+            onNavigate={handleNavigation}
+            onLogout={switchToLogin}
+            showSidebar={showSidebar}
+          >
+            {renderContent()}
+          </AppLayout>
+        } 
+      />
+      <Route 
+        path="/admin/charger-post-activating" 
+        element={
+          <AppLayout
+            userType="admin"
+            currentView="adminChargerPostActivating"
+            onNavigate={handleNavigation}
+            onLogout={switchToLogin}
+            showSidebar={showSidebar}
+          >
+            {renderContent()}
+          </AppLayout>
+        } 
+      />
+      <Route 
+        path="/admin/issue-resolvement" 
+        element={
+          <AppLayout
+            userType="admin"
+            currentView="issueResolvement"
+            onNavigate={handleNavigation}
+            onLogout={switchToLogin}
+            showSidebar={showSidebar}
+          >
+            {renderContent()}
+          </AppLayout>
+        } 
+      />
+      
+      {/* Payment Routes */}
       <Route 
         path="/payment/result" 
         element={<PaymentResultView />} 
@@ -493,6 +1134,8 @@ const switchToIssueResolvement = () => setCurrentView("issueResolvement");
           </AppLayout>
         }
       />
+      
+      {/* Fallback Route */}
       <Route 
         path="*" 
         element={
