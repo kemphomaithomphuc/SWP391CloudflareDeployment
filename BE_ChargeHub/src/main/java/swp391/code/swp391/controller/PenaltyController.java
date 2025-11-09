@@ -94,6 +94,11 @@ public class PenaltyController {
             log.info("Getting unpaid fees for user {}", userId);
             List<Fee> unpaidFees = penaltyService.getUnpaidFees(userId);
 
+            // Tổng tiền phí chưa thanh toán
+            double totalUnpaidFees = unpaidFees.stream()
+                    .mapToDouble(Fee::getAmount)
+                    .sum();
+
             // Lấy danh sách transactionId FAILED của user
             User user = userRepository.findById(userId)
                     .orElseThrow(() -> new IllegalArgumentException("User không tồn tại"));
@@ -106,11 +111,14 @@ public class PenaltyController {
                     .collect(Collectors.toList());
 
             Map<String, Object> data = new HashMap<>();
-            data.put("unpaidFees", unpaidFees);
-            data.put("failedTransactionIds", failedTransactionIds);
+            data.put("unpaidFees", unpaidFees);                 // Danh sách phí chưa thanh toán
+            data.put("totalUnpaidFees", totalUnpaidFees);       // Tổng tiền phí
+            data.put("failedTransactionIds", failedTransactionIds); // Các transactionId thất bại
+            data.put("totalFailedTransactions", failedTransactionIds.size()); // Số lượng transaction thất bại
 
             return ResponseEntity.ok(APIResponse.success(
-                    "Lấy danh sách phí chưa thanh toán và transaction thất bại thành công",
+                    String.format("Có %d phí chưa thanh toán (%,.0f VNĐ) và %d transaction thất bại",
+                            unpaidFees.size(), totalUnpaidFees, failedTransactionIds.size()),
                     data
             ));
 

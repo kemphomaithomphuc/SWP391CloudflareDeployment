@@ -452,7 +452,8 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                 } catch (storageError) {
                     console.warn("Unable to store penalty metadata locally", storageError);
                 }
-                setUnpaidPenaltyCount(fees.length);
+                const penaltyCount = fees.length > 0 ? fees.length : failedTransactions.length;
+                setUnpaidPenaltyCount(penaltyCount);
                 const totalAmount = fees.reduce((sum: number, fee: FeeDTO) => {
                     const amount = typeof fee?.amount === "number" ? fee.amount : Number(fee?.amount) || 0;
                     return sum + amount;
