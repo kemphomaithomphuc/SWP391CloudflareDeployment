@@ -373,6 +373,14 @@ public class OrderServiceImpl implements OrderService {
                     "Nâng cấp lên gói PLUS hoặc PRO để đặt sớm hơn!");
         }
 
+        // ===== 2.1. KIỂM TRA THANH TOÁN - USER PHẢI THANH TOÁN HẾT ĐƠN CŨ =====
+        if (orderRepository.hasUnpaidCompletedOrders(user.getUserId())) {
+            throw new ApiRequestException(
+                "Bạn có đơn đặt chỗ đã hoàn thành nhưng chưa thanh toán. " +
+                "Vui lòng thanh toán các đơn cũ trước khi đặt chỗ mới."
+            );
+        }
+
         // ===== 3. KIỂM TRA GIỚI HẠN ĐƠN ĐẶT CHỖ =====
         int currentActiveOrder = orderRepository.countActiveOrdersByUser(user);
         if (!subscriptionService.canCreateMoreOrder(user.getUserId(), currentActiveOrder)) {

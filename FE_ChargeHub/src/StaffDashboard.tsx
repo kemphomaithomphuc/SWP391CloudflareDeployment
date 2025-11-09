@@ -10,6 +10,7 @@ import StaffReportView from "./components/StaffReportView";
 import PostActivatingView from "./components/PostActivatingView";
 import ChargingManagementView from "./components/ChargingManagementView";
 import StaffNotificationView from "./components/StaffNotificationView";
+import OnsitePaymentView from "./components/OnsitePaymentView";
 import {
     Menu,
     X,
@@ -89,6 +90,7 @@ export default function StaffDashboard({ onLogout, onNotifications, onReports, o
     const menuItems = useMemo(() => [
         { id: "dashboard", label: t("dashboard") || "Dashboard", icon: Home },
         { id: "chargingManagement", label: language === 'vi' ? "Quản Lý Charging" : "Charging Management", icon: Zap },
+        { id: "onsitePayment", label: language === 'vi' ? "Thanh Toán Tại Chỗ" : "Onsite Payment", icon: CreditCard },
         { id: "billing", label: t("billing_invoice") || "Billing & Invoice", icon: Receipt },
         { id: "reports", label: t("report_issues") || "Report Issues", icon: AlertTriangle },
         { id: "postActivating", label: language === 'vi' ? "Kích Hoạt Trạm" : "Post Activating", icon: Activity },
@@ -178,6 +180,11 @@ export default function StaffDashboard({ onLogout, onNotifications, onReports, o
       case "chargingManagement":
         return (
           <ChargingManagementView onBack={() => setActiveSection("dashboard")} />
+        );
+
+      case "onsitePayment":
+        return (
+          <OnsitePaymentView onBack={() => setActiveSection("dashboard")} />
         );
 
       case "notifications":

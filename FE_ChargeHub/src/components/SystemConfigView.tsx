@@ -595,15 +595,21 @@ export default function SystemConfigView({ onBack }: SystemConfigViewProps) {
             {/* Main Content */}
             <div className="container mx-auto px-4 py-8 max-w-6xl">
                 <Tabs defaultValue="peak-hours" className="space-y-8">
-                    <TabsList className="grid w-full grid-cols-2 bg-card/80 backdrop-blur-sm">
-                        <TabsTrigger value="peak-hours" className="flex items-center space-x-2">
-                            <Clock className="w-4 h-4" />
-                            <span>{t('peak_hours')}</span>
-                        </TabsTrigger>
-                        <TabsTrigger value="subscriptions" className="flex items-center space-x-2">
-                            <CreditCard className="w-4 h-4" />
-                            <span>{t('subscriptions')}</span>
-                        </TabsTrigger>
+                <TabsList className="grid w-full grid-cols-2 bg-card/90 backdrop-blur-sm border border-border/50 rounded-2xl p-1">
+                    <TabsTrigger
+                        value="peak-hours"
+                        className="flex items-center space-x-2 rounded-xl data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:border data-[state=active]:border-primary/40 transition-all duration-200"
+                    >
+                        <Clock className="w-4 h-4" />
+                        <span className="font-medium">{t('peak_hours')}</span>
+                    </TabsTrigger>
+                    <TabsTrigger
+                        value="subscriptions"
+                        className="flex items-center space-x-2 rounded-xl data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:border data-[state=active]:border-primary/40 transition-all duration-200"
+                    >
+                        <CreditCard className="w-4 h-4" />
+                        <span className="font-medium">{t('subscriptions')}</span>
+                    </TabsTrigger>
                     </TabsList>
 
                     {/* Peak Hours (Price Factor) Tab */}
