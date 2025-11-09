@@ -98,6 +98,8 @@ export default function PenaltyPaymentView({ onBack, userId }: PenaltyPaymentVie
     return map[status];
   }, [userData?.status]);
 
+  const hasRetryOnly = unpaidFees.length === 0 && failedTransactionIds.length > 0;
+
   useEffect(() => {
     fetchData();
   }, [userId]);
@@ -437,6 +439,14 @@ export default function PenaltyPaymentView({ onBack, userId }: PenaltyPaymentVie
                     ? 'Nhấn thanh toán để tiếp tục xử lý lại giao dịch qua VNPAY.'
                     : 'Click pay now to retry these transactions via VNPAY.'}
                 </p>
+
+                {hasRetryOnly && (
+                  <div className="text-xs text-blue-600 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md p-3">
+                    {language === 'vi'
+                      ? 'Hiện tại bạn không còn phí phạt nào, tuy nhiên vẫn còn giao dịch thanh toán bị lỗi cần xử lý lại.'
+                      : 'You have no outstanding penalty fees, but there is a failed payment that needs to be retried.'}
+                  </div>
+                )}
               </div>
             )}
 
