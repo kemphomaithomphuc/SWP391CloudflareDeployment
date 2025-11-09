@@ -70,6 +70,24 @@ interface StoredStationInfo {
   chargingPointName?: string;
 }
 
+const SESSION_STORAGE_KEY = (sessionId?: string | null) =>
+  sessionId && sessionId !== 'null' ? `charging-session-${sessionId}` : null;
+
+const coerceSessionStatus = (
+  value: any,
+  fallback: ChargingSession['status']
+): ChargingSession['status'] => {
+  if (
+    value === 'charging' ||
+    value === 'paused' ||
+    value === 'completed' ||
+    value === 'stopped'
+  ) {
+    return value;
+  }
+  return fallback;
+};
+
 const getStoredStationInfo = (): StoredStationInfo | null => {
   try {
     const raw = localStorage.getItem("currentStationInfo");
@@ -147,7 +165,27 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
     return base;
   };
 
-  const [session, setSession] = useState<ChargingSession>(buildInitialSession);
+  const [session, setSession] = useState<ChargingSession>(() => {
+    const initial = buildInitialSession();
+    const storageKey = SESSION_STORAGE_KEY(initial.id);
+    if (storageKey) {
+      try {
+        const stored = localStorage.getItem(storageKey);
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          return {
+            ...initial,
+            ...parsed,
+            startTime: parsed.startTime || initial.startTime,
+            status: parsed.status || initial.status,
+          };
+        }
+      } catch (error) {
+        console.error("Failed to restore session from storage:", error);
+      }
+    }
+    return initial;
+  });
 
   const [elapsedTime, setElapsedTime] = useState(0); // in seconds
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
@@ -165,6 +203,36 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
   const expectedPaymentAmountRef = useRef<number | null>(null);
   const PAYMENT_AMOUNT_TOLERANCE_VND = 500; // Allow minor rounding differences
   const stationInfoRef = useRef<StoredStationInfo | null>(initialStationInfo);
+
+  const persistSessionState = (nextSession: Partial<ChargingSession>) => {
+    const storageKey = SESSION_STORAGE_KEY(nextSession.id ?? session.id);
+    if (!storageKey) return;
+    try {
+      const data = {
+        startTime: nextSession.startTime ?? session.startTime,
+        status: coerceSessionStatus(nextSession.status, session.status),
+        energyConsumed: nextSession.energyConsumed ?? session.energyConsumed,
+        totalCost: nextSession.totalCost ?? session.totalCost,
+        currentBattery: nextSession.currentBattery ?? session.currentBattery,
+        chargingPointName: nextSession.chargingPointName ?? session.chargingPointName,
+        stationName: nextSession.stationName ?? session.stationName,
+        stationAddress: nextSession.stationAddress ?? session.stationAddress,
+        userName: nextSession.userName ?? session.userName,
+        userPhone: nextSession.userPhone ?? session.userPhone,
+        userEmail: nextSession.userEmail ?? session.userEmail,
+        vehiclePlate: nextSession.vehiclePlate ?? session.vehiclePlate,
+        costPerKWh: nextSession.costPerKWh ?? session.costPerKWh,
+        power: nextSession.power ?? session.power,
+        initialBattery: nextSession.initialBattery ?? session.initialBattery,
+        targetBattery: nextSession.targetBattery ?? session.targetBattery,
+        bookingId: nextSession.bookingId ?? session.bookingId,
+        stationId: nextSession.stationId ?? session.stationId,
+      };
+      localStorage.setItem(storageKey, JSON.stringify(data));
+    } catch (error) {
+      console.error("Failed to persist session state:", error);
+    }
+  };
 
   const updateSessionWithStationInfo = (info: StoredStationInfo) => {
     stationInfoRef.current = info;
@@ -192,6 +260,7 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
         next.chargingPointName = info.chargingPointName;
       }
 
+      persistSessionState(next);
       return next;
     });
   };
@@ -260,6 +329,7 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
         next.stationId = orderData.stationId;
       }
 
+      persistSessionState(next);
       return next;
     });
   };
@@ -314,6 +384,34 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
     timestamp: number;
   } | null>(null);
   
+  useEffect(() => {
+    if (!session.startTime) return;
+    if (elapsedTime > 0) return;
+    const start = new Date(session.startTime);
+    if (!Number.isNaN(start.getTime())) {
+      const diffSeconds = Math.max(0, Math.floor((Date.now() - start.getTime()) / 1000));
+      setElapsedTime(diffSeconds);
+    }
+  }, [session.startTime, elapsedTime]);
+
+  useEffect(() => {
+    if (!isSimulating && typeof session.currentBattery === 'number') {
+      setSmoothBattery(session.currentBattery);
+    }
+  }, [session.currentBattery, isSimulating]);
+
+  useEffect(() => {
+    if (!isSimulating && typeof session.energyConsumed === 'number') {
+      setSmoothEnergy(session.energyConsumed);
+    }
+  }, [session.energyConsumed, isSimulating]);
+
+  useEffect(() => {
+    if (!isSimulating && typeof session.totalCost === 'number') {
+      setSmoothCost(session.totalCost);
+    }
+  }, [session.totalCost, isSimulating]);
+
   // Ref to store monitoring interval ID for manual cleanup
   const monitoringIntervalRef = useRef<NodeJS.Timeout | null>(null);
   
@@ -350,10 +448,14 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
       
       // Update session state if sessionId is available
       if (currentSessionId && session.id !== currentSessionId) {
-        setSession(prev => ({
-          ...prev,
-          id: currentSessionId
-        }));
+        setSession(prev => {
+          const next = {
+            ...prev,
+            id: currentSessionId
+          };
+          persistSessionState(next);
+          return next;
+        });
         console.log("SessionId Monitor - Updated session.id to:", currentSessionId);
       }
 
@@ -387,6 +489,7 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
   useEffect(() => {
     setFinalizedMetrics(null);
     expectedPaymentAmountRef.current = null;
+    persistSessionState({});
   }, [session.id]);
 
   useEffect(() => {
@@ -394,10 +497,14 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
       const existingSessionId = localStorage.getItem("currentSessionId");
       if (existingSessionId) {
         if (!sessionStarted) {
-          setSession(prev => ({
-            ...prev,
-            id: existingSessionId
-          }));
+          setSession(prev => {
+            const next = {
+              ...prev,
+              id: existingSessionId
+            };
+            persistSessionState(next);
+            return next;
+          });
           setSessionStarted(true);
         }
         return;
@@ -422,11 +529,15 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
           console.error("Failed to persist sessionId:", error);
         }
 
-        setSession(prev => ({
-          ...prev,
-          id: sessionData.sessionId.toString(),
-          startTime: sessionData.startTime ?? prev.startTime
-        }));
+        setSession(prev => {
+          const next = {
+            ...prev,
+            id: sessionData.sessionId.toString(),
+            startTime: sessionData.startTime ?? prev.startTime
+          };
+          persistSessionState(next);
+          return next;
+        });
 
         if (relatedOrder) {
           persistStationInfoContext(relatedOrder);
@@ -596,11 +707,15 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
         
         // Handle initial battery setup and start simulation
         if (!isInitialized && monitoringData.currentBattery) {
-          setSession(prev => ({
-            ...prev,
-            initialBattery: monitoringData.currentBattery,
-            currentBattery: monitoringData.currentBattery
-          }));
+          setSession(prev => {
+            const next = {
+              ...prev,
+              initialBattery: monitoringData.currentBattery,
+              currentBattery: monitoringData.currentBattery
+            };
+            persistSessionState(next);
+            return next;
+          });
           setSmoothBattery(monitoringData.currentBattery);
           setSmoothEnergy(monitoringData.powerConsumed || 0);
           setSmoothCost(monitoringData.cost || 0);
@@ -611,6 +726,7 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
         }
 
         // Map API response to ChargingSession format based on actual API structure
+        const derivedStatus = coerceSessionStatus(monitoringData.status, session.status);
         const updatedSession: ChargingSession = {
           id: sessionId,
           bookingId: orderId ? String(orderId) : session.bookingId,
@@ -621,7 +737,7 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
           startTime: session.startTime,
           ...(session.endTime && { endTime: session.endTime }),
           pausedTime: session.pausedTime,
-          status: session.status,
+          status: derivedStatus,
           currentBattery: monitoringData.currentBattery || session.currentBattery,
           targetBattery: 100, // Always 100% as final milestone
           initialBattery: session.initialBattery || monitoringData.currentBattery || 0,
@@ -648,6 +764,7 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
         console.log('Updated Session:', updatedSession);
 
         // Update session state
+        persistSessionState(updatedSession);
         setSession(updatedSession);
 
         if (typeof monitoringData.elapsedMinutes === 'number' && !isNaN(monitoringData.elapsedMinutes)) {
@@ -802,7 +919,11 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
       
       // Stop session if critical error
       if (shouldStopMonitoring) {
-        setSession(prev => ({ ...prev, status: 'stopped' }));
+        setSession(prev => {
+          const next = { ...prev, status: 'stopped' as ChargingSession['status'] };
+          persistSessionState(next);
+          return next;
+        });
       }
       
       return null;
@@ -852,11 +973,15 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
         console.log('Charging session terminated successfully:', response.data);
         
         // Update session status to stopped ONLY after successful API call
-        setSession(prev => ({
-          ...prev,
-          status: 'stopped',
-                    endTime: new Date().toISOString()
-        }));
+        setSession(prev => {
+          const next = {
+            ...prev,
+            status: 'stopped' as ChargingSession['status'],
+            endTime: new Date().toISOString()
+          };
+          persistSessionState(next);
+          return next;
+        });
         
         // Show success message
         toast.success(language === 'vi' 
@@ -921,10 +1046,14 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
       setIsChargingFinishing(false);
       
       // Rollback session status to previous state
-      setSession(prev => ({
-        ...prev,
-        status: previousStatus
-      }));
+      setSession(prev => {
+        const next = {
+          ...prev,
+          status: previousStatus
+        };
+        persistSessionState(next);
+        return next;
+      });
       
       // Restart simulation if it was running before
       if (previousStatus === 'charging') {
@@ -1139,17 +1268,28 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
   }, [tokenWarningShown, language]);
 
   const handlePause = () => {
-    setSession(prev => ({ ...prev, status: 'paused' }));
+    setSession(prev => {
+      const next = { ...prev, status: 'paused' as ChargingSession['status'] };
+      persistSessionState(next);
+      return next;
+    });
     toast.info(language === 'vi' ? 'Đã tạm dừng sạc' : 'Charging paused');
   };
 
   const handleContinue = () => {
-    setSession(prev => ({ ...prev, status: 'charging' }));
+    setSession(prev => {
+      const next = { ...prev, status: 'charging' as ChargingSession['status'] };
+      persistSessionState(next);
+      return next;
+    });
     toast.success(language === 'vi' ? 'Tiếp tục sạc' : 'Charging resumed');
   };
 
   const handleStop = async () => {
-    const sessionId = localStorage.getItem("currentSessionId");
+    let sessionId = localStorage.getItem("currentSessionId");
+    if ((!sessionId || sessionId === 'null') && session.id && session.id !== 'null') {
+      sessionId = session.id;
+    }
     if (!sessionId) {
       toast.error(language === 'vi' ? 'Không tìm thấy ID phiên sạc' : 'Session ID not found');
       return;
@@ -1174,7 +1314,10 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
   };
 
   const handleCompletionConfirm = async () => {
-    const sessionId = localStorage.getItem("currentSessionId");
+    let sessionId = localStorage.getItem("currentSessionId");
+    if ((!sessionId || sessionId === 'null') && session.id && session.id !== 'null') {
+      sessionId = session.id;
+    }
     if (!sessionId) {
       toast.error(language === 'vi' ? 'Không tìm thấy ID phiên sạc' : 'Session ID not found');
       return;
@@ -1260,16 +1403,20 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
   };
 
   const applyPaymentDetail = (detail: PaymentDetail) => {
-    setSession(prev => ({
-      ...prev,
-      energyConsumed: detail.powerConsumed,
-      totalCost: detail.totalFee,
-      stationName: detail.stationName ?? prev.stationName,
-      stationAddress: detail.stationAddress ?? prev.stationAddress,
-      userName: detail.userName ?? prev.userName,
-      ...(detail.sesionStartTime ? { startTime: detail.sesionStartTime } : {}),
-      ...(detail.sessionEndTime ? { endTime: detail.sessionEndTime } : {}),
-    }));
+    setSession(prev => {
+      const next = {
+        ...prev,
+        energyConsumed: detail.powerConsumed,
+        totalCost: detail.totalFee,
+        stationName: detail.stationName ?? prev.stationName,
+        stationAddress: detail.stationAddress ?? prev.stationAddress,
+        userName: detail.userName ?? prev.userName,
+        ...(detail.sesionStartTime ? { startTime: detail.sesionStartTime } : {}),
+        ...(detail.sessionEndTime ? { endTime: detail.sessionEndTime } : {}),
+      };
+      persistSessionState(next);
+      return next;
+    });
 
     setSmoothEnergy(detail.powerConsumed);
     setSmoothCost(detail.totalFee);
