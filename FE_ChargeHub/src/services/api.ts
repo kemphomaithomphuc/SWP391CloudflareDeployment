@@ -1146,10 +1146,16 @@ export interface FeeDetailDTO {
   createdAt: string;
 }
 
+export interface UnpaidFeesData {
+  unpaidFees: FeeDTO[];
+  failedTransactionIds: number[];
+}
+
 export interface UnpaidFeesResponse {
   success: boolean;
   message: string;
-  data: FeeDTO[];
+  data: UnpaidFeesData;
+  timestamp?: string;
 }
 
 export interface PayPenaltyResponse {

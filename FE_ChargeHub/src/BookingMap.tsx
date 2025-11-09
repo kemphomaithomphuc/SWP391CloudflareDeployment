@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useTheme } from "./contexts/ThemeContext";
 
 import { useLanguage } from "./contexts/LanguageContext";
@@ -33,7 +34,7 @@ import ChargingInvoiceView from "./components/ChargingInvoiceView";
 import { toast} from "sonner";
 import * as maptilersdk from "@maptiler/sdk";
 import "@maptiler/sdk/dist/maptiler-sdk.css";
-import { api } from "./services/api";
+import { api, getUnpaidFees, type FeeDTO } from "./services/api";
 import { confirmBooking } from "./api/confirmBooking";
 import { checkVehicleChargingStatus as checkVehicleChargingStatusAPI } from "./api/vehicleChargingStatus";
 
@@ -245,6 +246,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
     const { addBooking } = useBooking();
 
     const { language, t } = useLanguage();
+    const navigate = useNavigate();
 
     const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
 
@@ -386,6 +388,9 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
 
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<String | null>(null);
+    const [showPenaltyDialog, setShowPenaltyDialog] = useState(false);
+    const [unpaidPenaltyCount, setUnpaidPenaltyCount] = useState(0);
+    const [unpaidPenaltyTotal, setUnpaidPenaltyTotal] = useState(0);
 
     //Cập nhật trạng thái
     const [refreshTrigger, setRefreshTrigger] = useState(0);
@@ -411,6 +416,63 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
     // Total charging points count for each station
     const [stationTotalPoints, setStationTotalPoints] = useState<{ [stationId: string]: number }>({});
     const userId = localStorage.getItem("userId");
+
+    const checkUnpaidPenalties = useCallback(async () => {
+        if (!userId) return;
+        const numericUserId = Number(userId);
+        if (!Number.isFinite(numericUserId)) {
+            console.warn("[BookingMap] Invalid userId for penalty check:", userId);
+            return;
+        }
+        try {
+            const response = await getUnpaidFees(numericUserId);
+            const feesData = response?.data ?? { unpaidFees: [], failedTransactionIds: [] };
+            const fees = Array.isArray(feesData.unpaidFees) ? feesData.unpaidFees : [];
+            const failedTransactions = Array.isArray(feesData.failedTransactionIds) ? feesData.failedTransactionIds : [];
+            const hasPenalties = (response?.success && (fees.length > 0 || failedTransactions.length > 0));
+
+            if (hasPenalties) {
+                try {
+                    localStorage.setItem("penaltyPendingFees", JSON.stringify(fees));
+                    localStorage.setItem("penaltyUserId", String(numericUserId));
+                    if (failedTransactions.length > 0) {
+                        localStorage.setItem("penaltyFailedTransactionIds", JSON.stringify(failedTransactions));
+                    } else {
+                        localStorage.removeItem("penaltyFailedTransactionIds");
+                    }
+                    const primaryFee: FeeDTO | undefined = fees[0];
+                    const derivedTransactionId =
+                        failedTransactions[0] ??
+                        primaryFee?.orderId ??
+                        primaryFee?.sessionId ??
+                        primaryFee?.feeId;
+                    if (derivedTransactionId != null) {
+                        localStorage.setItem("penaltyTransactionId", String(derivedTransactionId));
+                    }
+                } catch (storageError) {
+                    console.warn("Unable to store penalty metadata locally", storageError);
+                }
+                setUnpaidPenaltyCount(fees.length);
+                const totalAmount = fees.reduce((sum: number, fee: FeeDTO) => {
+                    const amount = typeof fee?.amount === "number" ? fee.amount : Number(fee?.amount) || 0;
+                    return sum + amount;
+                }, 0);
+                setUnpaidPenaltyTotal(totalAmount);
+                setShowPenaltyDialog(true);
+            } else {
+                localStorage.removeItem("penaltyFailedTransactionIds");
+                setShowPenaltyDialog(false);
+                setUnpaidPenaltyCount(0);
+                setUnpaidPenaltyTotal(0);
+            }
+        } catch (error) {
+            console.error("Error checking unpaid penalties:", error);
+        }
+    }, [userId]);
+
+    useEffect(() => {
+        checkUnpaidPenalties();
+    }, [checkUnpaidPenalties]);
 
     //View page
 
@@ -1302,7 +1364,18 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
             console.error("Error:", err);
             
             // Show toast with error message from API function
-            toast.error(err?.message || (language === "vi" ? "Xác nhận đặt chỗ thất bại" : "Booking confirmation failed"));
+            const backendMessage: string | undefined = err?.message || err?.response?.data?.message;
+            const normalizedMessage = backendMessage?.toLowerCase() ?? "";
+            const unpaidKeywords = ["chưa thanh toán", "unpaid", "penalty", "giao dịch"];
+            const isUnpaidCase = normalizedMessage && unpaidKeywords.some(keyword => normalizedMessage.includes(keyword));
+
+            toast.error(backendMessage || (language === "vi" ? "Xác nhận đặt chỗ thất bại" : "Booking confirmation failed"));
+
+            if (isUnpaidCase) {
+                await checkUnpaidPenalties();
+                setShowPenaltyDialog(true);
+            }
+
             return null;
         }
     }
@@ -3660,6 +3733,49 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
     return (
 
         <div className="min-h-screen bg-gradient-to-br from-background via-secondary/20 to-accent/30">
+
+            <Dialog open={showPenaltyDialog} onOpenChange={setShowPenaltyDialog}>
+                <DialogContent className="max-w-md space-y-4">
+                    <DialogHeader className="text-center">
+                        <DialogTitle>
+                            {language === "vi" ? "Bạn chưa thanh toán giao dịch trước đó" : "Previous transaction unpaid"}
+                        </DialogTitle>
+                        <DialogDescription>
+                            {language === "vi"
+                                ? "Vui lòng thanh toán để có thể tiếp tục sử dụng dịch vụ."
+                                : "Please complete the payment to continue using the service."}
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 p-4 text-sm">
+                        <p className="font-medium text-amber-800 dark:text-amber-200">
+                            {language === "vi"
+                                ? `Bạn đang có ${unpaidPenaltyCount} khoản phí với tổng số tiền ${formatCurrency(unpaidPenaltyTotal)}.`
+                                : `You have ${unpaidPenaltyCount} unpaid fee(s) totaling ${formatCurrency(unpaidPenaltyTotal)}.`}
+                        </p>
+                    </div>
+                    <div className="flex flex-col sm:flex-row gap-2">
+                        <Button
+                            variant="outline"
+                            onClick={() => setShowPenaltyDialog(false)}
+                            className="flex-1"
+                        >
+                            {language === "vi" ? "Để sau" : "Maybe later"}
+                        </Button>
+                        <Button
+                            onClick={() => {
+                                if (userId) {
+                                    localStorage.setItem("penaltyUserId", userId);
+                                }
+                                setShowPenaltyDialog(false);
+                                navigate("/penalty-payment");
+                            }}
+                            className="flex-1"
+                        >
+                            {language === "vi" ? "Thanh toán ngay" : "Pay now"}
+                        </Button>
+                    </div>
+                </DialogContent>
+            </Dialog>
 
             {/* Enhanced Header */}
 
