@@ -267,4 +267,35 @@ public class PaymentController {
                     ));
         }
     }
+
+    /**
+     * Thanh toán cho subscription
+     * POST /api/payment/subscription
+     */
+    @PostMapping("/subscription")
+    public ResponseEntity<?> payForSubscription(
+            @RequestParam Long userId,
+            @RequestParam Long subscriptionId,
+            @RequestParam String paymentMethod) {
+        try {
+            log.info("API: Thanh toán subscription - User: {}, Subscription: {}, Method: {}",
+                    userId, subscriptionId, paymentMethod);
+
+            PaymentResponseDTO response = paymentService.payForSubscription(userId, subscriptionId, paymentMethod);
+
+            Map<String, Object> result = new HashMap<>();
+            result.put("success", true);
+            result.put("data", response);
+            result.put("message", "Thanh toán subscription thành công");
+
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            log.error("Lỗi khi thanh toán subscription: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of(
+                            "success", false,
+                            "message", e.getMessage()
+                    ));
+        }
+    }
 }

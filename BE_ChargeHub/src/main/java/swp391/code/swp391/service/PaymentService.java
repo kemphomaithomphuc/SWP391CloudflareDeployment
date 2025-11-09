@@ -59,4 +59,12 @@ public interface PaymentService {
      * - Tự động unlock account nếu thanh toán hết phí
      */
     RetryPaymentResponseDTO retryPayment(RetryPaymentRequestDTO request);
+
+    /**
+     * Thanh toán cho subscription
+     * - Tạo transaction cho subscription payment
+     * - Cập nhật subscription của user
+     * - Gửi notification
+     */
+    PaymentResponseDTO payForSubscription(Long userId, Long subscriptionId, String paymentMethod);
 }
