@@ -99,6 +99,7 @@ interface ConnectorType {
 
 
 interface ChargingPoint {
+    chargingPointName: string;
 
     chargingPointId: number;
 
@@ -336,6 +337,8 @@ function sanitizeStation(raw: any): ChargingStation {
 
                 chargingPointId: Number(point.chargingPointId ?? 0),
 
+                chargingPointName: String(point.chargingPointName ?? point.name ?? ""),
+
                 typeName: String(typeName),
 
                 status: String(point.status ?? "OUT_OF_SERVICE"),
@@ -489,6 +492,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
     const [isAddChargingPointDialogOpen, setIsAddChargingPointDialogOpen] = useState(false);
 
     const [newChargingPoint, setNewChargingPoint] = useState({
+        chargingPointName: "",
         typeName: "",
         status: "AVAILABLE" as ChargingPointStatus,
         connectorTypeId: 0,
@@ -538,6 +542,8 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
     const [chargingPosts, setChargingPosts] = useState<Array<{
 
         id: string;
+
+        chargingPointName: string;
 
         connectorType: string;
 
@@ -684,6 +690,8 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                 chargingPointNumber: chargingPosts.length,
 
                 chargingPoints: chargingPosts.map(post => ({
+
+                    chargingPointName: post.chargingPointName?.trim() || "",
 
                     status: post.status,
 
@@ -1086,6 +1094,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                 console.log("Charging Point Details API Response:", res.data);
                 return {
                     chargingPointId: res.data.chargingPointId,
+                    chargingPointName: res.data.chargingPointName || res.data.name || "",
                     status: res.data.status,
                     connectorTypeId: res.data.connectorTypeId,
                     stationId: res.data.stationId,
@@ -1266,6 +1275,8 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                     return {
 
                         charingPointId: Number(post.id.replace('post-', '')), // Extract ID from post ID
+
+                        chargingPointName: post.chargingPointName?.trim() || "",
 
                         status: post.status,
 
@@ -1451,7 +1462,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
     };
 
-    const callApiForChargingPointAdding = async (): Promise<ChargingPoint | null> => {
+    const callApiForChargingPointAdding = async (pointData?: typeof newChargingPoint): Promise<ChargingPoint | null> => {
 
         setLoading(true);
 
@@ -1459,15 +1470,19 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
         try {
 
+            const sourcePoint = pointData ?? newChargingPoint;
+
             const payload = {
 
-                typeName: newChargingPoint.typeName.trim(),
+                chargingPointName: sourcePoint.chargingPointName.trim(),
 
-                status: newChargingPoint.status,
+                typeName: sourcePoint.typeName.trim(),
 
-                connectorTypeId: Number(newChargingPoint.connectorTypeId),
+                status: sourcePoint.status,
 
-                stationId: Number(newChargingPoint.stationId)
+                connectorTypeId: Number(sourcePoint.connectorTypeId),
+
+                stationId: Number(sourcePoint.stationId)
 
             };
 
@@ -1492,6 +1507,8 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                 return {
 
                     chargingPointId: res.data.chargingPointId ?? res.data.id,
+
+                    chargingPointName: res.data.chargingPointName || payload.chargingPointName || "",
 
                     status: res.data.status ?? payload.status,
 
@@ -1992,6 +2009,8 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
             id: `post_${Date.now()}`,
 
+            chargingPointName: "",
+
             connectorType: "",
 
             power: "",
@@ -2123,6 +2142,8 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                 const chargingPoints: ChargingPoint[] = res.data.map((point: any) => ({
 
                     chargingPointId: point.chargingPointId,
+
+                    chargingPointName: point.chargingPointName || point.name || "",
 
                     status: point.status,
 
@@ -2271,6 +2292,16 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
     const handleAddChargingPoint = async () => {
 
+        if (!newChargingPoint.chargingPointName.trim()) {
+
+            toast.error(language === 'vi' ? "Vui lòng nhập tên trụ sạc" : "Please enter charging point name");
+
+            return;
+
+        }
+
+
+
         if (!newChargingPoint.typeName.trim()) {
 
             toast.error(language === 'vi' ? "Vui lòng chọn loại connector" : "Please select connector type");
@@ -2309,6 +2340,8 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
                 ...newChargingPoint,
 
+                chargingPointName: newChargingPoint.chargingPointName.trim(),
+
                 stationId: Number(selectedStation.id)
 
             };
@@ -2319,13 +2352,15 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
 
 
-            const result = await callApiForChargingPointAdding();
+            const result = await callApiForChargingPointAdding(updatedPoint);
 
             if (result) {
 
                 // Reset form
 
                 setNewChargingPoint({
+
+                    chargingPointName: "",
 
                     typeName: "",
 
@@ -3799,6 +3834,8 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                         const existingPosts = detailedStation.chargingPoints.map((point: ChargingPoint) => ({
 
                             id: `post-${point.chargingPointId}`,
+
+                            chargingPointName: point.chargingPointName || "",
 
                             connectorType: point.typeName || point.connectorType?.typeName || "Unknown",
 
@@ -5298,6 +5335,24 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
                                                                             <div>
 
+                                                                                <label className="text-xs text-muted-foreground mb-1.5 block font-medium">{t('charging_point_name')}</label>
+
+                                                                                <Input
+
+                                                                                    value={post.chargingPointName}
+
+                                                                                    onChange={(e) => updateChargingPost(post.id, 'chargingPointName', e.target.value)}
+
+                                                                                    placeholder={t('charging_point_name_placeholder')}
+
+                                                                                    className="w-full h-9 text-sm bg-background border border-border/50 rounded-lg px-3 text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
+
+                                                                                />
+
+                                                                            </div>
+
+                                                                            <div>
+
                                                                                 <label className="text-xs text-muted-foreground mb-1.5 block font-medium">{t('connector_type')}</label>
 
                                                                                 <select
@@ -6514,6 +6569,24 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
                                                                                         <div>
 
+                                                                                            <label className="text-xs text-muted-foreground mb-1.5 block font-medium">{t('charging_point_name')}</label>
+
+                                                                                            <Input
+
+                                                                                                value={post.chargingPointName}
+
+                                                                                                onChange={(e) => updateChargingPost(post.id, 'chargingPointName', e.target.value)}
+
+                                                                                                placeholder={t('charging_point_name_placeholder')}
+
+                                                                                                className="w-full h-9 text-sm bg-background border border-border/50 rounded-lg px-3 text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
+
+                                                                                            />
+
+                                                                                        </div>
+
+                                                                                        <div>
+
                                                                                             <label className="text-xs text-muted-foreground mb-1.5 block font-medium">{t('connector_type')}</label>
 
                                                                                             <select
@@ -6848,6 +6921,26 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                                                             </div>
                                                         )}
 
+                                                        {/* Charging Point Name */}
+                                                        <div className="space-y-2">
+                                                            <Label htmlFor="chargingPointName" className="text-sm font-medium">
+                                                                {language === 'vi' ? 'Tên trụ sạc' : 'Charging Point Name'} <span className="text-red-500">*</span>
+                                                            </Label>
+                                                            <Input
+                                                                id="chargingPointName"
+                                                                placeholder={language === 'vi' ? 'Nhập tên trụ sạc' : 'Enter charging point name'}
+                                                                value={newChargingPoint.chargingPointName}
+                                                                onChange={(event) => {
+                                                                    const value = event.target.value;
+                                                                    setNewChargingPoint((prev) => ({
+                                                                        ...prev,
+                                                                        chargingPointName: value
+                                                                    }));
+                                                                }}
+                                                                className="mt-1.5"
+                                                            />
+                                                        </div>
+
                                                         {/* Connector Type Selection */}
                                                         <div className="space-y-2">
                                                             <Label htmlFor="chargingPointConnectorType" className="text-sm font-medium">
@@ -6979,6 +7072,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                                                                 setIsAddChargingPointDialogOpen(false);
                                                                 // Reset form
                                                                 setNewChargingPoint({
+                                                                    chargingPointName: "",
                                                                     typeName: "",
                                                                     status: "AVAILABLE",
                                                                     connectorTypeId: 0,
@@ -6992,7 +7086,11 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                                                         </Button>
                                                         <Button
                                                             onClick={handleAddChargingPoint}
-                                                            disabled={loading || !newChargingPoint.connectorTypeId}
+                                                            disabled={
+                                                                loading ||
+                                                                !newChargingPoint.connectorTypeId ||
+                                                                !newChargingPoint.chargingPointName.trim()
+                                                            }
                                                             className="bg-blue-600 hover:bg-blue-700 text-white"
                                                         >
                                                             {loading ? t('loading') : t('add_charging_point')}
