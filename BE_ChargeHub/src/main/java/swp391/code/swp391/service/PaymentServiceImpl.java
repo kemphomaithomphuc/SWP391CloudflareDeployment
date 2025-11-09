@@ -357,7 +357,7 @@ public class PaymentServiceImpl implements PaymentService {
     @Override
     @Transactional
     public RetryPaymentResponseDTO retryPayment(RetryPaymentRequestDTO request) {
-        log.info("🔄 Retry payment - TransactionId: {}, UserId: {}, PaymentMethod: {}",
+        log.info("Retry payment - TransactionId: {}, UserId: {}, PaymentMethod: {}",
                 request.getTransactionId(), request.getUserId(), request.getPaymentMethod());
 
         // ===== 1. VALIDATE TRANSACTION =====
@@ -408,7 +408,7 @@ public class PaymentServiceImpl implements PaymentService {
      */
     @Transactional
     protected RetryPaymentResponseDTO retryPaymentWithCash(Transaction transaction, User user, BigDecimal amount) {
-        log.info("🔄 Retry payment with CASH - TransactionId: {}", transaction.getTransactionId());
+        log.info("Retry payment with CASH - TransactionId: {}", transaction.getTransactionId());
 
         // Cập nhật payment method và status
         transaction.setPaymentMethod(Transaction.PaymentMethod.CASH);
@@ -431,7 +431,7 @@ public class PaymentServiceImpl implements PaymentService {
                 user.getUserId()
         );
 
-        log.info("✅ Retry payment with CASH successful - TransactionId: {}", transaction.getTransactionId());
+        log.info("Retry payment with CASH successful - TransactionId: {}", transaction.getTransactionId());
 
         return RetryPaymentResponseDTO.builder()
                 .transactionId(transaction.getTransactionId())
@@ -457,7 +457,7 @@ public class PaymentServiceImpl implements PaymentService {
             String returnUrl,
             String bankCode) {
 
-        log.info("🔄 Retry payment with VNPAY - TransactionId: {}", transaction.getTransactionId());
+        log.info("Retry payment with VNPAY - TransactionId: {}", transaction.getTransactionId());
 
         // Cập nhật payment method và reset status về PENDING
         transaction.setPaymentMethod(Transaction.PaymentMethod.VNPAY);
@@ -473,7 +473,7 @@ public class PaymentServiceImpl implements PaymentService {
                 bankCode
         );
 
-        log.info("✅ Retry payment URL created - TransactionId: {}", transaction.getTransactionId());
+        log.info("Retry payment URL created - TransactionId: {}", transaction.getTransactionId());
 
         return RetryPaymentResponseDTO.builder()
                 .transactionId(transaction.getTransactionId())

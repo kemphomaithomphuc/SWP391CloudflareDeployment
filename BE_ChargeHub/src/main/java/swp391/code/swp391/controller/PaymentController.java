@@ -96,7 +96,7 @@ public class PaymentController {
             log.info("API: Khởi tạo thanh toán - Session: {}, User: {}, Method: {}",
                     request.getSessionId(), request.getUserId(), request.getPaymentMethod());
 
-            PaymentResponseDTO response = paymentService.initiatePayment(request);
+            PaymentResponseDTO response = paymentService.createPayment(request);
 
             Map<String, Object> result = new HashMap<>();
             result.put("success", true);
