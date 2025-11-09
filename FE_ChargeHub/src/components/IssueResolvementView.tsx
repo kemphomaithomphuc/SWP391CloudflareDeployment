@@ -3,7 +3,7 @@ import axios from "axios";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
-import { ArrowLeft, CheckCircle, Check, History } from "lucide-react";
+import { ArrowLeft, CheckCircle, Check, History, ShieldAlert } from "lucide-react";
 import { useLanguage } from "../contexts/LanguageContext";
 import { toast } from "sonner";
 
@@ -101,10 +101,29 @@ export default function IssueResolvementView({ onBack }: Readonly<IssueResolveme
       <div className="sticky top-0 z-40 bg-card/70 backdrop-blur-md border-b border-border/60 shadow-sm">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
-            <Button variant="ghost" size="sm" onClick={onBack} className="text-muted-foreground hover:text-foreground">
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              {language === "en" ? "Back to Dashboard" : "Về Dashboard"}
-            </Button>
+            <div className="flex items-center space-x-4">
+              <Button variant="ghost" size="sm" onClick={onBack} className="text-muted-foreground hover:text-foreground">
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                {language === "en" ? "Back to Dashboard" : "Về Dashboard"}
+              </Button>
+              <div className="flex items-center space-x-3">
+                <div className="relative group">
+                  <div className="w-10 h-10 bg-gradient-to-br from-rose-500 via-orange-500/90 to-amber-500/70 rounded-2xl flex items-center justify-center shadow-lg shadow-orange-500/30 transform group-hover:scale-110 transition-transform duration-300">
+                    <ShieldAlert className="w-6 h-6 text-amber-100 drop-shadow-[0_0_8px_rgba(251,191,36,0.8)]" />
+                  </div>
+                </div>
+                <div>
+                  <h1 className="font-semibold text-foreground">
+                    {language === "en" ? "Issue Resolvement" : "Xử lý sự cố"}
+                  </h1>
+                  <p className="text-sm text-muted-foreground">
+                    {language === "en"
+                      ? "Monitor unresolved incidents and close them proactively"
+                      : "Theo dõi và xử lý các sự cố được báo cáo"}
+                  </p>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>

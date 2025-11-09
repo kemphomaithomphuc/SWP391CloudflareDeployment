@@ -10,6 +10,7 @@ import {
   Home,
   Users,
   MapPin,
+  Map,
   Settings,
   Bell,
   Receipt,
@@ -26,7 +27,8 @@ import {
   Wallet,
   FileText,
   AlertTriangle,
-  CreditCard
+  CreditCard,
+  Activity
 } from "lucide-react";
 
 interface AppLayoutProps {
@@ -198,6 +200,30 @@ export default function AppLayout({
       labelVi: 'Bảng điều khiển',
       icon: Home,
       onClick: () => onNavigate?.('adminDashboard'),
+      userTypes: ['admin']
+    },
+    {
+      id: 'adminMap',
+      label: 'Admin Map',
+      labelVi: 'Bản đồ Admin',
+      icon: Map,
+      onClick: () => onNavigate?.('adminMap'),
+      userTypes: ['admin']
+    },
+    {
+      id: 'adminChargerPostActivating',
+      label: 'Charger Post Activating',
+      labelVi: 'Kích hoạt trạm sạc',
+      icon: Activity,
+      onClick: () => onNavigate?.('adminChargerPostActivating'),
+      userTypes: ['admin']
+    },
+    {
+      id: 'issueResolvement',
+      label: 'Issue Resolvement',
+      labelVi: 'Xử lý sự cố',
+      icon: AlertTriangle,
+      onClick: () => onNavigate?.('issueResolvement'),
       userTypes: ['admin']
     },
     {

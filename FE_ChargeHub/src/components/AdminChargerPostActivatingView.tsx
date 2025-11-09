@@ -12,6 +12,7 @@ import { Textarea } from "./ui/textarea";
 import { Separator } from "./ui/separator";
 import { Progress } from "./ui/progress";
 import { toast } from "sonner";
+import { useLanguage } from "../contexts/LanguageContext";
 
 interface ChargingStation {
   id: string;
@@ -45,6 +46,7 @@ interface AdminChargerPostActivatingViewProps {
 }
 
 export default function AdminChargerPostActivatingView({ onBack }: AdminChargerPostActivatingViewProps) {
+  const { language, t } = useLanguage();
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [selectedStation, setSelectedStation] = useState<ChargingStation | null>(null);
@@ -229,6 +231,11 @@ export default function AdminChargerPostActivatingView({ onBack }: AdminChargerP
     }
   };
 
+  const headerTitle = language === 'vi' ? 'Kích hoạt Trạm sạc' : 'Charger Post Activating';
+  const headerSubtitle = language === 'vi'
+    ? 'Quản lý trạng thái và điều khiển từ xa các trạm sạc'
+    : 'Manage station status and remote controls';
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-teal-50 to-emerald-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 p-4 lg:p-8">
       <div className="max-w-7xl mx-auto">
@@ -241,19 +248,23 @@ export default function AdminChargerPostActivatingView({ onBack }: AdminChargerP
               className="flex items-center space-x-2 text-slate-500 dark:text-slate-300 hover:text-slate-700 dark:hover:text-white"
             >
               <ArrowLeft className="w-4 h-4" />
-              <span>Quay lại</span>
+              <span>{t('back_to_dashboard')}</span>
             </Button>
-            <div>
-              <h1 className="text-3xl font-semibold bg-gradient-to-r from-blue-600 via-teal-500 to-emerald-500 dark:from-blue-300 dark:via-teal-300 dark:to-emerald-300 bg-clip-text text-transparent">
-                Charger Post Activating
-              </h1>
-              <p className="text-slate-500 dark:text-slate-300 mt-2">
-                Quản lý trạng thái và điều khiển từ xa các trạm sạc
-              </p>
+            <div className="flex items-center space-x-3">
+              <div className="relative group">
+                <div className="w-10 h-10 bg-gradient-to-br from-sky-500 via-sky-500/90 to-emerald-500/70 rounded-2xl flex items-center justify-center shadow-lg shadow-sky-500/30 transform group-hover:scale-110 transition-transform duration-300">
+                  <Activity className="w-6 h-6 text-emerald-100 drop-shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
+                </div>
+              </div>
+              <div>
+                <h1 className="font-semibold text-foreground">
+                  {headerTitle}
+                </h1>
+                <p className="text-sm text-muted-foreground">
+                  {headerSubtitle}
+                </p>
+              </div>
             </div>
-          </div>
-          <div className="flex items-center space-x-2">
-            <Activity className="w-8 h-8 text-blue-500 dark:text-emerald-400" />
           </div>
         </div>
 

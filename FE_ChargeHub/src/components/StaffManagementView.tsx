@@ -220,7 +220,7 @@ export default function StaffManagementView({ onBack }: StaffManagementViewProps
     joinDate: isVietnamese ? 'Ngày gia nhập' : 'Join Date',
     totalStaff: isVietnamese ? 'Tổng nhân viên' : 'Total Staff',
     activeStaff: isVietnamese ? 'Nhân viên hoạt động' : 'Active Staff',
-    back: isVietnamese ? 'Quay lại' : 'Back',
+    back: isVietnamese ? 'Quay lại trang chính' : 'Back to Dashboard',
   };
 
   // Filter staff data
@@ -603,16 +603,6 @@ export default function StaffManagementView({ onBack }: StaffManagementViewProps
       </div>
 
       <div className="container mx-auto p-6 max-w-7xl">
-        {/* Main Content */}
-        <div className="mb-8">
-          <div className="text-center mb-8">
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-red-600 to-red-800 dark:from-red-400 dark:to-red-600 bg-clip-text text-transparent mb-2">
-              {translations.title}
-            </h1>
-            <p className="text-muted-foreground text-lg">{translations.subtitle}</p>
-          </div>
-        </div>
-
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <Card className="border-red-200 dark:border-red-800 bg-gradient-to-br from-red-50 to-red-100 dark:from-red-950/50 dark:to-red-900/30">

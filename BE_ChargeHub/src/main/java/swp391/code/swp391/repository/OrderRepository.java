@@ -169,6 +169,26 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 
     List<Order> findByChargingPoint_Station_StationId(Long stationId);
 
+    /**
+     * Kiểm tra user có order COMPLETED chưa thanh toán không
+     * Order COMPLETED có session nhưng:
+     * - Không có transaction (chưa thanh toán)
+     * - Hoặc có transaction với status PENDING/FAILED
+     */
+    @Query("""
+        SELECT CASE WHEN COUNT(o) > 0 THEN true ELSE false END
+        FROM Order o
+        LEFT JOIN Session s ON s.order.orderId = o.orderId
+        LEFT JOIN Transaction t ON t.session.sessionId = s.sessionId
+        WHERE o.user.userId = :userId
+        AND o.status = 'COMPLETED'
+        AND (
+            t.transactionId IS NULL 
+            OR t.status IN ('PENDING', 'FAILED')
+        )
+        """)
+    boolean hasUnpaidCompletedOrders(@Param("userId") Long userId);
+
     Order getOrderByOrderId(Long orderId);
 
     @Query("SELECT o FROM Order o " +

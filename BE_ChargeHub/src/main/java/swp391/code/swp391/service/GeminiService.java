@@ -109,13 +109,13 @@ public class GeminiService {
         logger.info("Fetching fresh market trends from Gemini (cache miss)");
         String promptText = """
             Bạn là một nhà phân tích thị trường xe điện (EV) chuyên nghiệp tại Việt Nam.
-            Hãy tóm tắt 3 xu hướng quan trọng nhất trong tuần này
+            Hãy tóm tắt 3 xu hướng quan trọng nhất trong hôm nay
             liên quan đến thị trường xe điện và trạm sạc tại Việt Nam.
             Tập trung vào:
             1. Mẫu xe điện mới hoặc phổ biến?
             2. Động thái của đối thủ cạnh tranh (VinFast, EBOOST)?
             3. Công nghệ sạc mới?
-            Trả lời ngắn gọn dưới dạng gạch đầu dòng.
+            Trả lời ngắn gọn dưới dạng gạch đầu dòng. không trả về câu trả lời chứa ***
             """;
         // Gói prompt vào Request và gọi hàm API private
         GeminiRequest request = GeminiRequest.from(promptText);
