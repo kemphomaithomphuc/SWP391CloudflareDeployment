@@ -1,12 +1,14 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useTheme } from "../contexts/ThemeContext";
 import { useLanguage } from "../contexts/LanguageContext";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Shield, AlertTriangle, CreditCard, CheckCircle, XCircle, AlertCircle } from "lucide-react";
-import { getUserProfile, type UserDTO, getUnpaidFees, payPenaltyAndUnlock, type FeeDTO } from "../services/api";
+import { api, getUserProfile, type UserDTO, getUnpaidFees, payPenaltyAndUnlock, type FeeDTO } from "../services/api";
+import { retryPayment } from "../api/retryPayment";
 import { toast } from "sonner";
+import { useNavigate } from "react-router-dom";
 
 interface PenaltyPaymentViewProps {
   onBack: () => void;
@@ -16,11 +18,85 @@ interface PenaltyPaymentViewProps {
 export default function PenaltyPaymentView({ onBack, userId }: PenaltyPaymentViewProps) {
   const { theme } = useTheme();
   const { language } = useLanguage();
+  const navigate = useNavigate();
   
   const [userData, setUserData] = useState<UserDTO | null>(null);
   const [unpaidFees, setUnpaidFees] = useState<FeeDTO[]>([]);
   const [loading, setLoading] = useState(true);
   const [paymentStatus, setPaymentStatus] = useState<'pending' | 'processing' | 'success' | 'failed'>('pending');
+  const [failedTransactionIds, setFailedTransactionIds] = useState<number[]>([]);
+
+  const statusContent = useMemo(() => {
+    const map: Record<NonNullable<UserDTO["status"]> | "UNKNOWN", {
+      header: { vi: string; en: string };
+      description: { vi: string; en: string };
+      badge: { vi: string; en: string; variant: "default" | "secondary" | "destructive" | "outline" };
+    }> = {
+      BANNED: {
+        header: {
+          vi: "Tài Khoản Bị Khóa",
+          en: "Account Suspended",
+        },
+        description: {
+          vi: "Tài khoản của bạn đã bị khóa do vi phạm quy định",
+          en: "Your account has been suspended due to policy violations",
+        },
+        badge: {
+          vi: "Đã bị khóa",
+          en: "BANNED",
+          variant: "destructive",
+        },
+      },
+      INACTIVE: {
+        header: {
+          vi: "Tài Khoản Tạm Khóa",
+          en: "Account Inactive",
+        },
+        description: {
+          vi: "Tài khoản của bạn đang bị hạn chế do còn phí chưa thanh toán",
+          en: "Your account is temporarily limited due to unpaid fees",
+        },
+        badge: {
+          vi: "Tạm khóa",
+          en: "INACTIVE",
+          variant: "outline",
+        },
+      },
+      ACTIVE: {
+        header: {
+          vi: "Thanh Toán Phí Phạt",
+          en: "Penalty Payment",
+        },
+        description: {
+          vi: "Hoàn tất thanh toán để tiếp tục sử dụng đầy đủ dịch vụ",
+          en: "Complete payment to continue using all services normally",
+        },
+        badge: {
+          vi: "Đang hoạt động",
+          en: "ACTIVE",
+          variant: "default",
+        },
+      },
+      UNKNOWN: {
+        header: {
+          vi: "Thanh Toán Phí Phạt",
+          en: "Penalty Payment",
+        },
+        description: {
+          vi: "Hoàn tất thanh toán để tiếp tục sử dụng đầy đủ dịch vụ",
+          en: "Complete payment to continue using all services normally",
+        },
+        badge: {
+          vi: "Không xác định",
+          en: "UNKNOWN",
+          variant: "secondary",
+        },
+      },
+    };
+
+    const status = userData?.status ?? "UNKNOWN";
+    return map[status];
+  }, [userData?.status]);
 
   useEffect(() => {
     fetchData();
@@ -39,8 +115,33 @@ export default function PenaltyPaymentView({ onBack, userId }: PenaltyPaymentVie
       // Fetch unpaid fees
       const feesResponse = await getUnpaidFees(userId);
       if (feesResponse.success && feesResponse.data) {
-        setUnpaidFees(feesResponse.data);
+        const fees = Array.isArray(feesResponse.data.unpaidFees)
+          ? feesResponse.data.unpaidFees
+          : [];
+        const failedTransactions = Array.isArray(feesResponse.data.failedTransactionIds)
+          ? feesResponse.data.failedTransactionIds
+          : [];
+
+        setUnpaidFees(fees);
+        setFailedTransactionIds(failedTransactions);
+
+        // Persist the primary failed transaction id for retry flows
+        if (failedTransactions.length > 0) {
+          try {
+            localStorage.setItem("penaltyTransactionId", String(failedTransactions[0]));
+          } catch (storageError) {
+            console.warn('Unable to store penaltyTransactionId', storageError);
+          }
+        } else {
+          try {
+            localStorage.removeItem("penaltyTransactionId");
+          } catch (storageError) {
+            console.warn('Unable to clear penaltyTransactionId', storageError);
+          }
+        }
       } else {
+        setUnpaidFees([]);
+        setFailedTransactionIds([]);
         toast.error(language === 'vi' ? 'Không thể lấy danh sách phí phạt' : 'Unable to fetch penalty fees');
       }
       
@@ -72,16 +173,101 @@ export default function PenaltyPaymentView({ onBack, userId }: PenaltyPaymentVie
     return labels[feeType]?.[language === 'vi' ? 'vi' : 'en'] || feeType;
   };
 
+  const deriveRetryTransactionId = (): number | undefined => {
+    const storedId = localStorage.getItem("penaltyTransactionId");
+    if (storedId) {
+      const numeric = Number(storedId);
+      if (!Number.isNaN(numeric)) {
+        return numeric;
+      }
+    }
+    if (failedTransactionIds.length > 0) {
+      return failedTransactionIds[0];
+    }
+
+    if (unpaidFees.length === 0) {
+      return undefined;
+    }
+    const primaryFee = unpaidFees[0];
+    if (primaryFee?.orderId != null) {
+      return primaryFee.orderId;
+    }
+    if (primaryFee?.sessionId != null) {
+      return primaryFee.sessionId;
+    }
+    if (primaryFee?.feeId != null) {
+      return primaryFee.feeId;
+    }
+    return undefined;
+  };
+
   const handlePayment = async () => {
     try {
       setPaymentStatus('processing');
       
       const feeIds = unpaidFees.map(fee => fee.feeId);
+      console.log('[PenaltyPayment] feeIds for payment:', feeIds);
       
-      // Call backend API to process penalty payment and unban user
-      const response = await payPenaltyAndUnlock(userId, feeIds);
-      
-      if (response.success) {
+      let responseData: any;
+      if (userData?.status === 'BANNED') {
+        console.log('[PenaltyPayment] Using payPenaltyAndUnlock');
+        responseData = await payPenaltyAndUnlock(userId, feeIds);
+      } else if (userData?.status === 'ACTIVE') {
+        const transactionId = deriveRetryTransactionId();
+        console.log('[PenaltyPayment] Derived transactionId:', transactionId);
+        if (!transactionId) {
+          throw new Error(language === 'vi'
+            ? 'Không tìm thấy giao dịch cần thanh toán lại.'
+            : 'Unable to determine the transaction to retry.');
+        }
+        const retryPayload = {
+          transactionId,
+          userId,
+          paymentMethod: 'VNPAY',
+        };
+        console.log('[PenaltyPayment] Calling retryPayment with payload:', retryPayload);
+        responseData = await retryPayment({
+          transactionId,
+          userId,
+          paymentMethod: 'VNPAY',
+        });
+        try {
+          localStorage.removeItem("penaltyTransactionId");
+        } catch (cleanupError) {
+          console.warn('Unable to clear penaltyTransactionId', cleanupError);
+        }
+      } else {
+        console.log('[PenaltyPayment] Using /api/penalties/pay');
+        const response = await api.post('/api/penalties/pay', {
+          userId,
+          feeIds,
+        });
+        responseData = response?.data ?? response;
+      }
+
+      console.log('[PenaltyPayment] Response data:', responseData);
+
+      const paymentUrl =
+        typeof responseData?.data?.paymentUrl === 'string'
+          ? responseData.data.paymentUrl
+          : typeof responseData?.paymentUrl === 'string'
+            ? responseData.paymentUrl
+            : undefined;
+
+      if (paymentUrl) {
+        try {
+          localStorage.setItem('penaltyPaymentUrl', paymentUrl);
+        } catch (storageError) {
+          console.warn('Unable to store penaltyPaymentUrl', storageError);
+        }
+        window.location.href = paymentUrl;
+        return;
+      }
+
+      const wasSuccessful = Boolean(responseData?.success);
+      const responseMessage = responseData?.message;
+
+      if (wasSuccessful) {
         setPaymentStatus('success');
         const message = language === 'vi' 
           ? 'Thanh toán thành công! Tài khoản của bạn đã được kích hoạt lại' 
@@ -97,7 +283,7 @@ export default function PenaltyPaymentView({ onBack, userId }: PenaltyPaymentVie
           onBack(); // Return to login
         }, 3000);
       } else {
-        throw new Error(response.message || 'Payment failed');
+        throw new Error(responseMessage || 'Payment failed');
       }
       
     } catch (error: any) {
@@ -135,12 +321,10 @@ export default function PenaltyPaymentView({ onBack, userId }: PenaltyPaymentVie
             </div>
           </div>
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-            {language === 'vi' ? 'Tài Khoản Bị Khóa' : 'Account Suspended'}
+            {language === 'vi' ? statusContent.header.vi : statusContent.header.en}
           </h1>
           <p className="text-gray-600 dark:text-gray-400">
-            {language === 'vi' 
-              ? 'Tài khoản của bạn đã bị khóa do vi phạm quy định'
-              : 'Your account has been suspended due to policy violations'}
+            {language === 'vi' ? statusContent.description.vi : statusContent.description.en}
           </p>
         </div>
 
@@ -173,8 +357,8 @@ export default function PenaltyPaymentView({ onBack, userId }: PenaltyPaymentVie
                 <p className="text-sm text-muted-foreground mb-1">
                   {language === 'vi' ? 'Trạng thái' : 'Status'}
                 </p>
-                <Badge variant="destructive" className="text-lg px-3 py-1">
-                  {language === 'vi' ? 'Đã bị khóa' : 'BANNED'}
+                <Badge variant={statusContent.badge.variant} className="text-lg px-3 py-1">
+                  {language === 'vi' ? statusContent.badge.vi : statusContent.badge.en}
                 </Badge>
               </div>
             </div>
@@ -234,32 +418,46 @@ export default function PenaltyPaymentView({ onBack, userId }: PenaltyPaymentVie
               </div>
             )}
 
-            {/* Amount Display */}
-            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 p-6 rounded-lg border-2 border-blue-200 dark:border-blue-800">
-              <p className="text-sm text-muted-foreground mb-2">
-                {language === 'vi' ? 'Tổng số tiền phải thanh toán' : 'Total Amount Due'}
-              </p>
-              <p className="text-4xl font-bold text-blue-600 dark:text-blue-400">
-                {formatCurrency(getTotalAmount())}
-              </p>
-              <p className="text-xs text-muted-foreground mt-2">
-                {unpaidFees.length} {language === 'vi' ? 'khoản phí' : 'fee(s)'}
-              </p>
-            </div>
+            {failedTransactionIds.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-muted-foreground">
+                  {language === 'vi'
+                    ? 'Giao dịch cần thanh toán lại:'
+                    : 'Transactions requiring retry:'}
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {failedTransactionIds.map((id) => (
+                    <Badge key={id} variant="secondary" className="px-3 py-1">
+                      #{id}
+                    </Badge>
+                  ))}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {language === 'vi'
+                    ? 'Nhấn thanh toán để tiếp tục xử lý lại giao dịch qua VNPAY.'
+                    : 'Click pay now to retry these transactions via VNPAY.'}
+                </p>
+              </div>
+            )}
 
             {/* Payment Status */}
             {paymentStatus === 'pending' && (
               <div className="space-y-4">
                 <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border border-yellow-200 dark:border-yellow-800">
                   <p className="text-sm text-yellow-800 dark:text-yellow-200">
-                    {language === 'vi' 
-                      ? '⚠️ Sau khi thanh toán thành công, tài khoản của bạn sẽ được mở khóa ngay lập tức.'
-                      : '⚠️ Your account will be unlocked immediately after successful payment.'}
+                    {userData?.status === 'ACTIVE'
+                      ? (language === 'vi'
+                        ? '⚠️ Bạn phải thanh toán để có thể tiếp tục đặt phiên sạc.'
+                        : '⚠️ You must complete the payment to continue booking charging sessions.')
+                      : (language === 'vi'
+                        ? '⚠️ Sau khi thanh toán thành công, tài khoản của bạn sẽ được mở khóa ngay lập tức.'
+                        : '⚠️ Your account will be unlocked immediately after successful payment.')}
                   </p>
                 </div>
                 <Button 
                   onClick={handlePayment}
-                  className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white py-6 text-lg"
+                  variant="default"
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white py-6 text-lg shadow-md hover:shadow-lg transition-shadow"
                   size="lg"
                 >
                   <CreditCard className="w-5 h-5 mr-2" />
@@ -326,7 +524,7 @@ export default function PenaltyPaymentView({ onBack, userId }: PenaltyPaymentVie
             {/* Cancel Button */}
             {paymentStatus === 'pending' && (
               <Button 
-                onClick={onBack}
+                onClick={() => navigate("/dashboard")}
                 variant="ghost"
                 className="w-full"
               >
