@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { ArrowLeft, Calendar, Clock, MapPin, Zap, Battery, QrCode, Phone, Navigation, MoreHorizontal, CheckCircle, XCircle, AlertTriangle, RefreshCw } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useTheme } from '../contexts/ThemeContext';
@@ -159,6 +159,79 @@ export default function MyBookingView({ onBack, onStartCharging }: MyBookingView
     sortBy: 'createdAt',
     sortDirection: 'desc'
   });
+  const chargingNavigationRef = useRef<string | null>(null);
+
+  const persistStationInfoFromOrder = (order: OrderResponseDTO) => {
+    const stationInfoPayload: StationInfoStoragePayload = {
+      timestamp: new Date().toISOString()
+    };
+
+    if (typeof order.stationName === 'string' && order.stationName.trim().length > 0) {
+      stationInfoPayload.stationName = order.stationName;
+    }
+    if (typeof order.stationAddress === 'string' && order.stationAddress.trim().length > 0) {
+      stationInfoPayload.stationAddress = order.stationAddress;
+    }
+    if (typeof order.stationId === 'number' && !isNaN(order.stationId)) {
+      stationInfoPayload.stationId = order.stationId;
+    }
+    if (typeof order.connectorType === 'string' && order.connectorType.trim().length > 0) {
+      stationInfoPayload.connectorType = order.connectorType;
+    }
+    if (typeof order.chargingPower === 'number' && !isNaN(order.chargingPower)) {
+      stationInfoPayload.chargingPower = order.chargingPower;
+    }
+    if (typeof order.pricePerKwh === 'number' && !isNaN(order.pricePerKwh)) {
+      stationInfoPayload.pricePerKwh = order.pricePerKwh;
+    }
+
+    try {
+      localStorage.setItem("currentStationInfo", JSON.stringify(stationInfoPayload));
+      if (stationInfoPayload.stationId !== undefined && stationInfoPayload.stationId !== null) {
+        localStorage.setItem("currentStationId", String(stationInfoPayload.stationId));
+      }
+    } catch (storageError) {
+      console.error("Error storing station info:", storageError);
+    }
+  };
+
+  const ensureSessionForOrder = async (order: OrderResponseDTO, options?: { showToast?: boolean }) => {
+    const showToast = options?.showToast ?? true;
+    try {
+      const response = await api.get(`/api/sessions/by-order/${order.orderId}`);
+      const sessionData = response.data?.data;
+      if (response.status === 200 && response.data?.success && sessionData?.sessionId) {
+        localStorage.setItem("currentSessionId", sessionData.sessionId.toString());
+        return sessionData.sessionId.toString();
+      }
+
+      if (showToast) {
+        toast.error(language === 'vi'
+          ? 'Không tìm thấy phiên sạc cho đơn này.'
+          : 'Charging session not found for this order.');
+      }
+    } catch (error: any) {
+      console.error("Error fetching session for order:", error);
+      if (showToast) {
+        const message = error?.response?.data?.message || error.message || (language === 'vi'
+          ? 'Không thể lấy thông tin phiên sạc.'
+          : 'Unable to retrieve charging session information.');
+        toast.error(message);
+      }
+    }
+    return null;
+  };
+
+  const navigateToChargingSession = async (order: OrderResponseDTO, options?: { showToast?: boolean }) => {
+    persistStationInfoFromOrder(order);
+    localStorage.setItem("currentOrderId", String(order.orderId));
+    chargingNavigationRef.current = String(order.orderId);
+
+    await ensureSessionForOrder(order, options);
+    if (onStartCharging) {
+      onStartCharging(String(order.orderId));
+    }
+  };
 
 
   // Function to fetch real orders from API
@@ -365,9 +438,16 @@ export default function MyBookingView({ onBack, onStartCharging }: MyBookingView
       });
 
       if (response.data?.success) {
-        const transactionData = response.data;
-        console.log("Fetched transaction history:", transactionData);
-        setTransactionHistory(transactionData.transactions || []);
+        const apiPayload = response.data.data;
+        const transactions = apiPayload?.transactions ?? [];
+
+        console.log("Fetched transaction history:", {
+          totalElements: apiPayload?.totalElements,
+          transactionsCount: transactions.length,
+          transactions
+        });
+
+        setTransactionHistory(transactions);
       } else {
         console.log("Transaction API error or no success response");
         setTransactionHistory([]);
@@ -389,6 +469,25 @@ export default function MyBookingView({ onBack, onStartCharging }: MyBookingView
       setTransactionLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (!onStartCharging || apiOrders.length === 0) {
+      return;
+    }
+
+    const chargingOrder = apiOrders.find(order => order.status === 'CHARGING');
+    if (!chargingOrder) {
+      return;
+    }
+
+    const orderKey = chargingOrder.orderId?.toString();
+    if (!orderKey || chargingNavigationRef.current === orderKey) {
+      return;
+    }
+
+    // Persist station info and session context silently, then navigate
+    void navigateToChargingSession(chargingOrder, { showToast: false });
+  }, [apiOrders, onStartCharging]);
 
   // Load orders on component mount
   useEffect(() => {
@@ -652,38 +751,7 @@ export default function MyBookingView({ onBack, onStartCharging }: MyBookingView
       console.log("User location:", { userLatitude, userLongitude });
 
       // Persist station info for ChargingSessionView
-      const stationInfoPayload: StationInfoStoragePayload = {
-        timestamp: new Date().toISOString(),
-      };
-
-      if (typeof order.stationName === 'string' && order.stationName.trim().length > 0) {
-        stationInfoPayload.stationName = order.stationName;
-      }
-      if (typeof order.stationAddress === 'string' && order.stationAddress.trim().length > 0) {
-        stationInfoPayload.stationAddress = order.stationAddress;
-      }
-
-      if (typeof order.stationId === 'number' && !isNaN(order.stationId)) {
-        stationInfoPayload.stationId = order.stationId;
-      }
-      if (typeof order.connectorType === 'string' && order.connectorType.trim().length > 0) {
-        stationInfoPayload.connectorType = order.connectorType;
-      }
-      if (typeof order.chargingPower === 'number' && !isNaN(order.chargingPower)) {
-        stationInfoPayload.chargingPower = order.chargingPower;
-      }
-      if (typeof order.pricePerKwh === 'number' && !isNaN(order.pricePerKwh)) {
-        stationInfoPayload.pricePerKwh = order.pricePerKwh;
-      }
-
-      try {
-        localStorage.setItem("currentStationInfo", JSON.stringify(stationInfoPayload));
-        if (stationInfoPayload.stationId !== undefined && stationInfoPayload.stationId !== null) {
-          localStorage.setItem("currentStationId", String(stationInfoPayload.stationId));
-        }
-      } catch (storageError) {
-        console.error("Error storing station info:", storageError);
-      }
+      persistStationInfoFromOrder(order);
 
       // Get vehicleId from order (from DB, not hardcoded)
       let vehicleId = order.vehicleId;
@@ -733,9 +801,10 @@ export default function MyBookingView({ onBack, onStartCharging }: MyBookingView
           )
         );
         
-        // Redirect to ChargingSessionView with sessionId
+        // Redirect to ChargingSessionView using orderId
         if (onStartCharging) {
-          onStartCharging(sessionId.toString());
+          chargingNavigationRef.current = String(orderId);
+          onStartCharging(String(orderId));
         }
       } else {
         toast.error(response.data.message || (language === 'vi' ? 'Không thể bắt đầu sạc' : 'Failed to start charging'));
