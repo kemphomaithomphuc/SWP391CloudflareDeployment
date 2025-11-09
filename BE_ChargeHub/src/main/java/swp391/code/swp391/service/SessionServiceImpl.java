@@ -238,8 +238,8 @@ public class SessionServiceImpl implements SessionService {
             now // current time
         );
 
-        // Note: WebSocket auto-push handled by SessionProgressScheduler
-        // This REST endpoint kept for manual checks and backwards compatibility
+        // Note: SessionProgressScheduler is currently disabled
+        // Client should poll this endpoint or use manual refresh
 
         return dto;
     }
@@ -396,6 +396,28 @@ public class SessionServiceImpl implements SessionService {
     public SessionDTO getSessionDetails(Long sessionId) {
         Session s = sessionRepository.findById(sessionId)
                 .orElseThrow(() -> new RuntimeException("Session not found"));
+        SessionDTO dto = new SessionDTO();
+        if (s.getOrder() != null) {
+            dto.setOrderId(s.getOrder().getOrderId());
+            var cp = s.getOrder().getChargingPoint();
+            if (cp != null) dto.setChargingPointId(cp.getChargingPointId());
+            dto.setVehicleId(s.getOrder().getVehicle() != null ? s.getOrder().getVehicle().getId() : null);
+            dto.setStartTime(s.getStartTime());
+            dto.setEndTime(s.getEndTime());
+            dto.setCurrentBattery(s.getPowerConsumed());
+            dto.setExpectedBattery(s.getOrder() != null ? s.getOrder().getExpectedBattery() : 0.0);
+            dto.setConnectorTypeId(s.getOrder().getChargingPoint() != null && s.getOrder().getChargingPoint().getConnectorType() != null ?
+                    s.getOrder().getChargingPoint().getConnectorType().getConnectorTypeId() : null);
+        }
+        return dto;
+    }
+
+    @Override
+    public SessionDTO getSessionByOrderId(Long orderId) {
+        Session s = sessionRepository.findByOrderOrderId(orderId);
+        if (s == null) {
+            return null;
+        }
         SessionDTO dto = new SessionDTO();
         if (s.getOrder() != null) {
             dto.setOrderId(s.getOrder().getOrderId());

@@ -2,7 +2,6 @@ package swp391.code.swp391.scheduler;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import swp391.code.swp391.dto.SessionProgressDTO;
 import swp391.code.swp391.entity.*;
@@ -15,8 +14,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 /**
- * Scheduled service to automatically push session progress via WebSocket
- * for all active charging sessions without requiring client polling
+ * TEMPORARILY DISABLED - Not using scheduler + websocket combination for now
  */
 @Service
 @RequiredArgsConstructor
@@ -27,11 +25,8 @@ public class SessionProgressScheduler {
     private final VehicleRepository vehicleRepository;
     private final SessionWebSocketService sessionWebSocketService;
 
-    /**
-     * Auto-push session progress every 10 seconds for all CHARGING sessions
-     * Pure WebSocket push - no client polling required
-     */
-    @Scheduled(fixedRate = 1000*10) // 10 seconds
+    // DISABLED: Temporarily not using scheduler for session progress
+    // @Scheduled(fixedRate = 1000*5) // 5 seconds
     public void pushActiveSessionsProgress() {
         try {
             // Find all active charging sessions
@@ -57,9 +52,6 @@ public class SessionProgressScheduler {
         }
     }
 
-    /**
-     * Calculate and push progress for a single session
-     */
     private void pushSessionProgress(Session session) {
         Order order = session.getOrder();
         if (order == null || order.getUser() == null) {
