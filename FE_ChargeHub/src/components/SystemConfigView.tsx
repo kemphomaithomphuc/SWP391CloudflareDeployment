@@ -625,7 +625,7 @@ export default function SystemConfigView({ onBack }: SystemConfigViewProps) {
                                         {language === 'vi' ? 'Chọn trạm sạc' : 'Select Charging Station'}
                                     </h4>
                                     <Select
-                                        value={selectedStationId?.toString() || ""}
+                                        value={selectedStationId != null ? selectedStationId.toString() : undefined}
                                         onValueChange={(value: string) => setSelectedStationId(parseInt(value))}
                                     >
                                         <SelectTrigger className="bg-input-background border-border/60">
@@ -912,7 +912,7 @@ export default function SystemConfigView({ onBack }: SystemConfigViewProps) {
                                         {t('update_subscription_plan')}
                                     </h4>
                                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                                        <Select value={selectedPlan} onValueChange={setSelectedPlan}>
+                                        <Select value={selectedPlan || undefined} onValueChange={setSelectedPlan}>
                                             <SelectTrigger className="bg-input-background border-border/60">
                                                 <SelectValue placeholder={t('select_plan')} />
                                             </SelectTrigger>
@@ -994,7 +994,7 @@ export default function SystemConfigView({ onBack }: SystemConfigViewProps) {
                                                 <SelectTrigger className="bg-input-background border-border/60">
                                                     <SelectValue placeholder={language === 'vi' ? 'Chọn gói...' : 'Select plan...'} />
                                                 </SelectTrigger>
-                                                <SelectContent>
+                                            <SelectContent>
                                                     {plans && plans.length > 0 ? (
                                                         plans.map((plan) => (
                                                             <SelectItem key={plan.subscriptionId} value={plan.subscriptionId.toString()}>
@@ -1009,7 +1009,7 @@ export default function SystemConfigView({ onBack }: SystemConfigViewProps) {
                                                             </SelectItem>
                                                         ))
                                                     ) : (
-                                                        <SelectItem value="" disabled>
+                                                        <SelectItem value="__no_plan__" disabled>
                                                             <span className="text-muted-foreground">{language === 'vi' ? 'Không có gói nào' : 'No plans available'}</span>
                                                         </SelectItem>
                                                     )}

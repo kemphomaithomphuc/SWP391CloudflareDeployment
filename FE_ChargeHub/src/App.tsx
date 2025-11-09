@@ -21,6 +21,7 @@ import StaffLogin from "./StaffLogin";
 import StaffDashboard from "./StaffDashboard";
 import StaffNotificationView from "./components/StaffNotificationView";
 import StaffReportView from "./components/StaffReportView";
+import ChargingManagementView from "./components/ChargingManagementView";
 import AdminLogin from "./AdminLogin";
 import AdminDashboard from "./AdminDashboard";
 import BookingMap from "./BookingMap";
@@ -50,7 +51,7 @@ import { ChatbotProvider } from "./contexts/ChatbotContext";
 import { checkAndRefreshToken } from "./services/api";
 import PenaltyPaymentView from "./components/PenaltyPaymentView";
 
-type ViewType = "login" | "register" | "roleSelection" | "profileSetup" | "vehicleSetup" | "staffProfileSetup" | "educationSetup" | "dashboard" | "staffLogin" | "staffDashboard" | "staffReports" | "adminLogin" | "adminDashboard" | "systemConfig" | "adminMap" | "revenue" | "staffManagement" | "usageAnalytics" | "booking" | "history" | "analysis" | "reportIssue" | "wallet" | "notifications" | "staffNotifications" | "postActivating" | "adminChargerPostActivating" | "myBookings" | "chargingSession" | "premiumSubscription" | "issueResolvement" | "penaltyPayment";
+type ViewType = "login" | "register" | "roleSelection" | "profileSetup" | "vehicleSetup" | "staffProfileSetup" | "educationSetup" | "dashboard" | "staffLogin" | "staffDashboard" | "staffReports" | "adminLogin" | "adminDashboard" | "systemConfig" | "adminMap" | "revenue" | "staffManagement" | "usageAnalytics" | "booking" | "history" | "analysis" | "reportIssue" | "wallet" | "notifications" | "staffNotifications" | "postActivating" | "adminChargerPostActivating" | "myBookings" | "chargingSession" | "premiumSubscription" | "issueResolvement" | "penaltyPayment" | "chargingManagement";
 
 function AppContent() {
   const navigate = useNavigate();
@@ -168,6 +169,10 @@ function AppContent() {
     setCurrentView("postActivating");
     navigate("/staff/post-activating");
   };
+  const switchToChargingManagement = () => {
+    setCurrentView("chargingManagement");
+    navigate("/staff/charging-management");
+  };
   const switchToAdminChargerPostActivating = () => {
     setCurrentView("adminChargerPostActivating");
     navigate("/admin/charger-post-activating");
@@ -254,6 +259,7 @@ function AppContent() {
       "staffNotifications": "/staff/notifications",
       "staffReports": "/staff/reports",
       "postActivating": "/staff/post-activating",
+      "chargingManagement": "/staff/charging-management",
       "adminLogin": "/admin/login",
       "adminDashboard": "/admin/dashboard",
       "systemConfig": "/admin/system-config",
@@ -278,7 +284,7 @@ function AppContent() {
     if (['dashboard', 'booking', 'history', 'analysis', 'reportIssue', 'wallet', 'notifications', 'myBookings', 'chargingSession', 'premiumSubscription'].includes(currentView)) {
       return 'driver';
     }
-    if (['staffDashboard', 'staffNotifications', 'staffReports', 'postActivating'].includes(currentView)) {
+    if (['staffDashboard', 'staffNotifications', 'staffReports', 'postActivating', 'chargingManagement'].includes(currentView)) {
       return 'staff';  
     }
     if (['adminDashboard', 'systemConfig', 'adminMap', 'revenue', 'staffManagement', 'usageAnalytics', 'adminChargerPostActivating'].includes(currentView)) {
@@ -447,10 +453,21 @@ function AppContent() {
         return <StaffNotificationView onBack={() => navigate("/staff/dashboard")} />;
 
       case "staffDashboard":
-        return <StaffDashboard onLogout={switchToLogin} onNotifications={switchToStaffNotifications} onPostActivating={switchToPostActivating} onReports={switchToStaffReports} />;
+        return <StaffDashboard onLogout={switchToLogin} onNotifications={switchToStaffNotifications} onPostActivating={switchToPostActivating} onReports={switchToStaffReports} onChargingManagement={switchToChargingManagement} />;
 
       case "staffReports":
         return <StaffReportView onBack={() => navigate("/staff/dashboard")} />;
+
+      case "chargingManagement":
+        {
+          const storedStationId = localStorage.getItem("stationId");
+          return (
+            <ChargingManagementView
+              onBack={() => navigate("/staff/dashboard")}
+              {...(storedStationId ? { stationId: Number(storedStationId) } : {})}
+            />
+          );
+        }
 
       case "staffLogin":
         return (
@@ -978,6 +995,20 @@ function AppContent() {
           <AppLayout
             userType="staff"
             currentView="postActivating"
+            onNavigate={handleNavigation}
+            onLogout={switchToLogin}
+            showSidebar={showSidebar}
+          >
+            {renderContent()}
+          </AppLayout>
+        } 
+      />
+      <Route 
+        path="/staff/charging-management" 
+        element={
+          <AppLayout
+            userType="staff"
+            currentView="chargingManagement"
             onNavigate={handleNavigation}
             onLogout={switchToLogin}
             showSidebar={showSidebar}
