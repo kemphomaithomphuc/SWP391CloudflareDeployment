@@ -127,6 +127,18 @@ public class ChargingPointServiceImpl implements ChargingPointService {
             chargingPoint.setConnectorType(null); // Bỏ liên kết với connector type
             chargingPointRepository.save(chargingPoint);
         }
+
+        // Giảm chargingPointNumber khi xóa
+        ChargingStation station = chargingPoint.getStation();
+        if (station != null) {
+            int currentNumber = station.getChargingPointNumber();
+            // Check số âm
+            if (currentNumber > 0) {
+                station.setChargingPointNumber(currentNumber - 1);
+                chargingStationRepository.save(station);
+            }
+        }
+
         chargingPointRepository.deleteById(chargingPointId);
     }
 
