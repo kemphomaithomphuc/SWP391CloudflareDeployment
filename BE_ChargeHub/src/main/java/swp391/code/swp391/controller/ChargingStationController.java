@@ -10,6 +10,7 @@ import swp391.code.swp391.dto.ChargingPointDTO;
 import swp391.code.swp391.dto.ChargingStationDTO;
 import swp391.code.swp391.entity.ChargingStation;
 import swp391.code.swp391.entity.ChargingStation.ChargingStationStatus;
+import swp391.code.swp391.service.ChargingPointService;
 import swp391.code.swp391.service.ChargingStationService;
 import swp391.code.swp391.service.GeminiService;
 
@@ -22,6 +23,8 @@ import java.util.List;
 public class ChargingStationController {
 
     private final ChargingStationService chargingStationService;
+    @Autowired
+    private ChargingPointService chargingPointService;
 
     // Tạo charging station mới
     @PostMapping
@@ -207,5 +210,123 @@ public class ChargingStationController {
         }
 
         return new ResponseEntity<>(station, HttpStatus.OK);
+    }
+
+    // ===== CRUD CHARGING POINTS CHO TỪNG TRẠM =====
+
+
+
+    /**
+     * Lấy danh sách charging points của một trạm
+     */
+    @GetMapping("/{stationId}/charging-points")
+    public ResponseEntity<List<ChargingPointDTO>> getChargingPointsByStation(@PathVariable Long stationId) {
+        try {
+            List<ChargingPointDTO> chargingPoints = chargingPointService.getChargingPointsByStationId(stationId);
+            return new ResponseEntity<>(chargingPoints, HttpStatus.OK);
+        } catch (Exception e) {
+            return new ResponseEntity<>(null, HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * Thêm charging point mới vào trạm
+     */
+    @PostMapping("/{stationId}/charging-points")
+    public ResponseEntity<?> addChargingPointToStation(
+            @PathVariable Long stationId,
+            @RequestBody @Validated ChargingPointDTO chargingPointDTO) {
+        try {
+            // Validate connector type name
+            if (chargingPointDTO.getTypeName() == null || chargingPointDTO.getTypeName().trim().isEmpty()) {
+                return new ResponseEntity<>("Connector type name is required", HttpStatus.BAD_REQUEST);
+            }
+
+            // Set station ID
+            chargingPointDTO.setStationId(stationId);
+
+            // Tạo charging point
+            ChargingPointDTO createdPoint = chargingPointService.createChargingPoint(chargingPointDTO);
+            return new ResponseEntity<>(createdPoint, HttpStatus.CREATED);
+        } catch (Exception e) {
+            return new ResponseEntity<>(e.getMessage(), HttpStatus.BAD_REQUEST);
+        }
+    }
+
+    /**
+     * Cập nhật thông tin charging point
+     */
+    @PutMapping("/{stationId}/charging-points/{chargingPointId}")
+    public ResponseEntity<?> updateChargingPoint(
+            @PathVariable Long stationId,
+            @PathVariable Long chargingPointId,
+            @RequestBody @Validated ChargingPointDTO chargingPointDTO) {
+        try {
+            // Validate charging point thuộc về station này
+            ChargingPointDTO existingPoint = chargingPointService.getChargingPointById(chargingPointId);
+            if (existingPoint == null) {
+                return new ResponseEntity<>("Charging point not found", HttpStatus.NOT_FOUND);
+            }
+            if (!existingPoint.getStationId().equals(stationId)) {
+                return new ResponseEntity<>("Charging point does not belong to this station", HttpStatus.BAD_REQUEST);
+            }
+
+            // Cập nhật
+            ChargingPointDTO updatedPoint = chargingPointService.updateChargingPoint(chargingPointId, chargingPointDTO);
+            return new ResponseEntity<>(updatedPoint, HttpStatus.OK);
+        } catch (Exception e) {
+            return new ResponseEntity<>(e.getMessage(), HttpStatus.BAD_REQUEST);
+        }
+    }
+
+    /**
+     * Xóa charging point khỏi trạm
+     */
+    @DeleteMapping("/{stationId}/charging-points/{chargingPointId}")
+    public ResponseEntity<?> deleteChargingPoint(
+            @PathVariable Long stationId,
+            @PathVariable Long chargingPointId) {
+        try {
+            // Validate charging point thuộc về station này
+            ChargingPointDTO existingPoint = chargingPointService.getChargingPointById(chargingPointId);
+            if (existingPoint == null) {
+                return new ResponseEntity<>("Charging point not found", HttpStatus.NOT_FOUND);
+            }
+            if (!existingPoint.getStationId().equals(stationId)) {
+                return new ResponseEntity<>("Charging point does not belong to this station", HttpStatus.BAD_REQUEST);
+            }
+
+            // Xóa
+            chargingPointService.deleteChargingPoint(chargingPointId);
+            return new ResponseEntity<>("Charging point deleted successfully", HttpStatus.OK);
+        } catch (Exception e) {
+            return new ResponseEntity<>(e.getMessage(), HttpStatus.BAD_REQUEST);
+        }
+    }
+
+    /**
+     * Cập nhật status của charging point
+     */
+    @PatchMapping("/{stationId}/charging-points/{chargingPointId}/status")
+    public ResponseEntity<?> updateChargingPointStatus(
+            @PathVariable Long stationId,
+            @PathVariable Long chargingPointId,
+            @RequestBody swp391.code.swp391.entity.ChargingPoint.ChargingPointStatus status) {
+        try {
+            // Validate charging point thuộc về station này
+            ChargingPointDTO existingPoint = chargingPointService.getChargingPointById(chargingPointId);
+            if (existingPoint == null) {
+                return new ResponseEntity<>("Charging point not found", HttpStatus.NOT_FOUND);
+            }
+            if (!existingPoint.getStationId().equals(stationId)) {
+                return new ResponseEntity<>("Charging point does not belong to this station", HttpStatus.BAD_REQUEST);
+            }
+
+            // Cập nhật status
+            ChargingPointDTO updatedPoint = chargingPointService.updateChargingPointStatus(chargingPointId, status);
+            return new ResponseEntity<>(updatedPoint, HttpStatus.OK);
+        } catch (Exception e) {
+            return new ResponseEntity<>(e.getMessage(), HttpStatus.BAD_REQUEST);
+        }
     }
 }

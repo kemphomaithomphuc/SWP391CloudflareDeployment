@@ -295,7 +295,7 @@ export default function RevenueView({ onBack }: RevenueViewProps): JSX.Element {
     numSessions: isVietnamese ? 'Số phiên sạc' : 'Number of charging sessions',
     numUsers: isVietnamese ? 'Số người dùng duy nhất' : 'Number of unique users/customers',
     exportTime: isVietnamese ? 'Thời gian xuất' : 'Timestamp of export',
-    back: isVietnamese ? 'Quay lại' : 'Back',
+    back: isVietnamese ? 'Quay lại trang chính' : 'Back to Dashboard',
     barChart: isVietnamese ? 'Biểu đồ cột' : 'Bar Chart',
     lineChart: isVietnamese ? 'Biểu đồ đường' : 'Line Chart',
     areaChart: isVietnamese ? 'Biểu đồ vùng' : 'Area Chart',
@@ -582,16 +582,6 @@ export default function RevenueView({ onBack }: RevenueViewProps): JSX.Element {
       </div>
 
       <div className="container mx-auto p-6 max-w-7xl">
-        {/* Main Content */}
-        <div className="mb-8">
-          <div className="text-center mb-8">
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-sky-500 via-sky-400 to-emerald-400 dark:from-sky-300 dark:via-sky-200 dark:to-emerald-300 bg-clip-text text-transparent mb-2">
-              {translations.title}
-            </h1>
-            <p className="text-muted-foreground text-lg">{translations.subtitle}</p>
-          </div>
-        </div>
-
         {/* Filters */}
         <Card className="mb-8 border-sky-200 dark:border-emerald-800 shadow-lg">
           <CardContent className="p-6">

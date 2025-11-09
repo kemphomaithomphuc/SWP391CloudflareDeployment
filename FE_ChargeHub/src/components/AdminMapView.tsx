@@ -448,6 +448,7 @@ function sanitizeStation(raw: any): ChargingStation {
 export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
     const { language, t } = useLanguage();
+    const backToDashboardLabel = language === 'vi' ? 'Quay lại trang chính' : 'Back to Dashboard';
 
     const [selectedStation, setSelectedStation] = useState<ChargingStation | null>(null);
 
@@ -4974,7 +4975,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
                                     <ArrowLeft className="w-4 h-4" />
 
-                                    <span>{t('back')}</span>
+                                    <span>{backToDashboardLabel}</span>
 
                                 </Button>
 
