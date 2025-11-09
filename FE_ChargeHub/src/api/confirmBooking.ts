@@ -12,7 +12,11 @@ export interface ConfirmBookingRequest {
     targetBatteryLevel?: number;
     startTime: string;
     endTime: string;
+    energyToCharge?: number;
+    estimatedCost?: number;
+    initialStatus?: string;  // ✅ "BOOKED" for scheduled, "CHARGING" for immediate
     bookingMode?: string;
+    slotIds?: string[];  // ✅ IDs of slots selected by user
     [key: string]: any; // Allow for flexible request structure
 }
 

@@ -21,7 +21,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { useLanguage } from "../contexts/LanguageContext";
 import { useTheme } from "../contexts/ThemeContext";
-import { getTransactionHistory } from "../services/api";
+import { getTransactionHistory } from "../api/transactionHistory";
 
 interface Transaction {
   id: string;
@@ -183,15 +183,23 @@ export default function TransactionHistoryView({ onBack }: TransactionHistoryVie
               ? 'completed'
               : 'pending';
 
+          // Calculate duration from session times if available
+          let duration = Number(it?.duration ?? it?.durationMinutes ?? 0);
+          if (it?.sessionStartTime && it?.sessionEndTime && duration === 0) {
+            const startTime = new Date(it.sessionStartTime);
+            const endTime = new Date(it.sessionEndTime);
+            duration = Math.round((endTime.getTime() - startTime.getTime()) / (1000 * 60)); // minutes
+          }
+
           return {
-            id: String(it?.id ?? it?.transactionId ?? Math.random()),
+            id: String(it?.transactionId ?? it?.id ?? Math.random()),
             date: created,
             time,
             stationName: it?.stationName ?? 'EV Station',
             location: it?.stationAddress ?? it?.location ?? 'N/A',
             amount: Number(it?.amount ?? it?.totalAmount ?? 0),
-            energyConsumed: Number(it?.energyConsumed ?? it?.kwh ?? 0),
-            duration: Number(it?.duration ?? it?.durationMinutes ?? 0),
+            energyConsumed: Number(it?.powerConsumed ?? it?.energyConsumed ?? it?.kwh ?? 0),
+            duration,
             status,
             paymentMethod: it?.paymentMethod ?? 'Wallet',
             transactionType: (it?.transactionType as Transaction['transactionType']) || 'charging',

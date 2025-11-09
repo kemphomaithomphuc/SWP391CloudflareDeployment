@@ -12,8 +12,6 @@ import {
     Users2,
     TrendingUp,
     BarChart3,
-    Eye,
-    EyeOff,
     Globe,
     Settings,
     Activity
@@ -38,7 +36,6 @@ interface AdminDashboardProps {
 export default function AdminDashboard({ onLogout, onSystemConfig, onAdminMap, onRevenue, onStaffManagement, onUsageAnalytics, onAdminChargerPostActivating, onIssueResolvement }: AdminDashboardProps) {
 
     const { language, setLanguage } = useLanguage();
-    const [showSalary, setShowSalary] = useState(false);
     const [isLoggingOut, setIsLoggingOut] = useState(false);
     const [currentView, setCurrentView] = useState<'dashboard' | 'driverManagement'>('dashboard');
     const [marketTrendsExpanded, setMarketTrendsExpanded] = useState(false);
@@ -48,14 +45,7 @@ export default function AdminDashboard({ onLogout, onSystemConfig, onAdminMap, o
         setLanguage(language === 'en' ? 'vi' : 'en');
     };
 
-    const adminData = {
-        username: "Admin01",
-        salary: 85000000 // VND
-    };
-
-    const formatCurrency = (amount: number) => {
-        return new Intl.NumberFormat('vi-VN').format(amount) + ' VND';
-    };
+    const adminName = localStorage.getItem("fullName") || "Admin";
 
     const handleGridButtonClick = (buttonName: string) => {
         console.log(`${buttonName} button clicked`);
@@ -116,21 +106,8 @@ export default function AdminDashboard({ onLogout, onSystemConfig, onAdminMap, o
                                 </div>
                                 <div className="space-y-1">
                                     <p className="font-medium text-foreground">
-                                        Admin: {adminData.username}
+                                        {language === 'en' ? 'Admin' : 'Quản trị viên'}: {adminName}
                                     </p>
-                                    <div className="flex items-center space-x-2">
-                                        <p className="text-sm text-muted-foreground">
-                                            Salary: {showSalary ? formatCurrency(adminData.salary) : '••••••••'}
-                                        </p>
-                                        <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            onClick={() => setShowSalary(!showSalary)}
-                                            className="h-5 w-5 p-0 text-muted-foreground hover:text-foreground"
-                                        >
-                                            {showSalary ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
-                                        </Button>
-                                    </div>
                                 </div>
                             </div>
                         </div>

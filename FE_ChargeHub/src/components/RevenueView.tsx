@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import type { JSX } from 'react';
-import { ArrowLeft, Download, BarChart3, Calendar, MapPin, Building2, TrendingUp, Users, Zap, Clock } from 'lucide-react';
+import { ArrowLeft, Download, BarChart3, Calendar, Building2, TrendingUp, Users, Zap, Clock } from 'lucide-react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
@@ -11,13 +11,6 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import AdminLanguageThemeControls from './AdminLanguageThemeControls';
 import { getRevenueData, RevenueData, RevenueFilters, exportRevenueToExcel, exportRevenueToPDF, ExportRevenueFilters, getAllChargingStations, ChargingStationDTO, RevenueAPIResponse } from '../services/api';
 import { toast } from 'sonner';
-
-const regionData = [
-  { id: 'all', name: 'All Regions', nameVi: 'Tất cả khu vực' },
-  { id: 'north', name: 'Northern Region', nameVi: 'Miền Bắc' },
-  { id: 'central', name: 'Central Region', nameVi: 'Miền Trung' },
-  { id: 'south', name: 'Southern Region', nameVi: 'Miền Nam' },
-];
 
 interface StationOption {
   id: string;
@@ -40,7 +33,6 @@ interface RevenueViewProps {
 export default function RevenueView({ onBack }: RevenueViewProps): JSX.Element {
   const { language } = useLanguage();
   const { theme } = useTheme();
-  const [selectedRegion, setSelectedRegion] = useState('all');
   const [selectedStation, setSelectedStation] = useState('all');
   const [selectedTimeRange, setSelectedTimeRange] = useState('month');
   const [chartType, setChartType] = useState<'bar' | 'line' | 'area'>('bar');
@@ -168,9 +160,6 @@ export default function RevenueView({ onBack }: RevenueViewProps): JSX.Element {
         
         const filters: RevenueFilters = {};
         // Old format for backward compatibility
-        if (selectedRegion !== 'all') {
-          filters.region = selectedRegion;
-        }
         if (selectedStation !== 'all') {
           filters.station = selectedStation;
         }
@@ -287,12 +276,11 @@ export default function RevenueView({ onBack }: RevenueViewProps): JSX.Element {
     };
 
     fetchRevenueData();
-  }, [selectedRegion, selectedStation, selectedTimeRange, isVietnamese, stationData]);
+  }, [selectedStation, selectedTimeRange, isVietnamese, stationData]);
 
   const translations = {
     title: isVietnamese ? 'Doanh Thu' : 'Revenue',
     subtitle: isVietnamese ? 'Phân tích doanh thu và hiệu suất trạm sạc' : 'Revenue analytics and charging station performance',
-    chooseRegion: isVietnamese ? 'Chọn Khu vực' : 'Choose Region',
     chooseStation: isVietnamese ? 'Chọn Trạm' : 'Choose Station',
     chooseTimeRange: isVietnamese ? 'Chọn Khoảng thời gian' : 'Choose Range Time',
     chart: isVietnamese ? 'Biểu đồ' : 'Chart',
@@ -452,14 +440,14 @@ export default function RevenueView({ onBack }: RevenueViewProps): JSX.Element {
           <div className="bg-card border border-border rounded-lg p-3 shadow-lg">
             <p className="font-semibold mb-2">{label}</p>
             <div className="space-y-1 text-sm">
-              <p className="text-red-600 dark:text-red-400">
+              <p className="text-sky-600 dark:text-emerald-400">
                 {translations.totalRevenue}: <span className="font-bold">${data.revenue?.toLocaleString() || 0}</span>
               </p>
-              <p className="text-blue-600 dark:text-blue-400">
+              <p className="text-emerald-600 dark:text-emerald-400">
                 {translations.totalSessions}: <span className="font-bold">{data.sessions?.toLocaleString() || 0}</span>
               </p>
               {data.users !== undefined && (
-                <p className="text-green-600 dark:text-green-400">
+                <p className="text-sky-500 dark:text-emerald-300">
                   {translations.uniqueUsers}: <span className="font-bold">{data.users?.toLocaleString() || 0}</span>
                 </p>
               )}
@@ -483,21 +471,21 @@ export default function RevenueView({ onBack }: RevenueViewProps): JSX.Element {
         return (
           <ResponsiveContainer {...commonProps}>
             <LineChart data={revenueData}>
-              <CartesianGrid strokeDasharray="3 3" stroke={theme === 'dark' ? '#333' : '#e0e0e0'} />
+              <CartesianGrid strokeDasharray="3 3" stroke={theme === 'dark' ? '#1f2937' : '#d0f0f4'} />
               <XAxis 
                 dataKey="month" 
-                stroke={theme === 'dark' ? '#fff' : '#333'}
+                stroke={theme === 'dark' ? '#e0f2fe' : '#0f172a'}
                 angle={-45}
                 textAnchor="end"
                 height={80}
                 interval="preserveStartEnd"
               />
               <YAxis 
-                stroke={theme === 'dark' ? '#fff' : '#333'}
+                stroke={theme === 'dark' ? '#e0f2fe' : '#0f172a'}
                 tickFormatter={formatYAxis}
               />
               <Tooltip content={customTooltip} />
-              <Line type="monotone" dataKey="revenue" stroke="#dc2626" strokeWidth={3} dot={{ fill: '#dc2626', strokeWidth: 2, r: 6 }} />
+              <Line type="monotone" dataKey="revenue" stroke="#0ea5e9" strokeWidth={3} dot={{ fill: '#34d399', strokeWidth: 2, r: 6 }} />
             </LineChart>
           </ResponsiveContainer>
         );
@@ -505,25 +493,25 @@ export default function RevenueView({ onBack }: RevenueViewProps): JSX.Element {
         return (
           <ResponsiveContainer {...commonProps}>
             <AreaChart data={revenueData}>
-              <CartesianGrid strokeDasharray="3 3" stroke={theme === 'dark' ? '#333' : '#e0e0e0'} />
+              <CartesianGrid strokeDasharray="3 3" stroke={theme === 'dark' ? '#1f2937' : '#d0f0f4'} />
               <XAxis 
                 dataKey="month" 
-                stroke={theme === 'dark' ? '#fff' : '#333'}
+                stroke={theme === 'dark' ? '#e0f2fe' : '#0f172a'}
                 angle={-45}
                 textAnchor="end"
                 height={80}
                 interval="preserveStartEnd"
               />
               <YAxis 
-                stroke={theme === 'dark' ? '#fff' : '#333'}
+                stroke={theme === 'dark' ? '#e0f2fe' : '#0f172a'}
                 tickFormatter={formatYAxis}
               />
               <Tooltip content={customTooltip} />
-              <Area type="monotone" dataKey="revenue" stroke="#dc2626" fill="url(#revenueGradient)" strokeWidth={2} />
+              <Area type="monotone" dataKey="revenue" stroke="#0ea5e9" fill="url(#revenueGradient)" strokeWidth={2} />
               <defs>
                 <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#dc2626" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="#dc2626" stopOpacity={0.1} />
+                  <stop offset="5%" stopColor="#0ea5e9" stopOpacity={0.35} />
+                  <stop offset="95%" stopColor="#34d399" stopOpacity={0.15} />
                 </linearGradient>
               </defs>
             </AreaChart>
@@ -533,21 +521,21 @@ export default function RevenueView({ onBack }: RevenueViewProps): JSX.Element {
         return (
           <ResponsiveContainer {...commonProps}>
             <BarChart data={revenueData}>
-              <CartesianGrid strokeDasharray="3 3" stroke={theme === 'dark' ? '#333' : '#e0e0e0'} />
+              <CartesianGrid strokeDasharray="3 3" stroke={theme === 'dark' ? '#1f2937' : '#d0f0f4'} />
               <XAxis 
                 dataKey="month" 
-                stroke={theme === 'dark' ? '#fff' : '#333'}
+                stroke={theme === 'dark' ? '#e0f2fe' : '#0f172a'}
                 angle={-45}
                 textAnchor="end"
                 height={80}
                 interval="preserveStartEnd"
               />
               <YAxis 
-                stroke={theme === 'dark' ? '#fff' : '#333'}
+                stroke={theme === 'dark' ? '#e0f2fe' : '#0f172a'}
                 tickFormatter={formatYAxis}
               />
               <Tooltip content={customTooltip} />
-              <Bar dataKey="revenue" fill="#dc2626" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="revenue" fill="#38bdf8" radius={[6, 6, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         );
@@ -555,7 +543,7 @@ export default function RevenueView({ onBack }: RevenueViewProps): JSX.Element {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-red-50/30 dark:to-red-950/20">
+    <div className="min-h-screen bg-gradient-to-br from-background via-background to-sky-50/40 dark:to-emerald-950/20">
       {/* Header */}
       <div className="sticky top-0 z-40 bg-card/80 backdrop-blur-sm border-b border-border shadow-sm">
         <div className="container mx-auto px-4 py-4">
@@ -572,8 +560,8 @@ export default function RevenueView({ onBack }: RevenueViewProps): JSX.Element {
               </Button>
               <div className="flex items-center space-x-3">
                 <div className="relative group">
-                  <div className="w-10 h-10 bg-gradient-to-br from-red-500 via-red-500/90 to-red-500/70 rounded-2xl flex items-center justify-center shadow-lg shadow-red-500/30 transform group-hover:scale-110 transition-transform duration-300">
-                    <TrendingUp className="w-6 h-6 text-white" />
+                  <div className="w-10 h-10 bg-gradient-to-br from-sky-400 via-sky-400/90 to-emerald-400/70 rounded-2xl flex items-center justify-center shadow-lg shadow-sky-400/30 transform group-hover:scale-110 transition-transform duration-300">
+                    <TrendingUp className="w-6 h-6 text-emerald-50" />
                   </div>
                 </div>
                 <div>
@@ -597,7 +585,7 @@ export default function RevenueView({ onBack }: RevenueViewProps): JSX.Element {
         {/* Main Content */}
         <div className="mb-8">
           <div className="text-center mb-8">
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-red-600 to-red-800 dark:from-red-400 dark:to-red-600 bg-clip-text text-transparent mb-2">
+            <h1 className="text-4xl font-bold bg-gradient-to-r from-sky-500 via-sky-400 to-emerald-400 dark:from-sky-300 dark:via-sky-200 dark:to-emerald-300 bg-clip-text text-transparent mb-2">
               {translations.title}
             </h1>
             <p className="text-muted-foreground text-lg">{translations.subtitle}</p>
@@ -605,35 +593,16 @@ export default function RevenueView({ onBack }: RevenueViewProps): JSX.Element {
         </div>
 
         {/* Filters */}
-        <Card className="mb-8 border-red-200 dark:border-red-800 shadow-lg">
+        <Card className="mb-8 border-sky-200 dark:border-emerald-800 shadow-lg">
           <CardContent className="p-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
-                <label className="text-sm font-medium text-red-700 dark:text-red-300 flex items-center gap-2">
-                  <MapPin className="h-4 w-4" />
-                  {translations.chooseRegion}
-                </label>
-                <Select value={selectedRegion} onValueChange={setSelectedRegion}>
-                  <SelectTrigger className="border-red-200 dark:border-red-800 focus:ring-red-500">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {regionData.map((region) => (
-                      <SelectItem key={region.id} value={region.id}>
-                        {isVietnamese ? region.nameVi : region.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-red-700 dark:text-red-300 flex items-center gap-2">
+                <label className="text-sm font-medium text-sky-700 dark:text-emerald-300 flex items-center gap-2">
                   <Building2 className="h-4 w-4" />
                   {translations.chooseStation}
                 </label>
                 <Select value={selectedStation} onValueChange={setSelectedStation}>
-                  <SelectTrigger className="border-red-200 dark:border-red-800 focus:ring-red-500">
+                  <SelectTrigger className="border-sky-200 dark:border-emerald-800 focus:ring-sky-500">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -647,12 +616,12 @@ export default function RevenueView({ onBack }: RevenueViewProps): JSX.Element {
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium text-red-700 dark:text-red-300 flex items-center gap-2">
+                <label className="text-sm font-medium text-sky-700 dark:text-emerald-300 flex items-center gap-2">
                   <Calendar className="h-4 w-4" />
                   {translations.chooseTimeRange}
                 </label>
                 <Select value={selectedTimeRange} onValueChange={setSelectedTimeRange}>
-                  <SelectTrigger className="border-red-200 dark:border-red-800 focus:ring-red-500">
+                  <SelectTrigger className="border-sky-200 dark:border-emerald-800 focus:ring-sky-500">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>

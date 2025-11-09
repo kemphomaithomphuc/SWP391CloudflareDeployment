@@ -108,6 +108,25 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
             @Param("endTime") LocalDateTime endTime
     );
 
+    /**
+     * Kiểm tra user có order overlap tại cùng 1 station không
+     * Dùng để ngăn user book nhiều orders trùng thời gian tại cùng 1 trạm
+     */
+    @Query("""
+        SELECT COUNT(o) > 0 FROM Order o 
+        WHERE o.user.userId = :userId
+        AND o.chargingPoint.station.stationId = :stationId
+        AND o.status IN ('BOOKED', 'CHARGING')
+        AND o.startTime < :endTime
+        AND o.endTime > :startTime
+        """)
+    boolean hasUserOrderAtSameStationInTimeRange(
+            @Param("userId") Long userId,
+            @Param("stationId") Long stationId,
+            @Param("startTime") LocalDateTime startTime,
+            @Param("endTime") LocalDateTime endTime
+    );
+
 
 
     int countActiveOrdersByUser(User user);

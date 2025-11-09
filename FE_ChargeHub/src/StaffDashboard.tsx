@@ -7,6 +7,9 @@ import { Popover, PopoverContent, PopoverTrigger } from "./components/ui/popover
 import { Separator } from "./components/ui/separator";
 import StaffInvoiceView from "./components/StaffInvoiceView";
 import StaffReportView from "./components/StaffReportView";
+import PostActivatingView from "./components/PostActivatingView";
+import ChargingManagementView from "./components/ChargingManagementView";
+import StaffNotificationView from "./components/StaffNotificationView";
 import {
     Menu,
     X,
@@ -95,15 +98,7 @@ export default function StaffDashboard({ onLogout, onNotifications, onReports, o
 
     // Handle menu item clicks
     const handleMenuClick = (itemId: string) => {
-        if (itemId === "chargingManagement" && onChargingManagement) {
-            onChargingManagement();
-        } else if (itemId === "notifications" && onNotifications) {
-            onNotifications();
-        } else if (itemId === "postActivating" && onPostActivating) {
-            onPostActivating();
-        } else {
-            setActiveSection(itemId);
-        }
+        setActiveSection(itemId);
         setSidebarOpen(false);
     };
 
@@ -177,198 +172,18 @@ export default function StaffDashboard({ onLogout, onNotifications, onReports, o
 
       case "postActivating":
         return (
-          <div className="space-y-6">
-            <div className="mb-8">
-              <h2 className="mb-2 text-foreground">{language === 'vi' ? 'Quản Lý Kích Hoạt Trạm' : 'Post Activating Management'}</h2>
-              <p className="text-muted-foreground">{language === 'vi' ? 'Quản lý việc kích hoạt trạm sạc thay cho khách hàng' : 'Manage charging station activation for customers'}</p>
-            </div>
-            
-            {/* Action to go to Post Activating */}
-            <div className="text-center py-4">
-              <Button 
-                onClick={onPostActivating} 
-                className="bg-primary hover:bg-primary/90 text-primary-foreground"
-                size="lg"
-              >
-                <Activity className="w-4 h-4 mr-2" />
-                {language === 'vi' ? 'Mở Quản Lý Kích Hoạt Trạm' : 'Open Post Activating Management'}
-              </Button>
-            </div>
+          <PostActivatingView onBack={() => setActiveSection("dashboard")} />
+        );
 
-            {/* Quick Stats */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-              <div className="bg-card rounded-xl p-6 shadow-sm border border-border">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-muted-foreground">{language === 'vi' ? 'Trạm Hoạt Động' : 'Active Stations'}</p>
-                    <p className="text-2xl font-semibold text-card-foreground">12</p>
-                  </div>
-                  <div className="w-12 h-12 bg-green-100 dark:bg-green-900 rounded-lg flex items-center justify-center">
-                    <Zap className="w-6 h-6 text-green-600 dark:text-green-400" />
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-card rounded-xl p-6 shadow-sm border border-border">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-muted-foreground">{language === 'vi' ? 'Khách Đang Sạc' : 'Active Sessions'}</p>
-                    <p className="text-2xl font-semibold text-card-foreground">8</p>
-                  </div>
-                  <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900 rounded-lg flex items-center justify-center">
-                    <Users className="w-6 h-6 text-blue-600 dark:text-blue-400" />
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-card rounded-xl p-6 shadow-sm border border-border">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-muted-foreground">{language === 'vi' ? 'Trạm Bảo Trì' : 'Maintenance'}</p>
-                    <p className="text-2xl font-semibold text-card-foreground">2</p>
-                  </div>
-                  <div className="w-12 h-12 bg-orange-100 dark:bg-orange-900 rounded-lg flex items-center justify-center">
-                    <Settings className="w-6 h-6 text-orange-600 dark:text-orange-400" />
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+      case "chargingManagement":
+        return (
+          <ChargingManagementView onBack={() => setActiveSection("dashboard")} />
         );
 
       case "notifications":
         return (
-          <div className="space-y-6">
-            <div className="mb-8">
-              <h2 className="mb-2 text-foreground">{t('notifications')}</h2>
-              <p className="text-muted-foreground">{t('notifications_management')}</p>
-            </div>
-
-            {/* Notification Stats */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-              <div className="bg-card rounded-xl p-6 shadow-sm border border-border">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-muted-foreground">{t('unread')}</p>
-                    <p className="text-2xl font-semibold text-card-foreground">8</p>
-                  </div>
-                  <div className="w-12 h-12 bg-red-100 dark:bg-red-900 rounded-lg flex items-center justify-center">
-                    <Bell className="w-6 h-6 text-red-600 dark:text-red-400" />
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-card rounded-xl p-6 shadow-sm border border-border">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-muted-foreground">{t('today')}</p>
-                    <p className="text-2xl font-semibold text-card-foreground">12</p>
-                  </div>
-                  <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900 rounded-lg flex items-center justify-center">
-                    <Calendar className="w-6 h-6 text-blue-600 dark:text-blue-400" />
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-card rounded-xl p-6 shadow-sm border border-border">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-muted-foreground">{t('critical')}</p>
-                    <p className="text-2xl font-semibold text-card-foreground">3</p>
-                  </div>
-                  <div className="w-12 h-12 bg-orange-100 dark:bg-orange-900 rounded-lg flex items-center justify-center">
-                    <AlertTriangle className="w-6 h-6 text-orange-600 dark:text-orange-400" />
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Action to go to full notifications */}
-            <div className="text-center py-4">
-              <Button 
-                onClick={onNotifications} 
-                className="bg-primary hover:bg-primary/90 text-primary-foreground"
-                size="lg"
-              >
-                <Bell className="w-4 h-4 mr-2" />
-                {t('view_all_notifications_detailed')}
-              </Button>
-            </div>
-
-            {/* Recent Notifications Preview */}
-            <div className="bg-card rounded-xl shadow-sm border border-border">
-              <div className="p-6 border-b border-border">
-                <h3 className="font-medium text-card-foreground">{t('recent_notifications_preview')}</h3>
-              </div>
-              <div className="divide-y divide-border">
-                {[
-                  {
-                    id: 1,
-                    type: "critical",
-                    title: t('user_decision_required'),
-                    message: t('customer_continue_after_late'),
-                    time: t('5_minutes_ago'),
-                    read: false
-                  },
-                  {
-                    id: 2,
-                    type: "warning",
-                    title: t('overstay_alert'),
-                    message: t('vehicle_parked_without_charging'),
-                    time: t('15_minutes_ago'),
-                    read: false
-                  },
-                  {
-                    id: 3,
-                    type: "info",
-                    title: t('new_report_received'),
-                    message: t('customer_reported_malfunction'),
-                    time: t('1_hour_ago'),
-                    read: true
-                  }
-                ].map((notification) => (
-                  <div key={notification.id} className={`p-4 hover:bg-accent/50 cursor-pointer ${!notification.read ? 'bg-primary/5' : ''}`}>
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-start space-x-3">
-                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                          notification.type === 'critical' ? 'bg-red-100 dark:bg-red-900' :
-                          notification.type === 'warning' ? 'bg-orange-100 dark:bg-orange-900' :
-                          'bg-blue-100 dark:bg-blue-900'
-                        }`}>
-                          {notification.type === 'critical' ? <AlertTriangle className="w-4 h-4 text-red-600 dark:text-red-400" /> :
-                           notification.type === 'warning' ? <AlertTriangle className="w-4 h-4 text-orange-600 dark:text-orange-400" /> :
-                           <Bell className="w-4 h-4 text-blue-600 dark:text-blue-400" />}
-                        </div>
-                        <div>
-                          <h4 className={`font-medium ${!notification.read ? 'text-foreground' : 'text-muted-foreground'}`}>
-                            {notification.title}
-                          </h4>
-                          <p className="text-sm text-muted-foreground mt-1">{notification.message}</p>
-                          <p className="text-xs text-muted-foreground mt-2">{notification.time}</p>
-                        </div>
-                      </div>
-                      {!notification.read && (
-                        <div className="w-2 h-2 bg-primary rounded-full"></div>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <div className="p-4 text-center border-t border-border">
-                <Button 
-                  variant="outline" 
-                  onClick={onNotifications}
-                  className="w-full"
-                >
-                  {t('view_all_notifications')} {" "}
-                  <Bell className="w-4 h-4 ml-2" />
-                </Button>
-              </div>
-            </div>
-          </div>
+          <StaffNotificationView onBack={() => setActiveSection("dashboard")} />
         );
-
-
 
       case "settings":
         return (
@@ -473,7 +288,10 @@ export default function StaffDashboard({ onLogout, onNotifications, onReports, o
 
             {/* Stats Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-              <div className="bg-card rounded-xl p-6 shadow-sm border border-border">
+              <div 
+                className="bg-card rounded-xl p-6 shadow-sm border border-border cursor-pointer hover:shadow-md hover:border-yellow-600/30 transition-all duration-200"
+                onClick={() => setActiveSection("chargingManagement")}
+              >
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-muted-foreground">{language === 'vi' ? 'Quản Lý Charging' : 'Charging Management'}</p>
@@ -485,7 +303,10 @@ export default function StaffDashboard({ onLogout, onNotifications, onReports, o
                 </div>
               </div>
 
-              <div className="bg-card rounded-xl p-6 shadow-sm border border-border">
+              <div 
+                className="bg-card rounded-xl p-6 shadow-sm border border-border cursor-pointer hover:shadow-md hover:border-green-600/30 transition-all duration-200"
+                onClick={() => setActiveSection("billing")}
+              >
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-muted-foreground">{t('pending_invoices')}</p>
@@ -512,7 +333,10 @@ export default function StaffDashboard({ onLogout, onNotifications, onReports, o
                 </div>
               </div>
 
-              <div className="bg-card rounded-xl p-6 shadow-sm border border-border">
+              <div 
+                className="bg-card rounded-xl p-6 shadow-sm border border-border cursor-pointer hover:shadow-md hover:border-purple-600/30 transition-all duration-200"
+                onClick={() => setActiveSection("notifications")}
+              >
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-muted-foreground">{t('notifications')}</p>
@@ -531,7 +355,7 @@ export default function StaffDashboard({ onLogout, onNotifications, onReports, o
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
                 <div 
                   className="group p-6 border border-border rounded-xl hover:shadow-md transition-all duration-200 cursor-pointer hover:border-primary/30 bg-gradient-to-br from-card to-card/80"
-                  onClick={onChargingManagement}
+                  onClick={() => setActiveSection("chargingManagement")}
                 >
                   <div className="flex flex-col items-center text-center space-y-3">
                     <div className="w-12 h-12 bg-yellow-100 dark:bg-yellow-900 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform duration-200">
@@ -576,7 +400,7 @@ export default function StaffDashboard({ onLogout, onNotifications, onReports, o
 
                 <div 
                   className="group p-6 border border-border rounded-xl hover:shadow-md transition-all duration-200 cursor-pointer hover:border-primary/30 bg-gradient-to-br from-card to-card/80"
-                  onClick={onNotifications}
+                  onClick={() => setActiveSection("notifications")}
                 >
                   <div className="flex flex-col items-center text-center space-y-3">
                     <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform duration-200">

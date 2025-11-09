@@ -99,6 +99,7 @@ interface ConnectorType {
 
 
 interface ChargingPoint {
+    chargingPointName: string;
 
     chargingPointId: number;
 
@@ -336,6 +337,8 @@ function sanitizeStation(raw: any): ChargingStation {
 
                 chargingPointId: Number(point.chargingPointId ?? 0),
 
+                chargingPointName: String(point.chargingPointName ?? point.name ?? ""),
+
                 typeName: String(typeName),
 
                 status: String(point.status ?? "OUT_OF_SERVICE"),
@@ -539,6 +542,8 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
         id: string;
 
+        chargingPointName: string;
+
         connectorType: string;
 
         power: string;
@@ -684,6 +689,8 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                 chargingPointNumber: chargingPosts.length,
 
                 chargingPoints: chargingPosts.map(post => ({
+
+                    chargingPointName: post.chargingPointName?.trim() || "",
 
                     status: post.status,
 
@@ -1086,6 +1093,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                 console.log("Charging Point Details API Response:", res.data);
                 return {
                     chargingPointId: res.data.chargingPointId,
+                    chargingPointName: res.data.chargingPointName || res.data.name || "",
                     status: res.data.status,
                     connectorTypeId: res.data.connectorTypeId,
                     stationId: res.data.stationId,
@@ -1266,6 +1274,8 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                     return {
 
                         charingPointId: Number(post.id.replace('post-', '')), // Extract ID from post ID
+
+                        chargingPointName: post.chargingPointName?.trim() || "",
 
                         status: post.status,
 
@@ -1492,6 +1502,8 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                 return {
 
                     chargingPointId: res.data.chargingPointId ?? res.data.id,
+
+                    chargingPointName: res.data.chargingPointName || "",
 
                     status: res.data.status ?? payload.status,
 
@@ -1992,6 +2004,8 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
             id: `post_${Date.now()}`,
 
+            chargingPointName: "",
+
             connectorType: "",
 
             power: "",
@@ -2123,6 +2137,8 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                 const chargingPoints: ChargingPoint[] = res.data.map((point: any) => ({
 
                     chargingPointId: point.chargingPointId,
+
+                    chargingPointName: point.chargingPointName || point.name || "",
 
                     status: point.status,
 
@@ -3800,6 +3816,8 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
                             id: `post-${point.chargingPointId}`,
 
+                            chargingPointName: point.chargingPointName || "",
+
                             connectorType: point.typeName || point.connectorType?.typeName || "Unknown",
 
                             power: point.powerOutput?.toString() || "0",
@@ -5298,6 +5316,24 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
                                                                             <div>
 
+                                                                                <label className="text-xs text-muted-foreground mb-1.5 block font-medium">{t('charging_point_name')}</label>
+
+                                                                                <Input
+
+                                                                                    value={post.chargingPointName}
+
+                                                                                    onChange={(e) => updateChargingPost(post.id, 'chargingPointName', e.target.value)}
+
+                                                                                    placeholder={t('charging_point_name_placeholder')}
+
+                                                                                    className="w-full h-9 text-sm bg-background border border-border/50 rounded-lg px-3 text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
+
+                                                                                />
+
+                                                                            </div>
+
+                                                                            <div>
+
                                                                                 <label className="text-xs text-muted-foreground mb-1.5 block font-medium">{t('connector_type')}</label>
 
                                                                                 <select
@@ -6511,6 +6547,24 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
 
                                                                                     <div className="space-y-3">
+
+                                                                                        <div>
+
+                                                                                            <label className="text-xs text-muted-foreground mb-1.5 block font-medium">{t('charging_point_name')}</label>
+
+                                                                                            <Input
+
+                                                                                                value={post.chargingPointName}
+
+                                                                                                onChange={(e) => updateChargingPost(post.id, 'chargingPointName', e.target.value)}
+
+                                                                                                placeholder={t('charging_point_name_placeholder')}
+
+                                                                                                className="w-full h-9 text-sm bg-background border border-border/50 rounded-lg px-3 text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
+
+                                                                                            />
+
+                                                                                        </div>
 
                                                                                         <div>
 

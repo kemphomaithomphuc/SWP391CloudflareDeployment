@@ -404,6 +404,41 @@ public class OrderServiceImpl implements OrderService {
             throw new ApiRequestException("Điểm sạc không khả dụng");
         }
 
+        LocalDateTime now = LocalDateTime.now();
+        boolean isBookNow = !request.getStartTime().isAfter(now.plusMinutes(IMMEDIATE_START_THRESHOLD_MINUTES));
+
+        // ===== 6.1. BOOK NOW: TÍNH THỜI GIAN KẾT THÚC THỰC TẾ =====
+        LocalDateTime actualEndTime = request.getEndTime();
+
+        if (isBookNow) {
+            // Tính thời gian sạc cần thiết dựa trên dung lượng pin
+            double batteryCapacity = vehicle.getCarModel().getCapacity();
+            double batteryToCharge = request.getTargetBattery() - request.getCurrentBattery();
+            double energyToCharge = (batteryToCharge / 100.0) * batteryCapacity;
+
+            int requiredMinutes = calculateChargingDuration(
+                energyToCharge,
+                chargingPoint.getConnectorType().getPowerOutput()
+            );
+
+            // Thời gian kết thúc THỰC TẾ = bây giờ + thời gian sạc cần thiết
+            actualEndTime = now.plusMinutes(requiredMinutes);
+
+            // Kiểm tra có vượt quá giờ đóng cửa không
+            LocalDateTime dayEnd = LocalDateTime.of(now.toLocalDate().plusDays(1), CLOSING_TIME);
+            if (actualEndTime.isAfter(dayEnd)) {
+                long availableMinutes = Duration.between(now, dayEnd).toMinutes();
+                throw new ApiRequestException(
+                    String.format("Thời gian sạc dự kiến (%d phút) vượt quá giờ đóng cửa. " +
+                        "Chỉ còn %d phút khả dụng đến hết ngày.",
+                        requiredMinutes, availableMinutes)
+                );
+            }
+
+            // Cập nhật endTime trong request để lưu vào order
+            request.setEndTime(actualEndTime);
+        }
+
         // ===== 7. VALIDATE SLOT BOOKING =====
         // Kiểm tra thời gian đặt có hợp lệ với slot system không
         validateSlotBooking(request.getStartTime(), request.getEndTime());
@@ -414,8 +449,9 @@ public class OrderServiceImpl implements OrderService {
 
         // ===== 8. KIỂM TRA TRÙNG LỊCH - DOUBLE CHECK SAU KHI LOCK =====
         // THÊM: Kiểm tra với buffer 15 phút
+        // Đối với Book Now, sử dụng actualEndTime để kiểm tra overlap
         LocalDateTime bookingStartWithBuffer = request.getStartTime().minusMinutes(BUFFER_MINUTES);
-        LocalDateTime bookingEndWithBuffer = request.getEndTime().plusMinutes(BUFFER_MINUTES);
+        LocalDateTime bookingEndWithBuffer = actualEndTime.plusMinutes(BUFFER_MINUTES);
 
         List<Order> overlappingOrders = orderRepository.findOverlappingOrders(
                 chargingPoint.getChargingPointId(),
@@ -428,12 +464,32 @@ public class OrderServiceImpl implements OrderService {
                         order.getStatus() == Order.Status.CHARGING);
 
         if (hasConflict) {
-            throw new ApiRequestException("Slot này quá gần với đơn đặt chỗ khác (cần buffer 15 phút). Vui lòng chọn slot khác.");
+            Order conflictOrder = overlappingOrders.stream()
+                .filter(order -> order.getStatus() == Order.Status.BOOKED ||
+                               order.getStatus() == Order.Status.CHARGING)
+                .findFirst()
+                .orElse(null);
+
+            String conflictTime = conflictOrder != null ?
+                conflictOrder.getStartTime().toLocalTime().toString() : "không xác định";
+
+            throw new ApiRequestException(
+                String.format("Không đủ thời gian sạc liên tục. Có đơn đặt chỗ khác bắt đầu lúc %s. " +
+                    "Vui lòng chọn thời gian khác hoặc đặt lịch trước.", conflictTime)
+            );
         }
 
-        // ===== 9. KIỂM TRA USER ĐÃ CÓ ORDER TRÙNG THỜI GIAN CHƯA =====
-        if (orderRepository.hasUserOrderInTimeRange(user.getUserId(), request.getStartTime(), request.getEndTime())) {
-            throw new ApiRequestException("Bạn đã có đơn đặt chỗ trong khung giờ này");
+        // ===== 9. KIỂM TRA USER ĐÃ CÓ ORDER TRÙNG THỜI GIAN TẠI CÙNG STATION CHƯA =====
+        // Ngăn user book 2 orders overlap tại cùng 1 trạm (dù khác charging point)
+        if (orderRepository.hasUserOrderAtSameStationInTimeRange(
+                user.getUserId(),
+                station.getStationId(),
+                request.getStartTime(),
+                actualEndTime)) {
+            throw new ApiRequestException(
+                "Bạn đã có đơn đặt chỗ trùng thời gian tại trạm này. " +
+                "Không thể đặt nhiều điểm sạc cùng lúc tại cùng một trạm."
+            );
         }
 
         // ===== 10. TẠO ORDER MỚI =====
@@ -442,7 +498,7 @@ public class OrderServiceImpl implements OrderService {
                 .vehicle(vehicle)
                 .chargingPoint(chargingPoint)
                 .startTime(request.getStartTime())
-                .endTime(request.getEndTime())
+                .endTime(actualEndTime) // Sử dụng actualEndTime (đã tính toán cho Book Now)
                 .status(Order.Status.BOOKED)
                 .startedBattery(request.getCurrentBattery())
                 .expectedBattery(request.getTargetBattery())
@@ -452,7 +508,6 @@ public class OrderServiceImpl implements OrderService {
         order = orderRepository.save(order);
 
         // ===== 11. Nếu người dùng bấm "Book Now" (start time gần bằng hiện tại), chuyển trạng thái ngay sang CHARGING =====
-        LocalDateTime now = LocalDateTime.now();
         if (!request.getStartTime().isAfter(now.plusMinutes(IMMEDIATE_START_THRESHOLD_MINUTES))) {
 
             // NEW: Kiểm tra xe đã đang trong phiên CHARGING hay chưa
@@ -516,9 +571,11 @@ public class OrderServiceImpl implements OrderService {
      * Validate booking time có hợp lệ với slot system không
      * THAY ĐỔI: Kiểm tra thời gian order phải khớp với slot boundaries
      * THAY ĐỔI: Cho phép startTime trong quá khứ GẦN (tolerance 2 phút) cho Book Now
+     * THAY ĐỔI: Bỏ qua check thời gian tối thiểu cho Book Now (vì dựa vào pin)
      */
     private void validateSlotBooking(LocalDateTime startTime, LocalDateTime endTime) {
         LocalDateTime now = LocalDateTime.now();
+        boolean isBookNow = !startTime.isAfter(now.plusMinutes(IMMEDIATE_START_THRESHOLD_MINUTES));
 
         // Cho phép Book Now với startTime trong quá khứ GẦN (tolerance 2 phút)
         // Nếu startTime < now NHƯNG chỉ muộn <= 2 phút, coi như hợp lệ (do network latency)
@@ -549,10 +606,13 @@ public class OrderServiceImpl implements OrderService {
             }
         }
 
-        // Kiểm tra thời gian tối thiểu
-        int bookingMinutes = (int) Duration.between(startTime, endTime).toMinutes();
-        if (bookingMinutes < MIN_GAP_MINUTES) {
-            throw new ApiRequestException("Thời gian đặt tối thiểu là " + MIN_GAP_MINUTES + " phút");
+        // Kiểm tra thời gian tối thiểu (CHỈ cho Schedule, KHÔNG cho Book Now)
+        // Book Now: thời gian được tính dựa trên pin, có thể < 30 phút
+        if (!isBookNow) {
+            int bookingMinutes = (int) Duration.between(startTime, endTime).toMinutes();
+            if (bookingMinutes < MIN_GAP_MINUTES) {
+                throw new ApiRequestException("Thời gian đặt tối thiểu là " + MIN_GAP_MINUTES + " phút");
+            }
         }
 
         // THÊM: Kiểm tra thời gian order phải là bội số của slot duration hoặc khớp với mini slot
@@ -575,27 +635,43 @@ public class OrderServiceImpl implements OrderService {
         LocalDateTime now = LocalDateTime.now();
         boolean isBookNow = !startTime.isAfter(now.plusMinutes(IMMEDIATE_START_THRESHOLD_MINUTES));
 
-        // ===== BOOK NOW: BỎ QUA VALIDATION CHI TIẾT, CHỈ CHECK OVERLAP =====
+        // ===== BOOK NOW: CHỈ KIỂM TRA OVERLAP, KHÔNG CẦN VALIDATE SLOT BOUNDARIES =====
         if (isBookNow) {
-            // Book Now tạo slot động từ thời điểm hiện tại
-            // Chỉ cần kiểm tra không overlap với order khác
+            // Book Now có thể lấn qua nhiều slot
+            // endTime đã được tính toán dựa trên dung lượng pin trong confirmOrder()
+
             List<Order> existingOrders = orderRepository.findActiveOrdersByChargingPoint(
                     point.getChargingPointId(),
                     LocalDateTime.now()
             );
 
-            TimeSlot dynamicSlot = new TimeSlot(startTime, endTime,
-                    (int) Duration.between(startTime, endTime).toMinutes(), SlotType.MINI);
+            // Kiểm tra overlap với buffer
+            LocalDateTime checkStart = startTime.minusMinutes(BUFFER_MINUTES);
+            LocalDateTime checkEnd = endTime.plusMinutes(BUFFER_MINUTES);
 
-            if (isSlotOccupied(dynamicSlot, existingOrders)) {
-                throw new ApiRequestException("Thời gian này đã có người đặt. Vui lòng chọn thời gian khác.");
+            boolean hasOverlap = existingOrders.stream().anyMatch(order ->
+                checkStart.isBefore(order.getEndTime()) && checkEnd.isAfter(order.getStartTime())
+            );
+
+            if (hasOverlap) {
+                Order conflictOrder = existingOrders.stream()
+                    .filter(order -> checkStart.isBefore(order.getEndTime()) &&
+                                   checkEnd.isAfter(order.getStartTime()))
+                    .findFirst()
+                    .orElse(null);
+
+                String conflictTime = conflictOrder != null ?
+                    conflictOrder.getStartTime().toLocalTime().toString() : "không xác định";
+
+                throw new ApiRequestException(
+                    String.format("Không thể Book Now. Có đơn đặt chỗ khác bắt đầu lúc %s. " +
+                        "Thời gian sạc dự kiến của bạn sẽ trùng với đơn đó.", conflictTime)
+                );
             }
 
-            // Kiểm tra thời gian tối thiểu
-            int bookingMinutes = (int) Duration.between(startTime, endTime).toMinutes();
-            if (bookingMinutes < MIN_GAP_MINUTES) {
-                throw new ApiRequestException("Thời gian đặt tối thiểu là " + MIN_GAP_MINUTES + " phút");
-            }
+            // Book Now: KHÔNG CHECK thời gian tối thiểu
+            // Vì actualEndTime đã được tính dựa trên dung lượng pin thực tế
+            // User có thể chỉ cần sạc ít (vd: 70% → 80% = 10 phút là hợp lệ)
 
             return; // Skip rest of validation for Book Now
         }
