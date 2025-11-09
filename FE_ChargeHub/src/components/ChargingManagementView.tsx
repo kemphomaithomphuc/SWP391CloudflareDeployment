@@ -174,7 +174,7 @@ export default function ChargingManagementView({ onBack, stationId }: ChargingMa
                     console.log('Staff station loaded:', sid, response.data.stationName || '');
                 } else {
                     console.warn('Staff has no station assigned:', response);
-                    toast.warning(language === 'vi' ? 'Tài khoản chưa được gán trạm' : 'Account has no station assigned');
+                    toast(language === 'vi' ? 'Tài khoản chưa được gán trạm' : 'Account has no station assigned', { icon: '⚠️' });
                 }
             } catch (error) {
                 console.error('Error loading staff station:', error);

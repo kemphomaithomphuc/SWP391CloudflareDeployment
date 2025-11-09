@@ -45,7 +45,9 @@ export default function AdminDashboard({ onLogout, onSystemConfig, onAdminMap, o
         setLanguage(language === 'en' ? 'vi' : 'en');
     };
 
-    const adminName = localStorage.getItem("fullName") || "Admin";
+    const formatCurrency = (amount: number) => {
+        return new Intl.NumberFormat('vi-VN').format(amount) + ' VND';
+    };
 
     const handleGridButtonClick = (buttonName: string) => {
         console.log(`${buttonName} button clicked`);
@@ -104,17 +106,11 @@ export default function AdminDashboard({ onLogout, onSystemConfig, onAdminMap, o
                                 <div className="w-8 h-8 bg-gradient-to-br from-red-500 to-red-600 rounded-lg flex items-center justify-center">
                                     <span className="text-white font-bold text-sm">A</span>
                                 </div>
-                                <div className="space-y-1">
-                                    <p className="font-medium text-foreground">
-                                        {language === 'en' ? 'Admin' : 'Quản trị viên'}: {adminName}
-                                    </p>
-                                </div>
                             </div>
                         </div>
 
                         {/* Right Side */}
                         <div className="flex items-center space-x-4">
-
 
                             {/* Language Switcher */}
                             <motion.div

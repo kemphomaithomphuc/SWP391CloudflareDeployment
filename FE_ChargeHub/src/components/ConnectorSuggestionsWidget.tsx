@@ -216,7 +216,7 @@ export default function ConnectorSuggestionsWidget({ className, isExpanded: exte
                 )}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {stationNames.map((stationName, stationIndex) => {
-                    const stationSuggestions = groupedStations[stationName];
+                    const stationSuggestions = groupedStations[stationName] ?? [];
                     
                     return (
                       <motion.div
