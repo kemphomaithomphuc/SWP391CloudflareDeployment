@@ -11,12 +11,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import swp391.code.swp391.dto.*;
 import swp391.code.swp391.entity.*;
+import swp391.code.swp391.exception.ApiRequestException;
 import swp391.code.swp391.repository.*;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -25,12 +25,14 @@ import java.util.stream.Collectors;
 @Slf4j
 public class PaymentServiceImpl implements PaymentService {
 
+    // Thời gian sạc tối thiểu (phút) - có thể đổi thành @Value nếu cần config từ application.properties
+    private static final int MINIMUM_CHARGING_TIME_MINUTES = 30;
+
     private final SessionRepository sessionRepository;
     private final UserRepository userRepository;
     private final TransactionRepository transactionRepository;
     private final FeeRepository feeRepository;
     private final SubscriptionRepository subscriptionRepository;
-    private final PriceFactorRepository priceFactorRepository;
     private final FeeCalculationService feeCalculationService;
     private final NotificationService notificationService;
     private final VNPayService vnPayService;
@@ -73,32 +75,55 @@ public class PaymentServiceImpl implements PaymentService {
 
     /**
      * Tính chi phí cơ bản của phiên sạc
-     * Công thức: powerConsumed × basePrice × priceFactor × (1 - subscriptionDiscount)
+     * Công thức: powerConsumed × basePrice × (1 - subscriptionDiscount)
+     *
+     * ÁP DỤNG THỜI GIAN SẠC TỐI THIỂU:
+     * - Nếu thời gian sạc < minimum (mặc định 30 phút), tính theo minimum
+     * - Nếu thời gian sạc >= minimum, tính như bình thường
      */
     private BigDecimal calculateBaseCost(Session session, User user) {
-        // 1. Lấy lượng điện tiêu thụ (kWh)
-        BigDecimal powerConsumed = BigDecimal.valueOf(session.getPowerConsumed());
+        // 1. Lấy lượng điện tiêu thụ thực tế (kWh)
+        BigDecimal actualPowerConsumed = BigDecimal.valueOf(session.getPowerConsumed());
 
         // 2. Lấy giá cơ bản từ ConnectorType (VND/kWh)
         BigDecimal basePrice = getBasePrice(session);
 
-        // 3. Lấy hệ số giá theo khung giờ (priceFactor)
-        BigDecimal priceFactor = getPriceFactor(session);
+        // 3. Áp dụng thời gian sạc tối thiểu
+        BigDecimal billablePowerConsumed = applyMinimumChargingTime(session, actualPowerConsumed);
 
         // 4. Lấy giảm giá theo gói đăng ký (subscriptionDiscount)
         BigDecimal subscriptionDiscount = getSubscriptionDiscount(user);
 
-        // Tính toán: powerConsumed × basePrice × priceFactor × (1 - subscriptionDiscount)
-        BigDecimal baseCost = powerConsumed
+        // Tính toán: billablePowerConsumed × basePrice × (1 - subscriptionDiscount)
+        // ĐÃ XÓA: priceFactor không còn được áp dụng
+        BigDecimal baseCost = billablePowerConsumed
                 .multiply(basePrice)
-                .multiply(priceFactor)
                 .multiply(BigDecimal.ONE.subtract(subscriptionDiscount))
                 .setScale(2, RoundingMode.HALF_UP);
 
-        log.info("Chi tiết tính baseCost - Power: {} kWh, BasePrice: {} VND/kWh, PriceFactor: {}, Discount: {}%, Result: {} VND",
-                powerConsumed, basePrice, priceFactor, subscriptionDiscount.multiply(new BigDecimal("100")), baseCost);
+        log.info("Chi tiết tính baseCost - Actual Power: {} kWh, Billable Power: {} kWh, BasePrice: {} VND/kWh, Discount: {}%, Result: {} VND",
+                actualPowerConsumed, billablePowerConsumed, basePrice, subscriptionDiscount.multiply(new BigDecimal("100")), baseCost);
 
         return baseCost;
+    }
+
+    private BigDecimal applyMinimumChargingTime(Session session, BigDecimal actualPowerConsumed) {
+        if (session.getStartTime() == null || session.getEndTime() == null) {
+            return actualPowerConsumed;
+        }
+        long actualMinutes = java.time.Duration.between(session.getStartTime(), session.getEndTime()).toMinutes();
+        int minimumMinutes = MINIMUM_CHARGING_TIME_MINUTES;
+
+        if (actualMinutes >= minimumMinutes) {
+            return actualPowerConsumed;
+        }
+
+        BigDecimal ratio = BigDecimal.valueOf(minimumMinutes)
+                .divide(BigDecimal.valueOf(actualMinutes), 4, RoundingMode.HALF_UP);
+
+        BigDecimal billablePowerConsumed = actualPowerConsumed.multiply(ratio)
+                .setScale(3, RoundingMode.HALF_UP);
+        return billablePowerConsumed;
     }
 
     /**
@@ -117,50 +142,7 @@ public class PaymentServiceImpl implements PaymentService {
         return BigDecimal.valueOf(pricePerKWh);
     }
 
-    /**
-     * Lấy hệ số giá theo khung giờ
-     * - Giờ cao điểm (10:00-12:00, 17:00-20:00): 1.5
-     * - Giờ bình thường: 1.0
-     */
-    private BigDecimal getPriceFactor(Session session) {
-        if (session.getStartTime() == null) {
-            return BigDecimal.ONE;
-        }
 
-        LocalTime startTime = session.getStartTime().toLocalTime();
-
-        // Kiểm tra giờ cao điểm
-        boolean isPeakHour = (startTime.isAfter(LocalTime.of(10, 0)) && startTime.isBefore(LocalTime.of(12, 0))) ||
-                (startTime.isAfter(LocalTime.of(17, 0)) && startTime.isBefore(LocalTime.of(20, 0)));
-
-        if (isPeakHour) {
-            log.info("Phiên sạc trong giờ cao điểm - áp dụng hệ số 1.5");
-            return new BigDecimal("1.5");
-        }
-
-        // Có thể lấy từ database PriceFactor nếu có cấu hình động
-        if (session.getOrder() != null &&
-                session.getOrder().getChargingPoint() != null &&
-                session.getOrder().getChargingPoint().getStation() != null) {
-
-            Long stationId = session.getOrder().getChargingPoint().getStation().getStationId();
-            List<PriceFactor> priceFactors = priceFactorRepository.findByStationId(stationId);
-
-            for (PriceFactor pf : priceFactors) {
-                if (pf.getStartTime() != null && pf.getEndTime() != null) {
-                    LocalTime pfStart = pf.getStartTime().toLocalTime();
-                    LocalTime pfEnd = pf.getEndTime().toLocalTime();
-
-                    if (startTime.isAfter(pfStart) && startTime.isBefore(pfEnd)) {
-                        return BigDecimal.valueOf(pf.getFactor());
-                    }
-                }
-            }
-        }
-
-        log.info("Phiên sạc trong giờ bình thường - áp dụng hệ số 1.0");
-        return BigDecimal.ONE;
-    }
 
     /**
      * Lấy mức giảm giá theo gói đăng ký
@@ -211,7 +193,6 @@ public class PaymentServiceImpl implements PaymentService {
 
         // Tính toán các giá trị
         BigDecimal basePrice = getBasePrice(session);
-        BigDecimal priceFactor = getPriceFactor(session);
         BigDecimal subscriptionDiscount = getSubscriptionDiscount(user);
         BigDecimal baseCost = calculateBaseCost(session, user);
 
@@ -248,7 +229,7 @@ public class PaymentServiceImpl implements PaymentService {
                 .sessionEndTime(session.getEndTime())
                 .powerConsumed(BigDecimal.valueOf(session.getPowerConsumed()))
                 .basePrice(basePrice)
-                .priceFactor(priceFactor)
+                // ĐÃ XÓA: .priceFactor(priceFactor)
                 .subscriptionDiscount(subscriptionDiscount)
                 .baseCost(baseCost)
                 .fees(feeDetails)
@@ -259,7 +240,7 @@ public class PaymentServiceImpl implements PaymentService {
 
     @Override
     @Transactional
-    public PaymentResponseDTO initiatePayment(PaymentRequestDTO request) {
+    public PaymentResponseDTO createPayment(PaymentRequestDTO request) {
         log.info("Khởi tạo thanh toán - Session: {}, User: {}, Method: {}",
                 request.getSessionId(), request.getUserId(), request.getPaymentMethod());
 
@@ -369,6 +350,147 @@ public class PaymentServiceImpl implements PaymentService {
                 .build();
     }
 
+    // ============================================================
+    // ========== RETRY PAYMENT - THANH TOÁN LẠI ================
+    // ============================================================
+
+    @Override
+    @Transactional
+    public RetryPaymentResponseDTO retryPayment(RetryPaymentRequestDTO request) {
+        log.info("Retry payment - TransactionId: {}, UserId: {}, PaymentMethod: {}",
+                request.getTransactionId(), request.getUserId(), request.getPaymentMethod());
+
+        // ===== 1. VALIDATE TRANSACTION =====
+        Transaction transaction = transactionRepository.findById(request.getTransactionId())
+                .orElseThrow(() -> new ApiRequestException("Không tìm thấy giao dịch #" + request.getTransactionId()));
+
+        // Kiểm tra transaction phải có status FAILED
+        if (transaction.getStatus() != Transaction.Status.FAILED) {
+            throw new ApiRequestException("Chỉ có thể thanh toán lại các giao dịch thất bại. " +
+                    "Trạng thái hiện tại: " + transaction.getStatus());
+        }
+
+        // ===== 2. VALIDATE USER =====
+        User user = userRepository.findById(request.getUserId())
+                .orElseThrow(() -> new ApiRequestException("Không tìm thấy người dùng #" + request.getUserId()));
+
+        // Kiểm tra transaction có thuộc về user này không
+        if (!transaction.getUser().getUserId().equals(user.getUserId())) {
+            throw new ApiRequestException("Bạn không có quyền thanh toán giao dịch này");
+        }
+
+        // ===== 3. LẤY THÔNG TIN SESSION =====
+        Session session = transaction.getSession();
+        if (session == null) {
+            throw new ApiRequestException("Không tìm thấy phiên sạc cho giao dịch này");
+        }
+
+        BigDecimal amount = BigDecimal.valueOf(transaction.getAmount());
+
+        log.info("Transaction #{} - Amount: {}, Session: {}",
+                transaction.getTransactionId(), amount, session.getSessionId());
+
+        // ===== 4. XỬ LÝ THEO PHƯƠNG THỨC THANH TOÁN =====
+        if (request.getPaymentMethod() == Transaction.PaymentMethod.CASH) {
+            return retryPaymentWithCash(transaction, user, amount);
+        } else if (request.getPaymentMethod() == Transaction.PaymentMethod.VNPAY) {
+            return retryPaymentWithVNPay(transaction, user, amount, request.getReturnUrl(), request.getBankCode());
+        } else if (request.getPaymentMethod() == Transaction.PaymentMethod.QR) {
+            throw new ApiRequestException("Phương thức thanh toán QR chưa được hỗ trợ");
+        }
+
+        throw new ApiRequestException("Phương thức thanh toán không hợp lệ");
+    }
+
+    /**
+     * Retry payment với CASH
+     * Changed from private to protected to allow @Transactional
+     */
+    @Transactional
+    protected RetryPaymentResponseDTO retryPaymentWithCash(Transaction transaction, User user, BigDecimal amount) {
+        log.info("Retry payment with CASH - TransactionId: {}", transaction.getTransactionId());
+
+        // Cập nhật payment method và status
+        transaction.setPaymentMethod(Transaction.PaymentMethod.CASH);
+        transaction.setStatus(Transaction.Status.SUCCESS);
+        transaction.setPaymentTime(LocalDateTime.now());
+        transactionRepository.save(transaction);
+
+        // Đánh dấu các khoản phí đã thanh toán
+        List<Fee> fees = feeCalculationService.getSessionFees(transaction.getSession().getSessionId());
+        fees.forEach(fee -> {
+            fee.setIsPaid(true);
+            feeRepository.save(fee);
+        });
+
+        // Gọi completePayment để thực hiện logic chung (auto-unlock, notifications, etc.)
+        completePayment(transaction.getTransactionId());
+
+        PaymentDetailDTO paymentDetail = getPaymentDetail(
+                transaction.getSession().getSessionId(),
+                user.getUserId()
+        );
+
+        log.info("Retry payment with CASH successful - TransactionId: {}", transaction.getTransactionId());
+
+        return RetryPaymentResponseDTO.builder()
+                .transactionId(transaction.getTransactionId())
+                .sessionId(transaction.getSession().getSessionId())
+                .amount(amount)
+                .paymentMethod(Transaction.PaymentMethod.CASH)
+                .status(Transaction.Status.SUCCESS)
+                .message("Thanh toán lại bằng tiền mặt thành công")
+                .createdAt(LocalDateTime.now())
+                .paymentDetail(paymentDetail)
+                .build();
+    }
+
+    /**
+     * Retry payment với VNPAY
+     * Changed from private to protected to allow @Transactional
+     */
+    @Transactional
+    protected RetryPaymentResponseDTO retryPaymentWithVNPay(
+            Transaction transaction,
+            User user,
+            BigDecimal amount,
+            String returnUrl,
+            String bankCode) {
+
+        log.info("Retry payment with VNPAY - TransactionId: {}", transaction.getTransactionId());
+
+        // Cập nhật payment method và reset status về PENDING
+        transaction.setPaymentMethod(Transaction.PaymentMethod.VNPAY);
+        transaction.setStatus(Transaction.Status.PENDING);
+        transactionRepository.save(transaction);
+
+        // Tạo URL thanh toán VNPay
+        String paymentUrl = vnPayService.createPaymentUrl(
+                transaction.getTransactionId(),
+                amount,
+                "Thanh toan lai phien sac #" + transaction.getSession().getSessionId(),
+                returnUrl,
+                bankCode
+        );
+
+        log.info("Retry payment URL created - TransactionId: {}", transaction.getTransactionId());
+
+        return RetryPaymentResponseDTO.builder()
+                .transactionId(transaction.getTransactionId())
+                .sessionId(transaction.getSession().getSessionId())
+                .amount(amount)
+                .paymentMethod(Transaction.PaymentMethod.VNPAY)
+                .status(Transaction.Status.PENDING)
+                .message("Đang chuyển hướng đến cổng thanh toán VNPay")
+                .paymentUrl(paymentUrl)
+                .createdAt(LocalDateTime.now())
+                .build();
+    }
+
+    // ============================================================
+    // ========== END RETRY PAYMENT ==============================
+    // ============================================================
+
     @Override
     @Transactional
     public void completePayment(Long transactionId) {
@@ -401,7 +523,7 @@ public class PaymentServiceImpl implements PaymentService {
                         List.of(userId),
                         "Tài khoản đã được mở khóa",
                         "Tài khoản của bạn đã được mở khóa tự động sau khi thanh toán phí phạt. " +
-                        "Bạn có thể tiếp tục sử dụng dịch vụ."
+                                "Bạn có thể tiếp tục sử dụng dịch vụ."
                 );
             }
         }
@@ -577,10 +699,6 @@ public class PaymentServiceImpl implements PaymentService {
                         <td style='text-align: right;'>%,.0f VNĐ/kWh</td>
                     </tr>
                     <tr>
-                        <td><strong>Hệ số giá:</strong></td>
-                        <td style='text-align: right;'>×%,.2f</td>
-                    </tr>
-                    <tr>
                         <td><strong>Giảm giá gói:</strong></td>
                         <td style='text-align: right;'>-%,.0f%%</td>
                     </tr>
@@ -633,7 +751,6 @@ public class PaymentServiceImpl implements PaymentService {
                 detail.getSessionEndTime(),
                 detail.getPowerConsumed(),
                 detail.getBasePrice(),
-                detail.getPriceFactor(),
                 detail.getSubscriptionDiscount().multiply(new BigDecimal("100")),
                 detail.getBaseCost(),
                 feesHtml.toString(),

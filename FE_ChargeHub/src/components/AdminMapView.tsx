@@ -1279,6 +1279,8 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
                         chargingPointName: post.chargingPointName?.trim() || "",
 
+                        chargingPointName: post.chargingPointName?.trim() || "",
+
                         status: post.status,
 
                         connector_type_id: connectorType?.connectorId || 1, // Use actual connector type ID
@@ -2009,6 +2011,8 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
         const newPost = {
 
             id: `post-${Date.now()}`,
+
+            chargingPointName: "",
 
             chargingPointName: "",
 

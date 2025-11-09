@@ -259,7 +259,6 @@ public class TransactionHistoryServiceImpl implements TransactionHistoryService 
                 .stationAddress(paymentDetail.getStationAddress())
                 .connectorTypeName(connectorTypeName)
                 .basePrice(paymentDetail.getBasePrice())
-                .priceFactor(paymentDetail.getPriceFactor())
                 .subscriptionDiscount(paymentDetail.getSubscriptionDiscount())
                 .fees(paymentDetail.getFees())
                 .totalFees(paymentDetail.getTotalFees())

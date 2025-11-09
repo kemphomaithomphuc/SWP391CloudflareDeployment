@@ -107,6 +107,13 @@ export default function NotificationView({ onBack }: NotificationViewProps) {
     console.log("Read notifications:", readCount);
   }, [apiNotifications]);
 
+  // 🆕 Auto-load notifications when component mounts
+  useEffect(() => {
+    console.log("=== NOTIFICATION VIEW MOUNT DEBUG ===");
+    console.log("NotificationView mounted, auto-loading notifications...");
+    refreshNotifications();
+  }, []);
+
   // Handle mark as read
   const handleMarkAsRead = async (notificationId: string | number) => {
     console.log('handleMarkAsRead called with:', notificationId, 'type:', typeof notificationId);

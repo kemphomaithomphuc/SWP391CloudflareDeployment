@@ -1,8 +1,6 @@
 package swp391.code.swp391.service;
 
-import swp391.code.swp391.dto.PaymentDetailDTO;
-import swp391.code.swp391.dto.PaymentRequestDTO;
-import swp391.code.swp391.dto.PaymentResponseDTO;
+import swp391.code.swp391.dto.*;
 import swp391.code.swp391.entity.Transaction;
 
 import java.math.BigDecimal;
@@ -22,11 +20,11 @@ public interface PaymentService {
     PaymentDetailDTO getPaymentDetail(Long sessionId, Long userId);
 
     /**
-     * Khởi tạo quá trình thanh toán
+     * Tạo yêu cầu thanh toán mới
      * - Với CASH: xử lý thanh toán trực tiếp
      * - Với VNPAY: trả về URL thanh toán
      */
-    PaymentResponseDTO initiatePayment(PaymentRequestDTO request);
+    PaymentResponseDTO createPayment(PaymentRequestDTO request);
 
     /**
      * Xử lý thanh toán bằng tiền mặt
@@ -52,4 +50,13 @@ public interface PaymentService {
      * Lấy thông tin giao dịch theo ID
      */
     Transaction getTransaction(Long transactionId);
+
+    /**
+     * RETRY PAYMENT - Thanh toán lại cho transaction FAILED
+     * - Validate transaction phải có status FAILED
+     * - Validate user ownership
+     * - Hỗ trợ cả VNPAY và CASH
+     * - Tự động unlock account nếu thanh toán hết phí
+     */
+    RetryPaymentResponseDTO retryPayment(RetryPaymentRequestDTO request);
 }

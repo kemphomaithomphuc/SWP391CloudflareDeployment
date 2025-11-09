@@ -54,9 +54,8 @@ public class SessionController {
     }
 
     // US11: GET /api/sessions/{sessionId}/monitor
-    // NOTE: This endpoint is OPTIONAL for backwards compatibility
-    // Progress is automatically pushed via WebSocket every 10 seconds (SessionProgressScheduler)
-    // Subscribe to /user/queue/session-progress to receive real-time updates
+    // NOTE: SessionProgressScheduler is currently DISABLED
+    // Client should poll this endpoint for session progress updates
     @PutMapping("/{sessionId}/monitor")
     public ResponseEntity<APIResponse<SessionProgressDTO>> monitorSession(@PathVariable Long sessionId,
                                                                           HttpServletRequest httpServletRequest) {
@@ -115,6 +114,21 @@ public class SessionController {
             return ResponseEntity.ok(APIResponse.success("Session details retrieved", dto));
         } catch (RuntimeException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(APIResponse.error(e.getMessage()));
+        }
+    }
+
+    @GetMapping("/by-order/{orderId}")
+    public ResponseEntity<APIResponse<SessionDTO>> getSessionByOrderId(@PathVariable Long orderId) {
+        try {
+            SessionDTO dto = sessionService.getSessionByOrderId(orderId);
+            if (dto == null) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(APIResponse.error("No session found for order ID: " + orderId));
+            }
+            return ResponseEntity.ok(APIResponse.success("Session retrieved by order ID", dto));
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(APIResponse.error(e.getMessage()));
         }
     }
 
