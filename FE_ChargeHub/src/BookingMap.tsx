@@ -34,6 +34,8 @@ import { toast} from "sonner";
 import * as maptilersdk from "@maptiler/sdk";
 import "@maptiler/sdk/dist/maptiler-sdk.css";
 import { api } from "./services/api";
+import { confirmBooking } from "./api/confirmBooking";
+import { checkVehicleChargingStatus as checkVehicleChargingStatusAPI } from "./api/vehicleChargingStatus";
 
 
 import {
@@ -137,12 +139,24 @@ interface ConnectorType {
 
 interface ChargingPoint {
     chargingPointId?: number;
+    chargingPointName?: string;  // NEW - Tên charging point (e.g., "A1", "B2")
     status: string;
     connectorTypeId?: number;
     stationId?: number;
     connectorType: ConnectorType;
     powerOutput?: number;
     pricePerKwh?: number;
+}
+
+interface StoredStationContext {
+    stationId?: number;
+    stationName?: string;
+    stationAddress?: string;
+    connectorType?: string;
+    chargingPower?: number;
+    pricePerKwh?: number;
+    timestamp?: string;
+    chargingPointName?: string;
 }
 interface Vehicle {
     plateNumber: string;
@@ -244,7 +258,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
 
     const [targetBatteryLevel, setTargetBatteryLevel] = useState(80);
 
-    const [mapZoom, setMapZoom] = useState(1);
+    const [mapZoom, setMapZoom] = useState(12);
 
     const [mapType, setMapType] = useState<"road" | "satellite">("road");
 
@@ -298,7 +312,6 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
     const [chargingPower, setChargingPower] = useState(0);
 
     const [chargingIntervalRef, setChargingIntervalRef] = useState<NodeJS.Timeout | null>(null);
-    const batteryLevelBarRef = useRef<HTMLDivElement | null>(null);
 
     const [completedSession, setCompletedSession] = useState<any>(null);
 
@@ -312,8 +325,13 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
     const [initialBatteryLevel, setInitialBatteryLevel] = useState(20);
     const [targetBatteryLevelConfig, setTargetBatteryLevelConfig] = useState(80);
     const [chargingStartTimeInput, setChargingStartTimeInput] = useState("");
+    const todayIsoDate = useMemo(() => new Date().toISOString().slice(0, 10), []);
+    const [scheduledDate, setScheduledDate] = useState<string>(todayIsoDate);
+    const [scheduledTime, setScheduledTime] = useState<string>("");
+    const minScheduledDate = todayIsoDate;
     const [chargingEndTime, setChargingEndTime] = useState("");
     const [bookingMode, setBookingMode] = useState<"now" | "scheduled">("now");
+    const [activeBatteryControl, setActiveBatteryControl] = useState<"current" | "target">("target");
 
     // Vehicle selection states
     const [isVehicleSelectionOpen, setIsVehicleSelectionOpen] = useState(false);
@@ -323,16 +341,35 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
 
     // Use ref to persist selected vehicle
     const selectedVehicleRef = useRef<any>(null);
+    
+    // Vehicle charging status
+    const [isVehicleCurrentlyCharging, setIsVehicleCurrentlyCharging] = useState(false);
+    const [loadingVehicleStatus, setLoadingVehicleStatus] = useState(false);
 
     // Available slots states
     const [availableSlots, setAvailableSlots] = useState<any[]>([]);
     const [loadingSlots, setLoadingSlots] = useState(false);
     const [selectedSlot, setSelectedSlot] = useState<any>(null);
+    const [selectedSlots, setSelectedSlots] = useState<any[]>([]); // For multiple slot selection
+    const [chargingPointsData, setChargingPointsData] = useState<any[]>([]);
+    const [expandedChargingPoints, setExpandedChargingPoints] = useState<Set<number>>(new Set());
+    const [showAvailableSlots, setShowAvailableSlots] = useState(false);
 
     // Available slots popup states
     const [isSlotsPopupOpen, setIsSlotsPopupOpen] = useState(false);
     const [filteredSlots, setFilteredSlots] = useState<any[]>([]);
     const [loadingFilteredSlots, setLoadingFilteredSlots] = useState(false);
+
+    const clearScheduledResults = () => {
+        setChargingStartTimeInput("");
+        setAvailableSlots([]);
+        setFilteredSlots([]);
+        setSelectedSlot(null);
+        setSelectedSlots([]);
+        setShowAvailableSlots(false);
+        setIsSlotsPopupOpen(false);
+        setLoadingFilteredSlots(false);
+    };
 
 
     //Charging Station states
@@ -553,13 +590,6 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
             loadAllStationChargingPoints();
         }
     }, [stations]);
-
-    useEffect(() => {
-        if (batteryLevelBarRef.current) {
-            const percent = Math.max(0, Math.min(100, currentBatteryLevel));
-            batteryLevelBarRef.current.style.width = `${percent}%`;
-        }
-    }, [currentBatteryLevel]);
 
     // Search function with scoring mechanism
     const searchStations = (query: string) => {
@@ -864,16 +894,36 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                                 const mergedSlot = {
                                     ...slot,
                                     // If slot doesn't have these at top level, try to get from charging point or connector type
-                                    connectorType: slot.connectorType || cp.connectorType,
-                                    powerOutput: slot.powerOutput || cp.powerOutput || slot.connectorType?.powerOutput,
-                                    pricePerKwh: slot.pricePerKwh || cp.pricePerKwh || slot.connectorType?.pricePerKwh,
+                                    connectorType: slot.connectorType || cp.connectorType || cp.connectorTypeName,
+                                    powerOutput: slot.powerOutput
+                                        || cp.powerOutput
+                                        || cp.connectorType?.powerOutput
+                                        || slot.connectorType?.powerOutput,
+                                    pricePerKwh: slot.pricePerKwh
+                                        || cp.pricePerKwh
+                                        || cp.connectorType?.pricePerKwh
+                                        || slot.connectorType?.pricePerKwh,
                                     chargingPointId: slot.chargingPointId || cp.chargingPointId || cp.id,
+                                    chargingPointName: slot.chargingPointName || cp.chargingPointName,  // ✅ NEW
                                     // Add charging point info for reference
                                     chargingPointInfo: {
                                         id: cp.id || cp.chargingPointId,
-                                        connectorType: cp.connectorType,
-                                        powerOutput: cp.powerOutput,
-                                        pricePerKwh: cp.pricePerKwh,
+                                        chargingPointName: cp.chargingPointName,  // ✅ NEW
+                                        connectorType: cp.connectorType || slot.connectorType || cp.connectorTypeName,
+                                        connectorTypeId: cp.connectorTypeId
+                                            || cp.connectorType?.connectorTypeId
+                                            || cp.connectorType?.id
+                                            || slot.connectorTypeId,
+                                        powerOutput: cp.powerOutput
+                                            || cp.connectorType?.powerOutput
+                                            || slot.powerOutput
+                                            || slot.connectorType?.powerOutput
+                                            || null,
+                                        pricePerKwh: cp.pricePerKwh
+                                            || cp.connectorType?.pricePerKwh
+                                            || slot.pricePerKwh
+                                            || slot.connectorType?.pricePerKwh
+                                            || null,
                                         status: cp.status
                                     }
                                 };
@@ -963,7 +1013,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                 const userMsg = language === "vi"
                     ? "Hiện tại không có khung giờ trống phù hợp. Vui lòng thử lại sau hoặc chọn trạm khác."
                     : "No available time slots at the moment. Please try again later or select another station.";
-                toast.warning(userMsg);
+                toast(userMsg, { icon: "⚠️" });
             } else {
                 // Display the actual error message
                 const msg = errorMessage || (language === "vi" ? "Đã xảy ra lỗi khi tìm kiếm slot" : "Error finding slots");
@@ -974,7 +1024,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
     }
 
     // API call to find available slots and filter by start time on frontend
-    const callApiForFindAvailableSlotsWithTime = async (stationId: string, startTime: string): Promise<any[] | null> => {
+    const callApiForFindAvailableSlotsWithTime = async (stationId: string, startTime: string, searchDate?: string): Promise<any[] | null> => {
         try {
             const userId = localStorage.getItem("userId");
             if (!userId) {
@@ -1010,7 +1060,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                 }
             }
 
-            const requestData = {
+            const requestData: any = {
                 userId: parseInt(userId),
                 vehicleId: actualVehicleId,
                 stationId: parseInt(stationId),
@@ -1018,7 +1068,16 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                 targetBattery: parseFloat(targetBatteryLevelConfig.toString()) // Convert to Double
             };
 
-            console.log("=== Requesting available slots (will filter by time on frontend) ===");
+            // Add searchDate if provided (for future date searches)
+            if (searchDate) {
+                requestData.searchDate = searchDate;
+                console.log("=== Searching slots for specific date ===");
+                console.log("Search date:", searchDate);
+            } else {
+                console.log("=== Searching slots for today ===");
+            }
+
+            console.log("=== Requesting available slots ===");
             console.log("Request data:", requestData);
 
             const response = await api.post("/api/orders/find-available-slots", requestData);
@@ -1037,6 +1096,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                                 ...slot,
                                 chargingPointInfo: {
                                     id: cp.chargingPointId,
+                                    chargingPointName: cp.chargingPointName,  // ✅ NEW
                                     connectorType: cp.connectorTypeName,
                                     powerOutput: cp.chargingPower,
                                     pricePerKwh: cp.pricePerKwh
@@ -1056,29 +1116,21 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                         const slotStartTime = new Date(slot.freeFrom);
                         const preferredTime = new Date(startTime);
 
-                        // Debug logging
+                        // Only include slots that start AT or AFTER the preferred time
+                        const isValid = slotStartTime >= preferredTime;
+                        
                         console.log("=== Time Filtering Debug ===");
                         console.log("Slot start time:", slotStartTime.toISOString());
                         console.log("Preferred time:", preferredTime.toISOString());
-                        console.log("Slot start >= preferred:", slotStartTime >= preferredTime);
+                        console.log("Slot start >= preferred:", isValid);
 
-                        // Allow slots that start within 30 minutes of the preferred time
-                        const timeDifference = Math.abs(slotStartTime.getTime() - preferredTime.getTime());
-                        const thirtyMinutes = 30 * 60 * 1000; // 30 minutes in milliseconds
-
-                        // Include slots that start at or after preferred time, or within 30 minutes before
-                        return slotStartTime >= preferredTime || timeDifference <= thirtyMinutes;
+                        return isValid;
                     }
-                    return true; // Include slots without time info
+                    return false; // Exclude slots without time info when filtering by time
                 });
 
                 console.log("Filtered slots by start time:", filteredSlots.length);
-
-                // If no slots match the time filter, return all available slots
-                if (filteredSlots.length === 0 && allSlots.length > 0) {
-                    console.log("No time-filtered slots found, returning all available slots");
-                    return allSlots;
-                }
+                console.log("Total slots before filter:", allSlots.length);
 
                 return filteredSlots;
             }
@@ -1100,7 +1152,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                 const userMsg = language === "vi"
                     ? "Hiện tại không có khung giờ trống phù hợp. Vui lòng thử lại sau hoặc chọn trạm khác."
                     : "No available time slots at the moment. Please try again later or select another station.";
-                toast.warning(userMsg);
+                toast(userMsg, { icon: "⚠️" });
             } else {
                 // Display the actual error message
                 const msg = errorMessage || (language === "vi" ? "Đã xảy ra lỗi khi tìm kiếm slot" : "Error finding slots");
@@ -1111,31 +1163,85 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
     }
 
     // Handle start time selection and show available slots popup
-    const handleStartTimeSelection = async (startTime: string) => {
+    const handleStartTimeSelection = async (selectedDate?: string, selectedStartTime?: string) => {
         if (!configStation) return;
 
-        setLoadingFilteredSlots(true);
+        if (!selectedDate) {
+            toast(language === 'vi' ? 'Vui lòng chọn ngày sạc' : 'Please select a charging date', { icon: "⚠️" });
+            return;
+        }
+
+        if (!selectedStartTime) {
+            toast(language === 'vi' ? 'Vui lòng chọn giờ bắt đầu' : 'Please select a start time', { icon: "⚠️" });
+            return;
+        }
+
+        clearScheduledResults();
+        setLoadingSlots(true);
+        setExpandedChargingPoints(new Set()); // Reset expanded points when time changes
+        setShowAvailableSlots(false); // Reset show available slots when time changes
+        setSelectedSlots([]); // Reset selected slots when time changes
         try {
-            // Convert time input to full datetime for today
-            const today = new Date();
-            const [hours, minutes] = startTime.split(':').map(Number);
-            const selectedDateTime = new Date(today.getFullYear(), today.getMonth(), today.getDate(), hours, minutes);
+            const [year, month, day] = selectedDate.split('-').map(Number);
+            const [hours, minutes] = selectedStartTime.split(':').map(Number);
+            const selectedDateTime = new Date(
+                year ?? 0,
+                (month ?? 1) - 1,
+                day ?? 1,
+                hours ?? 0,
+                minutes ?? 0
+            );
+
+            if (isNaN(selectedDateTime.getTime())) {
+                toast.error(language === 'vi' ? 'Ngày hoặc giờ không hợp lệ' : 'Invalid date or time');
+                setLoadingSlots(false);
+                return;
+            }
+
+            setScheduledDate(selectedDate);
+            setScheduledTime(selectedStartTime);
+
+            const displayLabel = selectedDateTime.toLocaleString(language === 'vi' ? 'vi-VN' : 'en-US', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+            setChargingStartTimeInput(displayLabel);
 
             console.log("=== Start Time Selection Debug ===");
-            console.log("Input time:", startTime);
-            console.log("Selected datetime:", selectedDateTime.toISOString());
+            console.log("Input date:", selectedDate);
+            console.log("Input time:", selectedStartTime);
+            console.log("Combined datetime:", selectedDateTime.toISOString());
             console.log("Station ID:", configStation.stationId);
+
+            // Check if search date is different from today
+            const today = new Date();
+            const todayDateStr = today.toISOString().split('T')[0]; // YYYY-MM-DD format
+            const isSearchingFutureDate = selectedDate !== todayDateStr;
+
+            console.log("Today:", todayDateStr);
+            console.log("Selected date:", selectedDate);
+            console.log("Is searching future date:", isSearchingFutureDate);
 
             const slots = await callApiForFindAvailableSlotsWithTime(
                 configStation.stationId?.toString() || '',
-                selectedDateTime.toISOString()
+                selectedDateTime.toISOString(),
+                isSearchingFutureDate ? selectedDate : undefined // Only pass searchDate if not today
             );
 
             if (slots && slots.length > 0) {
+                setAvailableSlots(slots);
                 setFilteredSlots(slots);
-                setIsSlotsPopupOpen(true);
+                setSelectedSlot(null); // Reset selected slot when time changes
+                setSelectedSlots([]); // Reset selected slots when time changes
             } else {
-                toast.warning(
+                setAvailableSlots([]);
+                setFilteredSlots([]);
+                setSelectedSlot(null);
+                setSelectedSlots([]);
+                toast(
                     language === 'vi'
                         ? 'Không có slot khả dụng cho thời gian đã chọn'
                         : 'No available slots for the selected time'
@@ -1143,63 +1249,157 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
             }
         } catch (error) {
             console.error("Error fetching filtered slots:", error);
+            setAvailableSlots([]);
+            setFilteredSlots([]);
+            setSelectedSlot(null);
+            setSelectedSlots([]);
             toast.error(
                 language === 'vi'
                     ? 'Lỗi khi tải slot khả dụng'
                     : 'Error loading available slots'
             );
         } finally {
-            setLoadingFilteredSlots(false);
+            setLoadingSlots(false);
         }
     };
 
-    // API call to confirm booking
+    // API call to check if vehicle is currently charging
+    const checkVehicleChargingStatus = async (vehicleId: number): Promise<boolean> => {
+        try {
+            setLoadingVehicleStatus(true);
+            console.log("=== Checking vehicle charging status ===");
+            console.log("Vehicle ID:", vehicleId);
+            
+            const response = await checkVehicleChargingStatusAPI(vehicleId, language);
+            console.log("Vehicle charging status response:", response);
+            
+            if (response?.success && response?.data) {
+                const { isCurrentlyCharging, canBookNow, message } = response.data;
+                console.log("Vehicle is currently charging:", isCurrentlyCharging);
+                console.log("Can book now:", canBookNow);
+                console.log("Message:", message);
+                return isCurrentlyCharging;
+            }
+            
+            // If no valid response, assume not charging
+            return false;
+        } catch (err: any) {
+            console.error("Error checking vehicle charging status:", err);
+            // For errors, assume not charging to allow user to proceed
+            return false;
+        } finally {
+            setLoadingVehicleStatus(false);
+        }
+    };
+
+    // API call to confirm booking - using function from api/confirmBooking.ts
     const callApiForConfirmBooking = async (bookingData: any): Promise<any | null> => {
         try {
-            console.log("=== API CONFIRM BOOKING DEBUG ===");
-            console.log("Sending booking data:", JSON.stringify(bookingData, null, 2));
-
-            const res = await api.post("/api/orders/confirm", bookingData);
-            console.log("API response:", res);
-
-            if (res.status == 200) {
-                console.log("Booking confirmed successfully");
-                return res.data?.data || res.data;
-            }
-            throw new Error(language === "vi" ? "Xác nhận đặt chỗ thất bại" : "Booking confirmation failed");
+            const result = await confirmBooking(bookingData, language);
+            return result;
         } catch (err: any) {
             console.error("=== API CONFIRM BOOKING ERROR ===");
-            console.error("Error object:", err);
-            console.error("Error response:", err?.response);
-            console.error("Error response data:", err?.response?.data);
-            console.error("Error response status:", err?.response?.status);
-
-            // Always prioritize backend error message
-            let msg = err?.response?.data?.message;
-
-            // If no backend message, use generic messages based on status
-            if (!msg) {
-                if (err?.response?.status === 500) {
-                    msg = language === "vi"
-                        ? "Lỗi máy chủ. Vui lòng thử lại sau."
-                        : "Server error. Please try again later.";
-                } else if (err?.response?.status === 400) {
-                    msg = language === "vi"
-                        ? "Dữ liệu không hợp lệ. Vui lòng kiểm tra lại."
-                        : "Invalid data. Please check your input.";
-                } else if (err?.response?.status === 401) {
-                    msg = language === "vi"
-                        ? "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại."
-                        : "Session expired. Please login again.";
-                } else {
-                    msg = language === "vi" ? "Xác nhận đặt chỗ thất bại" : "Booking confirmation failed";
-                }
-            }
-
-            toast.error(msg);
+            console.error("Error:", err);
+            
+            // Show toast with error message from API function
+            toast.error(err?.message || (language === "vi" ? "Xác nhận đặt chỗ thất bại" : "Booking confirmation failed"));
             return null;
         }
     }
+
+    const normalizeOrderResponse = (orderResponse: any) => {
+        if (!orderResponse) return null;
+        return orderResponse.data ?? orderResponse;
+    };
+
+    const storeCurrentStationContext = (orderData: any, fallbackStation?: ChargingStation | null, slotContext?: any) => {
+        const info: StoredStationContext = {
+            stationId: orderData?.stationId ?? fallbackStation?.stationId ?? undefined,
+            stationName: orderData?.stationName ?? fallbackStation?.stationName ?? undefined,
+            stationAddress: orderData?.stationAddress ?? fallbackStation?.address ?? (fallbackStation as any)?.stationAddress ?? undefined,
+            connectorType: orderData?.connectorType ?? slotContext?.connectorTypeName ?? slotContext?.connectorType ?? undefined,
+            chargingPower: typeof orderData?.chargingPower === "number"
+                ? orderData.chargingPower
+                : (slotContext?.powerOutput != null && !isNaN(Number(slotContext.powerOutput))
+                    ? Number(slotContext.powerOutput)
+                    : undefined),
+            pricePerKwh: typeof orderData?.pricePerKwh === "number"
+                ? orderData.pricePerKwh
+                : (slotContext?.pricePerKwh != null && !isNaN(Number(slotContext.pricePerKwh))
+                    ? Number(slotContext.pricePerKwh)
+                    : undefined),
+        chargingPointName: orderData?.chargingPointName
+            ?? slotContext?.chargingPointName
+            ?? slotContext?.chargingPointInfo?.chargingPointName
+            ?? slotContext?.chargingPointInfo?.name,
+            timestamp: new Date().toISOString(),
+        };
+
+        try {
+            localStorage.setItem("currentStationInfo", JSON.stringify(info));
+            if (info.stationId !== undefined) {
+                localStorage.setItem("currentStationId", info.stationId.toString());
+            }
+        } catch (storageError) {
+            console.error("Unable to persist station context:", storageError);
+        }
+    };
+
+    const fetchSessionByOrderId = async (orderId: number | string) => {
+        try {
+            const response = await api.get(`/api/sessions/by-order/${orderId}`);
+            if (response.status === 200 && response.data?.success && response.data?.data) {
+                return response.data.data;
+            }
+        } catch (error) {
+            console.error("Error fetching session by orderId:", error);
+        }
+        return null;
+    };
+
+    const tryRecoverExistingSession = async (
+        error: any,
+        orderId: number | string
+    ): Promise<boolean> => {
+        const message: string | undefined = error?.response?.data?.message || error?.message;
+        if (error?.response?.status === 400 && message) {
+            const normalizedMessage = message.toLowerCase();
+            if (normalizedMessage.includes("order not in booked status") ||
+                normalizedMessage.includes("already") ||
+                normalizedMessage.includes("charging")) {
+                const existingSession = await fetchSessionByOrderId(orderId);
+                if (existingSession?.sessionId) {
+                    localStorage.setItem("currentSessionId", existingSession.sessionId.toString());
+                    localStorage.setItem("currentOrderId", orderId.toString());
+                    toast.success(
+                        language === "vi"
+                            ? "Phiên sạc đã được khôi phục."
+                            : "Charging session restored."
+                    );
+                    onStartCharging?.(orderId.toString());
+                    return true;
+                }
+            }
+        }
+
+        // Nếu API trả về 404 mà vẫn có order CHARGING, thử khôi phục thủ công
+        if (error?.response?.status === 404) {
+            const existingSession = await fetchSessionByOrderId(orderId);
+            if (existingSession?.sessionId) {
+                localStorage.setItem("currentSessionId", existingSession.sessionId.toString());
+                localStorage.setItem("currentOrderId", orderId.toString());
+                toast.success(
+                    language === "vi"
+                        ? "Phiên sạc đã được khôi phục."
+                        : "Charging session restored."
+                );
+                onStartCharging?.(orderId.toString());
+                return true;
+            }
+        }
+
+        return false;
+    };
 
     // Handle loading charging points for a station
     const handleLoadChargingPoints = async (stationId: string) => {
@@ -1231,7 +1431,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                 console.log('No charging points found');
                 setChargingPoints([]);
                 setExpandedStationId(stationId); // Still expand to show empty state
-                toast.warning(language === 'vi' ? 'Không tìm thấy trụ sạc nào' : 'No charging points found');
+                toast(language === 'vi' ? 'Không tìm thấy trụ sạc nào' : 'No charging points found', { icon: "⚠️" });
             }
         } catch (error) {
             console.error('Error loading charging points:', error);
@@ -1255,7 +1455,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
             } else {
                 console.log("No stations found");
                 setStations([]);
-                toast.warning("No stations found");
+                toast("No stations found", { icon: "⚠️" });
             }
             return list;
         } catch (err: any) {
@@ -1295,12 +1495,12 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                 .sort((a, b) => a.distance - b.distance);
 
             if (stationsWithDistance.length > 0) {
-                const nearestEntry = stationsWithDistance[0];
-                const nearestStation = nearestEntry?.station;
-                if (nearestStation) {
+                const firstStation = stationsWithDistance[0]!;
+                if (firstStation.station) {
+                    const nearestStation = firstStation.station;
                     setSelectedStation(nearestStation);
                     hasAutoSelectedRef.current = true;
-
+                    
                     // Center map on nearest station
                     if (nearestStation.latitude && nearestStation.longitude) {
                         setMapCenter({ lat: nearestStation.latitude, lng: nearestStation.longitude });
@@ -1440,7 +1640,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
     const handleViewDetails = async (station: ChargingStation) => {
         // Check if station is ACTIVE
         if (station.status !== "ACTIVE") {
-            toast.warning(
+            toast(
                 language === 'vi'
                     ? 'Trạm này không hoạt động, không thể đặt lịch sạc'
                     : 'This station is not active, cannot book charging'
@@ -1458,7 +1658,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
         if (stationPoints) {
             const hasAvailablePoints = Object.values(stationPoints).some(stats => stats.available > 0);
             if (!hasAvailablePoints) {
-                toast.warning(
+                toast(
                     language === 'vi'
                         ? 'Trạm này không còn trụ sạc trống, không thể đặt lịch'
                         : 'This station has no available charging points, cannot book'
@@ -1478,6 +1678,17 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
         setIsDetailsDialogOpen(true);
     };
 
+    // Handler for dialog open change
+    const handleChargingConfigOpenChange = (open: boolean) => {
+        setIsChargingConfigOpen(open);
+        if (!open) {
+            setExpandedChargingPoints(new Set());
+            setSelectedSlot(null);
+            setSelectedSlots([]);
+            setShowAvailableSlots(false);
+        }
+    };
+
     // Handler for opening charging configuration
     const handleOpenChargingConfig = async (station: ChargingStation) => {
         console.log("=== handleOpenChargingConfig called ===");
@@ -1492,7 +1703,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
         // Check if vehicle is selected
         if (!currentVehicle) {
             console.log("No vehicle selected, showing popup");
-            toast.warning(
+            toast(
                 language === 'vi'
                     ? 'Vui lòng chọn xe trước khi đặt lịch sạc'
                     : 'Please select a vehicle before booking'
@@ -1503,9 +1714,27 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
 
         console.log("Vehicle is selected, proceeding with booking");
 
+        // Check if vehicle is currently charging (re-check before opening dialog)
+        const vehicleId = currentVehicle.vehicleId || currentVehicle.VehicleId || currentVehicle.id;
+        if (vehicleId) {
+            const isCharging = await checkVehicleChargingStatus(vehicleId);
+            setIsVehicleCurrentlyCharging(isCharging);
+            
+            if (isCharging) {
+                console.log("Vehicle is currently charging, showing warning");
+                toast(
+                    language === 'vi'
+                        ? 'Xe này đang trong quá trình sạc. Bạn chỉ có thể đặt lịch sạc tiếp theo.'
+                        : 'This vehicle is currently charging. You can only schedule the next charging session.',
+                    { duration: 5000 }
+                );
+                // Still open dialog but with Book Now disabled
+            }
+        }
+
         // Check if station is ACTIVE
         if (station.status !== "ACTIVE") {
-            toast.warning(
+            toast(
                 language === 'vi'
                     ? 'Trạm này không hoạt động, không thể đặt lịch sạc'
                     : 'This station is not active, cannot book charging'
@@ -1530,7 +1759,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                 setIsChargingConfigOpen(true);
             } else {
                 console.warn("No slots returned from API");
-                toast.warning(
+                toast(
                     language === 'vi'
                         ? 'Không có slot khả dụng phù hợp với xe của bạn'
                         : 'No available slots suitable for your vehicle'
@@ -1582,28 +1811,69 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
 
     //Mount bản đồ
     useEffect(() => {
-
-
         if (!mapContainerRef.current || __mapRef.current) {
             console.log("Skipping map init - container not ready or map already exists");
             return;
         }
 
+        // Kiểm tra API key
+        const RAW_MAPTILER_API_KEY = (import.meta.env.VITE_MAPTILER_API_KEY ?? "").toString().trim();
+        const MAPTILER_API_KEY =
+            RAW_MAPTILER_API_KEY && RAW_MAPTILER_API_KEY !== "get_your_free_key_from_maptiler_cloud" && RAW_MAPTILER_API_KEY !== ""
+                ? RAW_MAPTILER_API_KEY
+                : null;
+
         try {
             console.log("Initializing map...");
-            const customStyleUrl = `https://api.maptiler.com/maps/019983ed-809a-7bba-8d9b-f5f42a71219e/style.json?key=${import.meta.env.VITE_MAPTILER_API_KEY}`;
-            const map = new maptilersdk.Map({
-                container: mapContainerRef.current,
-                style: customStyleUrl,
-                center: defaultCenterLngLat,
-                zoom: mapZoom,
-                hash: false,
-            });
+            let map: maptilersdk.Map;
+
+            if (!MAPTILER_API_KEY) {
+                console.warn("MAPTILER_API_KEY not configured, using basic map fallback");
+                
+                // Use OpenStreetMap as fallback
+                map = new maptilersdk.Map({
+                    container: mapContainerRef.current,
+                    style: {
+                        version: 8,
+                        sources: {
+                            'osm': {
+                                type: 'raster',
+                                tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
+                                tileSize: 256,
+                                attribution: '© OpenStreetMap contributors'
+                            }
+                        },
+                        layers: [{
+                            id: 'osm',
+                            type: 'raster',
+                            source: 'osm'
+                        }]
+                    },
+                    center: defaultCenterLngLat,
+                    zoom: mapZoom,
+                    hash: false,
+                });
+            } else {
+                // Use configured API key
+                const customStyleUrl = `https://api.maptiler.com/maps/019983ed-809a-7bba-8d9b-f5f42a71219e/style.json?key=${MAPTILER_API_KEY}`;
+                map = new maptilersdk.Map({
+                    container: mapContainerRef.current,
+                    style: customStyleUrl,
+                    center: defaultCenterLngLat,
+                    zoom: mapZoom,
+                    hash: false,
+                });
+            }
 
             __mapRef.current = map;
 
             map.on('load', () => {
                 console.log("Map đã load thành công");
+            });
+
+            map.on('error', (e: any) => {
+                console.error("Map error:", e);
+                toast.error("Lỗi khi tải bản đồ");
             });
 
             map.on("moveend", () => {
@@ -1621,7 +1891,9 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                         tempMarker.remove();
                     }
                     markerMapRef.current.clear();
-                    map.remove();
+                    if (__mapRef.current) {
+                        __mapRef.current.remove();
+                    }
                     __mapRef.current = null;
                     console.log("Map cleaned up");
                 } catch (err) {
@@ -2127,15 +2399,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
         // Show QR code only for immediate bookings, otherwise show success
 
         if (isImmediateBooking) {
-
             setBookingStep("qr");
-
-            // Generate a booking ID for immediate charging session
-            const bookingId = `booking_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-
-            // Call the callback to navigate to charging session
-            onStartCharging?.(bookingId);
-
         } else {
 
             setBookingStep("success");
@@ -3538,14 +3802,13 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                                                 />
                                                 {searchQuery && (
                                                     <button
-                                                        type="button"
+                                                        aria-label={language === 'vi' ? 'Xóa tìm kiếm' : 'Clear search'}
                                                         onClick={() => {
                                                             setSearchQuery("");
                                                             setSearchResults([]);
                                                             setShowSearchResults(false);
                                                         }}
                                                         className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-white/70 hover:text-white transition-colors"
-                                                        aria-label={language === 'vi' ? 'Xóa tìm kiếm' : 'Clear search'}
                                                     >
                                                         <X className="w-4 h-4" />
                                                     </button>
@@ -3970,7 +4233,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
 
                                                             <div className="flex items-center justify-between">
 
-                                                                <label className="text-sm text-muted-foreground" htmlFor="currentBatteryInput">Current Battery</label>
+                                                                <span className="text-sm text-muted-foreground">Current Battery</span>
 
                                                                 <span className="text-xs text-muted-foreground">Enter 0-100%</span>
 
@@ -4013,13 +4276,13 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
 
                                                                         }}
 
+                                                                        aria-label={language === 'vi' ? 'Mức pin hiện tại' : 'Current battery level'}
+
                                                                         className="w-16 h-12 text-center text-xl font-bold bg-transparent border-none outline-none text-primary"
 
                                                                         min="0"
 
                                                                         max="100"
-
-                                                                        id="currentBatteryInput"
 
                                                                     />
 
@@ -4057,7 +4320,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
 
                                                                     }`}
 
-                                                                    ref={batteryLevelBarRef}
+                                                                    style={{ width: `${currentBatteryLevel}%` }}
 
                                                                 />
 
@@ -4884,8 +5147,8 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                                                 setCurrentPage(page);
                                             }
                                         }}
+                                        aria-label={language === 'vi' ? 'Đi tới trang' : 'Jump to page'}
                                         className="w-16 h-8 px-2 text-center border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary"
-                                        aria-label={language === 'vi' ? 'Nhập số trang' : 'Enter page number'}
                                     />
                                     <span className="text-muted-foreground">/ {totalPages}</span>
                                 </div>
@@ -5136,8 +5399,16 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
             </Dialog>
 
             {/* Charging Configuration Dialog */}
-            <Dialog open={isChargingConfigOpen} onOpenChange={setIsChargingConfigOpen}>
-                <DialogContent className="max-w-md max-h-[80vh] overflow-hidden flex flex-col">
+            <Dialog open={isChargingConfigOpen} onOpenChange={handleChargingConfigOpenChange}>
+                <style>{`
+                    .charging-config-content::-webkit-scrollbar {
+                        display: none;
+                    }
+                    .available-slots-list::-webkit-scrollbar {
+                        display: none;
+                    }
+                `}</style>
+                <DialogContent className="max-w-[66.666667%] max-h-[80vh] overflow-hidden flex flex-col">
                     <DialogHeader className="flex-shrink-0 text-center">
                         <DialogTitle className="flex items-center justify-center space-x-2">
                             <Zap className="w-5 h-5 text-primary" />
@@ -5149,7 +5420,13 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                     </DialogHeader>
 
                     {configStation && (
-                        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-6 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
+                        <div 
+                            className="flex-1 overflow-y-auto px-6 py-4 space-y-6 charging-config-content"
+                            style={{
+                                scrollbarWidth: 'none', /* Firefox */
+                                msOverflowStyle: 'none', /* IE and Edge */
+                            }}
+                        >
                             {/* Station Info */}
                             <div className="bg-muted/50 rounded-lg p-4 text-center">
                                 <h4 className="font-medium mb-2">{configStation.stationName}</h4>
@@ -5180,10 +5457,16 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
 
                             {/* Selected Vehicle Info */}
                             {(selectedVehicle || selectedVehicleRef.current) && (
-                                <div className="bg-primary/10 rounded-lg p-4">
+                                <div className={`rounded-lg p-4 ${isVehicleCurrentlyCharging ? 'bg-amber-50 dark:bg-amber-950/20 border-2 border-amber-500' : 'bg-primary/10'}`}>
                                     <h4 className="font-medium flex items-center space-x-2 mb-2">
                                         <Car className="w-4 h-4 text-primary" />
                                         <span>{language === 'vi' ? 'Xe đã chọn' : 'Selected Vehicle'}</span>
+                                        {isVehicleCurrentlyCharging && (
+                                            <Badge variant="outline" className="bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200 border-amber-500">
+                                                <Zap className="w-3 h-3 mr-1 animate-pulse" />
+                                                {language === 'vi' ? 'Đang sạc' : 'Charging'}
+                                            </Badge>
+                                        )}
                                     </h4>
                                     <div className="flex items-center space-x-3">
                                         <div className="w-10 h-10 bg-primary/20 rounded-lg flex items-center justify-center">
@@ -5203,11 +5486,17 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                                             {language === 'vi' ? 'Đổi xe' : 'Change'}
                                         </Button>
                                     </div>
+                                    {isVehicleCurrentlyCharging && (
+                                        <div className="mt-3 p-2 bg-amber-100 dark:bg-amber-900/30 rounded text-xs text-amber-800 dark:text-amber-200">
+                                            <Info className="w-3 h-3 inline mr-1" />
+                                            {language === 'vi' 
+                                                ? 'Xe này đang trong quá trình sạc. Bạn chỉ có thể đặt lịch sạc cho lần tiếp theo.'
+                                                : 'This vehicle is currently charging. You can only schedule for the next session.'}
+                                        </div>
+                                    )}
                                 </div>
                             )}
 
-                            {/* Available Slots Display - Only show for Schedule mode after selecting start time */}
-                           
 
                             {/* Show loading state for schedule mode when selecting time */}
                             {bookingMode === "scheduled" && chargingStartTimeInput && loadingSlots && (
@@ -5249,203 +5538,517 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                                 <div className="grid grid-cols-2 gap-2">
                                     <Button
                                         variant={bookingMode === "now" ? "default" : "outline"}
-                                        onClick={() => setBookingMode("now")}
+                                        onClick={() => {
+                                            if (isVehicleCurrentlyCharging) {
+                                                toast(
+                                                    language === 'vi'
+                                                        ? 'Không thể sạc ngay khi xe đang trong quá trình sạc. Vui lòng đặt lịch.'
+                                                        : 'Cannot book now while vehicle is charging. Please schedule instead.',
+                                                    { duration: 5000 }
+                                                );
+                                                return;
+                                            }
+                                            setBookingMode("now");
+                                            clearScheduledResults();
+                                            setScheduledTime("");
+                                        }}
                                         className="flex items-center space-x-2"
+                                        disabled={isVehicleCurrentlyCharging}
                                     >
                                         <Zap className="w-4 h-4" />
                                         <span>{language === 'vi' ? 'Sạc ngay' : 'Book Now'}</span>
+                                        {isVehicleCurrentlyCharging && (
+                                            <Badge variant="destructive" className="ml-2 text-xs">
+                                                {language === 'vi' ? 'Đang sạc' : 'Charging'}
+                                            </Badge>
+                                        )}
                                     </Button>
 
                                     <Button
                                         variant={bookingMode === "scheduled" ? "default" : "outline"}
-                                        onClick={() => setBookingMode("scheduled")}
+                                        onClick={() => {
+                                            setBookingMode("scheduled");
+                                            clearScheduledResults();
+                                            if (!scheduledDate) {
+                                                setScheduledDate(minScheduledDate);
+                                            }
+                                        }}
                                         className="flex items-center space-x-2"
                                     >
                                         <Calendar className="w-4 h-4" />
                                         <span>{language === 'vi' ? 'Đặt lịch' : 'Schedule'}</span>
                                     </Button>
                                 </div>
+
+                                {bookingMode === "scheduled" && (
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-2">
+                                        <div className="space-y-1">
+                                            <label className="text-xs font-medium text-muted-foreground">
+                                                {language === 'vi' ? 'Ngày sạc' : 'Charging Date'}
+                                            </label>
+                                            <Input
+                                                type="date"
+                                                value={scheduledDate}
+                                                min={minScheduledDate}
+                                                onChange={(e) => {
+                                                    setScheduledDate(e.target.value);
+                                                    clearScheduledResults();
+                                                }}
+                                            />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <label className="text-xs font-medium text-muted-foreground">
+                                                {language === 'vi' ? 'Giờ bắt đầu' : 'Start Time'}
+                                            </label>
+                                            <Input
+                                                type="time"
+                                                value={scheduledTime}
+                                                onChange={(e) => {
+                                                    setScheduledTime(e.target.value);
+                                                    clearScheduledResults();
+                                                }}
+                                            />
+                                        </div>
+                                        <div className="flex items-end">
+                                            <Button
+                                                className="w-full"
+                                                onClick={() => handleStartTimeSelection(scheduledDate, scheduledTime)}
+                                                disabled={loadingSlots || !scheduledDate || !scheduledTime}
+                                            >
+                                                {loadingSlots ? (
+                                                    <>
+                                                        <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                                                        {language === 'vi' ? 'Đang lọc...' : 'Filtering...'}
+                                                    </>
+                                                ) : (
+                                                    <span>
+                                                        {language === 'vi' ? 'Lọc slot theo thời gian' : 'Filter slots by time'}
+                                                    </span>
+                                                )}
+                                            </Button>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Find Available Slots Button for Schedule Mode */}
+                                {bookingMode === "scheduled" && configStation && (
+                                    <div className="flex justify-center pt-2">
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={async () => {
+                                                if (!configStation) return;
+                                                clearScheduledResults();
+                                                setLoadingSlots(true);
+                                                setExpandedChargingPoints(new Set());
+                                                setSelectedSlot(null);
+                                                setSelectedSlots([]);
+                                                try {
+                                                    const slots = await callApiForFindAvailableSlots(
+                                                        configStation.stationId?.toString() || '',
+                                                        initialBatteryLevel,
+                                                        targetBatteryLevelConfig
+                                                    );
+                                                    if (slots && slots.length > 0) {
+                                                        setAvailableSlots(slots);
+                                                        toast.success(
+                                                            language === 'vi'
+                                                                ? `Tìm thấy ${slots.length} slot khả dụng`
+                                                                : `Found ${slots.length} available slots`
+                                                        );
+                                                    } else {
+                                                        setAvailableSlots([]);
+                                                        toast(
+                                                            language === 'vi'
+                                                                ? 'Không có slot khả dụng'
+                                                                : 'No available slots found'
+                                                        );
+                                                    }
+                                                } catch (error) {
+                                                    console.error("Error finding available slots:", error);
+                                                    toast.error(
+                                                        language === 'vi'
+                                                            ? 'Lỗi khi tìm slot khả dụng'
+                                                            : 'Error finding available slots'
+                                                    );
+                                                } finally {
+                                                    setLoadingSlots(false);
+                                                }
+                                            }}
+                                            disabled={loadingSlots}
+                                            className="flex items-center space-x-2"
+                                        >
+                                            {loadingSlots ? (
+                                                <>
+                                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                                    <span>{language === 'vi' ? 'Đang tìm...' : 'Finding...'}</span>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Search className="w-4 h-4" />
+                                                    <span>{language === 'vi' ? 'Tìm slot khả dụng' : 'Find Available Slots'}</span>
+                                                </>
+                                            )}
+                                        </Button>
+                                    </div>
+                                )}
                             </div>
 
                             {/* Battery Configuration */}
-                            <div className="space-y-2">
+                            <div className="space-y-4">
                                 <h4 className="font-medium flex items-center justify-center space-x-2 text-sm">
                                     <Battery className="w-4 h-4 text-primary" />
                                     <span>{language === 'vi' ? 'Cấu hình pin' : 'Battery Configuration'}</span>
                                 </h4>
 
-                                {/* Initial Battery Level */}
-                                <div className="space-y-1">
-                                    <label className="text-sm font-medium text-center block" htmlFor="initialBatteryLevelInput">
-                                        {language === 'vi' ? 'Mức pin ban đầu' : 'Initial Battery Level'}
-                                    </label>
-                                    <div className="flex items-center justify-center space-x-3">
-                                        <button
-                                            onClick={() => setInitialBatteryLevel(Math.max(0, initialBatteryLevel - 1))}
-                                            className="w-8 h-8 bg-muted hover:bg-muted/80 rounded-lg flex items-center justify-center transition-colors"
-                                        >
-                                            −
-                                        </button>
-                                        <div className="flex flex-col items-center">
-                                            <input
-                                                type="number"
-                                                value={initialBatteryLevel}
-                                                onChange={(e) => {
-                                                    const value = parseInt(e.target.value) || 0;
-                                                    const clampedValue = Math.max(0, Math.min(100, value));
-                                                    setInitialBatteryLevel(clampedValue);
-                                                }}
-                                                className="w-16 h-10 text-center text-lg font-bold bg-transparent border-2 border-primary rounded-lg outline-none focus:ring-2 focus:ring-primary/20"
-                                                min="0"
-                                                max="100"
-                                                id="initialBatteryLevelInput"
-                                            />
-                                            <span className="text-xs text-muted-foreground">%</span>
+                                {/* Battery Levels Row */}
+                                <div className="grid grid-cols-2 gap-4">
+                                    {/* Current Battery Level */}
+                                    <div 
+                                        className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                                            activeBatteryControl === "current" 
+                                                ? 'border-primary bg-primary/10' 
+                                                : 'border-border hover:border-primary/50'
+                                        }`}
+                                        onClick={() => setActiveBatteryControl("current")}
+                                    >
+                                        <div className="text-center space-y-2">
+                                            <label className="text-xs font-medium text-muted-foreground block">
+                                                {language === 'vi' ? 'Pin hiện tại' : 'Current Battery'}
+                                            </label>
+                                            <div className={`text-3xl font-bold ${
+                                                initialBatteryLevel <= 20 ? 'text-destructive' :
+                                                initialBatteryLevel <= 50 ? 'text-yellow-600' : 'text-primary'
+                                            }`}>
+                                                {initialBatteryLevel}%
+                                            </div>
+                                            {activeBatteryControl === "current" && (
+                                                <div className="text-xs text-primary font-medium">
+                                                    {language === 'vi' ? 'Đang điều chỉnh' : 'Active'}
+                                                </div>
+                                            )}
                                         </div>
-                                        <button
-                                            onClick={() => setInitialBatteryLevel(Math.min(100, initialBatteryLevel + 1))}
-                                            className="w-8 h-8 bg-muted hover:bg-muted/80 rounded-lg flex items-center justify-center transition-colors"
-                                        >
-                                            +
-                                        </button>
                                     </div>
 
-
-
-                                    {/* Current Battery Level Display */}
-
-                                    <div className="text-center">
-
-                                        <div className={`text-3xl font-bold ${currentBatteryLevel <= 20 ? 'text-destructive' :
-
-                                            currentBatteryLevel <= 50 ? 'text-yellow-600' : 'text-primary'
-
-                                        }`}>
-
-                                            {currentBatteryLevel}%
-
+                                    {/* Target Battery Level */}
+                                    <div 
+                                        className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                                            activeBatteryControl === "target" 
+                                                ? 'border-primary bg-primary/10' 
+                                                : 'border-border hover:border-primary/50'
+                                        }`}
+                                        onClick={() => setActiveBatteryControl("target")}
+                                    >
+                                        <div className="text-center space-y-2">
+                                            <label className="text-xs font-medium text-muted-foreground block">
+                                                {language === 'vi' ? 'Pin mong đợi' : 'Target Battery'}
+                                            </label>
+                                            <div className="text-3xl font-bold text-green-600 dark:text-green-400">
+                                                {targetBatteryLevelConfig}%
+                                            </div>
+                                            {activeBatteryControl === "target" && (
+                                                <div className="text-xs text-primary font-medium">
+                                                    {language === 'vi' ? 'Đang điều chỉnh' : 'Active'}
+                                                </div>
+                                            )}
                                         </div>
-
-                                        <div className="text-sm text-muted-foreground">Current Battery Level</div>
-
                                     </div>
-
                                 </div>
 
-
-
-                                {/* Target Battery Level */}
-                                <div className="space-y-1">
-                                    <label className="text-sm font-medium text-center block" htmlFor="targetBatteryLevelInput">
-                                        {language === 'vi' ? 'Mức pin mục tiêu' : 'Target Battery Level'}
-                                    </label>
-                                    <div className="flex items-center justify-center space-x-3">
-                                        <button
-                                            onClick={() => setTargetBatteryLevelConfig(Math.max(initialBatteryLevel + 5, targetBatteryLevelConfig - 1))}
-                                            className="w-8 h-8 bg-muted hover:bg-muted/80 rounded-lg flex items-center justify-center transition-colors"
-                                        >
-                                            −
-                                        </button>
-                                        <div className="flex flex-col items-center">
-                                            <input
-                                                type="number"
-                                                value={targetBatteryLevelConfig}
-                                                onChange={(e) => {
-                                                    const value = parseInt(e.target.value) || 0;
-                                                    const clampedValue = Math.max(initialBatteryLevel + 5, Math.min(100, value));
-                                                    setTargetBatteryLevelConfig(clampedValue);
-                                                }}
-                                                className="w-16 h-10 text-center text-lg font-bold bg-transparent border-2 border-primary rounded-lg outline-none focus:ring-2 focus:ring-primary/20"
-                                                min={initialBatteryLevel + 5}
-                                                max="100"
-                                                id="targetBatteryLevelInput"
-                                            />
-                                            <span className="text-xs text-muted-foreground">%</span>
-                                        </div>
-                                        <button
-                                            onClick={() => setTargetBatteryLevelConfig(Math.min(100, targetBatteryLevelConfig + 1))}
-                                            className="w-8 h-8 bg-muted hover:bg-muted/80 rounded-lg flex items-center justify-center transition-colors"
-                                        >
-                                            +
-                                        </button>
+                                {/* Unified Slider Control */}
+                                <div className="space-y-2">
+                                    <div className="flex items-center justify-between text-xs text-muted-foreground">
+                                        <span>
+                                            {activeBatteryControl === "current" 
+                                                ? (language === 'vi' ? 'Điều chỉnh pin hiện tại' : 'Adjust Current Battery')
+                                                : (language === 'vi' ? 'Điều chỉnh pin mong đợi' : 'Adjust Target Battery')
+                                            }
+                                        </span>
+                                        <span className="font-medium">
+                                            {activeBatteryControl === "current" ? initialBatteryLevel : targetBatteryLevelConfig}%
+                                        </span>
                                     </div>
-
                                     <Slider
-                                        value={[targetBatteryLevelConfig]}
-                                        onValueChange={(value: number[]) => setTargetBatteryLevelConfig(value[0] || 80)}
+                                        value={activeBatteryControl === "current" ? [initialBatteryLevel] : [targetBatteryLevelConfig]}
+                                        onValueChange={(value: number[]) => {
+                                            const newValue = value[0] || 0;
+                                            if (activeBatteryControl === "current") {
+                                                const clampedValue = Math.max(0, Math.min(100, newValue));
+                                                setInitialBatteryLevel(clampedValue);
+                                                // Ensure target is always higher than current
+                                                if (targetBatteryLevelConfig <= clampedValue) {
+                                                    setTargetBatteryLevelConfig(Math.min(100, clampedValue + 5));
+                                                }
+                                            } else {
+                                                const clampedValue = Math.max(initialBatteryLevel + 5, Math.min(100, newValue));
+                                                setTargetBatteryLevelConfig(clampedValue);
+                                            }
+                                        }}
                                         max={100}
-                                        min={initialBatteryLevel + 5}
+                                        min={activeBatteryControl === "current" ? 0 : initialBatteryLevel + 5}
                                         step={1}
                                         className="w-full"
                                     />
+                                    <div className="flex justify-between text-xs text-muted-foreground">
+                                        <span>{activeBatteryControl === "current" ? "0%" : `${initialBatteryLevel + 5}%`}</span>
+                                        <span>100%</span>
+                                    </div>
                                 </div>
                             </div>
 
-                            {/* Time Configuration - Only show for scheduled booking */}
-                            {bookingMode === "scheduled" && (
-                                <div className="space-y-2">
-                                    <h4 className="font-medium flex items-center justify-center space-x-2 text-sm">
-                                        <Clock className="w-4 h-4 text-primary" />
-                                        <span>{language === 'vi' ? 'Thời gian sạc' : 'Charging Time'}</span>
-                                    </h4>
+                            {/* Charging Points and Slots Display */}
+                            {availableSlots.length > 0 && (() => {
+                                // Filter available slots only
+                                const availableOnlySlots = availableSlots.filter((slot) => {
+                                    return slot.status === 'AVAILABLE' || !slot.status || slot.freeFrom;
+                                });
 
-                                    <div className="flex flex-col items-center space-y-2">
-                                        <label className="text-sm font-medium text-center" htmlFor="startChargingTimeInput">
-                                            {language === 'vi' ? 'Giờ bắt đầu sạc' : 'Start Charging Time'}
-                                        </label>
-                                        <Input
-                                            type="time"
-                                            value={chargingStartTimeInput}
-                                            onChange={(e) => {
-                                                setChargingStartTimeInput(e.target.value);
-                                                // Trigger slots popup when time is selected
-                                                if (e.target.value) {
-                                                    handleStartTimeSelection(e.target.value);
-                                                }
+                                // Group slots by charging point
+                                const slotsByChargingPoint = new Map<number, any[]>();
+                                const chargingPointsMap = new Map<number, any>();
+                                
+                                availableSlots.forEach((slot) => {
+                                    const chargingPointId = slot.chargingPointId || slot.chargingPointInfo?.id;
+                                    if (chargingPointId) {
+                                        if (!slotsByChargingPoint.has(chargingPointId)) {
+                                            slotsByChargingPoint.set(chargingPointId, []);
+                                            chargingPointsMap.set(chargingPointId, slot.chargingPointInfo || {
+                                                id: chargingPointId,
+                                                chargingPointName: slot.chargingPointName || slot.chargingPointInfo?.chargingPointName || `Point ${chargingPointId}`,
+                                                connectorType: slot.connectorType,
+                                                powerOutput: slot.powerOutput,
+                                                pricePerKwh: slot.pricePerKwh
+                                            });
+                                        }
+                                        slotsByChargingPoint.get(chargingPointId)!.push(slot);
+                                    }
+                                });
+
+                                const chargingPointsList = Array.from(chargingPointsMap.values());
+
+                                return (
+                                    <div className="space-y-3">
+                                        <h4 className="font-medium flex items-center space-x-2 text-sm">
+                                            <Zap className="w-4 h-4 text-primary" />
+                                            <span>{language === 'vi' ? 'Điểm sạc khả dụng' : 'Available Charging Points'}</span>
+                                            <Badge variant="secondary" className="text-xs">
+                                                {chargingPointsList.length}
+                                            </Badge>
+                                        </h4>
+
+                                        <div 
+                                            className="space-y-2 max-h-96 overflow-y-auto pr-2 available-slots-list"
+                                            style={{
+                                                scrollbarWidth: 'none', /* Firefox */
+                                                msOverflowStyle: 'none', /* IE and Edge */
                                             }}
-                                            className="w-32 h-10 text-center text-lg font-medium border-2 border-primary rounded-lg focus:ring-2 focus:ring-primary/20"
-                                            placeholder="HH:MM"
-                                            id="startChargingTimeInput"
-                                        />
-                                        {chargingStartTimeInput && (
-                                            <div className="text-xs text-muted-foreground text-center">
-                                                {language === 'vi' ? 'Thời gian phải ít nhất 30 phút sau hiện tại' : 'Time must be at least 30 minutes from now'}
-                                            </div>
-                                        )}
-                                    </div>
+                                        >
+                                            {chargingPointsList.map((cp: any) => {
+                                                const cpId = cp.id || cp.chargingPointId;
+                                                const slots = slotsByChargingPoint.get(cpId) || [];
+                                                const isExpanded = expandedChargingPoints.has(cpId);
+                                                const { connectorTypeName, powerOutput, pricePerKwh } = extractSlotInfo({ connectorType: cp.connectorType, powerOutput: cp.powerOutput, pricePerKwh: cp.pricePerKwh });
 
-                                    {/* Show selected slot info if already selected */}
-                                    {selectedSlot && (
-                                        <div className="bg-primary/10 rounded-lg p-3 mt-2">
-                                            <div className="flex items-center justify-between">
-                                                <div className="flex-1">
-                                                    <div className="flex items-center space-x-2">
-                                                        <Zap className="w-4 h-4 text-primary" />
-                                                        <p className="text-sm font-medium">
-                                                            {extractSlotInfo(selectedSlot).connectorTypeName}
-                                                        </p>
+                                                return (
+                                                    <div key={cpId} className="border rounded-lg overflow-hidden">
+                                                        {/* Charging Point Card */}
+                                                        <div 
+                                                            className="p-3 bg-muted/30 hover:bg-muted/50 cursor-pointer transition-colors"
+                                                            onClick={() => {
+                                                                const newExpanded = new Set(expandedChargingPoints);
+                                                                if (isExpanded) {
+                                                                    newExpanded.delete(cpId);
+                                                                } else {
+                                                                    newExpanded.add(cpId);
+                                                                }
+                                                                setExpandedChargingPoints(newExpanded);
+                                                            }}
+                                                        >
+                                                            <div className="flex items-center justify-between">
+                                                                <div className="flex-1">
+                                                                    <div className="flex items-center space-x-2">
+                                                                        <Zap className="w-4 h-4 text-primary" />
+                                                                        <p className="text-sm font-medium">
+                                                                            {cp.chargingPointName ? `${cp.chargingPointName} • ` : ''}{connectorTypeName}
+                                                                        </p>
+                                                                        <Badge variant="outline" className="text-xs">
+                                                                            {slots.length} {language === 'vi' ? 'slot' : 'slots'}
+                                                                        </Badge>
+                                                                    </div>
+                                                                    <p className="text-xs text-muted-foreground mt-1">
+                                                                        {powerOutput !== null ? `${powerOutput} kW` : 'Power N/A'} •
+                                                                        {pricePerKwh !== null ? ` ${pricePerKwh} VND/kWh` : ' Price N/A'}
+                                                                    </p>
+                                                                </div>
+                                                                <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Slots Display */}
+                                                        {isExpanded && (
+                                                            <div className="p-4 bg-gradient-to-br from-muted/30 to-background border-t">
+                                                                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                                                                    {slots.map((slot: any, slotIndex: number) => {
+                                                                        const isAvailable = slot.status === 'AVAILABLE' || !slot.status || slot.freeFrom;
+                                                                        const isSelected = selectedSlot === slot || selectedSlots.some(s => s === slot);
+                                                                        const isFirstSelected = selectedSlots.length > 0 && selectedSlots[0] === slot;
+                                                                        const isSecondSelected = selectedSlots.length === 2 && selectedSlots[1] === slot;
+                                                                        const startTime = slot.freeFrom ? new Date(slot.freeFrom) : null;
+                                                                        const endTime = slot.freeTo ? new Date(slot.freeTo) : null;
+
+                                                                        // Check if slot is adjacent to first selected slot
+                                                                        const isAdjacent = selectedSlots.length === 1 && startTime && selectedSlots[0]?.freeTo && 
+                                                                            Math.abs(new Date(selectedSlots[0].freeTo).getTime() - startTime.getTime()) <= 15 * 60 * 1000; // Within 15 minutes
+
+                                                                        return (
+                                                                            <div
+                                                                                key={slotIndex}
+                                                                                className={`relative p-1.5 rounded-xl cursor-pointer transition-all duration-200 border-2 shadow-sm ${
+                                                                                    isSelected
+                                                                                        ? 'border-primary bg-gradient-to-br from-primary/20 to-primary/10 ring-2 ring-primary/30 shadow-md scale-105'
+                                                                                        : isAdjacent
+                                                                                        ? 'border-blue-500/70 bg-gradient-to-br from-blue-50 via-blue-50/80 to-cyan-50 dark:from-blue-950/40 dark:via-blue-900/30 dark:to-cyan-950/40 hover:border-blue-600'
+                                                                                        : isAvailable
+                                                                                        ? 'border-green-500/70 bg-gradient-to-br from-green-50 via-green-50/80 to-emerald-50 dark:from-green-950/40 dark:via-green-900/30 dark:to-emerald-950/40 hover:border-green-600 hover:bg-gradient-to-br hover:from-green-100 hover:via-green-50 hover:to-emerald-50 dark:hover:from-green-900/50 dark:hover:via-green-800/40 dark:hover:to-emerald-900/50 hover:shadow-md hover:scale-105 hover:-translate-y-0.5'
+                                                                                        : 'border-orange-500/70 bg-gradient-to-br from-orange-50 via-orange-50/80 to-amber-50 dark:from-orange-950/40 dark:via-orange-900/30 dark:to-amber-950/40 opacity-75 cursor-not-allowed'
+                                                                                }`}
+                                                                                onClick={(e) => {
+                                                                                    e.stopPropagation();
+                                                                                    if (isAvailable) {
+                                                                                        setSelectedSlots((prevSlots) => {
+                                                                                            // Helper to compare slots by time
+                                                                                            const isSameSlot = (s1: any, s2: any) => {
+                                                                                                return s1?.freeFrom === s2?.freeFrom && s1?.freeTo === s2?.freeTo;
+                                                                                            };
+                                                                                            
+                                                                                            if (prevSlots.length === 0) {
+                                                                                                // First slot selection
+                                                                                                setSelectedSlot(slot);
+                                                                                                console.log("✅ First slot selected:", slot.freeFrom, "to", slot.freeTo);
+                                                                                                return [slot];
+                                                                                            } else if (prevSlots.length === 1) {
+                                                                                                // Check if clicking the same slot - deselect
+                                                                                                if (isSameSlot(slot, prevSlots[0])) {
+                                                                                                    setSelectedSlot(null);
+                                                                                                    console.log("❌ Slot deselected");
+                                                                                                    return [];
+                                                                                                }
+                                                                                                
+                                                                                                // Check if this slot is adjacent to the first one
+                                                                                                const firstSlotEnd = prevSlots[0]?.freeTo ? new Date(prevSlots[0].freeTo) : null;
+                                                                                                const thisSlotStart = startTime;
+                                                                                                
+                                                                                                console.log("🔍 Checking adjacency:");
+                                                                                                console.log("  First slot ends at:", firstSlotEnd?.toISOString());
+                                                                                                console.log("  This slot starts at:", thisSlotStart?.toISOString());
+                                                                                                
+                                                                                                if (firstSlotEnd && thisSlotStart) {
+                                                                                                    const timeDiff = Math.abs(firstSlotEnd.getTime() - thisSlotStart.getTime());
+                                                                                                    console.log("  Time difference (ms):", timeDiff);
+                                                                                                    console.log("  Time difference (minutes):", timeDiff / 60000);
+                                                                                                    
+                                                                                                    // Allow up to 20 minutes difference for flexibility (slots can be 15 or 30 min apart)
+                                                                                                    if (timeDiff < 20 * 60 * 1000) {
+                                                                                                        // Adjacent slot - add as second slot
+                                                                                                        setSelectedSlot(slot);
+                                                                                                        console.log("✅ Second adjacent slot selected!");
+                                                                                                        return [prevSlots[0], slot];
+                                                                                                    }
+                                                                                                }
+                                                                                                
+                                                                                                // Not adjacent - replace first slot
+                                                                                                setSelectedSlot(slot);
+                                                                                                console.log("⚠️ Not adjacent - Slot replaced");
+                                                                                                return [slot];
+                                                                                            } else if (prevSlots.length === 2) {
+                                                                                                // Already have 2 slots - replace with new selection
+                                                                                                if (isSameSlot(slot, prevSlots[0]) || isSameSlot(slot, prevSlots[1])) {
+                                                                                                    // Clicking selected slot - deselect
+                                                                                                    const newSlots = prevSlots.filter(s => !isSameSlot(s, slot));
+                                                                                                    setSelectedSlot(newSlots.length > 0 ? newSlots[0] : null);
+                                                                                                    console.log("❌ Slot deselected, remaining:", newSlots.length);
+                                                                                                    return newSlots;
+                                                                                                } else {
+                                                                                                    // Replace with new single selection
+                                                                                                    setSelectedSlot(slot);
+                                                                                                    console.log("🔄 Replaced with new slot");
+                                                                                                    return [slot];
+                                                                                                }
+                                                                                            }
+                                                                                            return prevSlots;
+                                                                                        });
+                                                                                    }
+                                                                                }}
+                                                                            >
+                                                                                {isSelected && (
+                                                                                    <div className="absolute -top-2 -right-2 bg-primary rounded-full p-1 shadow-lg">
+                                                                                        <CheckCircle className="w-5 h-5 text-white" />
+                                                                                    </div>
+                                                                                )}
+                                                                                {isFirstSelected && (
+                                                                                    <div className="absolute top-1 left-1 bg-primary text-white text-[8px] px-1 rounded">
+                                                                                        1
+                                                                                    </div>
+                                                                                )}
+                                                                                {isSecondSelected && (
+                                                                                    <div className="absolute top-1 left-1 bg-primary text-white text-[8px] px-1 rounded">
+                                                                                        2
+                                                                                    </div>
+                                                                                )}
+                                                                                {isAvailable && !isSelected && (
+                                                                                    <div className="absolute top-2 right-2 w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                                                                                )}
+                                                                                <div className="text-center space-y-0.5">
+                                                                                    {startTime && endTime ? (
+                                                                                        <>
+                                                                                            <div className="space-y-0">
+                                                                                                <p className="text-sm font-bold text-foreground leading-tight">
+                                                                                                    {startTime.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+                                                                                                </p>
+                                                                                            </div>
+                                                                                            <div className="flex items-center justify-center">
+                                                                                                <div className="h-px w-4 bg-gradient-to-r from-transparent via-muted-foreground/40 to-transparent"></div>
+                                                                                            </div>
+                                                                                            <div className="space-y-0">
+                                                                                                <p className="text-sm font-bold text-foreground leading-tight">
+                                                                                                    {endTime.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+                                                                                                </p>
+                                                                                            </div>
+                                                                                        </>
+                                                                                    ) : (
+                                                                                        <div className="space-y-1 py-1">
+                                                                                            <div className={`w-4 h-4 rounded-full mx-auto ${
+                                                                                                isAvailable 
+                                                                                                    ? 'bg-green-500 shadow-lg shadow-green-500/50' 
+                                                                                                    : 'bg-orange-500 shadow-lg shadow-orange-500/50'
+                                                                                            }`}></div>
+                                                                                            <p className={`text-sm font-semibold ${
+                                                                                                isAvailable 
+                                                                                                    ? 'text-green-700 dark:text-green-400'
+                                                                                                    : 'text-orange-700 dark:text-orange-400'
+                                                                                            }`}>
+                                                                                                {isAvailable 
+                                                                                                    ? (language === 'vi' ? 'Khả dụng' : 'Available')
+                                                                                                    : (language === 'vi' ? 'Đã đặt' : 'Booked')
+                                                                                                }
+                                                                                            </p>
+                                                                                        </div>
+                                                                                    )}
+                                                                                </div>
+                                                                            </div>
+                                                                        );
+                                                                    })}
+                                                                </div>
+                                                            </div>
+                                                        )}
                                                     </div>
-                                                    <p className="text-xs text-muted-foreground mt-1">
-                                                        {language === 'vi' ? 'Slot đã chọn' : 'Selected slot'}
-                                                    </p>
-                                                </div>
-                                                <Button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    onClick={() => {
-                                                        setSelectedSlot(null);
-                                                        if (chargingStartTimeInput) {
-                                                            handleStartTimeSelection(chargingStartTimeInput);
-                                                        }
-                                                    }}
-                                                >
-                                                    {language === 'vi' ? 'Đổi slot' : 'Change slot'}
-                                                </Button>
-                                            </div>
+                                                );
+                                            })}
                                         </div>
-                                    )}
-                                </div>
-                            )}
+                                    </div>
+                                );
+                            })()}
+
 
 
                         </div>
@@ -5455,6 +6058,16 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                     <div className="flex-shrink-0 flex space-x-2 pt-4 pb-4 px-6 border-t bg-background">
                         <Button
                             onClick={async () => {
+                                // Check if vehicle is currently charging (for Book Now mode)
+                                if (bookingMode === "now" && isVehicleCurrentlyCharging) {
+                                    toast.error(
+                                        language === 'vi'
+                                            ? 'Không thể sạc ngay khi xe đang trong quá trình sạc. Vui lòng đặt lịch.'
+                                            : 'Cannot book now while vehicle is charging. Please schedule instead.'
+                                    );
+                                    return;
+                                }
+
                                 // For Book Now: auto-select first available slot
                                 let slotToUse = selectedSlot;
                                 if (bookingMode === "now") {
@@ -5466,43 +6079,24 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                                     slotToUse = availableSlots[0];
                                     console.log("Auto-selected first slot for Book Now:", slotToUse);
                                 } else {
-                                    // For Schedule: must have selected slot
-                                    if (!selectedSlot) {
+                                    // For Schedule: must have selected slot(s)
+                                    // Check both selectedSlots and selectedSlot for backward compatibility
+                                    const hasSelectedSlots = selectedSlots.length > 0;
+                                    const hasSelectedSlot = selectedSlot !== null;
+                                    
+                                    if (!hasSelectedSlots && !hasSelectedSlot) {
                                         toast.error(language === 'vi' ? 'Vui lòng chọn slot' : 'Please select a slot');
                                         return;
                                     }
-                                    slotToUse = selectedSlot;
+                                    // Use first slot for charging point info, but use times from all selected slots
+                                    slotToUse = hasSelectedSlots ? selectedSlots[0] : selectedSlot;
+                                    console.log("Schedule mode - Using slot:", slotToUse);
+                                    console.log("Schedule mode - Selected slots count:", selectedSlots.length);
+                                    console.log("Schedule mode - Has selectedSlot:", hasSelectedSlot);
                                 }
 
-                                // Validate time for scheduled booking
-                                if (bookingMode === "scheduled") {
-                                    if (!chargingStartTimeInput) {
-                                        toast.error(language === 'vi' ? 'Vui lòng chọn thời gian sạc' : 'Please select charging time');
-                                        return;
-                                    }
-
-                                    // Check if time is at least 30 minutes from now
-                                    const now = new Date();
-                                    const selectedTime = new Date();
-                                    const [hours, minutes] = chargingStartTimeInput.split(':').map(Number);
-                                    if (hours !== undefined && minutes !== undefined) {
-                                        selectedTime.setHours(hours, minutes, 0, 0);
-                                    } else {
-                                        toast.error(language === 'vi' ? 'Thời gian không hợp lệ' : 'Invalid time format');
-                                        return;
-                                    }
-
-                                    // If selected time is today, check if it's at least 30 minutes from now
-                                    if (selectedTime.getDate() === now.getDate()) {
-                                        const timeDiff = selectedTime.getTime() - now.getTime();
-                                        const minutesDiff = timeDiff / (1000 * 60);
-
-                                        if (minutesDiff < 30) {
-                                            toast.error(language === 'vi' ? 'Thời gian phải ít nhất 30 phút sau hiện tại' : 'Time must be at least 30 minutes from now');
-                                            return;
-                                        }
-                                    }
-                                }
+                                // Time validation is now done in the time calculation section below
+                                // using times from selected slots
 
                                 // Ensure we have a valid numeric vehicle ID
                                 const selectedVehicleForId = selectedVehicle || selectedVehicleRef.current;
@@ -5543,11 +6137,83 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                                 let finalStartTime: Date;
                                 let finalEndTime: Date;
 
-                                if (bookingMode === "now") {
-                                    // For "Book Now", use current Vietnam time as start time
-                                    console.log("=== BOOK NOW MODE ===");
-                                    // Server requires minimum 30 minutes lead time → apply 30m buffer
-                                    finalStartTime = new Date(vietnamTime.getTime() + 30 * 60 * 1000);
+                                // Get slots to use for time calculation
+                                const slotsToUseForTime = selectedSlots.length > 0 ? selectedSlots : (selectedSlot ? [selectedSlot] : (slotToUse ? [slotToUse] : []));
+                                
+                                if (slotsToUseForTime.length > 0) {
+                                    // Use time from selected slot(s)
+                                    console.log("=== USING TIME FROM SELECTED SLOTS ===");
+                                    console.log("Selected slots count:", slotsToUseForTime.length);
+
+                                    // Get start time from first slot
+                                    const firstSlot = slotsToUseForTime[0];
+                                    const firstSlotStart = firstSlot?.freeFrom ? new Date(firstSlot.freeFrom) : null;
+                                    
+                                    if (!firstSlotStart) {
+                                        toast.error(language === 'vi' ? 'Slot không có thời gian bắt đầu' : 'Slot does not have start time');
+                                        return;
+                                    }
+
+                                    // For Book Now: always use current time, not slot time
+                                    // For Schedule: use slot time
+                                    if (bookingMode === "now") {
+                                        finalStartTime = vietnamTime;
+                                        console.log("Book Now - Using current time instead of slot time");
+                                        console.log("Book Now - Slot start time (ignored):", firstSlotStart.toISOString());
+                                        console.log("Book Now - Actual start time (current):", finalStartTime.toISOString());
+                                    } else {
+                                        finalStartTime = firstSlotStart;
+                                        console.log("Schedule - Using slot start time:", finalStartTime.toISOString());
+                                    }
+
+                                    // Get end time from last slot (if multiple slots) or from first slot
+                                    if (slotsToUseForTime.length >= 2) {
+                                        // Multiple slots: use end time from last slot
+                                        const lastSlot = slotsToUseForTime[slotsToUseForTime.length - 1];
+                                        const lastSlotEnd = lastSlot?.freeTo ? new Date(lastSlot.freeTo) : null;
+                                        
+                                        if (lastSlotEnd) {
+                                            finalEndTime = lastSlotEnd;
+                                            console.log("Using end time from last slot:", finalEndTime.toISOString());
+                                        } else {
+                                            // Fallback: use end time from first slot or calculate
+                                            const firstSlotEnd = firstSlot?.freeTo ? new Date(firstSlot.freeTo) : null;
+                                            if (firstSlotEnd) {
+                                                finalEndTime = firstSlotEnd;
+                                            } else {
+                                                // Calculate from duration
+                                                const rawRequired = Number(firstSlot?.requiredMinutes);
+                                                const minDuration = 30;
+                                                const durationMinutes = Number.isFinite(rawRequired) && rawRequired > 0
+                                                    ? Math.max(rawRequired, minDuration)
+                                                    : minDuration;
+                                                finalEndTime = new Date(finalStartTime.getTime() + durationMinutes * 60000);
+                                            }
+                                        }
+                                    } else {
+                                        // Single slot: use slot's end time or calculate from duration
+                                        const firstSlotEnd = firstSlot?.freeTo ? new Date(firstSlot.freeTo) : null;
+                                        
+                                        if (firstSlotEnd) {
+                                            finalEndTime = firstSlotEnd;
+                                        } else {
+                                            // Calculate from duration
+                                            const rawRequired = Number(firstSlot?.requiredMinutes);
+                                            const minDuration = 30;
+                                            const durationMinutes = Number.isFinite(rawRequired) && rawRequired > 0
+                                                ? Math.max(rawRequired, minDuration)
+                                                : minDuration;
+                                            finalEndTime = new Date(finalStartTime.getTime() + durationMinutes * 60000);
+                                        }
+                                    }
+
+                                    console.log("Start time (from first slot):", finalStartTime.toISOString());
+                                    console.log("End time (from last slot):", finalEndTime.toISOString());
+
+                                } else if (bookingMode === "now") {
+                                    // For "Book Now" without selected slot, use current Vietnam time as start time
+                                    console.log("=== BOOK NOW MODE (NO SLOT SELECTED) ===");
+                                    finalStartTime = vietnamTime;
 
                                     // Calculate duration from auto-selected slot
                                     const rawRequired = Number(slotToUse?.requiredMinutes);
@@ -5559,30 +6225,17 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
 
                                     console.log("Book Now - UTC Current time:", now.toISOString());
                                     console.log("Book Now - Vietnam Current time:", vietnamTime.toISOString());
-                                    console.log("Book Now - Start time (with 30m buffer):", finalStartTime.toISOString());
+                                    console.log("Book Now - Start time:", finalStartTime.toISOString());
                                     console.log("Book Now - End time:", finalEndTime.toISOString());
                                     console.log("Book Now - Duration (minutes):", durationMinutes);
 
-                                } else if (bookingMode === "scheduled") {
-                                    // For "Scheduled", validate and use selected time
-                                    console.log("=== SCHEDULED MODE ===");
+                                } else {
+                                    toast.error(language === 'vi' ? 'Vui lòng chọn slot' : 'Please select a slot');
+                                    return;
+                                }
 
-                                    if (!chargingStartTimeInput) {
-                                        toast.error(language === 'vi' ? 'Vui lòng chọn thời gian sạc' : 'Please select charging time');
-                                        return;
-                                    }
-
-                                    // Parse selected time and create in Vietnam timezone
-                                    const [hours, minutes] = chargingStartTimeInput.split(':').map(Number);
-                                    finalStartTime = new Date(vietnamTime);
-                                    finalStartTime.setHours(hours || 0, minutes || 0, 0, 0);
-
-                                    // If selected time is in the past, move to tomorrow
-                                    if (finalStartTime <= vietnamTime) {
-                                        finalStartTime.setDate(finalStartTime.getDate() + 1);
-                                    }
-
-                                    // Validate: must be at least 30 minutes from now
+                                // Validate: must be at least 30 minutes from now (for scheduled bookings)
+                                if (bookingMode === "scheduled") {
                                     const minStartTime = new Date(vietnamTime.getTime() + 30 * 60 * 1000);
                                     if (finalStartTime < minStartTime) {
                                         toast.error(
@@ -5592,26 +6245,6 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                                         );
                                         return;
                                     }
-
-                                    // Calculate end time
-                                    const rawRequired = Number(slotToUse?.requiredMinutes);
-                                    const minDuration = 30; // Backend minimum booking duration in minutes
-                                    const durationMinutes = Number.isFinite(rawRequired) && rawRequired > 0
-                                        ? Math.max(rawRequired, minDuration)
-                                        : minDuration;
-                                    finalEndTime = new Date(finalStartTime.getTime() + durationMinutes * 60000);
-
-                                    console.log("Scheduled - UTC Current time:", now.toISOString());
-                                    console.log("Scheduled - Vietnam Current time:", vietnamTime.toISOString());
-                                    console.log("Scheduled - Selected time input:", chargingStartTimeInput);
-                                    console.log("Scheduled - Start time:", finalStartTime.toISOString());
-                                    console.log("Scheduled - End time:", finalEndTime.toISOString());
-                                    console.log("Scheduled - Minimum start time (now + 30 min):", minStartTime.toISOString());
-                                    console.log("Scheduled - Is valid:", finalStartTime >= minStartTime);
-
-                                } else {
-                                    toast.error(language === 'vi' ? 'Chế độ đặt chỗ không hợp lệ' : 'Invalid booking mode');
-                                    return;
                                 }
 
                                 console.log("=== FINAL BOOKING DATA ===");
@@ -5697,35 +6330,55 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                                 // Determine initial status based on booking mode
                                 const initialStatus = bookingMode === "now" ? "CHARGING" : "BOOKED";
 
+                                // Generate slotIds from selected slots
+                                const slotsToUseForIds = selectedSlots.length > 0 ? selectedSlots : (selectedSlot ? [selectedSlot] : (slotToUse ? [slotToUse] : []));
+                                const slotIds: string[] = [];
+                                
+                                slotsToUseForIds.forEach((slot: any) => {
+                                    if (slot?.freeFrom && slot?.freeTo) {
+                                        const slotStart = new Date(slot.freeFrom);
+                                        const slotEnd = new Date(slot.freeTo);
+                                        const startTimeStr = slotStart.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+                                        const endTimeStr = slotEnd.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+                                        
+                                        // Try to get slot type from slot data, default to "FIXED"
+                                        const slotType = slot?.slotType || slot?.type || "FIXED";
+                                        const slotId = `${slotType}_${startTimeStr}_${endTimeStr}`;
+                                        slotIds.push(slotId);
+                                    } else if (slot?.slotId) {
+                                        // If slot already has slotId, use it
+                                        slotIds.push(slot.slotId);
+                                    } else if (slot?.id) {
+                                        // Use slot id if available
+                                        slotIds.push(slot.id.toString());
+                                    }
+                                });
+
+                                // Format time to match API format: "2025-11-08T10:30:00"
+                                const formatTimeForAPI = (date: Date): string => {
+                                    const year = date.getFullYear();
+                                    const month = String(date.getMonth() + 1).padStart(2, '0');
+                                    const day = String(date.getDate()).padStart(2, '0');
+                                    const hours = String(date.getHours()).padStart(2, '0');
+                                    const minutes = String(date.getMinutes()).padStart(2, '0');
+                                    const seconds = String(date.getSeconds()).padStart(2, '0');
+                                    return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
+                                };
+
                                 const bookingData = {
-                                    stationId: configStation?.stationId,
-                                    vehicleId: numericVehicleId,
                                     userId: userId,
+                                    vehicleId: numericVehicleId,
+                                    stationId: configStation?.stationId,
                                     chargingPointId: chargingPointId,
                                     connectorTypeId: connectorTypeId,
-                                    currentBattery: parseFloat(initialBatteryLevel.toString()), // Convert to Double
-                                    targetBattery: parseFloat(targetBatteryLevelConfig.toString()), // Convert to Double
-                                    initialBatteryLevel: parseFloat(initialBatteryLevel.toString()), // Convert to Double
-                                    targetBatteryLevel: parseFloat(targetBatteryLevelConfig.toString()), // Convert to Double
-                                    bookingMode: bookingMode,
-                                    startTime: formatTimeForBackend(finalStartTime), // Use calculated time in Vietnam timezone
-                                    endTime: formatTimeForBackend(finalEndTime),     // Use calculated time in Vietnam timezone
+                                    startTime: formatTimeForAPI(finalStartTime),
+                                    endTime: formatTimeForAPI(finalEndTime),
+                                    currentBattery: parseFloat(initialBatteryLevel.toString()),
+                                    targetBattery: parseFloat(targetBatteryLevelConfig.toString()),
                                     energyToCharge: energyToCharge,
                                     estimatedCost: estimatedCost,
-                                    initialStatus: initialStatus,
-
-                                    // Debug info
-                                    _debug: {
-                                        utcCurrentTime: now.toISOString(),
-                                        vietnamCurrentTime: vietnamTime.toISOString(),
-                                        startTimeIso: finalStartTime.toISOString(),
-                                        endTimeIso: finalEndTime.toISOString(),
-                                        startTimeFormatted: formatTimeForBackend(finalStartTime),
-                                        endTimeFormatted: formatTimeForBackend(finalEndTime),
-                                        bookingMode: bookingMode,
-                                        timeDifferenceFromUtcMinutes: Math.round((finalStartTime.getTime() - now.getTime()) / (1000 * 60)),
-                                        timeDifferenceFromVietnamMinutes: Math.round((finalStartTime.getTime() - vietnamTime.getTime()) / (1000 * 60))
-                                    }
+                                    initialStatus: initialStatus,  // THÊM TRƯỜNG NÀY - Backend cần để biết status ban đầu
+                                    slotIds: slotIds.length > 0 ? slotIds : undefined
                                 };
 
                                 console.log("=== BOOKING DATA DEBUG ===");
@@ -5806,6 +6459,9 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                                 if (result) {
                                     console.log("=== Booking result ===", result);
 
+                                    // Extract order data and orderId from response
+                                    const normalizedOrder = normalizeOrderResponse(result);
+
                                     // Extract orderId from response
                                     const orderId = result.orderId || result.data?.orderId;
 
@@ -5818,95 +6474,65 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                                     localStorage.setItem("currentOrderId", orderId.toString());
                                     console.log("✅ Saved orderId to localStorage:", orderId);
 
+                                    // Persist station context for ChargingSessionView
+                                    storeCurrentStationContext(normalizedOrder, configStation ?? selectedStation ?? null, slotToUse);
+
                                     toast.success(language === 'vi' ? 'Đặt lịch thành công!' : 'Booking successful!');
                                     setIsChargingConfigOpen(false);
 
                                     // Only navigate to charging session for "Book Now"
                                     if (bookingMode === "now") {
+                                        let hasNavigatedToCharging = false;
+                                        const navigateToChargingSession = () => {
+                                            if (!hasNavigatedToCharging) {
+                                                hasNavigatedToCharging = true;
+                                                onStartCharging?.(orderId.toString());
+                                            }
+                                        };
+
                                         try {
-                                            // Get user location for distance check
-                                            console.log("=== Getting user location for session start ===");
-                                            const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-                                                navigator.geolocation.getCurrentPosition(resolve, reject, {
-                                                    enableHighAccuracy: true,
-                                                    timeout: 10000,
-                                                    maximumAge: 0
-                                                });
-                                            });
+                                            console.log("=== Fetching session created during Book Now ===");
+                                            const sessionResponse = await api.get(`/api/sessions/by-order/${orderId}`);
+                                            const sessionData = sessionResponse.data?.data;
 
-                                            const userLatitude = position.coords.latitude;
-                                            const userLongitude = position.coords.longitude;
+                                            if (sessionData?.sessionId) {
+                                                const sessionId = sessionData.sessionId;
+                                                localStorage.setItem("currentSessionId", sessionId.toString());
+                                                console.log("✅ Session fetched successfully, sessionId:", sessionId);
 
-                                            console.log("User location:", { userLatitude, userLongitude });
+                                                toast.success(
+                                                    language === 'vi'
+                                                        ? 'Bắt đầu sạc thành công!'
+                                                        : 'Charging started!'
+                                                );
 
-                                            // Call API to start session
-                                            console.log("=== Calling /api/sessions/start ===");
-                                            const sessionResponse = await api.post("/api/sessions/start", {
-                                                orderId: orderId,
-                                                vehicleId: numericVehicleId,
-                                                userLatitude: userLatitude,
-                                                userLongitude: userLongitude
-                                            });
-
-                                            console.log("Session start response:", sessionResponse);
-
-                                            if (sessionResponse.status === 201 || sessionResponse.status === 200) {
-                                                const sessionId = sessionResponse.data?.data || sessionResponse.data?.sessionId;
-
-                                                if (sessionId) {
-                                                    // Save sessionId to localStorage
-                                                    localStorage.setItem("currentSessionId", sessionId.toString());
-                                                    console.log("✅ Session started successfully, sessionId:", sessionId);
-                                                    console.log("✅ Saved sessionId to localStorage:", sessionId);
-
-                                                    toast.success(language === 'vi' ? 'Bắt đầu sạc thành công!' : 'Charging started!');
-
-                                                    // Navigate to charging session with real sessionId
-                                                    onStartCharging?.(sessionId.toString());
-                                                } else {
-                                                    console.error("No sessionId in response:", sessionResponse.data);
-                                                    toast.error(language === 'vi' ? 'Không nhận được Session ID' : 'Session ID not received');
-                                                }
+                                                navigateToChargingSession();
+                                            } else {
+                                                console.error("No sessionId in response:", sessionResponse.data);
+                                                toast.error(
+                                                    language === 'vi'
+                                                        ? 'Không nhận được Session ID'
+                                                        : 'Session ID not received'
+                                                );
+                                                navigateToChargingSession();
                                             }
                                         } catch (sessionError: any) {
-                                            console.error("=== Error starting session ===", sessionError);
-                                            console.error("Error response:", sessionError?.response);
+                                            console.error("=== Error fetching session after Book Now ===", sessionError);
 
-                                            // Handle specific errors
-                                            if (sessionError?.response?.status === 400) {
-                                                const errorMsg = sessionError?.response?.data?.message;
-
-                                                // Check for distance error
-                                                if (errorMsg?.includes('too far') || errorMsg?.includes('distance') || errorMsg?.includes('meters')) {
-                                                    toast.error(
-                                                        language === 'vi'
-                                                            ? 'Bạn quá xa trạm sạc (>100m). Vui lòng di chuyển gần hơn.'
-                                                            : 'You are too far from the station (>100m). Please move closer.'
-                                                    );
-                                                } else if (errorMsg?.includes('time slot') || errorMsg?.includes('Out of booking')) {
-                                                    toast.error(
-                                                        language === 'vi'
-                                                            ? 'Ngoài thời gian đặt chỗ. Đơn đã bị hủy với phí phạt.'
-                                                            : 'Out of booking time slot. Order canceled with penalty.'
-                                                    );
-                                                } else {
-                                                    toast.error(errorMsg || (language === 'vi' ? 'Không thể bắt đầu sạc' : 'Cannot start charging'));
-                                                }
-                                            } else if (sessionError?.response?.status === 401) {
-                                                toast.error(language === 'vi' ? 'Phiên đăng nhập hết hạn' : 'Session expired');
-                                            } else if (sessionError?.code === 'PERMISSION_DENIED' || sessionError?.message?.includes('denied')) {
-                                                toast.error(
-                                                    language === 'vi'
-                                                        ? 'Cần quyền truy cập vị trí để bắt đầu sạc'
-                                                        : 'Location permission required to start charging'
-                                                );
-                                            } else {
-                                                toast.error(
-                                                    language === 'vi'
-                                                        ? 'Lỗi khi bắt đầu phiên sạc. Vui lòng thử lại.'
-                                                        : 'Error starting charging session. Please try again.'
-                                                );
+                                            const recovered = await tryRecoverExistingSession(sessionError, orderId);
+                                            if (recovered) {
+                                                return;
                                             }
+
+                                            toast.error(
+                                                sessionError?.response?.data?.message ||
+                                                (language === 'vi'
+                                                    ? 'Lỗi khi lấy chi tiết phiên sạc. Vui lòng thử lại.'
+                                                    : 'Error fetching session details. Please try again.')
+                                            );
+                                            navigateToChargingSession();
+                                        } finally {
+                                            navigateToChargingSession();
                                         }
                                     } else {
                                         // For scheduled booking, navigate to MyBookingView
@@ -5921,8 +6547,8 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                             className="flex-1"
                             disabled={
                                 targetBatteryLevelConfig <= initialBatteryLevel ||
-                                (bookingMode === "now" && availableSlots.length === 0) ||
-                                (bookingMode === "scheduled" && (!chargingStartTimeInput || !selectedSlot))
+                                (bookingMode === "now" && (availableSlots.length === 0 || isVehicleCurrentlyCharging)) ||
+                                (bookingMode === "scheduled" && (selectedSlots.length === 0 && !selectedSlot))
                             }
                         >
                             <CheckCircle className="w-4 h-4 mr-2" />
@@ -5930,7 +6556,12 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                         </Button>
                         <Button
                             variant="outline"
-                            onClick={() => setIsChargingConfigOpen(false)}
+                            onClick={() => {
+                                setIsChargingConfigOpen(false);
+                                setExpandedChargingPoints(new Set());
+                                setSelectedSlot(null);
+                                setShowAvailableSlots(false);
+                            }}
                             className="flex-1"
                         >
                             {language === 'vi' ? 'Hủy' : 'Cancel'}
@@ -5992,13 +6623,29 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                                             ? 'border-primary bg-primary/10'
                                             : 'border-border hover:border-primary/50'
                                     }`}
-                                    onClick={() => {
+                                    onClick={async () => {
                                         try {
                                             console.log("=== Vehicle clicked ===");
                                             console.log("Clicked vehicle:", vehicle);
                                             if (vehicle && typeof vehicle === 'object') {
                                                 setSelectedVehicle(vehicle);
                                                 console.log("setSelectedVehicle called with:", vehicle);
+                                                
+                                                // Check if vehicle is currently charging
+                                                const vehicleId = vehicle.vehicleId || vehicle.VehicleId || vehicle.id;
+                                                if (vehicleId) {
+                                                    const isCharging = await checkVehicleChargingStatus(vehicleId);
+                                                    setIsVehicleCurrentlyCharging(isCharging);
+                                                    
+                                                    if (isCharging) {
+                                                        toast(
+                                                            language === 'vi'
+                                                                ? 'Xe này đang trong quá trình sạc. Bạn chỉ có thể đặt lịch sạc tiếp theo.'
+                                                                : 'This vehicle is currently charging. You can only schedule the next charging session.',
+                                                            { duration: 5000 }
+                                                        );
+                                                    }
+                                                }
                                             } else {
                                                 console.error("Invalid vehicle object:", vehicle);
                                                 toast.error(language === 'vi' ? 'Dữ liệu xe không hợp lệ' : 'Invalid vehicle data');
@@ -6058,7 +6705,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                                         setIsVehicleSelectionOpen(false);
                                     } else {
                                         console.log("No vehicle selected at confirm");
-                                        toast.warning(
+                                        toast(
                                             language === 'vi'
                                                 ? 'Vui lòng chọn một xe'
                                                 : 'Please select a vehicle'
@@ -6122,12 +6769,11 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                                     // Calculate end time
                                     const startTime = slot.freeFrom ? new Date(slot.freeFrom) : new Date();
                                     const endTime = new Date(startTime.getTime() + chargingDuration * 60000);
-                                    const formattedStartForInput = `${startTime.getHours().toString().padStart(2, '0')}:${startTime.getMinutes().toString().padStart(2, '0')}`;
 
                                     return (
                                         <div
                                             key={index}
-                                            className={`p-4 border rounded-lg cursor-pointer transition-all ${
+                                            className={`p-3 border rounded-lg cursor-pointer transition-all ${
                                                 selectedSlot === slot
                                                     ? 'border-primary bg-primary/10 ring-2 ring-primary/20'
                                                     : 'border-border hover:border-primary/50 hover:bg-accent/50'
@@ -6135,7 +6781,6 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                                             onClick={() => {
                                                 console.log("Selected slot:", slot);
                                                 setSelectedSlot(slot);
-                                                setChargingStartTimeInput(formattedStartForInput);
                                                 setIsSlotsPopupOpen(false);
                                                 toast.success(
                                                     language === 'vi'
@@ -6154,30 +6799,26 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                                                         </Badge>
                                                     </div>
 
-                                                    <div className="grid grid-cols-2 gap-4 text-sm">
-                                                        <div>
-                                                            <p className="text-muted-foreground">
-                                                                {language === 'vi' ? 'Thời gian bắt đầu:' : 'Start Time:'}
-                                                            </p>
-                                                            <p className="font-medium">
+                                                    <div className="flex items-center gap-2 text-sm">
+                                                        <div className="flex items-center gap-1">
+                                                            <Clock className="w-3.5 h-3.5 text-muted-foreground" />
+                                                            <span className="font-medium">
                                                                 {startTime.toLocaleTimeString('en-US', {
                                                                     hour: '2-digit',
                                                                     minute: '2-digit',
                                                                     hour12: true
                                                                 })}
-                                                            </p>
+                                                            </span>
                                                         </div>
+                                                        <span className="text-muted-foreground">→</span>
                                                         <div>
-                                                            <p className="text-muted-foreground">
-                                                                {language === 'vi' ? 'Thời gian kết thúc:' : 'End Time:'}
-                                                            </p>
-                                                            <p className="font-medium">
+                                                            <span className="font-medium">
                                                                 {endTime.toLocaleTimeString('en-US', {
                                                                     hour: '2-digit',
                                                                     minute: '2-digit',
                                                                     hour12: true
                                                                 })}
-                                                            </p>
+                                                            </span>
                                                         </div>
                                                     </div>
 

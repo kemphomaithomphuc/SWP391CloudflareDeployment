@@ -108,6 +108,25 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
             @Param("endTime") LocalDateTime endTime
     );
 
+    /**
+     * Kiểm tra user có order overlap tại cùng 1 station không
+     * Dùng để ngăn user book nhiều orders trùng thời gian tại cùng 1 trạm
+     */
+    @Query("""
+        SELECT COUNT(o) > 0 FROM Order o 
+        WHERE o.user.userId = :userId
+        AND o.chargingPoint.station.stationId = :stationId
+        AND o.status IN ('BOOKED', 'CHARGING')
+        AND o.startTime < :endTime
+        AND o.endTime > :startTime
+        """)
+    boolean hasUserOrderAtSameStationInTimeRange(
+            @Param("userId") Long userId,
+            @Param("stationId") Long stationId,
+            @Param("startTime") LocalDateTime startTime,
+            @Param("endTime") LocalDateTime endTime
+    );
+
 
 
     int countActiveOrdersByUser(User user);
@@ -120,6 +139,17 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
         AND o.status IN ('BOOKED', 'CHARGING')
         """)
     boolean isVehicleCurrentlyBooked(@Param("vehicleId") Long vehicleId);
+
+    /**
+     * Kiểm tra xe đang trong trạng thái CHARGING hay không (chỉ CHARGING)
+     */
+    @Query("""
+        SELECT CASE WHEN COUNT(o) > 0 THEN true ELSE false END
+        FROM Order o
+        WHERE o.vehicle.id = :vehicleId
+        AND o.status = 'CHARGING'
+        """)
+    boolean isVehicleCurrentlyCharging(@Param("vehicleId") Long vehicleId);
 
     /**
      * Tìm các order bị conflict về thời gian cho một charging point cụ thể
@@ -139,6 +169,26 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 
     List<Order> findByChargingPoint_Station_StationId(Long stationId);
 
+    /**
+     * Kiểm tra user có order COMPLETED chưa thanh toán không
+     * Order COMPLETED có session nhưng:
+     * - Không có transaction (chưa thanh toán)
+     * - Hoặc có transaction với status PENDING/FAILED
+     */
+    @Query("""
+        SELECT CASE WHEN COUNT(o) > 0 THEN true ELSE false END
+        FROM Order o
+        LEFT JOIN Session s ON s.order.orderId = o.orderId
+        LEFT JOIN Transaction t ON t.session.sessionId = s.sessionId
+        WHERE o.user.userId = :userId
+        AND o.status = 'COMPLETED'
+        AND (
+            t.transactionId IS NULL 
+            OR t.status IN ('PENDING', 'FAILED')
+        )
+        """)
+    boolean hasUnpaidCompletedOrders(@Param("userId") Long userId);
+
     Order getOrderByOrderId(Long orderId);
 
     @Query("SELECT o FROM Order o " +
@@ -151,3 +201,4 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
             @Param("fromTime") LocalDateTime fromTime
     );
 }
+

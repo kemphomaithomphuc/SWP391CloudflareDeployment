@@ -274,7 +274,8 @@ export class PopupService {
     message: string,
     options?: PopupOptions
   ): void {
-    toast.warning(title, {
+    toast(title, {
+      icon: "⚠️",
       description: message,
       duration: options?.duration || 4000,
       action: options?.action ? {

@@ -448,6 +448,7 @@ function sanitizeStation(raw: any): ChargingStation {
 export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
     const { language, t } = useLanguage();
+    const backToDashboardLabel = language === 'vi' ? 'Quay lại trang chính' : 'Back to Dashboard';
 
     const [selectedStation, setSelectedStation] = useState<ChargingStation | null>(null);
 
@@ -688,7 +689,6 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                 longitude: Number(longitude),
 
                 chargingPointNumber: chargingPosts.length,
-
                 chargingPoints: chargingPosts.map(post => ({
 
                     chargingPointName: post.chargingPointName?.trim() || "",
@@ -1271,10 +1271,11 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                     // Find the connector type ID from newPortTypes
 
                     const connectorType = newPortTypes.find(type => type.name === post.connectorType);
+                    const numericId = Number(String(post.id).replace(/[^\d]/g, ""));
 
                     return {
 
-                        charingPointId: Number(post.id.replace('post-', '')), // Extract ID from post ID
+                        ...(Number.isFinite(numericId) && numericId > 0 ? { chargingPointId: numericId } : {}),
 
                         chargingPointName: post.chargingPointName?.trim() || "",
 
@@ -1799,7 +1800,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
     // Debounce search để tối ưu hiệu suất
 
-    const [searchTimeout, setSearchTimeout] = useState<NodeJS.Timeout | null>(null);
+    const [searchTimeout, setSearchTimeout] = useState<ReturnType<typeof setTimeout> | null>(null);
 
 
 
@@ -2007,7 +2008,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
         const newPost = {
 
-            id: `post_${Date.now()}`,
+            id: `post-${Date.now()}`,
 
             chargingPointName: "",
 
@@ -2486,7 +2487,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
 
 
-    const [addressSearchTimeout, setAddressSearchTimeout] = useState<NodeJS.Timeout | null>(null);
+    const [addressSearchTimeout, setAddressSearchTimeout] = useState<ReturnType<typeof setTimeout> | null>(null);
 
 
 
@@ -4993,7 +4994,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
                                     <ArrowLeft className="w-4 h-4" />
 
-                                    <span>{t('back')}</span>
+                                    <span>{backToDashboardLabel}</span>
 
                                 </Button>
 
@@ -5332,6 +5333,24 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
 
                                                                         <div className="space-y-3">
+
+                                                                            <div>
+
+                                                                                <label className="text-xs text-muted-foreground mb-1.5 block font-medium">{t('charging_point_name')}</label>
+
+                                                                                <Input
+
+                                                                                    value={post.chargingPointName}
+
+                                                                                    onChange={(e) => updateChargingPost(post.id, 'chargingPointName', e.target.value)}
+
+                                                                                    placeholder={t('charging_point_name_placeholder')}
+
+                                                                                    className="w-full h-9 text-sm bg-background border border-border/50 rounded-lg px-3 text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
+
+                                                                                />
+
+                                                                            </div>
 
                                                                             <div>
 
@@ -6566,6 +6585,24 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
 
                                                                                     <div className="space-y-3">
+
+                                                                                        <div>
+
+                                                                                            <label className="text-xs text-muted-foreground mb-1.5 block font-medium">{t('charging_point_name')}</label>
+
+                                                                                            <Input
+
+                                                                                                value={post.chargingPointName}
+
+                                                                                                onChange={(e) => updateChargingPost(post.id, 'chargingPointName', e.target.value)}
+
+                                                                                                placeholder={t('charging_point_name_placeholder')}
+
+                                                                                                className="w-full h-9 text-sm bg-background border border-border/50 rounded-lg px-3 text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
+
+                                                                                            />
+
+                                                                                        </div>
 
                                                                                         <div>
 

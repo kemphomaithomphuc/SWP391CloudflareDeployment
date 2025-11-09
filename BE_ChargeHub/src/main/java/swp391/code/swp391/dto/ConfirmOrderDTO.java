@@ -7,6 +7,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Data
 @NoArgsConstructor
@@ -48,4 +49,7 @@ public class ConfirmOrderDTO {
 
     @NotNull(message = "Loại kết nối không được để trống")
     private Long connectorTypeId;
+
+    // Danh sách slot IDs người dùng chọn (ví dụ: FIXED_02:00_04:00, MINI_09:30_10:45, STAFF_10:00_11:00)
+    private List<String> slotIds;
 }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { ArrowLeft, Calendar, Clock, MapPin, Zap, Battery, QrCode, Phone, Navigation, MoreHorizontal, CheckCircle, XCircle, AlertTriangle, RefreshCw } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useTheme } from '../contexts/ThemeContext';
@@ -34,6 +34,7 @@ interface OrderResponseDTO {
   // Station & Charging Point info
   stationId?: number;
   chargingPointId?: number;
+  chargingPointName?: string;  // ✅ NEW - Tên charging point (e.g., "A1", "B2")
   stationName: string;
   stationAddress: string;
   connectorType: string;
@@ -91,6 +92,35 @@ interface UserVehicle {
   brand?: string;
   model?: string;
 }
+
+interface TransactionHistoryItem {
+  transactionId: number;
+  amount: number;
+  paymentMethod: string;
+  status: string;
+  createdAt: string;
+  paymentTime: string | null;
+  userId: number;
+  userName: string;
+  userEmail: string;
+  sessionId: number;
+  sessionStartTime: string;
+  sessionEndTime: string;
+  powerConsumed: number;
+  stationName: string;
+  stationAddress: string;
+  vnpayTransactionNo: string | null;
+  vnpayBankCode: string | null;
+}
+
+interface TransactionHistoryResponse {
+  transactions: TransactionHistoryItem[];
+  totalElements: number;
+  totalPages?: number;
+  currentPage?: number;
+  pageSize?: number;
+}
+
 interface APIResponse<T> {
   success: boolean;
   message: string;
@@ -107,12 +137,101 @@ export default function MyBookingView({ onBack, onStartCharging }: MyBookingView
   const [apiBookings, setApiBookings] = useState<Booking[]>([]);
   const [apiOrders, setApiOrders] = useState<OrderResponseDTO[]>([]);
   const [userVehicles, setUserVehicles] = useState<UserVehicle[]>([]);
+  const [transactionHistory, setTransactionHistory] = useState<TransactionHistoryItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const [transactionLoading, setTransactionLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
+  const [transactionError, setTransactionError] = useState<string | null>(null);
+
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
+  const [transactionPage, setTransactionPage] = useState(1);
   const [itemsPerPage] = useState(5); // Show 5 items per page
+  const [transactionPageSize] = useState(10); // Show 10 transactions per page
+
+  // Transaction filters
+  const [transactionFilters, setTransactionFilters] = useState({
+    status: '',
+    paymentMethod: '',
+    fromDate: '',
+    toDate: '',
+    stationId: '',
+    sortBy: 'createdAt',
+    sortDirection: 'desc'
+  });
+  const chargingNavigationRef = useRef<string | null>(null);
+
+  const persistStationInfoFromOrder = (order: OrderResponseDTO) => {
+    const stationInfoPayload: StationInfoStoragePayload = {
+      timestamp: new Date().toISOString()
+    };
+
+    if (typeof order.stationName === 'string' && order.stationName.trim().length > 0) {
+      stationInfoPayload.stationName = order.stationName;
+    }
+    if (typeof order.stationAddress === 'string' && order.stationAddress.trim().length > 0) {
+      stationInfoPayload.stationAddress = order.stationAddress;
+    }
+    if (typeof order.stationId === 'number' && !isNaN(order.stationId)) {
+      stationInfoPayload.stationId = order.stationId;
+    }
+    if (typeof order.connectorType === 'string' && order.connectorType.trim().length > 0) {
+      stationInfoPayload.connectorType = order.connectorType;
+    }
+    if (typeof order.chargingPower === 'number' && !isNaN(order.chargingPower)) {
+      stationInfoPayload.chargingPower = order.chargingPower;
+    }
+    if (typeof order.pricePerKwh === 'number' && !isNaN(order.pricePerKwh)) {
+      stationInfoPayload.pricePerKwh = order.pricePerKwh;
+    }
+
+    try {
+      localStorage.setItem("currentStationInfo", JSON.stringify(stationInfoPayload));
+      if (stationInfoPayload.stationId !== undefined && stationInfoPayload.stationId !== null) {
+        localStorage.setItem("currentStationId", String(stationInfoPayload.stationId));
+      }
+    } catch (storageError) {
+      console.error("Error storing station info:", storageError);
+    }
+  };
+
+  const ensureSessionForOrder = async (order: OrderResponseDTO, options?: { showToast?: boolean }) => {
+    const showToast = options?.showToast ?? true;
+    try {
+      const response = await api.get(`/api/sessions/by-order/${order.orderId}`);
+      const sessionData = response.data?.data;
+      if (response.status === 200 && response.data?.success && sessionData?.sessionId) {
+        localStorage.setItem("currentSessionId", sessionData.sessionId.toString());
+        return sessionData.sessionId.toString();
+      }
+
+      if (showToast) {
+        toast.error(language === 'vi'
+          ? 'Không tìm thấy phiên sạc cho đơn này.'
+          : 'Charging session not found for this order.');
+      }
+    } catch (error: any) {
+      console.error("Error fetching session for order:", error);
+      if (showToast) {
+        const message = error?.response?.data?.message || error.message || (language === 'vi'
+          ? 'Không thể lấy thông tin phiên sạc.'
+          : 'Unable to retrieve charging session information.');
+        toast.error(message);
+      }
+    }
+    return null;
+  };
+
+  const navigateToChargingSession = async (order: OrderResponseDTO, options?: { showToast?: boolean }) => {
+    persistStationInfoFromOrder(order);
+    localStorage.setItem("currentOrderId", String(order.orderId));
+    chargingNavigationRef.current = String(order.orderId);
+
+    await ensureSessionForOrder(order, options);
+    if (onStartCharging) {
+      onStartCharging(String(order.orderId));
+    }
+  };
 
 
   // Function to fetch real orders from API
@@ -278,11 +397,108 @@ export default function MyBookingView({ onBack, onStartCharging }: MyBookingView
     }
   };
 
+  // Function to fetch transaction history from API
+  const fetchTransactionHistory = async () => {
+    try {
+      setTransactionLoading(true);
+      setTransactionError(null);
+
+      const token = localStorage.getItem("token");
+      const userId = localStorage.getItem("userId");
+
+      if (!token || !userId) {
+        console.log("No token or userId found for transactions");
+        setTransactionError("Please log in to view transaction history");
+        return;
+      }
+
+      console.log("Fetching transaction history for userId:", userId);
+
+      // Build query parameters
+      const params = new URLSearchParams({
+        userId: userId,
+        page: transactionPage.toString(),
+        pageSize: transactionPageSize.toString(),
+        sortBy: transactionFilters.sortBy,
+        sortDirection: transactionFilters.sortDirection
+      });
+
+      // Add optional filters
+      if (transactionFilters.status) params.append('status', transactionFilters.status);
+      if (transactionFilters.paymentMethod) params.append('paymentMethod', transactionFilters.paymentMethod);
+      if (transactionFilters.fromDate) params.append('fromDate', transactionFilters.fromDate);
+      if (transactionFilters.toDate) params.append('toDate', transactionFilters.toDate);
+      if (transactionFilters.stationId) params.append('stationId', transactionFilters.stationId);
+
+      const response = await api.get(`/api/transactions/history?${params.toString()}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.data?.success) {
+        const apiPayload = response.data.data;
+        const transactions = apiPayload?.transactions ?? [];
+
+        console.log("Fetched transaction history:", {
+          totalElements: apiPayload?.totalElements,
+          transactionsCount: transactions.length,
+          transactions
+        });
+
+        setTransactionHistory(transactions);
+      } else {
+        console.log("Transaction API error or no success response");
+        setTransactionHistory([]);
+      }
+    } catch (error: any) {
+      console.error("Error fetching transaction history:", error);
+      if (error.response?.status === 401) {
+        setTransactionError("Please log in again to view transaction history");
+        localStorage.removeItem("token");
+        localStorage.removeItem("refreshToken");
+        localStorage.removeItem("userId");
+      } else if (error.response?.status === 500) {
+        setTransactionError("Server error. Please try again later.");
+      } else {
+        setTransactionError("Failed to load transaction history. Please check your connection.");
+      }
+      setTransactionHistory([]);
+    } finally {
+      setTransactionLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!onStartCharging || apiOrders.length === 0) {
+      return;
+    }
+
+    const chargingOrder = apiOrders.find(order => order.status === 'CHARGING');
+    if (!chargingOrder) {
+      return;
+    }
+
+    const orderKey = chargingOrder.orderId?.toString();
+    if (!orderKey || chargingNavigationRef.current === orderKey) {
+      return;
+    }
+
+    // Persist station info and session context silently, then navigate
+    void navigateToChargingSession(chargingOrder, { showToast: false });
+  }, [apiOrders, onStartCharging]);
+
   // Load orders on component mount
   useEffect(() => {
     console.log("Component mounted, fetching user orders...");
     fetchUserOrders();
   }, []);
+
+  // Load transaction history when filters or page changes
+  useEffect(() => {
+    fetchTransactionHistory();
+  }, [transactionPage, transactionFilters]);
 
   // Refresh data when component becomes visible
   useEffect(() => {
@@ -307,8 +523,10 @@ export default function MyBookingView({ onBack, onStartCharging }: MyBookingView
     title: language === 'vi' ? 'Đặt chỗ của tôi' : 'My Bookings',
     upcoming: language === 'vi' ? 'Sắp tới' : 'Upcoming',
     active: language === 'vi' ? 'Đang sạc' : 'Active',
-    history: language === 'vi' ? 'Lịch sử' : 'History',
+    history: language === 'vi' ? 'Lịch sử đặt chỗ' : 'Booking History',
+    transactions: language === 'vi' ? 'Lịch sử giao dịch' : 'Transaction History',
     noBookings: language === 'vi' ? 'Chưa có đặt chỗ nào' : 'No bookings yet',
+    noTransactions: language === 'vi' ? 'Chưa có giao dịch nào' : 'No transactions yet',
     bookingDetails: language === 'vi' ? 'Chi tiết đặt chỗ' : 'Booking Details',
     cancel: language === 'vi' ? 'Hủy đặt chỗ' : 'Cancel Booking',
     confirmCancel: language === 'vi' ? 'Xác nhận hủy' : 'Confirm Cancellation',
@@ -533,38 +751,7 @@ export default function MyBookingView({ onBack, onStartCharging }: MyBookingView
       console.log("User location:", { userLatitude, userLongitude });
 
       // Persist station info for ChargingSessionView
-      const stationInfoPayload: StationInfoStoragePayload = {
-        timestamp: new Date().toISOString(),
-      };
-
-      if (typeof order.stationName === 'string' && order.stationName.trim().length > 0) {
-        stationInfoPayload.stationName = order.stationName;
-      }
-      if (typeof order.stationAddress === 'string' && order.stationAddress.trim().length > 0) {
-        stationInfoPayload.stationAddress = order.stationAddress;
-      }
-
-      if (typeof order.stationId === 'number' && !isNaN(order.stationId)) {
-        stationInfoPayload.stationId = order.stationId;
-      }
-      if (typeof order.connectorType === 'string' && order.connectorType.trim().length > 0) {
-        stationInfoPayload.connectorType = order.connectorType;
-      }
-      if (typeof order.chargingPower === 'number' && !isNaN(order.chargingPower)) {
-        stationInfoPayload.chargingPower = order.chargingPower;
-      }
-      if (typeof order.pricePerKwh === 'number' && !isNaN(order.pricePerKwh)) {
-        stationInfoPayload.pricePerKwh = order.pricePerKwh;
-      }
-
-      try {
-        localStorage.setItem("currentStationInfo", JSON.stringify(stationInfoPayload));
-        if (stationInfoPayload.stationId !== undefined && stationInfoPayload.stationId !== null) {
-          localStorage.setItem("currentStationId", String(stationInfoPayload.stationId));
-        }
-      } catch (storageError) {
-        console.error("Error storing station info:", storageError);
-      }
+      persistStationInfoFromOrder(order);
 
       // Get vehicleId from order (from DB, not hardcoded)
       let vehicleId = order.vehicleId;
@@ -614,9 +801,10 @@ export default function MyBookingView({ onBack, onStartCharging }: MyBookingView
           )
         );
         
-        // Redirect to ChargingSessionView with sessionId
+        // Redirect to ChargingSessionView using orderId
         if (onStartCharging) {
-          onStartCharging(sessionId.toString());
+          chargingNavigationRef.current = String(orderId);
+          onStartCharging(String(orderId));
         }
       } else {
         toast.error(response.data.message || (language === 'vi' ? 'Không thể bắt đầu sạc' : 'Failed to start charging'));
@@ -1218,6 +1406,134 @@ export default function MyBookingView({ onBack, onStartCharging }: MyBookingView
   );
   };
 
+  // Transaction Card Component
+  const TransactionCard = ({ transaction }: { transaction: TransactionHistoryItem }) => {
+    const getTransactionStatusColor = (status: string) => {
+      switch (status.toLowerCase()) {
+        case 'success':
+          return 'bg-green-50 text-green-700 border-green-200 dark:bg-green-950 dark:text-green-300';
+        case 'pending':
+          return 'bg-yellow-50 text-yellow-700 border-yellow-200 dark:bg-yellow-950 dark:text-yellow-300';
+        case 'failed':
+        case 'cancelled':
+          return 'bg-red-50 text-red-700 border-red-200 dark:bg-red-950 dark:text-red-300';
+        default:
+          return 'bg-gray-50 text-gray-700 border-gray-200 dark:bg-gray-950 dark:text-gray-300';
+      }
+    };
+
+    const getTransactionStatusIcon = (status: string) => {
+      switch (status.toLowerCase()) {
+        case 'success':
+          return <CheckCircle className="w-4 h-4 text-green-500" />;
+        case 'pending':
+          return <Clock className="w-4 h-4 text-yellow-500" />;
+        case 'failed':
+        case 'cancelled':
+          return <XCircle className="w-4 h-4 text-red-500" />;
+        default:
+          return <AlertTriangle className="w-4 h-4 text-gray-500" />;
+      }
+    };
+
+    // Calculate charging duration from session times
+    const getChargingDuration = () => {
+      if (transaction.sessionStartTime && transaction.sessionEndTime) {
+        const start = new Date(transaction.sessionStartTime);
+        const end = new Date(transaction.sessionEndTime);
+        const durationMs = end.getTime() - start.getTime();
+        const durationMinutes = Math.round(durationMs / (1000 * 60));
+        return durationMinutes;
+      }
+      return 0;
+    };
+
+    const chargingDuration = getChargingDuration();
+
+    return (
+      <Card className="mb-4 hover:shadow-lg transition-all duration-200">
+        <CardContent className="p-6">
+          <div className="flex items-start justify-between mb-4">
+            <div className="flex-1">
+              <div className="flex items-center gap-3 mb-2">
+                <h3 className="font-semibold text-lg">
+                  {transaction.stationName}
+                </h3>
+                <Badge variant="outline" className={`${getTransactionStatusColor(transaction.status)} flex items-center gap-1 px-3 py-1`}>
+                  {getTransactionStatusIcon(transaction.status)}
+                  {transaction.status}
+                </Badge>
+              </div>
+
+              <div className="flex items-center gap-2 text-muted-foreground text-sm mb-3">
+                <MapPin className="w-4 h-4" />
+                <span className="font-medium">{transaction.stationAddress}</span>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Calendar className="w-4 h-4 text-blue-500" />
+                    <span className="font-medium">{language === 'vi' ? 'Bắt đầu' : 'Start'}:</span>
+                    <span>{new Date(transaction.sessionStartTime).toLocaleString()}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-orange-500" />
+                    <span className="font-medium">{language === 'vi' ? 'Kết thúc' : 'End'}:</span>
+                    <span>{new Date(transaction.sessionEndTime).toLocaleString()}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium">👤 {language === 'vi' ? 'Người dùng' : 'User'}:</span>
+                    <span>{transaction.userName}</span>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Zap className="w-4 h-4 text-yellow-500" />
+                    <span className="font-medium">{transaction.powerConsumed.toFixed(2)} kWh</span>
+                  </div>
+                  {chargingDuration > 0 && (
+                    <div className="flex items-center gap-2">
+                      <Clock className="w-4 h-4 text-purple-500" />
+                      <span className="font-medium">{chargingDuration} {language === 'vi' ? 'phút' : 'minutes'}</span>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium">💳 {language === 'vi' ? 'Thanh toán' : 'Payment'}:</span>
+                    <span>{transaction.paymentMethod}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="text-right ml-4">
+              <div className="bg-primary/10 rounded-lg p-3">
+                <div className="text-xs text-muted-foreground mb-1">{language === 'vi' ? 'Số tiền' : 'Amount'}</div>
+                <div className="font-bold text-lg text-primary">{formatCurrency(transaction.amount)}</div>
+                <div className="text-xs text-muted-foreground mt-1">
+                  ID: #{transaction.transactionId}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between text-sm pt-3 border-t border-border">
+            <div className="text-xs text-muted-foreground">
+              {language === 'vi' ? 'Thời gian tạo' : 'Created'}: {new Date(transaction.createdAt).toLocaleString()}
+            </div>
+            <div className="flex items-center gap-4 text-xs text-muted-foreground">
+              <span>Session: #{transaction.sessionId}</span>
+              {transaction.paymentTime && (
+                <span>Paid: {new Date(transaction.paymentTime).toLocaleString()}</span>
+              )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  };
+
   const EmptyState = ({ message }: { message: string }) => (
     <div className="text-center py-12">
       <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
@@ -1302,42 +1618,56 @@ export default function MyBookingView({ onBack, onStartCharging }: MyBookingView
       </div>
 
       {/* Status Summary */}
-      {apiOrders.length > 0 && (
+      {(apiOrders.length > 0 || transactionHistory.length > 0) && (
         <div className="max-w-4xl mx-auto px-4 py-2">
           <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
-            <div className="flex items-center gap-4 text-sm">
-              <div className="flex items-center gap-2">
-                <span className="text-blue-600 dark:text-blue-400 font-medium">
-                  {language === 'vi' ? 'Tổng đặt chỗ:' : 'Total Bookings:'}
-                </span>
-                <span className="bg-blue-100 dark:bg-blue-900 px-2 py-1 rounded text-blue-800 dark:text-blue-200">
-                  {apiOrders.length}
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-green-600 dark:text-green-400 font-medium">
-                  {language === 'vi' ? 'Sắp tới:' : 'Upcoming:'}
-                </span>
-                <span className="bg-green-100 dark:bg-green-900 px-2 py-1 rounded text-green-800 dark:text-green-200">
-                  {apiUpcomingOrders.length}
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-orange-600 dark:text-orange-400 font-medium">
-                  {language === 'vi' ? 'Đang sạc:' : 'Active:'}
-                </span>
-                <span className="bg-orange-100 dark:bg-orange-900 px-2 py-1 rounded text-orange-800 dark:text-orange-200">
-                  {apiActiveOrders.length}
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-gray-600 dark:text-gray-400 font-medium">
-                  {language === 'vi' ? 'Lịch sử:' : 'History:'}
-                </span>
-                <span className="bg-gray-100 dark:bg-gray-900 px-2 py-1 rounded text-gray-800 dark:text-gray-200">
-                  {apiHistoryOrders.length}
-                </span>
-              </div>
+            <div className="flex flex-wrap items-center gap-4 text-sm">
+              {apiOrders.length > 0 && (
+                <>
+                  <div className="flex items-center gap-2">
+                    <span className="text-blue-600 dark:text-blue-400 font-medium">
+                      {language === 'vi' ? 'Tổng đặt chỗ:' : 'Total Bookings:'}
+                    </span>
+                    <span className="bg-blue-100 dark:bg-blue-900 px-2 py-1 rounded text-blue-800 dark:text-blue-200">
+                      {apiOrders.length}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-green-600 dark:text-green-400 font-medium">
+                      {language === 'vi' ? 'Sắp tới:' : 'Upcoming:'}
+                    </span>
+                    <span className="bg-green-100 dark:bg-green-900 px-2 py-1 rounded text-green-800 dark:text-green-200">
+                      {apiUpcomingOrders.length}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-orange-600 dark:text-orange-400 font-medium">
+                      {language === 'vi' ? 'Đang sạc:' : 'Active:'}
+                    </span>
+                    <span className="bg-orange-100 dark:bg-orange-900 px-2 py-1 rounded text-orange-800 dark:text-orange-200">
+                      {apiActiveOrders.length}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-gray-600 dark:text-gray-400 font-medium">
+                      {language === 'vi' ? 'Lịch sử đặt chỗ:' : 'Booking History:'}
+                    </span>
+                    <span className="bg-gray-100 dark:bg-gray-900 px-2 py-1 rounded text-gray-800 dark:text-gray-200">
+                      {apiHistoryOrders.length}
+                    </span>
+                  </div>
+                </>
+              )}
+              {transactionHistory.length > 0 && (
+                <div className="flex items-center gap-2">
+                  <span className="text-purple-600 dark:text-purple-400 font-medium">
+                    {language === 'vi' ? 'Giao dịch:' : 'Transactions:'}
+                  </span>
+                  <span className="bg-purple-100 dark:bg-purple-900 px-2 py-1 rounded text-purple-800 dark:text-purple-200">
+                    {transactionHistory.length}
+                  </span>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -1346,7 +1676,7 @@ export default function MyBookingView({ onBack, onStartCharging }: MyBookingView
       {/* Content */}
       <div className="max-w-4xl mx-auto p-4">
         <Tabs defaultValue="upcoming" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3 bg-white dark:bg-gray-900">
+          <TabsList className="grid w-full grid-cols-4 bg-white dark:bg-gray-900">
             <TabsTrigger value="upcoming" className="flex items-center gap-2">
               <Clock className="w-4 h-4" />
               {translations.upcoming}
@@ -1371,6 +1701,15 @@ export default function MyBookingView({ onBack, onStartCharging }: MyBookingView
               {apiHistoryOrders.length > 0 && (
                 <Badge variant="secondary" className="ml-1 h-5 w-5 text-xs p-0 flex items-center justify-center">
                   {apiHistoryOrders.length}
+                </Badge>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="transactions" className="flex items-center gap-2">
+              <QrCode className="w-4 h-4" />
+              {translations.transactions}
+              {transactionHistory.length > 0 && (
+                <Badge variant="secondary" className="ml-1 h-5 w-5 text-xs p-0 flex items-center justify-center">
+                  {transactionHistory.length}
                 </Badge>
               )}
             </TabsTrigger>
@@ -1531,13 +1870,13 @@ export default function MyBookingView({ onBack, onStartCharging }: MyBookingView
                     <Pagination>
                       <PaginationContent>
                         <PaginationItem>
-                          <PaginationPrevious 
+                          <PaginationPrevious
                             size="sm"
                             onClick={() => handlePageChange(currentPage - 1)}
                             className={currentPage === 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
                           />
                         </PaginationItem>
-                        
+
                         {Array.from({ length: getTotalPages(apiHistoryOrders) }, (_, i) => i + 1).map((page) => (
                           <PaginationItem key={page}>
                             <PaginationLink
@@ -1550,9 +1889,9 @@ export default function MyBookingView({ onBack, onStartCharging }: MyBookingView
                             </PaginationLink>
                           </PaginationItem>
                         ))}
-                        
+
                         <PaginationItem>
-                          <PaginationNext 
+                          <PaginationNext
                             size="sm"
                             onClick={() => handlePageChange(currentPage + 1)}
                             className={currentPage === getTotalPages(apiHistoryOrders) ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
@@ -1564,7 +1903,108 @@ export default function MyBookingView({ onBack, onStartCharging }: MyBookingView
                 )}
               </>
             ) : (
-              <EmptyState message={language === 'vi' ? 'Chưa có lịch sử đặt ch��' : 'No booking history'} />
+              <EmptyState message={language === 'vi' ? 'Chưa có lịch sử đặt chỗ' : 'No booking history'} />
+            )}
+          </TabsContent>
+
+          <TabsContent value="transactions" className="space-y-4">
+            {transactionLoading ? (
+              <LoadingState />
+            ) : transactionError ? (
+              <ErrorState message={transactionError} />
+            ) : transactionHistory.length > 0 ? (
+              <>
+                {/* Transaction filters */}
+                <Card className="mb-4 border-purple-200 bg-purple-50 dark:bg-purple-950/20 dark:border-purple-800">
+                  <CardContent className="p-4">
+                    <div className="flex flex-wrap gap-4 items-end">
+                      <div className="flex-1 min-w-[200px]">
+                        <label className="block text-sm font-medium mb-2">
+                          {language === 'vi' ? 'Trạng thái' : 'Status'}
+                        </label>
+                        <select
+                          value={transactionFilters.status}
+                          onChange={(e) => setTransactionFilters(prev => ({ ...prev, status: e.target.value }))}
+                          className="w-full px-3 py-2 border border-border rounded-md bg-background"
+                        >
+                          <option value="">{language === 'vi' ? 'Tất cả' : 'All'}</option>
+                          <option value="SUCCESS">{language === 'vi' ? 'Thành công' : 'Success'}</option>
+                          <option value="PENDING">{language === 'vi' ? 'Đang chờ' : 'Pending'}</option>
+                          <option value="FAILED">{language === 'vi' ? 'Thất bại' : 'Failed'}</option>
+                          <option value="CANCELLED">{language === 'vi' ? 'Đã hủy' : 'Cancelled'}</option>
+                        </select>
+                      </div>
+
+                      <div className="flex-1 min-w-[200px]">
+                        <label className="block text-sm font-medium mb-2">
+                          {language === 'vi' ? 'Phương thức thanh toán' : 'Payment Method'}
+                        </label>
+                        <select
+                          value={transactionFilters.paymentMethod}
+                          onChange={(e) => setTransactionFilters(prev => ({ ...prev, paymentMethod: e.target.value }))}
+                          className="w-full px-3 py-2 border border-border rounded-md bg-background"
+                        >
+                          <option value="">{language === 'vi' ? 'Tất cả' : 'All'}</option>
+                          <option value="VNPAY">VNPAY</option>
+                          <option value="QR">QR</option>
+                          <option value="CASH">{language === 'vi' ? 'Tiền mặt' : 'Cash'}</option>
+                        </select>
+                      </div>
+
+                      <div className="flex-1 min-w-[200px]">
+                        <label className="block text-sm font-medium mb-2">
+                          {language === 'vi' ? 'Từ ngày' : 'From Date'}
+                        </label>
+                        <input
+                          type="date"
+                          value={transactionFilters.fromDate}
+                          onChange={(e) => setTransactionFilters(prev => ({ ...prev, fromDate: e.target.value }))}
+                          className="w-full px-3 py-2 border border-border rounded-md bg-background"
+                        />
+                      </div>
+
+                      <div className="flex-1 min-w-[200px]">
+                        <label className="block text-sm font-medium mb-2">
+                          {language === 'vi' ? 'Đến ngày' : 'To Date'}
+                        </label>
+                        <input
+                          type="date"
+                          value={transactionFilters.toDate}
+                          onChange={(e) => setTransactionFilters(prev => ({ ...prev, toDate: e.target.value }))}
+                          className="w-full px-3 py-2 border border-border rounded-md bg-background"
+                        />
+                      </div>
+
+                      <Button
+                        onClick={() => {
+                          setTransactionFilters({
+                            status: '',
+                            paymentMethod: '',
+                            fromDate: '',
+                            toDate: '',
+                            stationId: '',
+                            sortBy: 'createdAt',
+                            sortDirection: 'desc'
+                          });
+                          setTransactionPage(1); // Reset to first page
+                        }}
+                        variant="outline"
+                        size="sm"
+                      >
+                        {language === 'vi' ? 'Xóa bộ lọc' : 'Clear Filters'}
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {transactionHistory.map(transaction => (
+                  <TransactionCard key={transaction.transactionId} transaction={transaction} />
+                ))}
+
+                {/* Transaction pagination would go here if needed */}
+              </>
+            ) : (
+              <EmptyState message={translations.noTransactions} />
             )}
           </TabsContent>
         </Tabs>

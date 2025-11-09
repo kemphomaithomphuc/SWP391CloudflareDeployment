@@ -595,15 +595,21 @@ export default function SystemConfigView({ onBack }: SystemConfigViewProps) {
             {/* Main Content */}
             <div className="container mx-auto px-4 py-8 max-w-6xl">
                 <Tabs defaultValue="peak-hours" className="space-y-8">
-                    <TabsList className="grid w-full grid-cols-2 bg-card/80 backdrop-blur-sm">
-                        <TabsTrigger value="peak-hours" className="flex items-center space-x-2">
-                            <Clock className="w-4 h-4" />
-                            <span>{t('peak_hours')}</span>
-                        </TabsTrigger>
-                        <TabsTrigger value="subscriptions" className="flex items-center space-x-2">
-                            <CreditCard className="w-4 h-4" />
-                            <span>{t('subscriptions')}</span>
-                        </TabsTrigger>
+                <TabsList className="grid w-full grid-cols-2 bg-card/90 backdrop-blur-sm border border-border/50 rounded-2xl p-1">
+                    <TabsTrigger
+                        value="peak-hours"
+                        className="flex items-center space-x-2 rounded-xl data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:border data-[state=active]:border-primary/40 transition-all duration-200"
+                    >
+                        <Clock className="w-4 h-4" />
+                        <span className="font-medium">{t('peak_hours')}</span>
+                    </TabsTrigger>
+                    <TabsTrigger
+                        value="subscriptions"
+                        className="flex items-center space-x-2 rounded-xl data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:border data-[state=active]:border-primary/40 transition-all duration-200"
+                    >
+                        <CreditCard className="w-4 h-4" />
+                        <span className="font-medium">{t('subscriptions')}</span>
+                    </TabsTrigger>
                     </TabsList>
 
                     {/* Peak Hours (Price Factor) Tab */}
@@ -625,7 +631,7 @@ export default function SystemConfigView({ onBack }: SystemConfigViewProps) {
                                         {language === 'vi' ? 'Chọn trạm sạc' : 'Select Charging Station'}
                                     </h4>
                                     <Select
-                                        value={selectedStationId?.toString() || ""}
+                                        value={selectedStationId != null ? selectedStationId.toString() : undefined}
                                         onValueChange={(value: string) => setSelectedStationId(parseInt(value))}
                                     >
                                         <SelectTrigger className="bg-input-background border-border/60">
@@ -912,7 +918,7 @@ export default function SystemConfigView({ onBack }: SystemConfigViewProps) {
                                         {t('update_subscription_plan')}
                                     </h4>
                                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                                        <Select value={selectedPlan} onValueChange={setSelectedPlan}>
+                                        <Select value={selectedPlan || undefined} onValueChange={setSelectedPlan}>
                                             <SelectTrigger className="bg-input-background border-border/60">
                                                 <SelectValue placeholder={t('select_plan')} />
                                             </SelectTrigger>
@@ -994,7 +1000,7 @@ export default function SystemConfigView({ onBack }: SystemConfigViewProps) {
                                                 <SelectTrigger className="bg-input-background border-border/60">
                                                     <SelectValue placeholder={language === 'vi' ? 'Chọn gói...' : 'Select plan...'} />
                                                 </SelectTrigger>
-                                                <SelectContent>
+                                            <SelectContent>
                                                     {plans && plans.length > 0 ? (
                                                         plans.map((plan) => (
                                                             <SelectItem key={plan.subscriptionId} value={plan.subscriptionId.toString()}>
@@ -1009,7 +1015,7 @@ export default function SystemConfigView({ onBack }: SystemConfigViewProps) {
                                                             </SelectItem>
                                                         ))
                                                     ) : (
-                                                        <SelectItem value="" disabled>
+                                                        <SelectItem value="__no_plan__" disabled>
                                                             <span className="text-muted-foreground">{language === 'vi' ? 'Không có gói nào' : 'No plans available'}</span>
                                                         </SelectItem>
                                                     )}

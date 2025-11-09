@@ -5,7 +5,7 @@ import { Button } from './ui/button';
 import { CheckCircle2, XCircle, Loader2, CreditCard } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { toast } from 'sonner';
-import axios from 'axios';
+import { api } from '../services/api';
 
 export default function PaymentResultView() {
   const navigate = useNavigate();
@@ -37,6 +37,15 @@ export default function PaymentResultView() {
           vnp_TransactionNo,
           vnp_OrderInfo
         });
+
+        // Forward callback params to backend to ensure transaction status updates
+        const queryParams = Object.fromEntries(searchParams.entries());
+        try {
+          await api.get('/api/payment/vnpay/callback', { params: queryParams });
+          console.log('Forwarded VNPay callback to backend');
+        } catch (callbackError) {
+          console.error('Error forwarding callback to backend:', callbackError);
+        }
 
         // Check payment status based on response code
         // 00: Success, others: Failed

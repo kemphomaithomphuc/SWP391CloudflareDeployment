@@ -34,6 +34,9 @@ public class ChargingStationDTO {
     private Double latitude;
     private Double longitude;
 
+    // Field lưu khoảng cách (km) từ vị trí user đến trạm (dùng cho findNearbyStations)
+    private Double distance;
+
     @NotNull(message = "At least one charging point is required")
     private List<ChargingPointDTO> chargingPoints;
 
@@ -42,4 +45,7 @@ public class ChargingStationDTO {
 
     // Field chứa thông tin tiện ích xung quanh (được tạo bởi AI)
     private String surroundingAmenities;
+
+    // Số lượng order của trạm
+    private Long orderCount;
 }

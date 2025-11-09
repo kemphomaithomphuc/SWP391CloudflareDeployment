@@ -17,6 +17,7 @@ public class OrderResponseDTO {
     // Thông tin trạm và điểm sạc
     private Long stationId;            // ID của trạm sạc
     private Long chargingPointId;      // ID của trụ sạc
+    private String chargingPointName;  // Tên/số thứ tự của trụ sạc (VD: "A1", "A2", "B1")
     private String stationName;
     private String stationAddress;
     private String connectorType;

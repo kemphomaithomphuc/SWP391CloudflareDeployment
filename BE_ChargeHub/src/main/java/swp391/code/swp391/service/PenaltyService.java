@@ -11,7 +11,7 @@ import java.util.List;
  * Service xử lý các loại phí phạt theo Business Rules
  *
  * AC1: Hủy < 10 phút trước startTime → Fee CANCEL (10%), violations +1
- * AC2: Không đến sau 15 phút → Order CANCELED, Fee NO_SHOW (30%), violations +1
+ * AC2: Không đến sau 30 phút → Order CANCELED, Fee NO_SHOW (30%), violations +1
  * AC3: Pin đầy nhưng vẫn kết nối > 1 phút → Fee OVERTIME (2,000 VNĐ/phút)
  * AC4: Thanh toán Session → Transaction.amount = Session.cost + sum(Fee.amount)
  * AC5: violationCount = 3 → Auto BANNED
@@ -32,7 +32,7 @@ public interface PenaltyService {
     Fee handleLateCancellation(Long orderId, Long userId, String reason);
 
     /**
-     * AC2: Xử lý không đến sau 15 phút (No-show)
+     * AC2: Xử lý không đến sau 30 phút - No-show
      * Được gọi bởi Scheduler
      * @param orderId Order ID
      * @return Fee được tạo (30% estimatedCost)

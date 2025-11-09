@@ -214,6 +214,7 @@ export default function ChatbotWidget() {
               messagesEndRef={messagesEndRef}
               inputRef={inputRef}
               onSendMessage={handleSendMessage}
+              onSendMessageWithLocation={sendMessage}
               onKeyPress={handleKeyPress}
               onClose={closeChat}
               onHeaderMouseDown={handleMouseDown}

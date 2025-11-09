@@ -8,10 +8,11 @@ import swp391.code.swp391.dto.ChargingStationDTO;
 import swp391.code.swp391.entity.ChargingStation;
 import swp391.code.swp391.entity.ChargingStation.ChargingStationStatus;
 import swp391.code.swp391.repository.ChargingStationRepository;
-import swp391.code.swp391.repository.ChargingPointRepository;
 import swp391.code.swp391.repository.ConnectorTypeRepository;
+import swp391.code.swp391.repository.OrderRepository;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -22,8 +23,8 @@ public class ChargingStationServiceImpl implements ChargingStationService {
 
     private final ChargingStationRepository chargingStationRepository;
     private final ChargingPointService chargingPointService;
-    private final ChargingPointRepository chargingPointRepository;
     private final ConnectorTypeRepository connectorTypeRepository;
+    private final OrderRepository orderRepository;
 
     @Override
     public ChargingStationDTO createChargingStation(ChargingStationDTO chargingStationDTO) {
@@ -120,10 +121,9 @@ public class ChargingStationServiceImpl implements ChargingStationService {
 
     @Override
     public void deleteChargingStation(Long stationId) {
-        ChargingStation chargingStation = chargingStationRepository.findById(stationId)
+        // Ensure station exists before deleting (avoid unused local variable)
+        chargingStationRepository.findById(stationId)
                 .orElseThrow(() -> new RuntimeException("Charging station not found with id: " + stationId));
-
-
 
         chargingStationRepository.deleteById(stationId);
     }
@@ -227,6 +227,65 @@ public class ChargingStationServiceImpl implements ChargingStationService {
         return chargingStationRepository.findStationIdByName(stationName);
     }
 
+    @Override
+    public List<ChargingStationDTO> findNearbyStations(Double latitude, Double longitude, Double radiusKm) {
+        if (latitude == null || longitude == null) {
+            throw new RuntimeException("Latitude và Longitude không được để trống");
+        }
+
+        // Lấy tất cả stations
+        List<ChargingStation> allStations = chargingStationRepository.findAll();
+
+        // Tính khoảng cách và filter
+        List<ChargingStationDTO> result = new ArrayList<>();
+
+        for (ChargingStation station : allStations) {
+            // Skip stations without valid coordinates
+            if (station.getLatitude() == 0.0 && station.getLongitude() == 0.0) {
+                continue;
+            }
+
+            // Tính khoảng cách bằng Haversine formula
+            double distance = calculateDistance(
+                latitude, longitude,
+                station.getLatitude(), station.getLongitude()
+            );
+
+            // Filter by radius
+            if (distance <= radiusKm) {
+                ChargingStationDTO dto = convertToDTO(station);
+                dto.setDistance(distance);
+                result.add(dto);
+            }
+        }
+
+        // Sort by distance and limit to 10
+        result.sort(Comparator.comparingDouble(ChargingStationDTO::getDistance));
+
+        return result.stream()
+                .limit(10)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Tính khoảng cách giữa 2 điểm dựa trên Haversine formula
+     * @return khoảng cách tính bằng km
+     */
+    private double calculateDistance(double lat1, double lon1, double lat2, double lon2) {
+        final int R = 6371; // Bán kính Trái Đất (km)
+
+        double latDistance = Math.toRadians(lat2 - lat1);
+        double lonDistance = Math.toRadians(lon2 - lon1);
+
+        double a = Math.sin(latDistance / 2) * Math.sin(latDistance / 2)
+                + Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2))
+                * Math.sin(lonDistance / 2) * Math.sin(lonDistance / 2);
+
+        double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+        return R * c; // Khoảng cách tính bằng km
+    }
+
     // Helper methods
     private ChargingStation convertToEntity(ChargingStationDTO chargingStationDTO) {
         ChargingStation chargingStation = new ChargingStation();
@@ -249,7 +308,7 @@ public class ChargingStationServiceImpl implements ChargingStationService {
         dto.setStationName(chargingStation.getStationName());
         dto.setAddress(chargingStation.getAddress());
         dto.setStatus(chargingStation.getStatus());
-
+        dto.setChargingPointNumber(chargingStation.getChargingPointNumber());
         // Thêm latitude và longitude
         dto.setLatitude(chargingStation.getLatitude());
         dto.setLongitude(chargingStation.getLongitude());
@@ -259,6 +318,25 @@ public class ChargingStationServiceImpl implements ChargingStationService {
         //     .map(staff -> new StaffDTO(...))
         //     .collect(Collectors.toList()));
 
+        // Thêm danh sách trụ sạc
+        try {
+            List<ChargingPointDTO> chargingPoints = chargingPointService.getChargingPointsByStationId(chargingStation.getStationId());
+            dto.setChargingPoints(chargingPoints);
+        } catch (Exception e) {
+            // Log lỗi nếu cần thiết, nhưng không làm gián đoạn quá trình chuyển đổi
+            System.err.println("Error fetching charging points: " + e.getMessage());
+        }
+
+        // Thêm số lượng order của trạm
+        try {
+            long orderCount = orderRepository.findByChargingPoint_Station_StationId(chargingStation.getStationId()).size();
+            dto.setOrderCount(orderCount);
+        } catch (Exception e) {
+            // Log lỗi nếu cần thiết, nhưng không làm gián đoạn quá trình chuyển đổi
+            System.err.println("Error fetching order count: " + e.getMessage());
+        }
+
         return dto;
     }
 }
+

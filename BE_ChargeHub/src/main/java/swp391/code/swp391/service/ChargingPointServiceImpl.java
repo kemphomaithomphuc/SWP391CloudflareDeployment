@@ -52,6 +52,10 @@ public class ChargingPointServiceImpl implements ChargingPointService {
         // Save charging point
         ChargingPoint savedChargingPoint = chargingPointRepository.save(chargingPoint);
 
+        // Tăng chargingPointNumber khi tạo charging point
+        station.setChargingPointNumber(station.getChargingPointNumber() + 1);
+        chargingStationRepository.save(station);
+
         // Convert to DTO with connector type information
         ChargingPointDTO resultDTO = convertToDTO(savedChargingPoint);
         resultDTO.setTypeName(connectorType.getTypeName());
@@ -123,6 +127,18 @@ public class ChargingPointServiceImpl implements ChargingPointService {
             chargingPoint.setConnectorType(null); // Bỏ liên kết với connector type
             chargingPointRepository.save(chargingPoint);
         }
+
+        // Giảm chargingPointNumber khi xóa
+        ChargingStation station = chargingPoint.getStation();
+        if (station != null) {
+            int currentNumber = station.getChargingPointNumber();
+            // Check số âm
+            if (currentNumber > 0) {
+                station.setChargingPointNumber(currentNumber - 1);
+                chargingStationRepository.save(station);
+            }
+        }
+
         chargingPointRepository.deleteById(chargingPointId);
     }
 
@@ -193,6 +209,7 @@ public class ChargingPointServiceImpl implements ChargingPointService {
     private ChargingPoint convertToEntity(ChargingPointDTO chargingPointDTO) {
         ChargingPoint chargingPoint = new ChargingPoint();
         chargingPoint.setChargingPointId(chargingPointDTO.getChargingPointId());
+        chargingPoint.setChargingPointName(chargingPointDTO.getChargingPointName());
         chargingPoint.setStatus(
                 chargingPointDTO.getStatus() != null ? chargingPointDTO.getStatus() : ChargingPointStatus.AVAILABLE
         );
@@ -224,6 +241,7 @@ public class ChargingPointServiceImpl implements ChargingPointService {
     private ChargingPointDTO convertToDTO (ChargingPoint chargingPoint){
             ChargingPointDTO dto = new ChargingPointDTO();
             dto.setChargingPointId(chargingPoint.getChargingPointId());
+            dto.setChargingPointName(chargingPoint.getChargingPointName());
             dto.setStatus(chargingPoint.getStatus());
 
             // Output: full object nếu cần

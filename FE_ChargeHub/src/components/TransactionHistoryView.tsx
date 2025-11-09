@@ -166,13 +166,29 @@ export default function TransactionHistoryView({ onBack }: TransactionHistoryVie
         });
         console.log("[TXN] res", res);
         const payload: any = res?.data;
-        const list: any[] = Array.isArray(payload) 
-          ? payload 
-          : (payload?.content ?? payload?.transactions ?? payload?.items ?? []);
-        console.log('[TXN] payload type:', Array.isArray(payload) ? 'array' : typeof payload, 'list length:', list.length, 'totalPages:', payload?.totalPages);
-        setTotalPages((payload?.totalPages as number) || 1);
+        const listSource: any[] = Array.isArray(payload)
+          ? payload
+          : Array.isArray(payload?.data?.transactions)
+            ? payload.data.transactions
+            : Array.isArray(payload?.transactions)
+              ? payload.transactions
+              : Array.isArray(payload?.content)
+                ? payload.content
+                : Array.isArray(payload?.items)
+                  ? payload.items
+                  : [];
 
-        const mapped: Transaction[] = list.map((it: any) => {
+        const totalElements = typeof payload?.data?.totalElements === 'number'
+          ? payload.data.totalElements
+          : typeof payload?.totalElements === 'number'
+            ? payload.totalElements
+            : listSource.length;
+
+        const computedTotalPages = size > 0 ? Math.max(1, Math.ceil(totalElements / size)) : 1;
+        console.log('[TXN] payload type:', Array.isArray(payload) ? 'array' : typeof payload, 'list length:', listSource.length, 'totalElements:', totalElements, 'computedTotalPages:', computedTotalPages);
+        setTotalPages(computedTotalPages);
+
+        const mapped: Transaction[] = listSource.map((it: any) => {
           const created = it?.createdAt || it?.date || it?.startTime || new Date().toISOString();
           const dateObj = new Date(created);
           const time = dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -183,17 +199,25 @@ export default function TransactionHistoryView({ onBack }: TransactionHistoryVie
               ? 'completed'
               : 'pending';
 
+          // Calculate duration from session times if available
+          let duration = Number(it?.duration ?? it?.durationMinutes ?? 0);
+          if (it?.sessionStartTime && it?.sessionEndTime && duration === 0) {
+            const startTime = new Date(it.sessionStartTime);
+            const endTime = new Date(it.sessionEndTime);
+            duration = Math.round((endTime.getTime() - startTime.getTime()) / (1000 * 60)); // minutes
+          }
+
           return {
-            id: String(it?.id ?? it?.transactionId ?? Math.random()),
+            id: String(it?.transactionId ?? it?.id ?? Math.random()),
             date: created,
             time,
             stationName: it?.stationName ?? 'EV Station',
             location: it?.stationAddress ?? it?.location ?? 'N/A',
-            amount: Number(it?.amount ?? it?.totalAmount ?? 0),
-            energyConsumed: Number(it?.energyConsumed ?? it?.kwh ?? 0),
-            duration: Number(it?.duration ?? it?.durationMinutes ?? 0),
+            amount: Number(it?.amount ?? it?.totalAmount ?? it?.baseCost ?? 0),
+            energyConsumed: Number(it?.powerConsumed ?? it?.energyConsumed ?? it?.kwh ?? 0),
+            duration,
             status,
-            paymentMethod: it?.paymentMethod ?? 'Wallet',
+            paymentMethod: (it?.paymentMethod || 'Wallet').toString(),
             transactionType: (it?.transactionType as Transaction['transactionType']) || 'charging',
           };
         });
@@ -349,6 +373,7 @@ export default function TransactionHistoryView({ onBack }: TransactionHistoryVie
                 <select
                   value={filterStatus}
                   onChange={(e) => setFilterStatus(e.target.value)}
+                  aria-label={language === 'vi' ? 'Lọc theo trạng thái' : 'Filter by status'}
                   className="px-3 py-2 border border-border rounded-md bg-background text-foreground"
                 >
                   <option value="all">{t('all_status')}</option>
@@ -361,6 +386,7 @@ export default function TransactionHistoryView({ onBack }: TransactionHistoryVie
                 <select
                   value={filterType}
                   onChange={(e) => setFilterType(e.target.value)}
+                  aria-label={language === 'vi' ? 'Lọc theo loại giao dịch' : 'Filter by type'}
                   className="px-3 py-2 border border-border rounded-md bg-background text-foreground"
                 >
                   <option value="all">{t('all_types')}</option>
@@ -379,6 +405,7 @@ export default function TransactionHistoryView({ onBack }: TransactionHistoryVie
                     setSortBy(field);
                     setSortOrder(order);
                   }}
+                  aria-label={language === 'vi' ? 'Sắp xếp giao dịch' : 'Sort transactions'}
                   className="px-3 py-2 border border-border rounded-md bg-background text-foreground"
                 >
                   <option value="date-desc">{t('newest_first')}</option>

@@ -432,4 +432,138 @@ public class EmailService {
 </html>
 """.formatted(driverName, orderId, stationName, oldPoint, newPoint, reason, staffName);
     }
+
+    /**
+     * Gửi email nhắc nhở khi user chưa đến sau 15 phút từ thời gian bắt đầu order
+     */
+    public void sendNoShowWarningEmail(String toEmail, String userName, Long orderId,
+                                       String stationName, String chargingPointName,
+                                       String startTime, int minutesRemaining) {
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+
+            helper.setFrom(fromEmail);
+            helper.setTo(toEmail);
+            helper.setSubject("⚠️ Cảnh báo: Bạn chưa check-in - Order #" + orderId);
+
+            String html = buildNoShowWarningEmail(userName, orderId, stationName,
+                                                  chargingPointName, startTime, minutesRemaining);
+            helper.setText(html, true);
+
+            mailSender.send(message);
+            log.info("Đã gửi email cảnh báo no-show đến: {} cho order {}", toEmail, orderId);
+        } catch (MessagingException e) {
+            log.error("Lỗi gửi email cảnh báo no-show đến {}: {}", toEmail, e.getMessage());
+            // Không throw exception để không ảnh hưởng scheduler
+        }
+    }
+
+    private String buildNoShowWarningEmail(String userName, Long orderId, String stationName,
+                                          String chargingPointName, String startTime,
+                                          int minutesRemaining) {
+        return """
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f9f9f9; }
+        .header { background: linear-gradient(135deg, #e74c3c 0%%, #c0392b 100%%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+        .content { background: white; padding: 30px; border-radius: 0 0 10px 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .warning-box { background: #fff3cd; border-left: 4px solid #ffc107; padding: 20px; margin: 20px 0; border-radius: 5px; }
+        .warning-icon { font-size: 48px; text-align: center; margin-bottom: 15px; }
+        .info-box { background: #f0f7ff; border-left: 4px solid #667eea; padding: 15px; margin: 20px 0; border-radius: 5px; }
+        .info-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #eee; }
+        .info-label { font-weight: bold; color: #555; }
+        .info-value { color: #333; }
+        .danger-box { background: #ffebee; border-left: 4px solid #e74c3c; padding: 15px; margin: 20px 0; border-radius: 5px; }
+        .countdown { font-size: 36px; font-weight: bold; color: #e74c3c; text-align: center; margin: 15px 0; }
+        .button { display: inline-block; padding: 12px 30px; background: #e74c3c; color: white; text-decoration: none; border-radius: 5px; margin: 20px 0; font-weight: bold; }
+        .footer { text-align: center; margin-top: 30px; color: #888; font-size: 12px; }
+        .highlight { color: #e74c3c; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>⚠️ CẢNH BÁO</h1>
+            <p>Bạn chưa check-in cho đơn đặt chỗ</p>
+        </div>
+        <div class="content">
+            <p>Xin chào <strong>%s</strong>,</p>
+            
+            <div class="warning-box">
+                <div class="warning-icon">⏰</div>
+                <p style="text-align: center; font-size: 18px; margin: 0;">
+                    <strong>Bạn có một đơn đặt chỗ vào lúc %s</strong>
+                </p>
+                <p style="text-align: center; margin: 10px 0 0 0;">
+                    nhưng chúng tôi chưa thấy bạn check-in!
+                </p>
+            </div>
+
+            <div class="info-box">
+                <h3 style="margin-top: 0; color: #667eea;">Thông tin đơn đặt chỗ</h3>
+                <div class="info-row">
+                    <span class="info-label">Mã đơn:</span>
+                    <span class="info-value">#%d</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Trạm sạc:</span>
+                    <span class="info-value">%s</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Trụ sạc:</span>
+                    <span class="info-value">%s</span>
+                </div>
+                <div class="info-row" style="border-bottom: none;">
+                    <span class="info-label">Thời gian bắt đầu:</span>
+                    <span class="info-value">%s</span>
+                </div>
+            </div>
+
+            <div class="danger-box">
+                <p style="margin: 0; font-size: 16px; text-align: center;">
+                    <strong>🚨 ĐƠN SẼ BỊ HỦY SAU:</strong>
+                </p>
+                <div class="countdown">%d phút</div>
+                <p style="margin: 0; text-align: center; color: #666;">
+                    Nếu bạn không check-in, đơn sẽ bị hủy và bạn sẽ bị phạt <span class="highlight">30%% giá trị đơn hàng</span>
+                </p>
+            </div>
+
+            <p><strong>⚡ Vui lòng:</strong></p>
+            <ul>
+                <li>Đến trạm sạc <strong>NGAY LẬP TỨC</strong> nếu bạn đang trên đường</li>
+                <li>Check-in trên app ChargeHub để bắt đầu sạc</li>
+                <li>Nếu không thể đến, vui lòng hủy đơn ngay để tránh bị phạt</li>
+            </ul>
+
+            <div class="warning-box" style="background: #ffebee; border-left-color: #e74c3c;">
+                <p style="margin: 0;"><strong>📌 Lưu ý:</strong></p>
+                <ul style="margin: 10px 0 0 0;">
+                    <li>Phí phạt no-show: <span class="highlight">30%% giá trị đơn hàng</span></li>
+                    <li>Vi phạm 3 lần → Tài khoản bị khóa tạm thời</li>
+                    <li>Chỉ có thể mở khóa sau khi thanh toán đầy đủ phí phạt</li>
+                </ul>
+            </div>
+
+            <div style="text-align: center;">
+                <a href="https://localhost:8080/" class="button">Mở App để Check-in</a>
+            </div>
+
+            <div class="footer">
+                <p>Email này được gửi tự động, vui lòng không trả lời.</p>
+                <p>© 2025 ChargeHub. All rights reserved.</p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+""".formatted(userName, startTime, orderId, stationName, chargingPointName,
+              startTime, minutesRemaining);
+    }
 }
+

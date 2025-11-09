@@ -1,193 +1,202 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useLanguage } from "../contexts/LanguageContext";
-import { useTheme } from "../contexts/ThemeContext";
-import PaymentQRView from "./PaymentQRView";
-import InvoiceItemsView from "./InvoiceItemsView";
-import QRCodeGenerator from "./QRCodeGenerator";
 import { Button } from "./ui/button";
-import { Input } from "./ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
-import { Textarea } from "./ui/textarea";
-import { Separator } from "./ui/separator";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "./ui/dialog";
-import { toast } from "sonner@2.0.3";
+import { toast } from "sonner";
+import { api } from "../services/api";
 import { 
   ArrowLeft,
-  Plus,
-  Receipt,
-  CreditCard,
   DollarSign,
   User,
-  Search,
-  Calendar,
-  CheckCircle,
-  Clock,
-  AlertCircle,
-  FileText,
-  Download,
-  QrCode,
-  Send,
-  Mail
+  Loader2,
+  Power,
+  FileSpreadsheet,
+  BarChart3,
+  RefreshCw
 } from "lucide-react";
 
 interface StaffInvoiceViewProps {
   onBack: () => void;
 }
 
+interface StaffStationInfo {
+  userId: number;
+  fullName: string;
+  email: string;
+  dateOfBirth: string;
+  address: string;
+  role: string;
+  status: string;
+  stationId: number;
+  stationName: string;
+  stationAddress: string;
+}
+
+interface ChargingSession {
+  sessionId: number;
+  orderId: number;
+  userId: number;
+  userName: string;
+  userPhone: string;
+  chargingPointId: number;
+  connectorType: string;
+  powerOutput: number;
+  startTime: string;
+  endTime: string | null;
+  powerConsumed: number;
+  baseCost: number;
+  status: string;
+  isOvertime: boolean;
+  overtimeMinutes: number | null;
+}
+
 export default function StaffInvoiceView({ onBack }: StaffInvoiceViewProps) {
   const { t, language } = useLanguage();
-  const { theme } = useTheme();
-  const [activeTab, setActiveTab] = useState("detailed");
-  const [showPaymentView, setShowPaymentView] = useState(false);
-  const [showDetailedInvoice, setShowDetailedInvoice] = useState(false);
-  const [invoiceData, setInvoiceData] = useState<any>(null);
-  const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
-  const [showQRModal, setShowQRModal] = useState(false);
+  const [staffInfo, setStaffInfo] = useState<StaffStationInfo | null>(null);
+  const [isLoadingStaff, setIsLoadingStaff] = useState(true);
+  const [staffError, setStaffError] = useState<string | null>(null);
+  const [staffRefreshKey, setStaffRefreshKey] = useState(0);
+  const [sessions, setSessions] = useState<ChargingSession[]>([]);
+  const [isLoadingSessions, setIsLoadingSessions] = useState(false);
+  const [sessionsError, setSessionsError] = useState<string | null>(null);
+  const [sessionsRefreshKey, setSessionsRefreshKey] = useState(0);
+  const [processingSessionId, setProcessingSessionId] = useState<number | null>(null);
+
+  useEffect(() => {
+    const fetchStaffStation = async () => {
+      setIsLoadingStaff(true);
+      setStaffError(null);
+
+      const storedUserId = localStorage.getItem("userId");
+      if (!storedUserId) {
+        const message =
+          language === "vi"
+            ? "Không tìm thấy thông tin nhân viên. Vui lòng đăng nhập lại."
+            : "Staff information not found. Please log in again.";
+        setStaffError(message);
+        setIsLoadingStaff(false);
+        return;
+      }
+
+      try {
+        const response = await api.get(`/api/staff-management/staff/${storedUserId}`);
+        if (response.data?.success && response.data?.data) {
+          setStaffInfo(response.data.data as StaffStationInfo);
+        } else {
+          const message =
+            response.data?.message ||
+            (language === "vi"
+              ? "Không thể tải thông tin nhân viên."
+              : "Unable to load staff information.");
+          setStaffError(message);
+          toast.error(message);
+        }
+      } catch (error: any) {
+        const message =
+          error?.response?.data?.message ||
+          (language === "vi"
+            ? "Đã xảy ra lỗi khi tải thông tin nhân viên."
+            : "Failed to load staff information.");
+        setStaffError(message);
+        toast.error(message);
+      } finally {
+        setIsLoadingStaff(false);
+      }
+    };
+
+    fetchStaffStation();
+  }, [language, staffRefreshKey]);
 
 
 
-  // Mock invoice data
-  const invoices = [
-    {
-      id: "INV-001",
-      customer: "Nguyen Van A",
-      amount: 85000,
-      status: "paid",
-      date: "2024-01-15",
-      dueDate: "2024-01-30",
-      items: [
-        { description: "Charging Session - 1 hour", quantity: 1, unitPrice: 25000, total: 25000 },
-        { description: "Parking Fee", quantity: 1, unitPrice: 10000, total: 10000 },
-        { description: "Service Fee", quantity: 1, unitPrice: 50000, total: 50000 }
-      ]
-    },
-    {
-      id: "INV-002", 
-      customer: "Tran Thi B",
-      amount: 120000,
-      status: "pending",
-      date: "2024-01-16",
-      dueDate: "2024-01-31",
-      items: [
-        { description: "Fast Charging Session - 45 min", quantity: 1, unitPrice: 90000, total: 90000 },
-        { description: "Premium Service", quantity: 1, unitPrice: 30000, total: 30000 }
-      ]
-    },
-    {
-      id: "INV-003",
-      customer: "Le Van C", 
-      amount: 75000,
-      status: "overdue",
-      date: "2024-01-10",
-      dueDate: "2024-01-25",
-      items: [
-        { description: "Standard Charging - 2 hours", quantity: 2, unitPrice: 20000, total: 40000 },
-        { description: "Equipment Rental", quantity: 1, unitPrice: 35000, total: 35000 }
-      ]
+  useEffect(() => {
+    const fetchSessions = async () => {
+      if (!staffInfo?.stationId) {
+        return;
+      }
+
+      setIsLoadingSessions(true);
+      setSessionsError(null);
+
+      try {
+        const response = await api.get(`/api/staff/station/${staffInfo.stationId}/sessions`);
+        if (response.data?.success && Array.isArray(response.data?.data)) {
+          setSessions(response.data.data as ChargingSession[]);
+        } else {
+          const message =
+            response.data?.message ||
+            (language === "vi"
+              ? "Không thể tải danh sách phiên sạc."
+              : "Unable to load charging sessions.");
+          setSessionsError(message);
+          toast.error(message);
+        }
+      } catch (error: any) {
+        const message =
+          error?.response?.data?.message ||
+          (language === "vi"
+            ? "Đã xảy ra lỗi khi tải danh sách phiên sạc."
+            : "Failed to load charging sessions.");
+        setSessionsError(message);
+        toast.error(message);
+      } finally {
+        setIsLoadingSessions(false);
+      }
+    };
+
+    fetchSessions();
+  }, [staffInfo?.stationId, language, sessionsRefreshKey]);
+
+  const completedSessions = sessions.filter((session) => session.status === "COMPLETED");
+  const totalEnergy = completedSessions.reduce((sum, session) => sum + session.powerConsumed, 0);
+  const totalRevenue = completedSessions.reduce((sum, session) => sum + session.baseCost, 0);
+  const visibleSessions = sessions.slice(0, 8);
+
+  const formatCurrency = (value: number) => {
+    return value.toLocaleString(language === "vi" ? "vi-VN" : "en-US", {
+      style: "currency",
+      currency: "VND",
+      maximumFractionDigits: 0,
+    });
+  };
+
+  const formatDateTime = (isoDate: string | null) => {
+    if (!isoDate) {
+      return language === "vi" ? "Đang diễn ra" : "In progress";
     }
-  ];
+    const date = new Date(isoDate);
+    if (Number.isNaN(date.getTime())) {
+      return isoDate;
+    }
+    return date.toLocaleString(language === "vi" ? "vi-VN" : "en-US", {
+      hour12: false,
+    });
+  };
 
+  const handleOnsitePayment = async (sessionId: number) => {
+    setProcessingSessionId(sessionId);
+    try {
+      const response = await api.post(`/api/staff/onsite-payment/${sessionId}`);
+      const message =
+        response.data?.message ||
+        (language === "vi"
+          ? "Thanh toán tại chỗ thành công."
+          : "On-site payment completed successfully.");
 
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'paid': return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300';
-      case 'pending': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300';
-      case 'overdue': return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300';
-      default: return 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300';
+      toast.success(message);
+      setSessionsRefreshKey((prev) => prev + 1);
+    } catch (error: any) {
+      const message =
+        error?.response?.data?.message ||
+        (language === "vi"
+          ? "Thanh toán tại chỗ thất bại. Vui lòng thử lại."
+          : "On-site payment failed. Please try again.");
+      toast.error(message);
+    } finally {
+      setProcessingSessionId(null);
     }
   };
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'paid': return <CheckCircle className="w-4 h-4" />;
-      case 'pending': return <Clock className="w-4 h-4" />;
-      case 'overdue': return <AlertCircle className="w-4 h-4" />;
-      default: return <FileText className="w-4 h-4" />;
-    }
-  };
-
-  const handleDownloadPDF = (invoice: any) => {
-    setSelectedInvoice(invoice);
-    setShowQRModal(true);
-  };
-
-  const generateInvoicePDF = (includeQR: boolean = false) => {
-    if (!selectedInvoice) return;
-    
-    // Simulate PDF generation with QR code
-    const invoiceText = `
-      CHARGEHUB INVOICE
-      =================
-      Invoice: ${selectedInvoice.id}
-      Customer: ${selectedInvoice.customer}
-      Date: ${selectedInvoice.date}
-      Due: ${selectedInvoice.dueDate}
-      
-      Items:
-      ${selectedInvoice.items.map((item: any) => 
-        `- ${item.description} (${item.quantity}x) - ${item.total.toLocaleString()} VND`
-      ).join('\n      ')}
-      
-      Total: ${selectedInvoice.amount.toLocaleString()} VND
-      Status: ${selectedInvoice.status.toUpperCase()}
-      
-      ${includeQR ? 'QR Code: Scan to pay online\nPayment URL: https://chargehub.payment/' + selectedInvoice.id : ''}
-    `;
-
-    // Create and download the file
-    const blob = new Blob([invoiceText], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `Invoice_${selectedInvoice.id}${includeQR ? '_with_QR' : ''}.txt`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-
-    toast.success(
-      language === 'vi' 
-        ? `Hóa đơn ${selectedInvoice.id} đã được xuất thành công${includeQR ? ' với mã QR' : ''}!`
-        : `Invoice ${selectedInvoice.id} exported successfully${includeQR ? ' with QR code' : ''}!`
-    );
-    
-    setShowQRModal(false);
-  };
-
-  const sendInvoiceByEmail = () => {
-    if (!selectedInvoice) return;
-    
-    // Simulate email sending
-    toast.success(
-      language === 'vi' 
-        ? `Hóa đơn ${selectedInvoice.id} đã được gửi qua email thành công!`
-        : `Invoice ${selectedInvoice.id} sent by email successfully!`
-    );
-    
-    setShowQRModal(false);
-  };
-
-
-
-  if (showPaymentView && invoiceData) {
-    return (
-      <PaymentQRView
-        onBack={() => setShowPaymentView(false)}
-        invoiceData={invoiceData}
-      />
-    );
-  }
-
-  if (showDetailedInvoice) {
-    return (
-      <InvoiceItemsView
-        onBack={() => setShowDetailedInvoice(false)}
-      />
-    );
-  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-secondary/20 to-accent/30">
@@ -203,207 +212,306 @@ export default function StaffInvoiceView({ onBack }: StaffInvoiceViewProps) {
                 className="text-muted-foreground hover:text-foreground"
               >
                 <ArrowLeft className="w-4 h-4 mr-2" />
-                {t('back_to_dashboard')}
+                Back to Dashboard
               </Button>
-              <div>
-                <h1 className="font-semibold text-foreground">{t('invoice_management')}</h1>
-                <p className="text-sm text-muted-foreground">{t('create_manage_invoices')}</p>
-              </div>
+            </div>
+            <div className="text-right">
+              <h1 className="text-lg font-semibold text-foreground">{t('invoice_management')}</h1>
+              <p className="text-sm text-muted-foreground">{t('create_manage_invoices')}</p>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Tab Navigation */}
-      <div className="container mx-auto px-4 py-6">
-        <div className="flex space-x-1 mb-6 bg-muted/50 rounded-lg p-1">
-          <Button
-            variant={activeTab === "detailed" ? "default" : "ghost"}
-            size="sm"
-            onClick={() => setShowDetailedInvoice(true)}
-            className="flex-1 bg-gradient-to-r from-primary/10 to-chart-2/10 border border-primary/20 hover:bg-primary/20"
-          >
-            <FileText className="w-4 h-4 mr-2" />
-            {t('create_invoice')}
-          </Button>
-          <Button
-            variant={activeTab === "list" ? "default" : "ghost"}
-            size="sm"
-            onClick={() => setActiveTab("list")}
-            className="flex-1"
-          >
-            <Receipt className="w-4 h-4 mr-2" />
-            {t('view_invoices')}
-          </Button>
-        </div>
-
-        {/* Default Content - Redirects to Detailed Invoice */}
-        {activeTab === "detailed" && (
-          <div className="text-center py-12">
-            <div className="max-w-md mx-auto">
-              <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-6">
-                <FileText className="w-10 h-10 text-primary" />
+      {/* Staff & Station Info */}
+      <div className="container mx-auto px-4 pt-6">
+        <Card>
+          <CardHeader className="pb-4">
+            <CardTitle className="flex items-center gap-2">
+              <User className="w-5 h-5 text-primary" />
+              {language === "vi" ? "Thông tin nhân viên" : "Staff Information"}
+            </CardTitle>
+            <CardDescription>
+              {language === "vi"
+                ? "Thông tin được đồng bộ từ hệ thống quản lý nhân sự"
+                : "Details fetched from staff management service"}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {isLoadingStaff ? (
+              <div className="flex items-center justify-center py-6 text-muted-foreground">
+                <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                {language === "vi" ? "Đang tải dữ liệu nhân viên..." : "Loading staff data..."}
               </div>
-              <h3 className="font-semibold mb-2">{t('create_detailed_invoice')}</h3>
-              <p className="text-muted-foreground mb-6">
-                {t('comprehensive_invoice_builder')}
-              </p>
-              <Button 
-                onClick={() => setShowDetailedInvoice(true)}
-                className="bg-gradient-to-r from-primary to-chart-2 hover:opacity-90"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                {t('start_creating_invoice')}
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {/* Invoice List Tab */}
-        {activeTab === "list" && (
-          <div className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>{t('invoice_history')}</CardTitle>
-                <CardDescription>{t('manage_existing_invoices')}</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {invoices.map((invoice) => (
-                    <div key={invoice.id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center space-x-3">
-                          <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
-                            <Receipt className="w-5 h-5 text-primary" />
-                          </div>
-                          <div>
-                            <h4 className="font-medium">{invoice.id}</h4>
-                            <p className="text-sm text-muted-foreground">{invoice.customer}</p>
-                          </div>
-                        </div>
-                        <div className="flex items-center space-x-3">
-                          <Badge className={getStatusColor(invoice.status)}>
-                            {getStatusIcon(invoice.status)}
-                            <span className="ml-1 capitalize">{t(invoice.status)}</span>
-                          </Badge>
-                          <p className="font-semibold">{invoice.amount.toLocaleString()} VND</p>
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-4 text-sm text-muted-foreground mb-3">
-                        <div>
-                          <span>{t('date')}: </span>
-                          <span>{invoice.date}</span>
-                        </div>
-                        <div>
-                          <span>Due: </span>
-                          <span>{invoice.dueDate}</span>
-                        </div>
-                      </div>
-
-                      <div className="space-y-2 mb-4">
-                        {invoice.items.map((item, index) => (
-                          <div key={index} className="flex justify-between text-sm">
-                            <span>{item.description} (x{item.quantity})</span>
-                            <span>{item.total.toLocaleString()} VND</span>
-                          </div>
-                        ))}
-                      </div>
-
-                      <div className="flex justify-end space-x-2">
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={() => handleDownloadPDF(invoice)}
-                        >
-                          <Download className="w-4 h-4 mr-2" />
-                          {language === 'vi' ? 'Xuất PDF' : 'Export PDF'}
-                        </Button>
-                        {invoice.status === "pending" && (
-                          <Button size="sm">
-                            <CreditCard className="w-4 h-4 mr-2" />
-                            {t('process_payment')}
-                          </Button>
-                        )}
-                      </div>
+            ) : staffError ? (
+              <div className="flex flex-col items-center justify-center gap-4 py-6 text-sm text-muted-foreground">
+                <p className="text-center max-w-lg">{staffError}</p>
+                <Button variant="outline" onClick={() => setStaffRefreshKey((prev) => prev + 1)}>
+                  {language === "vi" ? "Thử lại" : "Retry"}
+                </Button>
+              </div>
+            ) : staffInfo ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-3">
+                  <h4 className="text-sm font-semibold text-muted-foreground">
+                    {language === "vi" ? "Nhân viên" : "Staff"}
+                  </h4>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">
+                        {language === "vi" ? "Họ tên" : "Full name"}
+                      </span>
+                      <span className="font-medium text-foreground">{staffInfo.fullName}</span>
                     </div>
-                  ))}
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">Email</span>
+                      <span className="font-medium text-foreground">{staffInfo.email}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">
+                        {language === "vi" ? "Ngày sinh" : "Date of birth"}
+                      </span>
+                      <span className="font-medium text-foreground">
+                        {new Date(staffInfo.dateOfBirth).toLocaleDateString(
+                          language === "vi" ? "vi-VN" : "en-US"
+                        )}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">
+                        {language === "vi" ? "Trạng thái" : "Status"}
+                      </span>
+                      <Badge variant="outline" className="uppercase">
+                        {staffInfo.status}
+                      </Badge>
+                    </div>
+                  </div>
                 </div>
-              </CardContent>
-            </Card>
-          </div>
-        )}
+                <div className="space-y-3">
+                  <h4 className="text-sm font-semibold text-muted-foreground">
+                    {language === "vi" ? "Trạm phụ trách" : "Assigned station"}
+                  </h4>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">
+                        {language === "vi" ? "Mã trạm" : "Station ID"}
+                      </span>
+                      <span className="font-medium text-foreground">{staffInfo.stationId}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground block mb-1">
+                        {language === "vi" ? "Tên trạm" : "Station name"}
+                      </span>
+                      <span className="font-medium text-foreground">{staffInfo.stationName}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground block mb-1">
+                        {language === "vi" ? "Địa chỉ trạm" : "Station address"}
+                      </span>
+                      <span className="font-medium text-foreground">{staffInfo.stationAddress}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : null}
+          </CardContent>
+        </Card>
       </div>
 
-      {/* QR Code Export Modal */}
-      <Dialog open={showQRModal} onOpenChange={setShowQRModal}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <QrCode className="w-5 h-5 text-primary" />
-              {language === 'vi' ? 'Xuất Hóa Đơn' : 'Export Invoice'}
-            </DialogTitle>
-            <DialogDescription>
-              {language === 'vi' 
-                ? 'Chọn tùy chọn xuất hóa đơn với hoặc không có mã QR'
-                : 'Choose export option with or without QR code'
-              }
-            </DialogDescription>
-          </DialogHeader>
-          
-          {selectedInvoice && (
-            <div className="space-y-6">
-              {/* Invoice Info */}
-              <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
-                <h4 className="font-medium mb-2">{selectedInvoice.id}</h4>
-                <p className="text-sm text-muted-foreground">{selectedInvoice.customer}</p>
-                <p className="font-semibold text-primary">{selectedInvoice.amount.toLocaleString()} VND</p>
-              </div>
-
-              {/* QR Code Preview */}
-              <div className="text-center">
-                <QRCodeGenerator 
-                  value={`https://chargehub.payment/${selectedInvoice.id}`}
-                  size={150}
-                  className="mx-auto"
-                />
-                <p className="text-sm text-muted-foreground mt-2">
-                  {language === 'vi' ? 'Mã QR thanh toán trực tuyến' : 'Online payment QR code'}
-                </p>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="space-y-3">
-                <Button 
-                  onClick={() => generateInvoicePDF(true)}
-                  className="w-full bg-primary hover:bg-primary/90"
-                >
-                  <Download className="w-4 h-4 mr-2" />
-                  {language === 'vi' ? 'Xuất PDF với mã QR' : 'Export PDF with QR Code'}
-                </Button>
-                
-                <Button 
-                  onClick={() => generateInvoicePDF(false)}
-                  variant="outline"
-                  className="w-full"
-                >
-                  <FileText className="w-4 h-4 mr-2" />
-                  {language === 'vi' ? 'Xuất PDF thường' : 'Export Standard PDF'}
-                </Button>
-
-                <Button 
-                  onClick={sendInvoiceByEmail}
-                  variant="outline"
-                  className="w-full"
-                >
-                  <Mail className="w-4 h-4 mr-2" />
-                  {language === 'vi' ? 'Gửi qua Email' : 'Send by Email'}
-                </Button>
-              </div>
+      {/* Charging Sessions Overview */}
+      <div className="container mx-auto px-4 pt-4">
+        <Card>
+          <CardHeader className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <BarChart3 className="w-5 h-5 text-primary" />
+                {language === "vi" ? "Phiên sạc tại trạm" : "Station charging sessions"}
+              </CardTitle>
+              <CardDescription>
+                {language === "vi"
+                  ? "Theo dõi hoạt động sạc tại trạm mà bạn phụ trách."
+                  : "Monitor charging activity for your assigned station."}
+              </CardDescription>
             </div>
-          )}
-        </DialogContent>
-      </Dialog>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setSessionsRefreshKey((prev) => prev + 1)}
+              >
+                <RefreshCw className={`w-4 h-4 mr-2 ${isLoadingSessions ? "animate-spin" : ""}`} />
+                {language === "vi" ? "Làm mới" : "Refresh"}
+              </Button>
+              <Badge variant="secondary" className="uppercase">
+                {staffInfo?.stationName || "Station"}
+              </Badge>
+            </div>
+          </CardHeader>
+
+          <CardContent className="space-y-6">
+            {isLoadingSessions ? (
+              <div className="flex items-center justify-center py-8 text-muted-foreground">
+                <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                {language === "vi" ? "Đang tải dữ liệu phiên sạc..." : "Loading charging sessions..."}
+              </div>
+            ) : sessionsError ? (
+              <div className="flex flex-col items-center justify-center gap-4 py-6 text-sm text-muted-foreground">
+                <p className="text-center max-w-lg">{sessionsError}</p>
+                <Button variant="outline" onClick={() => setSessionsRefreshKey((prev) => prev + 1)}>
+                  {language === "vi" ? "Thử lại" : "Retry"}
+                </Button>
+              </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">
+                        {language === "vi" ? "Tổng số phiên" : "Total sessions"}
+                      </CardTitle>
+                      <FileSpreadsheet className="w-4 h-4 text-primary" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold text-foreground">{sessions.length}</div>
+                      <p className="text-xs text-muted-foreground">
+                        {language === "vi" ? "Bao gồm cả phiên đang diễn ra" : "Including in-progress sessions"}
+                      </p>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">
+                        {language === "vi" ? "Tổng năng lượng" : "Total energy delivered"}
+                      </CardTitle>
+                      <Power className="w-4 h-4 text-primary" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold text-foreground">
+                        {(Math.round(totalEnergy * 10) / 10).toFixed(1)} kWh
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {language === "vi" ? "Chỉ tính các phiên hoàn tất" : "Completed sessions only"}
+                      </p>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">
+                        {language === "vi" ? "Doanh thu ước tính" : "Estimated revenue"}
+                      </CardTitle>
+                      <DollarSign className="w-4 h-4 text-primary" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold text-foreground">{formatCurrency(totalRevenue)}</div>
+                      <p className="text-xs text-muted-foreground">
+                        {language === "vi" ? "Không bao gồm phụ phí" : "Base cost only"}
+                      </p>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-sm font-semibold text-muted-foreground">
+                      {language === "vi" ? "Phiên gần đây" : "Recent sessions"}
+                    </h4>
+                    {sessions.length > visibleSessions.length && (
+                      <span className="text-xs text-muted-foreground">
+                        {language === "vi"
+                          ? `Hiển thị ${visibleSessions.length}/${sessions.length} phiên`
+                          : `Showing ${visibleSessions.length}/${sessions.length} sessions`}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="overflow-x-auto rounded-lg border border-border/60">
+                    <table className="min-w-full divide-y divide-border text-sm">
+                      <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">
+                        <tr>
+                          <th scope="col" className="px-4 py-3 text-left font-medium">
+                            {language === "vi" ? "Phiên" : "Session"}
+                          </th>
+                          <th scope="col" className="px-4 py-3 text-left font-medium">
+                            {language === "vi" ? "Khách hàng" : "Customer"}
+                          </th>
+                          <th scope="col" className="px-4 py-3 text-left font-medium">
+                            {language === "vi" ? "Bắt đầu" : "Start"}
+                          </th>
+                          <th scope="col" className="px-4 py-3 text-left font-medium">
+                            {language === "vi" ? "Kết thúc" : "End"}
+                          </th>
+                          <th scope="col" className="px-4 py-3 text-right font-medium">
+                            {language === "vi" ? "Điện năng" : "Energy (kWh)"}
+                          </th>
+                          <th scope="col" className="px-4 py-3 text-right font-medium">
+                            {language === "vi" ? "Chi phí" : "Cost"}
+                          </th>
+                          <th scope="col" className="px-4 py-3 text-right font-medium">
+                            {language === "vi" ? "Hành động" : "Action"}
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border bg-card/40">
+                        {visibleSessions.map((session) => (
+                          <tr key={session.sessionId} className="hover:bg-muted/40">
+                            <td className="px-4 py-3">
+                              <div className="font-medium text-foreground">#{session.sessionId}</div>
+                              <div className="text-xs text-muted-foreground">
+                                CP-{session.chargingPointId} • {session.connectorType}
+                              </div>
+                            </td>
+                            <td className="px-4 py-3">
+                              <div className="font-medium text-foreground">{session.userName}</div>
+                              <div className="text-xs text-muted-foreground">{session.userPhone}</div>
+                            </td>
+                            <td className="px-4 py-3 text-foreground">{formatDateTime(session.startTime)}</td>
+                            <td className="px-4 py-3 text-foreground">{formatDateTime(session.endTime)}</td>
+                            <td className="px-4 py-3 text-right font-medium text-foreground">
+                              {session.powerConsumed.toFixed(1)}
+                            </td>
+                            <td className="px-4 py-3 text-right font-medium text-foreground">
+                              {formatCurrency(session.baseCost)}
+                            </td>
+                            <td className="px-4 py-3 text-right">
+                              <Button
+                                size="sm"
+                                onClick={() => handleOnsitePayment(session.sessionId)}
+                                disabled={processingSessionId === session.sessionId}
+                              >
+                                {processingSessionId === session.sessionId ? (
+                                  <Loader2 className="w-4 h-4 animate-spin" />
+                                ) : (
+                                  language === "vi" ? "Thanh toán tại chỗ" : "On-site payment"
+                                )}
+                              </Button>
+                            </td>
+                          </tr>
+                        ))}
+                        {visibleSessions.length === 0 && (
+                          <tr>
+                            <td
+                              colSpan={7}
+                              className="px-4 py-6 text-center text-sm text-muted-foreground"
+                            >
+                              {language === "vi"
+                                ? "Chưa có phiên sạc nào được ghi nhận."
+                                : "No charging sessions recorded yet."}
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+
     </div>
   );
 }

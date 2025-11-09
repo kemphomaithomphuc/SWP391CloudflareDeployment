@@ -141,6 +141,33 @@ public class OrderController {
         );
     }
 
+    /**
+     * API 6: Check if vehicle is currently charging
+     */
+    @GetMapping("/vehicle/{vehicleId}/is-charging")
+    public ResponseEntity<APIResponse<VehicleChargingStatusDTO>> checkVehicleChargingStatus(
+            @PathVariable Long vehicleId) {
+
+        boolean isCharging = orderServiceImpl.isVehicleCurrentlyCharging(vehicleId);
+
+        VehicleChargingStatusDTO status = VehicleChargingStatusDTO.builder()
+                .vehicleId(vehicleId)
+                .isCurrentlyCharging(isCharging)
+                .canBookNow(!isCharging)
+                .message(isCharging
+                    ? "Xe đang trong phiên sạc. Chỉ có thể đặt lịch (Schedule)."
+                    : "Xe không đang sạc. Có thể Book Now hoặc Schedule.")
+                .build();
+
+        return ResponseEntity.ok(
+                APIResponse.<VehicleChargingStatusDTO>builder()
+                        .success(true)
+                        .message("Lấy trạng thái xe thành công")
+                        .data(status)
+                        .build()
+        );
+    }
+
 
     // Helper method
     private String getBatteryStatus(double batteryLevel) {
