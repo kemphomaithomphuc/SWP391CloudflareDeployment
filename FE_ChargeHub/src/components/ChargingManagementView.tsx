@@ -46,6 +46,7 @@ export default function ChargingManagementView({ onBack, stationId }: ChargingMa
         driverName: language === 'vi' ? 'Tên Khách hàng' : 'Driver Name',
         vehicleId: language === 'vi' ? 'Biển Số Xe' : 'Plate Number',
         connectorType: language === 'vi' ? 'Loại Sạc' : 'Connector Type',
+        chargingPoint: language === 'vi' ? 'Trụ Sạc' : 'Charging Point',
         stationId: language === 'vi' ? 'ID Trạm' : 'Station ID',
         startTime: language === 'vi' ? 'Thời Gian Bắt Đầu' : 'Start Time',
         status: language === 'vi' ? 'Trạng Thái' : 'Status',
@@ -317,25 +318,24 @@ export default function ChargingManagementView({ onBack, stationId }: ChargingMa
     return (
         <div className="min-h-screen bg-gradient-to-br from-green-50 via-blue-50 to-purple-50 dark:from-gray-950 dark:via-blue-950 dark:to-green-950">
             {/* Header */}
-            <div className="sticky top-0 z-10 bg-white/80 dark:bg-gray-950/80 backdrop-blur-sm border-b border-border">
-                <div className="max-w-7xl mx-auto px-4 py-4">
-                    <div className="flex items-center gap-4">
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={onBack}
-                            className="p-2 hover:bg-primary/10 rounded-full"
-                        >
-                            <ArrowLeft className="w-5 h-5" />
-                        </Button>
-                        <div className="flex-1">
-                            <h1 className="text-xl font-semibold">{translations.title}</h1>
+            <div className="sticky top-0 z-40 bg-card/80 backdrop-blur-sm border-b border-border shadow-sm">
+                <div className="container mx-auto px-4 py-4">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-4">
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={onBack}
+                                className="text-muted-foreground hover:text-foreground"
+                            >
+                                <ArrowLeft className="w-4 h-4 mr-2" />
+                                Back to Dashboard
+                            </Button>
+                        </div>
+                        <div className="text-right">
+                            <h1 className="text-lg font-semibold text-foreground">{translations.title}</h1>
                             <p className="text-sm text-muted-foreground">{translations.subtitle}</p>
                         </div>
-                        <Button variant="outline" size="sm" className="gap-2">
-                            <RefreshCw className="w-4 h-4" />
-                            {translations.refresh}
-                        </Button>
                     </div>
                 </div>
             </div>
@@ -454,7 +454,7 @@ export default function ChargingManagementView({ onBack, stationId }: ChargingMa
                                         <TableHead>{translations.driverName}</TableHead>
                                         <TableHead>{translations.vehicleId}</TableHead>
                                         <TableHead>{translations.connectorType}</TableHead>
-                                        <TableHead>{translations.stationId}</TableHead>
+                                        <TableHead>{translations.chargingPoint}</TableHead>
                                         <TableHead>{translations.startTime}</TableHead>
                                         <TableHead>{translations.status}</TableHead>
                                         <TableHead>{translations.actions}</TableHead>
@@ -485,7 +485,9 @@ export default function ChargingManagementView({ onBack, stationId }: ChargingMa
                                                     </Badge>
                                                 </TableCell>
                                                 <TableCell className="font-mono text-sm">
-                                                    {booking.stationId || '-'}
+                                                    {booking.chargingPointName 
+                                                        ? `${booking.chargingPointName}` 
+                                                        : booking.chargingPointId || '-'}
                                                 </TableCell>
                                                 <TableCell>
                                                     {booking.startTime ? new Date(booking.startTime).toLocaleString() : '-'}
@@ -553,8 +555,12 @@ export default function ChargingManagementView({ onBack, stationId }: ChargingMa
                                                                                 <p className="font-medium">{selectedBooking.connectorType || '-'}</p>
                                                                             </div>
                                                                             <div>
-                                                                                <p className="text-muted-foreground mb-1">{translations.stationId}</p>
-                                                                                <p className="font-medium">{selectedBooking.chargingPointId || '-'}</p>
+                                                                                <p className="text-muted-foreground mb-1">{translations.chargingPoint}</p>
+                                                                                <p className="font-medium">
+                                                                                    {selectedBooking.chargingPointName 
+                                                                                        ? `${selectedBooking.chargingPointName} (ID: ${selectedBooking.chargingPointId})` 
+                                                                                        : selectedBooking.chargingPointId || '-'}
+                                                                                </p>
                                                                             </div>
                                                                             <div>
                                                                                 <p className="text-muted-foreground mb-1">{translations.scheduledStartTime}</p>
@@ -637,7 +643,10 @@ export default function ChargingManagementView({ onBack, stationId }: ChargingMa
                                                                                             <SelectContent>
                                                                                                 {alternativePoints.map(p => (
                                                                                                     <SelectItem key={p.chargingPointId} value={String(p.chargingPointId)}>
-                                                                                                        {`#${p.chargingPointId} • ${p.typeName || ''} ${p.powerOutput ? `• ${p.powerOutput}kW` : ''}`}
+                                                                                                        {p.chargingPointName 
+                                                                                                            ? `${p.chargingPointName} • ${p.typeName || ''} ${p.powerOutput ? `• ${p.powerOutput}kW` : ''}`
+                                                                                                            : `#${p.chargingPointId} • ${p.typeName || ''} ${p.powerOutput ? `• ${p.powerOutput}kW` : ''}`
+                                                                                                        }
                                                                                                     </SelectItem>
                                                                                                 ))}
                                                                                             </SelectContent>

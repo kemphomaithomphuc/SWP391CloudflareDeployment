@@ -8,10 +8,11 @@ import swp391.code.swp391.dto.ChargingStationDTO;
 import swp391.code.swp391.entity.ChargingStation;
 import swp391.code.swp391.entity.ChargingStation.ChargingStationStatus;
 import swp391.code.swp391.repository.ChargingStationRepository;
-import swp391.code.swp391.repository.ChargingPointRepository;
 import swp391.code.swp391.repository.ConnectorTypeRepository;
+import swp391.code.swp391.repository.OrderRepository;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -22,8 +23,8 @@ public class ChargingStationServiceImpl implements ChargingStationService {
 
     private final ChargingStationRepository chargingStationRepository;
     private final ChargingPointService chargingPointService;
-    private final ChargingPointRepository chargingPointRepository;
     private final ConnectorTypeRepository connectorTypeRepository;
+    private final OrderRepository orderRepository;
 
     @Override
     public ChargingStationDTO createChargingStation(ChargingStationDTO chargingStationDTO) {
@@ -120,10 +121,9 @@ public class ChargingStationServiceImpl implements ChargingStationService {
 
     @Override
     public void deleteChargingStation(Long stationId) {
-        ChargingStation chargingStation = chargingStationRepository.findById(stationId)
+        // Ensure station exists before deleting (avoid unused local variable)
+        chargingStationRepository.findById(stationId)
                 .orElseThrow(() -> new RuntimeException("Charging station not found with id: " + stationId));
-
-
 
         chargingStationRepository.deleteById(stationId);
     }
@@ -260,7 +260,7 @@ public class ChargingStationServiceImpl implements ChargingStationService {
         }
 
         // Sort by distance and limit to 10
-        result.sort((a, b) -> Double.compare(a.getDistance(), b.getDistance()));
+        result.sort(Comparator.comparingDouble(ChargingStationDTO::getDistance));
 
         return result.stream()
                 .limit(10)
@@ -308,7 +308,7 @@ public class ChargingStationServiceImpl implements ChargingStationService {
         dto.setStationName(chargingStation.getStationName());
         dto.setAddress(chargingStation.getAddress());
         dto.setStatus(chargingStation.getStatus());
-
+        dto.setChargingPointNumber(chargingStation.getChargingPointNumber());
         // Thêm latitude và longitude
         dto.setLatitude(chargingStation.getLatitude());
         dto.setLongitude(chargingStation.getLongitude());
@@ -318,6 +318,25 @@ public class ChargingStationServiceImpl implements ChargingStationService {
         //     .map(staff -> new StaffDTO(...))
         //     .collect(Collectors.toList()));
 
+        // Thêm danh sách trụ sạc
+        try {
+            List<ChargingPointDTO> chargingPoints = chargingPointService.getChargingPointsByStationId(chargingStation.getStationId());
+            dto.setChargingPoints(chargingPoints);
+        } catch (Exception e) {
+            // Log lỗi nếu cần thiết, nhưng không làm gián đoạn quá trình chuyển đổi
+            System.err.println("Error fetching charging points: " + e.getMessage());
+        }
+
+        // Thêm số lượng order của trạm
+        try {
+            long orderCount = orderRepository.findByChargingPoint_Station_StationId(chargingStation.getStationId()).size();
+            dto.setOrderCount(orderCount);
+        } catch (Exception e) {
+            // Log lỗi nếu cần thiết, nhưng không làm gián đoạn quá trình chuyển đổi
+            System.err.println("Error fetching order count: " + e.getMessage());
+        }
+
         return dto;
     }
 }
+

@@ -203,12 +203,12 @@ export default function StaffInvoiceView({ onBack }: StaffInvoiceViewProps) {
                 className="text-muted-foreground hover:text-foreground"
               >
                 <ArrowLeft className="w-4 h-4 mr-2" />
-                {t('back_to_dashboard')}
+                Back to Dashboard
               </Button>
-              <div>
-                <h1 className="font-semibold text-foreground">{t('invoice_management')}</h1>
-                <p className="text-sm text-muted-foreground">{t('create_manage_invoices')}</p>
-              </div>
+            </div>
+            <div className="text-right">
+              <h1 className="text-lg font-semibold text-foreground">{t('invoice_management')}</h1>
+              <p className="text-sm text-muted-foreground">{t('create_manage_invoices')}</p>
             </div>
           </div>
         </div>
