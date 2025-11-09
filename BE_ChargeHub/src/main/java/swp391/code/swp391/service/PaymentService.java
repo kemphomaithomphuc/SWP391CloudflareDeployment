@@ -59,4 +59,13 @@ public interface PaymentService {
      * - Tự động unlock account nếu thanh toán hết phí
      */
     RetryPaymentResponseDTO retryPayment(RetryPaymentRequestDTO request);
+
+    /**
+     * Thanh toán cho subscription (CHỈ VNPAY)
+     * - Tạo transaction cho subscription payment
+     * - Tạo URL thanh toán VNPay
+     * - Sau khi thanh toán thành công (callback): Cập nhật subscription của user
+     * - Gửi notification
+     */
+    PaymentResponseDTO payForSubscription(Long userId, Long subscriptionId, String returnUrl, String bankCode);
 }

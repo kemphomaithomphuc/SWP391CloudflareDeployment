@@ -267,4 +267,36 @@ public class PaymentController {
                     ));
         }
     }
+
+    /**
+     * Thanh toán cho subscription (CHỈ VNPAY)
+     * POST /api/payment/subscription
+     */
+    @PostMapping("/subscription")
+    public ResponseEntity<?> payForSubscription(
+            @RequestParam Long userId,
+            @RequestParam Long subscriptionId,
+            @RequestParam String returnUrl,
+            @RequestParam(required = false) String bankCode) {
+        try {
+            log.info("API: Thanh toán subscription VNPay - User: {}, Subscription: {}",
+                    userId, subscriptionId);
+
+            PaymentResponseDTO response = paymentService.payForSubscription(userId, subscriptionId, returnUrl, bankCode);
+
+            Map<String, Object> result = new HashMap<>();
+            result.put("success", true);
+            result.put("data", response);
+            result.put("message", "Khởi tạo thanh toán subscription thành công");
+
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            log.error("Lỗi khi thanh toán subscription: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of(
+                            "success", false,
+                            "message", e.getMessage()
+                    ));
+        }
+    }
 }
