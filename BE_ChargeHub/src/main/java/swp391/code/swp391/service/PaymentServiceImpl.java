@@ -548,16 +548,44 @@ public class PaymentServiceImpl implements PaymentService {
         Transaction transaction = transactionRepository.findById(transactionId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy giao dịch"));
 
+        // 1. Update transaction status → FAILED
         transaction.setStatus(Transaction.Status.FAILED);
         transactionRepository.save(transaction);
 
-        // Gửi notification
-        notificationService.createPaymentNotification(
-                transaction.getUser().getUserId(),
-                NotificationServiceImpl.PaymentEvent.PAYMENT_FAILED,
+        // 2. Rollback fees nếu đã mark paid (cho Session Payment)
+        if (transaction.getSession() != null) {
+            try {
+                List<Fee> fees = feeCalculationService.getSessionFees(transaction.getSession().getSessionId());
+                fees.forEach(fee -> {
+                    if (fee.getIsPaid()) {
+                        fee.setIsPaid(false); // Rollback
+                        feeRepository.save(fee);
+                        log.info("Rollback fee {} for session {}", fee.getFeeId(), transaction.getSession().getSessionId());
+                    }
+                });
+            } catch (Exception e) {
+                log.error("Error rolling back fees for transaction {}: {}", transactionId, e.getMessage());
+            }
+        }
+
+        // 3. Gửi notification
+        try {
+            notificationService.createPaymentNotification(
+                    transaction.getUser().getUserId(),
+                    NotificationServiceImpl.PaymentEvent.PAYMENT_FAILED,
+                    transaction.getAmount(),
+                    reason != null ? reason : "Thanh toán thất bại"
+            );
+        } catch (Exception e) {
+            log.error("Error sending failed payment notification: {}", e.getMessage());
+        }
+
+        // 4. Log chi tiết
+        log.error("Payment FAILED - TransactionId: {}, Amount: {}, Method: {}, Reason: {}",
+                transactionId,
                 transaction.getAmount(),
-                reason != null ? reason : "Thanh toán thất bại"
-        );
+                transaction.getPaymentMethod(),
+                reason);
     }
 
     @Override
@@ -767,4 +795,280 @@ public class PaymentServiceImpl implements PaymentService {
         return transactionRepository.findById(transactionId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy giao dịch với ID: " + transactionId));
     }
+
+    // ============================================================
+    // ========== SUBSCRIPTION PAYMENT ===========================
+    // ============================================================
+
+    @Override
+    @Transactional
+    public PaymentResponseDTO payForSubscription(Long userId, Long subscriptionId, String returnUrl, String bankCode) {
+        log.info("Thanh toán subscription VNPay - User: {}, Subscription: {}", userId, subscriptionId);
+
+        // 1. Validate user
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng với ID: " + userId));
+
+        // 2. Validate subscription
+        Subscription subscription = subscriptionRepository.findById(subscriptionId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy gói subscription với ID: " + subscriptionId));
+
+        // 3. Get subscription price
+        BigDecimal amount = subscription.getPrice();
+
+        // 4. Create transaction for subscription payment (CHỈ VNPAY)
+        Transaction transaction = new Transaction();
+        transaction.setUser(user);
+        transaction.setAmount(amount.doubleValue());
+        transaction.setPaymentMethod(Transaction.PaymentMethod.VNPAY);
+        transaction.setStatus(Transaction.Status.PENDING);
+        transaction.setCreatedAt(LocalDateTime.now());
+
+        transaction = transactionRepository.save(transaction);
+
+        log.info("Created subscription payment transaction: {} for user: {} subscription: {}",
+                transaction.getTransactionId(), userId, subscriptionId);
+
+        // 5. Tạo URL thanh toán VNPay
+        try {
+            String paymentUrl = vnPayService.createPaymentUrl(
+                    transaction.getTransactionId(),
+                    amount,
+                    "Thanh toan goi " + subscription.getSubscriptionName() + " - " + subscription.getDurationDays() + " ngay",
+                    returnUrl,
+                    bankCode
+            );
+
+            log.info("Created VNPay payment URL for subscription transaction: {}", transaction.getTransactionId());
+
+            return PaymentResponseDTO.builder()
+                    .transactionId(transaction.getTransactionId())
+                    .sessionId(null) // Subscription không có sessionId
+                    .amount(amount)
+                    .paymentMethod(Transaction.PaymentMethod.VNPAY)
+                    .status(Transaction.Status.PENDING)
+                    .message(String.format("Đang chuyển hướng đến cổng thanh toán VNPay cho gói %s",
+                            subscription.getSubscriptionName()))
+                    .paymentUrl(paymentUrl)
+                    .createdAt(LocalDateTime.now())
+                    .build();
+
+        } catch (Exception e) {
+            log.error("Failed to create VNPay payment URL for subscription: {}", e.getMessage(), e);
+
+            // Rollback transaction
+            transaction.setStatus(Transaction.Status.FAILED);
+            transactionRepository.save(transaction);
+
+            handleFailedSubscriptionPayment(transaction.getTransactionId(), e.getMessage());
+
+            throw new RuntimeException("Không thể tạo URL thanh toán VNPay: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Xử lý VNPay callback thành công cho subscription payment
+     * Method này được gọi từ VNPayService sau khi verify payment thành công
+     */
+    @Transactional
+    public void processSubscriptionVNPayCallback(Long transactionId) {
+        log.info("Processing VNPay callback for subscription payment - TransactionId: {}", transactionId);
+
+        try {
+            Transaction transaction = transactionRepository.findById(transactionId)
+                    .orElseThrow(() -> new RuntimeException("Không tìm thấy giao dịch"));
+
+            // Validate transaction
+            if (transaction.getPaymentMethod() != Transaction.PaymentMethod.VNPAY) {
+                throw new RuntimeException("Transaction không phải VNPay payment");
+            }
+
+            if (transaction.getStatus() == Transaction.Status.SUCCESS) {
+                log.warn("Transaction {} đã được xử lý trước đó", transactionId);
+                return; // Đã xử lý rồi, skip
+            }
+
+            // 1. Update transaction status
+            transaction.setStatus(Transaction.Status.SUCCESS);
+            transaction.setPaymentTime(LocalDateTime.now());
+            transactionRepository.save(transaction);
+
+            // 2. Lấy subscription info từ transaction amount
+            // Vì transaction không liên kết trực tiếp với subscription,
+            // cần tìm subscription phù hợp với amount
+            User user = transaction.getUser();
+            Subscription subscription = subscriptionRepository.findByPrice(BigDecimal.valueOf(transaction.getAmount()))
+                    .stream()
+                    .findFirst()
+                    .orElseThrow(() -> new RuntimeException("Không tìm thấy gói subscription với giá: " + transaction.getAmount()));
+
+            // 3. Update user's subscription
+            LocalDateTime now = LocalDateTime.now();
+            LocalDateTime endDate = now.plusDays(subscription.getDurationDays());
+
+            user.setSubscription(subscription);
+            user.setSubscriptionStartDate(now);
+            userRepository.save(user);
+
+            // Also update subscription entity
+            subscription.setStartDate(now);
+            subscription.setEndDate(endDate);
+            subscriptionRepository.save(subscription);
+
+            log.info("Updated user {} subscription to {} (end date: {}) after VNPay payment",
+                    user.getUserId(), subscription.getType(), endDate);
+
+            // 4. Send notification
+            try {
+                notificationService.createPaymentNotification(
+                        user.getUserId(),
+                        NotificationServiceImpl.PaymentEvent.PAYMENT_SUCCESS,
+                        transaction.getAmount(),
+                        String.format("Thanh toán VNPay thành công cho gói %s (%d ngày). Hiệu lực đến %s",
+                                subscription.getSubscriptionName(),
+                                subscription.getDurationDays(),
+                                endDate.format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")))
+                );
+            } catch (Exception e) {
+                log.error("Failed to send subscription payment notification: {}", e.getMessage());
+            }
+
+            log.info("Successfully processed VNPay subscription payment - TransactionId: {}", transactionId);
+
+        } catch (Exception e) {
+            log.error("Failed to process VNPay subscription callback - TransactionId: {}, Error: {}",
+                    transactionId, e.getMessage(), e);
+
+            // Update transaction to failed
+            try {
+                Transaction transaction = transactionRepository.findById(transactionId).orElse(null);
+                if (transaction != null && transaction.getStatus() != Transaction.Status.SUCCESS) {
+                    transaction.setStatus(Transaction.Status.FAILED);
+                    transactionRepository.save(transaction);
+                }
+            } catch (Exception ex) {
+                log.error("Failed to update transaction status: {}", ex.getMessage());
+            }
+
+            handleFailedSubscriptionPayment(transactionId, e.getMessage());
+            throw new RuntimeException("Lỗi xử lý VNPay callback cho subscription: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Xử lý thanh toán subscription bằng tiền mặt
+     * METHOD NÀY KHÔNG CÒN ĐƯỢC SỬ DỤNG - CHỈ GIỮ LẠI ĐỂ THAM KHẢO
+     * @deprecated Subscription payment chỉ hỗ trợ VNPay
+     */
+    @Deprecated
+    @Transactional
+    protected PaymentResponseDTO processSubscriptionCashPayment(Transaction transaction, User user,
+                                                                Subscription subscription, BigDecimal amount) {
+        log.info("Processing subscription cash payment - Transaction: {}, User: {}, Subscription: {}",
+                transaction.getTransactionId(), user.getUserId(), subscription.getSubscriptionId());
+
+        try {
+            // 1. Update transaction status
+            transaction.setStatus(Transaction.Status.SUCCESS);
+            transaction.setPaymentTime(LocalDateTime.now());
+            transactionRepository.save(transaction);
+
+            // 2. Update user's subscription
+            LocalDateTime now = LocalDateTime.now();
+            LocalDateTime endDate = now.plusDays(subscription.getDurationDays());
+
+            user.setSubscription(subscription);
+            user.setSubscriptionStartDate(now);
+            userRepository.save(user);
+
+            // Also update subscription entity if needed
+            subscription.setStartDate(now);
+            subscription.setEndDate(endDate);
+            subscriptionRepository.save(subscription);
+
+            log.info("Updated user {} subscription to {} (end date: {})",
+                    user.getUserId(), subscription.getType(), endDate);
+
+            // 3. Send notification
+            try {
+                notificationService.createPaymentNotification(
+                        user.getUserId(),
+                        NotificationServiceImpl.PaymentEvent.PAYMENT_SUCCESS,
+                        amount.doubleValue(),
+                        String.format("Thanh toán thành công gói %s (%d ngày)",
+                                subscription.getSubscriptionName(), subscription.getDurationDays())
+                );
+            } catch (Exception e) {
+                log.error("Failed to send subscription payment notification: {}", e.getMessage());
+            }
+
+            // 4. Return response
+            return PaymentResponseDTO.builder()
+                    .transactionId(transaction.getTransactionId())
+                    .amount(amount)
+                    .paymentMethod(Transaction.PaymentMethod.CASH)
+                    .status(Transaction.Status.SUCCESS)
+                    .message(String.format("Thanh toán gói %s thành công! Hiệu lực đến %s",
+                            subscription.getSubscriptionName(),
+                            endDate.format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"))))
+                    .createdAt(now)
+                    .build();
+
+        } catch (Exception e) {
+            log.error("Failed to process subscription cash payment - Transaction: {}, Error: {}",
+                    transaction.getTransactionId(), e.getMessage(), e);
+
+            // Rollback transaction status
+            transaction.setStatus(Transaction.Status.FAILED);
+            transactionRepository.save(transaction);
+
+            // Handle failed subscription payment
+            handleFailedSubscriptionPayment(transaction.getTransactionId(), e.getMessage());
+
+            throw new RuntimeException("Lỗi xử lý thanh toán subscription: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Xử lý thanh toán subscription thất bại
+     */
+    @Transactional
+    protected void handleFailedSubscriptionPayment(Long transactionId, String reason) {
+        log.error("Subscription payment FAILED - TransactionId: {}, Reason: {}", transactionId, reason);
+
+        try {
+            Transaction transaction = transactionRepository.findById(transactionId)
+                    .orElseThrow(() -> new RuntimeException("Không tìm thấy giao dịch"));
+
+            // 1. Ensure transaction status is FAILED
+            if (transaction.getStatus() != Transaction.Status.FAILED) {
+                transaction.setStatus(Transaction.Status.FAILED);
+                transactionRepository.save(transaction);
+            }
+
+            // 2. Send notification to user
+            try {
+                notificationService.createPaymentNotification(
+                        transaction.getUser().getUserId(),
+                        NotificationServiceImpl.PaymentEvent.PAYMENT_FAILED,
+                        transaction.getAmount(),
+                        String.format("Thanh toán gói subscription thất bại. Lý do: %s",
+                                reason != null ? reason : "Lỗi hệ thống")
+                );
+            } catch (Exception e) {
+                log.error("Error sending failed subscription payment notification: {}", e.getMessage());
+            }
+
+            // 3. Log chi tiết để debug
+            log.error("Subscription Payment FAILED Details - TransactionId: {}, UserId: {}, Amount: {}, Reason: {}",
+                    transactionId,
+                    transaction.getUser().getUserId(),
+                    transaction.getAmount(),
+                    reason);
+
+        } catch (Exception e) {
+            log.error("Error handling failed subscription payment: {}", e.getMessage(), e);
+        }
+    }
 }
+

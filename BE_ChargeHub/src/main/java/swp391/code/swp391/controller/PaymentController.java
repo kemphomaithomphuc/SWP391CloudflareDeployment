@@ -269,24 +269,25 @@ public class PaymentController {
     }
 
     /**
-     * Thanh toán cho subscription
+     * Thanh toán cho subscription (CHỈ VNPAY)
      * POST /api/payment/subscription
      */
     @PostMapping("/subscription")
     public ResponseEntity<?> payForSubscription(
             @RequestParam Long userId,
             @RequestParam Long subscriptionId,
-            @RequestParam String paymentMethod) {
+            @RequestParam String returnUrl,
+            @RequestParam(required = false) String bankCode) {
         try {
-            log.info("API: Thanh toán subscription - User: {}, Subscription: {}, Method: {}",
-                    userId, subscriptionId, paymentMethod);
+            log.info("API: Thanh toán subscription VNPay - User: {}, Subscription: {}",
+                    userId, subscriptionId);
 
-            PaymentResponseDTO response = paymentService.payForSubscription(userId, subscriptionId, paymentMethod);
+            PaymentResponseDTO response = paymentService.payForSubscription(userId, subscriptionId, returnUrl, bankCode);
 
             Map<String, Object> result = new HashMap<>();
             result.put("success", true);
             result.put("data", response);
-            result.put("message", "Thanh toán subscription thành công");
+            result.put("message", "Khởi tạo thanh toán subscription thành công");
 
             return ResponseEntity.ok(result);
         } catch (Exception e) {

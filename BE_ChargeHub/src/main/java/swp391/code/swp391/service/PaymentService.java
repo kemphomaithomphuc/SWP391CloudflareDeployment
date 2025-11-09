@@ -61,10 +61,11 @@ public interface PaymentService {
     RetryPaymentResponseDTO retryPayment(RetryPaymentRequestDTO request);
 
     /**
-     * Thanh toán cho subscription
+     * Thanh toán cho subscription (CHỈ VNPAY)
      * - Tạo transaction cho subscription payment
-     * - Cập nhật subscription của user
+     * - Tạo URL thanh toán VNPay
+     * - Sau khi thanh toán thành công (callback): Cập nhật subscription của user
      * - Gửi notification
      */
-    PaymentResponseDTO payForSubscription(Long userId, Long subscriptionId, String paymentMethod);
+    PaymentResponseDTO payForSubscription(Long userId, Long subscriptionId, String returnUrl, String bankCode);
 }

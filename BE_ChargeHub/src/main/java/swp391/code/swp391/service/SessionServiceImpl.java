@@ -238,9 +238,6 @@ public class SessionServiceImpl implements SessionService {
             now // current time
         );
 
-        // Note: SessionProgressScheduler is currently disabled
-        // Client should poll this endpoint or use manual refresh
-
         return dto;
     }
 
