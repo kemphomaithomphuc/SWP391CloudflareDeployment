@@ -2,10 +2,11 @@ import { useState, useRef, useEffect, useMemo } from "react";
 import { useTheme } from "../contexts/ThemeContext";
 import { useLanguage } from "../contexts/LanguageContext";
 import { useStation } from "../contexts/StationContext";
+import { useNotifications } from "../contexts/NotificationContext";
 import { Button } from "./ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import { Separator } from "./ui/separator";
-import { ArrowLeft, Bell, Clock, Mail, Zap, AlertTriangle, CheckCircle, XCircle, Car, CreditCard, User, FileText, Menu, X, Sun, Moon, Globe, Home, Users, Settings, HelpCircle, LogOut, MapPin, BarChart3, Calendar, ChevronDown, ArrowDown, Receipt, Activity } from "lucide-react";
+import { ArrowLeft, Bell, Clock, Mail, Zap, AlertTriangle, CheckCircle, XCircle, Car, CreditCard, User, FileText, Menu, X, Sun, Moon, Globe, Home, Users, Settings, HelpCircle, LogOut, MapPin, BarChart3, Calendar, ChevronDown, ArrowDown, Receipt, Activity, RefreshCw } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { toast } from "sonner";
@@ -44,42 +45,34 @@ interface StaffNotificationViewProps {
 }
 
 export default function StaffNotificationView({ onBack }: StaffNotificationViewProps) {
-  const [notifications, setNotifications] = useState<StaffNotification[]>([
-    {
-      id: "1",
-      type: "charging_completed",
-      title: "⚡ Phiên sạc hoàn thành",
-      message: "Khách hàng Nguyễn Văn A đã hoàn thành phiên sạc CS001 tại Trạm Sạc Premium - Q1. Thời gian sạc: 45 phút, năng lượng: 25.5 kWh. Thanh toán thành công.",
-      timestamp: "1 phút trước",
-      isRead: false,
-      priority: "low",
-      requiresAction: false,
-      userInfo: {
-        name: "Nguyễn Văn A",
-        sessionId: "CS001",
-        location: "Trạm Sạc Premium - Q1",
-        vehiclePlate: "30A-12345",
-        phoneNumber: "0901234567"
-      },
-      actionData: {
-        sessionId: "CS001",
-        location: "Trạm Sạc Premium - Q1",
-        chargingDuration: "45 phút",
-        energyDelivered: 25.5,
-        amount: 89250
-      }
-    }
-  ]);
+  // 🆕 Remove local notifications state, use context instead
+  // const [notifications, setNotifications] = useState<StaffNotification[]>([
 
   // Add state variables for sidebar functionality
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [scrollProgress, setScrollProgress] = useState(0);
   const [showScrollIndicator, setShowScrollIndicator] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const { theme, toggleTheme } = useTheme();
   const { language, setLanguage, t } = useLanguage();
   const { currentStation } = useStation();
+  const { 
+    notifications: apiNotifications, 
+    unreadCount, 
+    loading, 
+    error,
+    refreshNotifications,
+    markAsRead: contextMarkAsRead
+  } = useNotifications();
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  // 🆕 Auto-load notifications when component mounts
+  useEffect(() => {
+    console.log("=== STAFF NOTIFICATION VIEW MOUNT DEBUG ===");
+    console.log("StaffNotificationView mounted, auto-loading notifications...");
+    refreshNotifications();
+  }, []);
 
   // Function to handle language change
   const handleLanguageChange = () => {
@@ -202,76 +195,165 @@ export default function StaffNotificationView({ onBack }: StaffNotificationViewP
     );
   };
 
-  const handleContactUser = (notificationId: string, userInfo: any) => {
+  const handleContactUser = async (notificationId: string, userInfo: any) => {
     const phoneNumber = userInfo.phoneNumber ? ` (${userInfo.phoneNumber})` : '';
     toast.success("Đang liên hệ khách hàng", {
       description: `Gọi điện cho ${userInfo.name}${phoneNumber} về phiên ${userInfo.sessionId}`
     });
 
-    setNotifications(prev => prev.map(notif =>
-      notif.id === notificationId
-        ? { ...notif, isRead: true, requiresAction: false }
-        : notif
-    ));
+    // Mark as read using context
+    if (typeof notificationId === 'string') {
+      const id = parseInt(notificationId);
+      if (!isNaN(id)) {
+        await contextMarkAsRead(id);
+      }
+    }
   };
 
-  const handleRemoveVehicle = (notificationId: string, actionData: any) => {
+  const handleRemoveVehicle = async (notificationId: string, actionData: any) => {
     toast.success("Yêu cầu di chuyển xe", {
       description: `Đã gửi thông báo yêu cầu khách hàng di chuyển xe khỏi ${actionData.location}`
     });
 
-    setNotifications(prev => prev.map(notif =>
-      notif.id === notificationId
-        ? { ...notif, isRead: true, requiresAction: false }
-        : notif
-    ));
+    // Mark as read using context
+    if (typeof notificationId === 'string') {
+      const id = parseInt(notificationId);
+      if (!isNaN(id)) {
+        await contextMarkAsRead(id);
+      }
+    }
   };
 
-  const handleApplyPenalty = (notificationId: string, actionData: any) => {
+  const handleApplyPenalty = async (notificationId: string, actionData: any) => {
     toast.success("Áp dụng phí phạt", {
       description: `Phí phạt ${actionData.amount?.toLocaleString()} VND đã được thêm vào hóa đơn`
     });
 
-    setNotifications(prev => prev.map(notif =>
-      notif.id === notificationId
-        ? { ...notif, isRead: true, requiresAction: false }
-        : notif
-    ));
+    // Mark as read using context
+    if (typeof notificationId === 'string') {
+      const id = parseInt(notificationId);
+      if (!isNaN(id)) {
+        await contextMarkAsRead(id);
+      }
+    }
   };
 
-  const handleViewReport = (notificationId: string, actionData: any) => {
+  const handleViewReport = async (notificationId: string, actionData: any) => {
     toast.info("Chuyển đến chi tiết báo cáo", {
       description: `Xem báo cáo ${actionData.reportId}`
     });
 
-    setNotifications(prev => prev.map(notif =>
-      notif.id === notificationId
-        ? { ...notif, isRead: true }
-        : notif
-    ));
+    // Mark as read using context
+    if (typeof notificationId === 'string') {
+      const id = parseInt(notificationId);
+      if (!isNaN(id)) {
+        await contextMarkAsRead(id);
+      }
+    }
   };
 
-  const handleScheduleMaintenance = (notificationId: string, actionData: any) => {
+  const handleScheduleMaintenance = async (notificationId: string, actionData: any) => {
     toast.success("Lên lịch bảo trì", {
       description: `Bảo trì ${actionData.location} đã được lên lịch`
     });
 
-    setNotifications(prev => prev.map(notif =>
-      notif.id === notificationId
-        ? { ...notif, isRead: true, requiresAction: false }
-        : notif
-    ));
+    // Mark as read using context
+    if (typeof notificationId === 'string') {
+      const id = parseInt(notificationId);
+      if (!isNaN(id)) {
+        await contextMarkAsRead(id);
+      }
+    }
   };
 
-  const markAsRead = (notificationId: string) => {
-    setNotifications(prev => prev.map(notif =>
-      notif.id === notificationId ? { ...notif, isRead: true } : notif
-    ));
+  const markAsRead = async (notificationId: string) => {
+    if (typeof notificationId === 'string') {
+      const id = parseInt(notificationId);
+      if (!isNaN(id)) {
+        await contextMarkAsRead(id);
+      }
+    }
   };
 
-  const unreadCount = notifications.filter(n => !n.isRead).length;
-  const urgentCount = notifications.filter(n => n.priority === "urgent" && !n.isRead).length;
-  const actionRequiredCount = notifications.filter(n => n.requiresAction && !n.isRead).length;
+  // 🆕 Enhanced refresh function
+  const handleRefresh = async () => {
+    console.log("=== STAFF MANUAL REFRESH NOTIFICATIONS ===");
+    
+    try {
+      setIsRefreshing(true);
+      
+      await refreshNotifications();
+      
+      console.log("Staff manual refresh completed successfully");
+      toast.success(language === 'vi' ? 'Đã làm mới thông báo' : 'Notifications refreshed');
+    } catch (error) {
+      console.error("Staff refresh failed:", error);
+      toast.error(language === 'vi' ? 'Không thể làm mới thông báo' : 'Failed to refresh notifications');
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  // 🆕 Map API notifications to StaffNotification format
+  const mapToStaffNotifications = (apiNotifications: any[]): StaffNotification[] => {
+    return apiNotifications.map((notif) => {
+      // Map backend types to staff notification types
+      const mapType = (backendType: string) => {
+        switch (backendType?.toUpperCase()) {
+          case 'BOOKING':
+            return 'charging_completed';
+          case 'PAYMENT':
+            return 'payment_issue';
+          case 'ISSUE':
+            return 'report_received';
+          case 'PENALTY':
+            return 'extended_parking';
+          case 'GENERAL':
+            return 'system_alert';
+          default:
+            return 'system_alert';
+        }
+      };
+
+      // Determine priority based on content
+      const getPriority = (content: string): "low" | "medium" | "high" | "urgent" => {
+        if (content?.toLowerCase().includes('urgent') || content?.toLowerCase().includes('khẩn cấp')) {
+          return 'urgent';
+        }
+        if (content?.toLowerCase().includes('high') || content?.toLowerCase().includes('cao')) {
+          return 'high';
+        }
+        if (content?.toLowerCase().includes('medium') || content?.toLowerCase().includes('trung bình')) {
+          return 'medium';
+        }
+        return 'low';
+      };
+
+      // Determine if requires action
+      const requiresAction = notif.content?.toLowerCase().includes('action required') || 
+                            notif.content?.toLowerCase().includes('cần hành động') ||
+                            notif.content?.toLowerCase().includes('penalty') ||
+                            notif.content?.toLowerCase().includes('phạt');
+
+      return {
+        id: notif.notificationId?.toString() || Math.random().toString(),
+        type: mapType(notif.type) as StaffNotification['type'],
+        title: notif.title || 'No Title',
+        message: notif.content || 'No Content',
+        timestamp: notif.sentTime || new Date().toISOString(),
+        isRead: notif.isRead || false,
+        priority: getPriority(notif.content || ''),
+        requiresAction: requiresAction,
+        userInfo: undefined, // Will be populated based on content if needed
+        actionData: undefined // Will be populated based on content if needed
+      };
+    });
+  };
+
+  const staffNotifications = mapToStaffNotifications(apiNotifications);
+
+  const urgentCount = staffNotifications.filter(n => n.priority === "urgent" && !n.isRead).length;
+  const actionRequiredCount = staffNotifications.filter(n => n.requiresAction && !n.isRead).length;
 
   const renderContent = () => {
     return (
@@ -286,19 +368,61 @@ export default function StaffNotificationView({ onBack }: StaffNotificationViewP
               {language === 'vi' ? 'Xem và quản lý thông báo hệ thống' : 'View and manage system notifications'}
             </p>
           </div>
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-4">
             <Bell className="w-6 h-6 text-primary" />
             {unreadCount > 0 && (
               <Badge variant="destructive" className="rounded-full px-2 py-1">
                 {unreadCount}
               </Badge>
             )}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleRefresh}
+              disabled={loading || isRefreshing}
+              className="flex items-center space-x-2"
+            >
+              <RefreshCw className={`w-4 h-4 ${(loading || isRefreshing) ? 'animate-spin' : ''}`} />
+              <span>{isRefreshing ? (language === 'vi' ? 'Đang làm mới...' : 'Refreshing...') : t('refresh') || 'Refresh'}</span>
+            </Button>
           </div>
         </div>
 
         {/* Notifications List */}
         <div className="space-y-4">
-          {notifications.map((notification) => (
+          {loading && (
+            <Card className="bg-card/80 backdrop-blur-xl border border-border/50">
+              <CardContent className="p-12 text-center">
+                <RefreshCw className="w-12 h-12 text-muted-foreground mx-auto mb-4 animate-spin" />
+                <h3 className="font-medium text-foreground mb-2">
+                  {t('loading_notifications') || 'Loading notifications'}
+                </h3>
+                <p className="text-muted-foreground">
+                  {t('please_wait') || 'Please wait...'}
+                </p>
+              </CardContent>
+            </Card>
+          )}
+
+          {error && (
+            <Card className="bg-card/80 backdrop-blur-xl border border-red-200 dark:border-red-800">
+              <CardContent className="p-12 text-center">
+                <AlertTriangle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+                <h3 className="font-medium text-red-900 dark:text-red-100 mb-2">
+                  {t('error_loading_notifications') || 'Error loading notifications'}
+                </h3>
+                <p className="text-red-700 dark:text-red-300 mb-4">
+                  {error}
+                </p>
+                <Button onClick={refreshNotifications} variant="outline">
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                  {t('try_again') || 'Try again'}
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+
+          {!loading && !error && staffNotifications.map((notification) => (
             <Card
               key={notification.id}
               className={`transition-all hover:shadow-lg ${

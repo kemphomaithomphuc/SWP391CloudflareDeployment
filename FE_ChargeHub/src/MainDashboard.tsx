@@ -185,15 +185,34 @@ export default function MainDashboard({ onLogout, onBooking, onHistory, onAnalys
           </button>
         </div>
 
+        {/* Close button for desktop */}
+        <div className="hidden lg:flex items-center justify-end p-4 border-b border-sidebar-border">
+          <button
+            onClick={() => setSidebarOpen(false)}
+            className="p-2 rounded-lg hover:bg-sidebar-accent transition-colors"
+            title="Close sidebar"
+          >
+            <X className="w-5 h-5 text-sidebar-foreground" />
+          </button>
+        </div>
+
         <div className="p-6 border-b border-sidebar-border">
           <div className="flex items-center space-x-3">
             <Avatar className="w-12 h-12">
               <AvatarFallback className="bg-sidebar-primary text-sidebar-primary-foreground">
-                JD
+                {localStorage.getItem("fullName")?.charAt(0)?.toUpperCase() || "U"}
               </AvatarFallback>
             </Avatar>
-            <div>
-              <h3 className="font-medium text-sidebar-foreground">{t('username')}</h3>
+            <div className="flex-1 min-w-0">
+              <h3 className="font-medium text-sidebar-foreground truncate">
+                {localStorage.getItem("fullName") || t('username')}
+              </h3>
+              <p className="text-xs text-sidebar-foreground/60 truncate">
+                {localStorage.getItem("email") || ""}
+              </p>
+              <p className="text-xs text-sidebar-foreground/60 capitalize">
+                {localStorage.getItem("role") || "user"}
+              </p>
             </div>
           </div>
         </div>
