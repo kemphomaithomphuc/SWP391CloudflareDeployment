@@ -8,7 +8,6 @@ import { Toaster } from "./components/ui/sonner";
 import AppLayout from "./components/AppLayout";
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom'
 import axios from "axios";
-import { jwtDecode } from "jwt-decode";
 
 
 // Import components individually to catch any import errors
@@ -48,10 +47,43 @@ import ChargingSessionView from "./components/ChargingSessionView";
 import PremiumSubscriptionView from "./components/PremiumSubscriptionView";
 import PaymentResultView from "./components/PaymentResultView";
 import { ChatbotProvider } from "./contexts/ChatbotContext";
-import { checkAndRefreshToken } from "./services/api";
+import { checkAndRefreshToken, logoutUser } from "./services/api";
 import PenaltyPaymentView from "./components/PenaltyPaymentView";
 
-type ViewType = "login" | "register" | "roleSelection" | "profileSetup" | "vehicleSetup" | "staffProfileSetup" | "educationSetup" | "dashboard" | "staffLogin" | "staffDashboard" | "staffReports" | "adminLogin" | "adminDashboard" | "systemConfig" | "adminMap" | "revenue" | "staffManagement" | "usageAnalytics" | "booking" | "history" | "analysis" | "reportIssue" | "wallet" | "notifications" | "staffNotifications" | "postActivating" | "adminChargerPostActivating" | "myBookings" | "chargingSession" | "premiumSubscription" | "issueResolvement" | "penaltyPayment" | "chargingManagement";
+type ViewType =
+  | "login"
+  | "register"
+  | "roleSelection"
+  | "profileSetup"
+  | "vehicleSetup"
+  | "staffProfileSetup"
+  | "educationSetup"
+  | "dashboard"
+  | "staffLogin"
+  | "staffDashboard"
+  | "staffReports"
+  | "adminLogin"
+  | "adminDashboard"
+  | "systemConfig"
+  | "adminMap"
+  | "revenue"
+  | "staffManagement"
+  | "usageAnalytics"
+  | "booking"
+  | "history"
+  | "analysis"
+  | "reportIssue"
+  | "wallet"
+  | "notifications"
+  | "staffNotifications"
+  | "postActivating"
+  | "adminChargerPostActivating"
+  | "myBookings"
+  | "chargingSession"
+  | "premiumSubscription"
+  | "issueResolvement"
+  | "penaltyPayment"
+  | "chargingManagement";
 
 function AppContent() {
   const navigate = useNavigate();
@@ -199,6 +231,33 @@ function AppContent() {
     navigate("/penalty-payment");
   };
 
+  const clearAuthStorage = () => {
+    const keysToRemove = [
+      "token",
+      "userId",
+      "fullName",
+      "email",
+      "role",
+      "registeredUserId",
+      "refreshToken",
+      "stationId"
+    ];
+
+    keysToRemove.forEach((key) => localStorage.removeItem(key));
+  };
+
+  const handleAdminLogout = async () => {
+    try {
+      await logoutUser();
+    } catch (error) {
+      console.error("Admin logout error:", error);
+    } finally {
+      clearAuthStorage();
+      setCurrentView("login");
+      navigate("/login");
+    }
+  };
+
   // Check if user needs vehicle setup after profile completion
   const handleProfileCompletion = async () => {
     const token = localStorage.getItem("token");
@@ -337,8 +396,6 @@ function AppContent() {
           const rt = r?.data?.data?.refreshToken as string | undefined;
           console.log(at, rt);
           if (!at) throw new Error("Missing accessToken from callback");
-          const decoded: any = jwtDecode(at);
-
           localStorage.setItem("token", at);
           if (rt) localStorage.setItem("refreshToken", rt);
 
@@ -380,21 +437,9 @@ function AppContent() {
             setCurrentView("roleSelection");
             navigate("/role-selection");
           } else {
-            // Từ login, kiểm tra role để điều hướng đúng
-            try {
-              const decoded: any = jwtDecode(at);
-              if (decoded) {
-                setCurrentView("dashboard");
-                navigate("/dashboard");
-              } else {
-                setCurrentView("roleSelection");
-                navigate("/role-selection");
-              }
-            } catch (e) {
-              console.error("JWT decode failed:", e);
-              setCurrentView("login");
-              navigate("/login");
-            }
+            // Từ login, nếu có token hợp lệ thì điều hướng thẳng đến dashboard
+            setCurrentView("dashboard");
+            navigate("/dashboard");
           }
         } catch (e) {
           console.error("OAuth callback exchange failed:", e);
@@ -529,9 +574,6 @@ function AppContent() {
         const penaltyUserId = Number(localStorage.getItem("userId") || localStorage.getItem("penaltyUserId") || 0);
         return <PenaltyPaymentView onBack={switchToLogin} userId={penaltyUserId} />;
       }
-
-
-
       case "vehicleSetup":
         return (
           <VehicleSetup 

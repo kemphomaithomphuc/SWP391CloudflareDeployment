@@ -3802,6 +3802,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                                                 />
                                                 {searchQuery && (
                                                     <button
+                                                        aria-label={language === 'vi' ? 'Xóa tìm kiếm' : 'Clear search'}
                                                         onClick={() => {
                                                             setSearchQuery("");
                                                             setSearchResults([]);
@@ -4274,6 +4275,8 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                                                                             setCurrentBatteryLevel?.(clampedValue);
 
                                                                         }}
+
+                                                                        aria-label={language === 'vi' ? 'Mức pin hiện tại' : 'Current battery level'}
 
                                                                         className="w-16 h-12 text-center text-xl font-bold bg-transparent border-none outline-none text-primary"
 
@@ -5144,6 +5147,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                                                 setCurrentPage(page);
                                             }
                                         }}
+                                        aria-label={language === 'vi' ? 'Đi tới trang' : 'Jump to page'}
                                         className="w-16 h-8 px-2 text-center border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary"
                                     />
                                     <span className="text-muted-foreground">/ {totalPages}</span>

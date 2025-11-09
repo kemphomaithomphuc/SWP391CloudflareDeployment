@@ -149,6 +149,91 @@ export default function StaffNotificationView({ onBack }: StaffNotificationViewP
     }
   };
 
+  // Add state variables for sidebar functionality
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [scrollProgress, setScrollProgress] = useState(0);
+  const [showScrollIndicator, setShowScrollIndicator] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const { theme, toggleTheme } = useTheme();
+  const { language, setLanguage, t } = useLanguage();
+  const { currentStation } = useStation();
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  // Function to handle language change
+  const handleLanguageChange = () => {
+    const newLanguage = language === "en" ? "vi" : "en";
+    setLanguage(newLanguage);
+  };
+
+  const handleLogout = async () => {
+    try {
+      setIsLoggingOut(true);
+      localStorage.removeItem("token");
+      localStorage.removeItem("userId");
+      localStorage.removeItem("fullName");
+      localStorage.removeItem("email");
+      localStorage.removeItem("role");
+      localStorage.removeItem("registeredUserId");
+      localStorage.removeItem("refreshToken");
+      toast.success(t('Logout successful') || 'Logout successful');
+      setIsLoggingOut(false);
+    } catch (_) {
+      // ignore
+    } finally {
+      localStorage.removeItem("token");
+      localStorage.removeItem("userId");
+      localStorage.removeItem("fullName");
+      localStorage.removeItem("email");
+      localStorage.removeItem("role");
+      localStorage.removeItem("registeredUserId");
+      toast.success(t('Logout successful') || 'Logout successful');
+      setIsLoggingOut(false);
+    }
+  };
+
+  const menuItems = useMemo(() => [
+    { id: "dashboard", label: t("dashboard") || "Dashboard", icon: Home },
+    { id: "chargingManagement", label: language === 'vi' ? "Quản Lý Charging" : "Charging Management", icon: Zap },
+    { id: "billing", label: t("billing_invoice") || "Billing & Invoice", icon: Receipt },
+    { id: "reports", label: t("report_issues") || "Report Issues", icon: AlertTriangle },
+    { id: "postActivating", label: language === 'vi' ? "Kích Hoạt Trạm" : "Post Activating", icon: Activity },
+    { id: "notifications", label: t("notification") || "Notifications", icon: Bell },
+    { id: "settings", label: "Settings", icon: Settings },
+  ], [t, language]);
+
+  // Handle menu item clicks
+  const handleMenuClick = (itemId: string) => {
+    setSidebarOpen(false);
+  };
+
+  // Handle scroll progress tracking
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
+    const handleScroll = () => {
+      const { scrollTop, scrollHeight, clientHeight } = container;
+      const maxScroll = scrollHeight - clientHeight;
+      const progress = maxScroll > 0 ? (scrollTop / maxScroll) * 100 : 0;
+      setScrollProgress(progress);
+      setShowScrollIndicator(maxScroll > 0);
+    };
+
+    container.addEventListener('scroll', handleScroll);
+    handleScroll();
+
+    return () => container.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  const scrollToBottom = () => {
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTo({
+        top: scrollContainerRef.current.scrollHeight,
+        behavior: 'smooth'
+      });
+    }
+  };
+
   const getNotificationIcon = (type: string) => {
     switch (type) {
       case "charging_completed": return <Zap className="w-5 h-5 text-green-600" />;
