@@ -52,6 +52,10 @@ public class ChargingPointServiceImpl implements ChargingPointService {
         // Save charging point
         ChargingPoint savedChargingPoint = chargingPointRepository.save(chargingPoint);
 
+        // Tăng chargingPointNumber khi tạo charging point
+        station.setChargingPointNumber(station.getChargingPointNumber() + 1);
+        chargingStationRepository.save(station);
+
         // Convert to DTO with connector type information
         ChargingPointDTO resultDTO = convertToDTO(savedChargingPoint);
         resultDTO.setTypeName(connectorType.getTypeName());
