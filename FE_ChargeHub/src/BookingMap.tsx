@@ -34,8 +34,9 @@ import ChargingInvoiceView from "./components/ChargingInvoiceView";
 import { toast} from "sonner";
 import * as maptilersdk from "@maptiler/sdk";
 import "@maptiler/sdk/dist/maptiler-sdk.css";
-import { api, getUnpaidFees, type FeeDTO } from "./services/api";
+import { api, getUnpaidFees } from "./services/api";
 import { confirmBooking } from "./api/confirmBooking";
+import { calculateRetryPayment, type CalculateRetryPaymentData } from "./api/calculateRetryPayment";
 import { checkVehicleChargingStatus as checkVehicleChargingStatusAPI } from "./api/vehicleChargingStatus";
 
 
@@ -391,6 +392,11 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
     const [showPenaltyDialog, setShowPenaltyDialog] = useState(false);
     const [unpaidPenaltyCount, setUnpaidPenaltyCount] = useState(0);
     const [unpaidPenaltyTotal, setUnpaidPenaltyTotal] = useState(0);
+    const [failedTransactionCount, setFailedTransactionCount] = useState(0);
+    const [pendingTransactionCount, setPendingTransactionCount] = useState(0);
+    const [failedTransactionAmount, setFailedTransactionAmount] = useState(0);
+    const [pendingTransactionAmount, setPendingTransactionAmount] = useState(0);
+    const [penaltyRetryInfo, setPenaltyRetryInfo] = useState<CalculateRetryPaymentData | null>(null);
 
     //Cập nhật trạng thái
     const [refreshTrigger, setRefreshTrigger] = useState(0);
@@ -426,45 +432,109 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
         }
         try {
             const response = await getUnpaidFees(numericUserId);
-            const feesData = response?.data ?? { unpaidFees: [], failedTransactionIds: [] };
-            const fees = Array.isArray(feesData.unpaidFees) ? feesData.unpaidFees : [];
-            const failedTransactions = Array.isArray(feesData.failedTransactionIds) ? feesData.failedTransactionIds : [];
-            const hasPenalties = (response?.success && (fees.length > 0 || failedTransactions.length > 0));
+            const penaltiesData = response?.data;
+            const failedTransactions = penaltiesData?.failedTransactionIds ?? [];
+            const pendingTransactions = penaltiesData?.pendingTransactionIds ?? [];
+            const totalFailedTransactions = penaltiesData?.totalFailedTransactions ?? failedTransactions.length;
+            const totalPendingTransactions = penaltiesData?.totalPendingTransactions ?? pendingTransactions.length;
+            const totalFailedAmount = penaltiesData?.totalFailedAmount ?? 0;
+            const totalPendingAmount = penaltiesData?.totalPendingAmount ?? 0;
+            const hasPenalties =
+                response?.success && totalFailedTransactions > 0;
 
             if (hasPenalties) {
                 try {
-                    localStorage.setItem("penaltyPendingFees", JSON.stringify(fees));
                     localStorage.setItem("penaltyUserId", String(numericUserId));
                     if (failedTransactions.length > 0) {
                         localStorage.setItem("penaltyFailedTransactionIds", JSON.stringify(failedTransactions));
                     } else {
                         localStorage.removeItem("penaltyFailedTransactionIds");
                     }
-                    const primaryFee: FeeDTO | undefined = fees[0];
-                    const derivedTransactionId =
-                        failedTransactions[0] ??
-                        primaryFee?.orderId ??
-                        primaryFee?.sessionId ??
-                        primaryFee?.feeId;
-                    if (derivedTransactionId != null) {
-                        localStorage.setItem("penaltyTransactionId", String(derivedTransactionId));
+
+                    if (pendingTransactions.length > 0) {
+                        localStorage.setItem("penaltyPendingTransactionIds", JSON.stringify(pendingTransactions));
+                    } else {
+                        localStorage.removeItem("penaltyPendingTransactionIds");
                     }
+
+                    const primaryTransactionId = failedTransactions[0] ?? pendingTransactions[0];
+                    if (primaryTransactionId != null) {
+                        localStorage.setItem("penaltyTransactionId", String(primaryTransactionId));
+                    }
+
+                    localStorage.setItem(
+                        "penaltySummary",
+                        JSON.stringify({
+                            failedTransactionIds: failedTransactions,
+                            totalFailedTransactions,
+                            totalFailedAmount,
+                            pendingTransactionIds: pendingTransactions,
+                            totalPendingTransactions,
+                            totalPendingAmount,
+                        })
+                    );
                 } catch (storageError) {
                     console.warn("Unable to store penalty metadata locally", storageError);
                 }
-                const penaltyCount = fees.length > 0 ? fees.length : failedTransactions.length;
-                setUnpaidPenaltyCount(penaltyCount);
-                const totalAmount = fees.reduce((sum: number, fee: FeeDTO) => {
-                    const amount = typeof fee?.amount === "number" ? fee.amount : Number(fee?.amount) || 0;
-                    return sum + amount;
-                }, 0);
-                setUnpaidPenaltyTotal(totalAmount);
+
+                setFailedTransactionCount(totalFailedTransactions);
+                setPendingTransactionCount(totalPendingTransactions);
+                setFailedTransactionAmount(totalFailedAmount);
+                setPendingTransactionAmount(totalPendingAmount);
+                setUnpaidPenaltyCount(totalFailedTransactions + totalPendingTransactions);
+                setUnpaidPenaltyTotal(totalFailedAmount + totalPendingAmount);
                 setShowPenaltyDialog(true);
+
+                const derivedTransactionId = failedTransactions[0] ?? pendingTransactions[0];
+                if (derivedTransactionId != null) {
+                    const numericTransactionId = Number(derivedTransactionId);
+                    if (Number.isFinite(numericTransactionId)) {
+                        try {
+                            const retryInfo = await calculateRetryPayment({
+                                transactionId: numericTransactionId,
+                                userId: numericUserId,
+                            });
+
+                            if (retryInfo?.success && retryInfo?.data) {
+                                setPenaltyRetryInfo(retryInfo.data);
+                                try {
+                                    localStorage.setItem("penaltyRetryInfo", JSON.stringify(retryInfo.data));
+                                } catch (storageError) {
+                                    console.warn("Unable to store penaltyRetryInfo locally", storageError);
+                                }
+
+                                const apiTotal = retryInfo.data.totalAmount;
+                                if (apiTotal != null && !isNaN(Number(apiTotal))) {
+                                    setUnpaidPenaltyTotal(Number(apiTotal));
+                                }
+
+                                if (Array.isArray(retryInfo.data.penalties)) {
+                                    setUnpaidPenaltyCount(retryInfo.data.penalties.length);
+                                }
+                            }
+                        } catch (calculateError) {
+                            console.error("Error calculating retry payment:", calculateError);
+                        }
+                    }
+                }
             } else {
                 localStorage.removeItem("penaltyFailedTransactionIds");
+                localStorage.removeItem("penaltyPendingTransactionIds");
+                localStorage.removeItem("penaltyTransactionId");
+                localStorage.removeItem("penaltySummary");
                 setShowPenaltyDialog(false);
+                setFailedTransactionCount(0);
+                setPendingTransactionCount(0);
+                setFailedTransactionAmount(0);
+                setPendingTransactionAmount(0);
                 setUnpaidPenaltyCount(0);
                 setUnpaidPenaltyTotal(0);
+                setPenaltyRetryInfo(null);
+                try {
+                    localStorage.removeItem("penaltyRetryInfo");
+                } catch (storageError) {
+                    console.warn("Unable to clear penaltyRetryInfo", storageError);
+                }
             }
         } catch (error) {
             console.error("Error checking unpaid penalties:", error);
@@ -2644,6 +2714,15 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
 
 
 
+    const penaltyCountDisplay =
+        penaltyRetryInfo?.penalties?.length ??
+        (failedTransactionCount + pendingTransactionCount);
+    const penaltyFailedAmountDisplay =
+        typeof penaltyRetryInfo?.totalAmount === "number"
+            ? penaltyRetryInfo.totalAmount
+            : failedTransactionAmount;
+    const penaltyPendingAmountDisplay = pendingTransactionAmount;
+
     const formatTime = (minutes: number) => {
 
         if (minutes < 60) {
@@ -3732,9 +3811,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
 
 
     return (
-
         <div className="min-h-screen bg-gradient-to-br from-background via-secondary/20 to-accent/30">
-
             <Dialog open={showPenaltyDialog} onOpenChange={setShowPenaltyDialog}>
                 <DialogContent className="max-w-md space-y-4">
                     <DialogHeader className="text-center">
@@ -3750,8 +3827,8 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                     <div className="rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 p-4 text-sm">
                         <p className="font-medium text-amber-800 dark:text-amber-200">
                             {language === "vi"
-                                ? `Bạn đang có ${unpaidPenaltyCount} khoản phí với tổng số tiền ${formatCurrency(unpaidPenaltyTotal)}.`
-                                : `You have ${unpaidPenaltyCount} unpaid fee(s) totaling ${formatCurrency(unpaidPenaltyTotal)}.`}
+                                ? `Bạn đang có ${failedTransactionCount} giao dịch thất bại (${formatCurrency(penaltyFailedAmountDisplay)}) và ${pendingTransactionCount} giao dịch đang chờ (${formatCurrency(penaltyPendingAmountDisplay)}).`
+                                : `You have ${failedTransactionCount} failed transaction(s) (${formatCurrency(penaltyFailedAmountDisplay)}) and ${pendingTransactionCount} pending transaction(s) (${formatCurrency(penaltyPendingAmountDisplay)}).`}
                         </p>
                     </div>
                     <div className="flex flex-col sm:flex-row gap-2">
@@ -3768,7 +3845,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                                     localStorage.setItem("penaltyUserId", userId);
                                 }
                                 setShowPenaltyDialog(false);
-                                navigate("/penalty-payment");
+                                navigate("/pay-unpaid");
                             }}
                             className="flex-1"
                         >
@@ -6593,6 +6670,26 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
 
                                     // Persist station context for ChargingSessionView
                                     storeCurrentStationContext(normalizedOrder, configStation ?? selectedStation ?? null, slotToUse);
+
+                                    if (bookingMode === "now") {
+                                        const inferredStationId =
+                                            normalizedOrder?.stationId ??
+                                            bookingData.stationId ??
+                                            configStation?.stationId ??
+                                            selectedStation?.stationId;
+
+                                        if (inferredStationId != null) {
+                                            try {
+                                                sessionStorage.setItem("bookingNowSuccessStationId", inferredStationId.toString());
+                                                sessionStorage.setItem("bookingNowSuccessTimestamp", Date.now().toString());
+                                                console.log("📌 Stored booking now station for nearby popup:", inferredStationId);
+                                            } catch (storageErr) {
+                                                console.error("Unable to persist booking now station context:", storageErr);
+                                            }
+                                        } else {
+                                            console.warn("Could not determine stationId for nearby popup");
+                                        }
+                                    }
 
                                     toast.success(language === 'vi' ? 'Đặt lịch thành công!' : 'Booking successful!');
                                     setIsChargingConfigOpen(false);

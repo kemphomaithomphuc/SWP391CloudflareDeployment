@@ -52,6 +52,7 @@ public class Transaction {
     @Column(name = "created_at")
     private LocalDateTime createdAt = LocalDateTime.now();
 
+
     public enum PaymentMethod {
         VNPAY, CASH, QR
     }

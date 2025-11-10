@@ -1279,8 +1279,6 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
                         chargingPointName: post.chargingPointName?.trim() || "",
 
-                        chargingPointName: post.chargingPointName?.trim() || "",
-
                         status: post.status,
 
                         connector_type_id: connectorType?.connectorId || 1, // Use actual connector type ID
@@ -2011,8 +2009,6 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
         const newPost = {
 
             id: `post-${Date.now()}`,
-
-            chargingPointName: "",
 
             chargingPointName: "",
 
@@ -3571,8 +3567,6 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
         e.preventDefault();
 
         console.log("Starting deletion for station:", stationId);
-
-        // Check if station has any charging points that are OCCUPIED or RESERVED
         const station = stations.find((s) => s.id === stationId);
 
         if (station && station.chargingPoints && station.chargingPoints.length > 0) {
@@ -3916,19 +3910,6 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
 
 
-    const confirmDeleteStation = () => {
-
-        if (selectedStation) {
-
-            console.log("Confirming deletion for station:", selectedStation.id);
-
-            handleDeletingStation({ preventDefault: () => { } } as React.FormEvent, selectedStation.id);
-
-        }
-
-    };
-
-
 
 
 
@@ -4006,6 +3987,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
 
 
+    // Filter charging points depend on station
     const handleViewAllChargingPoints = async (station: ChargingStation) => {
 
         setSelectedStationForAllPoints(station);
@@ -4280,10 +4262,6 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
                         "N/A";
 
-
-
-                    // Ưu tiên lấy từ connectorType trước, sau đó mới đến point level
-
                     const powerOutput =
 
                         (typeof inlineConn?.powerOutput === "number" ? inlineConn.powerOutput : null) ??
@@ -4329,10 +4307,6 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
                 })
 
             );
-
-
-
-            // Sắp xếp cho dễ đọc
 
             enriched.sort((a, b) => (Number(a.chargingPointId) || 0) - (Number(b.chargingPointId) || 0));
 
@@ -5432,9 +5406,29 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
                                                                                     onChange={(e) => updateChargingPost(post.id, 'status', e.target.value)}
 
-                                                                                    className="w-full h-9 text-sm bg-background border border-border/50 rounded-lg px-3 text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
+                                                                                    className={`w-full h-9 text-sm bg-background border border-border/50 rounded-lg px-3 text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all ${
+
+                                                                                        post.status === 'OCCUPIED' || post.status === 'RESERVED'
+
+                                                                                            ? 'opacity-60 cursor-not-allowed filter saturate-50'
+
+                                                                                            : ''
+
+                                                                                    }`}
 
                                                                                     aria-label="Charging post status"
+
+                                                                                    disabled={post.status === 'OCCUPIED' || post.status === 'RESERVED'}
+
+                                                                                    title={
+
+                                                                                        post.status === 'OCCUPIED' || post.status === 'RESERVED'
+
+                                                                                            ? t('cannot_modify_charging_point_status')
+
+                                                                                            : undefined
+
+                                                                                    }
 
                                                                                 >
 
@@ -6684,9 +6678,29 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
                                                                                                 onChange={(e) => updateChargingPost(post.id, 'status', e.target.value)}
 
-                                                                                                className="w-full h-9 text-sm bg-background border border-border/50 rounded-lg px-3 text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
+                                                                                                className={`w-full h-9 text-sm bg-background border border-border/50 rounded-lg px-3 text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all ${
+
+                                                                                                    post.status === 'OCCUPIED' || post.status === 'RESERVED'
+
+                                                                                                        ? 'opacity-60 cursor-not-allowed filter saturate-50'
+
+                                                                                                        : ''
+
+                                                                                                }`}
 
                                                                                                 aria-label="Connector status"
+
+                                                                                                disabled={post.status === 'OCCUPIED' || post.status === 'RESERVED'}
+
+                                                                                                title={
+
+                                                                                                    post.status === 'OCCUPIED' || post.status === 'RESERVED'
+
+                                                                                                        ? t('cannot_modify_charging_point_status')
+
+                                                                                                        : undefined
+
+                                                                                                }
 
                                                                                             >
 

@@ -1147,8 +1147,12 @@ export interface FeeDetailDTO {
 }
 
 export interface UnpaidFeesData {
-  unpaidFees: FeeDTO[];
   failedTransactionIds: number[];
+  totalFailedTransactions: number;
+  totalFailedAmount: number;
+  pendingTransactionIds: number[];
+  totalPendingTransactions: number;
+  totalPendingAmount: number;
 }
 
 export interface UnpaidFeesResponse {
@@ -1199,12 +1203,12 @@ export const getUserFeeHistory = async (userId: number): Promise<APIResponse<Fee
  * Thanh toán phí phạt và mở khóa tài khoản
  * Gọi POST /api/penalties/pay-and-unlock
  */
-export const payPenaltyAndUnlock = async (userId: number, feeIds: number[]): Promise<PayPenaltyResponse> => {
+export const payPenaltyAndUnlock = async (userId: number, paymentMethod: string): Promise<PayPenaltyResponse> => {
   try {
-    console.log('🔵 Sending payment request:', { userId, feeIds });
+    console.log('🔵 Sending payment request:', { userId, paymentMethod });
     const response = await api.post<PayPenaltyResponse>('/api/penalties/pay-and-unlock', {
       userId,
-      feeIds
+      paymentMethod
     });
     console.log('✅ Payment response:', response.data);
     return response.data;
