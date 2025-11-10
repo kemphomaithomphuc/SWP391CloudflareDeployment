@@ -169,42 +169,22 @@ public class UserServiceImpl implements UserService {
     public User updateUserProfile(Long userId, UpdateUserDTO updateDTO) {
         User user = getUserById(userId);
 
-        if (updateDTO.getFullName() == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Họ và tên không được để trống");
+        // Cập nhật các thông tin an toàn
+        if (updateDTO.getFullName() != null) {
+            user.setFullName(updateDTO.getFullName());
         }
 
-        if (updateDTO.getAddress() == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Địa chỉ không được để trống");
+        if (updateDTO.getAddress() != null) {
+            user.setAddress(updateDTO.getAddress());
         }
 
-        if (updateDTO.getDateOfBirth() == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Ngày sinh không được để trống");
+        if (!(updateDTO.getPhoneNumber() != null || !updateDTO.getPhoneNumber().equals(getUserByPhone(updateDTO.getPhoneNumber())))) {
+            user.setPhone(updateDTO.getPhoneNumber());
         }
 
-        // Validation phone number nếu có cập nhật
-        if (updateDTO.getPhoneNumber() != null) {
-            if (!isValidVietnamPhone(updateDTO.getPhoneNumber().trim())) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Số điện thoại không hợp lệ");
-            }
-
-            String currentPhone = user.getPhone();
-            if (!updateDTO.getPhoneNumber().trim().equals(currentPhone)) {
-                if (userRepository.existsByPhoneAndUserIdNot(updateDTO.getPhoneNumber().trim(), userId)) {
-                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Số điện thoại đã được sử dụng bởi tài khoản khác");
-                }
-            }
+        if (updateDTO.getDateOfBirth() != null) {
+            user.setDateOfBirth(updateDTO.getDateOfBirth());
         }
-
-        // Cập nhật thông tin user
-        user.setFullName(updateDTO.getFullName().trim());
-        user.setAddress(updateDTO.getAddress().trim());
-
-        // Chỉ cập nhật phone nếu có giá trị mới
-        if (updateDTO.getPhoneNumber() != null && !updateDTO.getPhoneNumber().trim().isEmpty()) {
-            user.setPhone(updateDTO.getPhoneNumber().trim());
-        }
-
-        user.setDateOfBirth(updateDTO.getDateOfBirth());
 
         return userRepository.save(user);
     }

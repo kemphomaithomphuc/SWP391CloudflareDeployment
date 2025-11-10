@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.*;
 import swp391.code.swp391.dto.PaymentDetailDTO;
 import swp391.code.swp391.dto.PaymentRequestDTO;
 import swp391.code.swp391.dto.PaymentResponseDTO;
+import swp391.code.swp391.dto.SubscriptionPaymentRequestDTO;
 import swp391.code.swp391.service.PaymentService;
 import swp391.code.swp391.service.VNPayService;
 
@@ -273,16 +274,17 @@ public class PaymentController {
      * POST /api/payment/subscription
      */
     @PostMapping("/subscription")
-    public ResponseEntity<?> payForSubscription(
-            @RequestParam Long userId,
-            @RequestParam Long subscriptionId,
-            @RequestParam String returnUrl,
-            @RequestParam(required = false) String bankCode) {
+    public ResponseEntity<?> payForSubscription(@Valid @RequestBody SubscriptionPaymentRequestDTO request) {
         try {
             log.info("API: Thanh toán subscription VNPay - User: {}, Subscription: {}",
-                    userId, subscriptionId);
+                    request.getUserId(), request.getSubscriptionId());
 
-            PaymentResponseDTO response = paymentService.payForSubscription(userId, subscriptionId, returnUrl, bankCode);
+            PaymentResponseDTO response = paymentService.payForSubscription(
+                    request.getUserId(),
+                    request.getSubscriptionId(),
+                    request.getReturnUrl(),
+                    request.getBankCode()
+            );
 
             Map<String, Object> result = new HashMap<>();
             result.put("success", true);
