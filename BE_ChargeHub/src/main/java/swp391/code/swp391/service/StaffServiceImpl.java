@@ -256,7 +256,7 @@ public class StaffServiceImpl implements StaffService {
         }
 
         // 2. Kiểm tra trạng thái order
-        if (order.getStatus() != Order.Status.BOOKED) {
+        if (order.getStatus() != Order.Status.BOOKED && order.getStatus() != Order.Status.CHARGING) {
             throw new RuntimeException(
                     String.format("Không thể tìm trụ thay thế cho đơn có trạng thái: %s", order.getStatus())
             );
