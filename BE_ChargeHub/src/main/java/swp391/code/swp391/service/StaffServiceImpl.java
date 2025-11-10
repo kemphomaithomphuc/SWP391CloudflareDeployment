@@ -814,6 +814,19 @@ public class StaffServiceImpl implements StaffService {
             throw new RuntimeException("Session không có order liên kết");
         }
 
+        // 2.5. Kiểm tra staff có được phân công vào trạm này không
+        ChargingStation station = order.getChargingPoint().getStation();
+        if (station.getStaffId() == null) {
+            throw new RuntimeException("Trạm này chưa có staff được phân công");
+        }
+
+        if (!station.getStaffId().equals(staffId)) {
+            throw new RuntimeException(
+                    String.format("Staff không được phân công vào trạm này. " +
+                            "Chỉ staff được phân công (ID: %d) mới có thể xử lý thanh toán tại chỗ tại trạm %s",
+                            station.getStaffId(), station.getStationName())
+            );
+        }
         // 3. Kiểm tra session đã hoàn thành chưa
         if (session.getStatus() != Session.SessionStatus.COMPLETED) {
             throw new RuntimeException("Phiên sạc chưa hoàn thành. Status hiện tại: " + session.getStatus());

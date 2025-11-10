@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useTheme } from "./contexts/ThemeContext";
 
 import { useLanguage } from "./contexts/LanguageContext";
@@ -33,7 +34,7 @@ import ChargingInvoiceView from "./components/ChargingInvoiceView";
 import { toast} from "sonner";
 import * as maptilersdk from "@maptiler/sdk";
 import "@maptiler/sdk/dist/maptiler-sdk.css";
-import { api } from "./services/api";
+import { api, getUnpaidFees, type FeeDTO } from "./services/api";
 import { confirmBooking } from "./api/confirmBooking";
 import { checkVehicleChargingStatus as checkVehicleChargingStatusAPI } from "./api/vehicleChargingStatus";
 
@@ -139,13 +140,24 @@ interface ConnectorType {
 
 interface ChargingPoint {
     chargingPointId?: number;
-    chargingPointName?: string;  // ✅ NEW - Tên charging point (e.g., "A1", "B2")
+    chargingPointName?: string;  // NEW - Tên charging point (e.g., "A1", "B2")
     status: string;
     connectorTypeId?: number;
     stationId?: number;
     connectorType: ConnectorType;
     powerOutput?: number;
     pricePerKwh?: number;
+}
+
+interface StoredStationContext {
+    stationId?: number;
+    stationName?: string;
+    stationAddress?: string;
+    connectorType?: string;
+    chargingPower?: number;
+    pricePerKwh?: number;
+    timestamp?: string;
+    chargingPointName?: string;
 }
 interface Vehicle {
     plateNumber: string;
@@ -234,6 +246,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
     const { addBooking } = useBooking();
 
     const { language, t } = useLanguage();
+    const navigate = useNavigate();
 
     const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
 
@@ -375,6 +388,9 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
 
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<String | null>(null);
+    const [showPenaltyDialog, setShowPenaltyDialog] = useState(false);
+    const [unpaidPenaltyCount, setUnpaidPenaltyCount] = useState(0);
+    const [unpaidPenaltyTotal, setUnpaidPenaltyTotal] = useState(0);
 
     //Cập nhật trạng thái
     const [refreshTrigger, setRefreshTrigger] = useState(0);
@@ -400,6 +416,64 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
     // Total charging points count for each station
     const [stationTotalPoints, setStationTotalPoints] = useState<{ [stationId: string]: number }>({});
     const userId = localStorage.getItem("userId");
+
+    const checkUnpaidPenalties = useCallback(async () => {
+        if (!userId) return;
+        const numericUserId = Number(userId);
+        if (!Number.isFinite(numericUserId)) {
+            console.warn("[BookingMap] Invalid userId for penalty check:", userId);
+            return;
+        }
+        try {
+            const response = await getUnpaidFees(numericUserId);
+            const feesData = response?.data ?? { unpaidFees: [], failedTransactionIds: [] };
+            const fees = Array.isArray(feesData.unpaidFees) ? feesData.unpaidFees : [];
+            const failedTransactions = Array.isArray(feesData.failedTransactionIds) ? feesData.failedTransactionIds : [];
+            const hasPenalties = (response?.success && (fees.length > 0 || failedTransactions.length > 0));
+
+            if (hasPenalties) {
+                try {
+                    localStorage.setItem("penaltyPendingFees", JSON.stringify(fees));
+                    localStorage.setItem("penaltyUserId", String(numericUserId));
+                    if (failedTransactions.length > 0) {
+                        localStorage.setItem("penaltyFailedTransactionIds", JSON.stringify(failedTransactions));
+                    } else {
+                        localStorage.removeItem("penaltyFailedTransactionIds");
+                    }
+                    const primaryFee: FeeDTO | undefined = fees[0];
+                    const derivedTransactionId =
+                        failedTransactions[0] ??
+                        primaryFee?.orderId ??
+                        primaryFee?.sessionId ??
+                        primaryFee?.feeId;
+                    if (derivedTransactionId != null) {
+                        localStorage.setItem("penaltyTransactionId", String(derivedTransactionId));
+                    }
+                } catch (storageError) {
+                    console.warn("Unable to store penalty metadata locally", storageError);
+                }
+                const penaltyCount = fees.length > 0 ? fees.length : failedTransactions.length;
+                setUnpaidPenaltyCount(penaltyCount);
+                const totalAmount = fees.reduce((sum: number, fee: FeeDTO) => {
+                    const amount = typeof fee?.amount === "number" ? fee.amount : Number(fee?.amount) || 0;
+                    return sum + amount;
+                }, 0);
+                setUnpaidPenaltyTotal(totalAmount);
+                setShowPenaltyDialog(true);
+            } else {
+                localStorage.removeItem("penaltyFailedTransactionIds");
+                setShowPenaltyDialog(false);
+                setUnpaidPenaltyCount(0);
+                setUnpaidPenaltyTotal(0);
+            }
+        } catch (error) {
+            console.error("Error checking unpaid penalties:", error);
+        }
+    }, [userId]);
+
+    useEffect(() => {
+        checkUnpaidPenalties();
+    }, [checkUnpaidPenalties]);
 
     //View page
 
@@ -883,18 +957,36 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                                 const mergedSlot = {
                                     ...slot,
                                     // If slot doesn't have these at top level, try to get from charging point or connector type
-                                    connectorType: slot.connectorType || cp.connectorType,
-                                    powerOutput: slot.powerOutput || cp.powerOutput || slot.connectorType?.powerOutput,
-                                    pricePerKwh: slot.pricePerKwh || cp.pricePerKwh || slot.connectorType?.pricePerKwh,
+                                    connectorType: slot.connectorType || cp.connectorType || cp.connectorTypeName,
+                                    powerOutput: slot.powerOutput
+                                        || cp.powerOutput
+                                        || cp.connectorType?.powerOutput
+                                        || slot.connectorType?.powerOutput,
+                                    pricePerKwh: slot.pricePerKwh
+                                        || cp.pricePerKwh
+                                        || cp.connectorType?.pricePerKwh
+                                        || slot.connectorType?.pricePerKwh,
                                     chargingPointId: slot.chargingPointId || cp.chargingPointId || cp.id,
                                     chargingPointName: slot.chargingPointName || cp.chargingPointName,  // ✅ NEW
                                     // Add charging point info for reference
                                     chargingPointInfo: {
                                         id: cp.id || cp.chargingPointId,
                                         chargingPointName: cp.chargingPointName,  // ✅ NEW
-                                        connectorType: cp.connectorType,
-                                        powerOutput: cp.powerOutput,
-                                        pricePerKwh: cp.pricePerKwh,
+                                        connectorType: cp.connectorType || slot.connectorType || cp.connectorTypeName,
+                                        connectorTypeId: cp.connectorTypeId
+                                            || cp.connectorType?.connectorTypeId
+                                            || cp.connectorType?.id
+                                            || slot.connectorTypeId,
+                                        powerOutput: cp.powerOutput
+                                            || cp.connectorType?.powerOutput
+                                            || slot.powerOutput
+                                            || slot.connectorType?.powerOutput
+                                            || null,
+                                        pricePerKwh: cp.pricePerKwh
+                                            || cp.connectorType?.pricePerKwh
+                                            || slot.pricePerKwh
+                                            || slot.connectorType?.pricePerKwh
+                                            || null,
                                         status: cp.status
                                     }
                                 };
@@ -984,7 +1076,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                 const userMsg = language === "vi"
                     ? "Hiện tại không có khung giờ trống phù hợp. Vui lòng thử lại sau hoặc chọn trạm khác."
                     : "No available time slots at the moment. Please try again later or select another station.";
-                toast.warning(userMsg);
+                toast(userMsg, { icon: "⚠️" });
             } else {
                 // Display the actual error message
                 const msg = errorMessage || (language === "vi" ? "Đã xảy ra lỗi khi tìm kiếm slot" : "Error finding slots");
@@ -1123,7 +1215,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                 const userMsg = language === "vi"
                     ? "Hiện tại không có khung giờ trống phù hợp. Vui lòng thử lại sau hoặc chọn trạm khác."
                     : "No available time slots at the moment. Please try again later or select another station.";
-                toast.warning(userMsg);
+                toast(userMsg, { icon: "⚠️" });
             } else {
                 // Display the actual error message
                 const msg = errorMessage || (language === "vi" ? "Đã xảy ra lỗi khi tìm kiếm slot" : "Error finding slots");
@@ -1138,12 +1230,12 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
         if (!configStation) return;
 
         if (!selectedDate) {
-            toast.warning(language === 'vi' ? 'Vui lòng chọn ngày sạc' : 'Please select a charging date');
+            toast(language === 'vi' ? 'Vui lòng chọn ngày sạc' : 'Please select a charging date', { icon: "⚠️" });
             return;
         }
 
         if (!selectedStartTime) {
-            toast.warning(language === 'vi' ? 'Vui lòng chọn giờ bắt đầu' : 'Please select a start time');
+            toast(language === 'vi' ? 'Vui lòng chọn giờ bắt đầu' : 'Please select a start time', { icon: "⚠️" });
             return;
         }
 
@@ -1212,7 +1304,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                 setFilteredSlots([]);
                 setSelectedSlot(null);
                 setSelectedSlots([]);
-                toast.warning(
+                toast(
                     language === 'vi'
                         ? 'Không có slot khả dụng cho thời gian đã chọn'
                         : 'No available slots for the selected time'
@@ -1273,10 +1365,115 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
             console.error("Error:", err);
             
             // Show toast with error message from API function
-            toast.error(err?.message || (language === "vi" ? "Xác nhận đặt chỗ thất bại" : "Booking confirmation failed"));
+            const backendMessage: string | undefined = err?.message || err?.response?.data?.message;
+            const normalizedMessage = backendMessage?.toLowerCase() ?? "";
+            const unpaidKeywords = ["chưa thanh toán", "unpaid", "penalty", "giao dịch"];
+            const isUnpaidCase = normalizedMessage && unpaidKeywords.some(keyword => normalizedMessage.includes(keyword));
+
+            toast.error(backendMessage || (language === "vi" ? "Xác nhận đặt chỗ thất bại" : "Booking confirmation failed"));
+
+            if (isUnpaidCase) {
+                await checkUnpaidPenalties();
+                setShowPenaltyDialog(true);
+            }
+
             return null;
         }
     }
+
+    const normalizeOrderResponse = (orderResponse: any) => {
+        if (!orderResponse) return null;
+        return orderResponse.data ?? orderResponse;
+    };
+
+    const storeCurrentStationContext = (orderData: any, fallbackStation?: ChargingStation | null, slotContext?: any) => {
+        const info: StoredStationContext = {
+            stationId: orderData?.stationId ?? fallbackStation?.stationId ?? undefined,
+            stationName: orderData?.stationName ?? fallbackStation?.stationName ?? undefined,
+            stationAddress: orderData?.stationAddress ?? fallbackStation?.address ?? (fallbackStation as any)?.stationAddress ?? undefined,
+            connectorType: orderData?.connectorType ?? slotContext?.connectorTypeName ?? slotContext?.connectorType ?? undefined,
+            chargingPower: typeof orderData?.chargingPower === "number"
+                ? orderData.chargingPower
+                : (slotContext?.powerOutput != null && !isNaN(Number(slotContext.powerOutput))
+                    ? Number(slotContext.powerOutput)
+                    : undefined),
+            pricePerKwh: typeof orderData?.pricePerKwh === "number"
+                ? orderData.pricePerKwh
+                : (slotContext?.pricePerKwh != null && !isNaN(Number(slotContext.pricePerKwh))
+                    ? Number(slotContext.pricePerKwh)
+                    : undefined),
+        chargingPointName: orderData?.chargingPointName
+            ?? slotContext?.chargingPointName
+            ?? slotContext?.chargingPointInfo?.chargingPointName
+            ?? slotContext?.chargingPointInfo?.name,
+            timestamp: new Date().toISOString(),
+        };
+
+        try {
+            localStorage.setItem("currentStationInfo", JSON.stringify(info));
+            if (info.stationId !== undefined) {
+                localStorage.setItem("currentStationId", info.stationId.toString());
+            }
+        } catch (storageError) {
+            console.error("Unable to persist station context:", storageError);
+        }
+    };
+
+    const fetchSessionByOrderId = async (orderId: number | string) => {
+        try {
+            const response = await api.get(`/api/sessions/by-order/${orderId}`);
+            if (response.status === 200 && response.data?.success && response.data?.data) {
+                return response.data.data;
+            }
+        } catch (error) {
+            console.error("Error fetching session by orderId:", error);
+        }
+        return null;
+    };
+
+    const tryRecoverExistingSession = async (
+        error: any,
+        orderId: number | string
+    ): Promise<boolean> => {
+        const message: string | undefined = error?.response?.data?.message || error?.message;
+        if (error?.response?.status === 400 && message) {
+            const normalizedMessage = message.toLowerCase();
+            if (normalizedMessage.includes("order not in booked status") ||
+                normalizedMessage.includes("already") ||
+                normalizedMessage.includes("charging")) {
+                const existingSession = await fetchSessionByOrderId(orderId);
+                if (existingSession?.sessionId) {
+                    localStorage.setItem("currentSessionId", existingSession.sessionId.toString());
+                    localStorage.setItem("currentOrderId", orderId.toString());
+                    toast.success(
+                        language === "vi"
+                            ? "Phiên sạc đã được khôi phục."
+                            : "Charging session restored."
+                    );
+                    onStartCharging?.(orderId.toString());
+                    return true;
+                }
+            }
+        }
+
+        // Nếu API trả về 404 mà vẫn có order CHARGING, thử khôi phục thủ công
+        if (error?.response?.status === 404) {
+            const existingSession = await fetchSessionByOrderId(orderId);
+            if (existingSession?.sessionId) {
+                localStorage.setItem("currentSessionId", existingSession.sessionId.toString());
+                localStorage.setItem("currentOrderId", orderId.toString());
+                toast.success(
+                    language === "vi"
+                        ? "Phiên sạc đã được khôi phục."
+                        : "Charging session restored."
+                );
+                onStartCharging?.(orderId.toString());
+                return true;
+            }
+        }
+
+        return false;
+    };
 
     // Handle loading charging points for a station
     const handleLoadChargingPoints = async (stationId: string) => {
@@ -1308,7 +1505,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                 console.log('No charging points found');
                 setChargingPoints([]);
                 setExpandedStationId(stationId); // Still expand to show empty state
-                toast.warning(language === 'vi' ? 'Không tìm thấy trụ sạc nào' : 'No charging points found');
+                toast(language === 'vi' ? 'Không tìm thấy trụ sạc nào' : 'No charging points found', { icon: "⚠️" });
             }
         } catch (error) {
             console.error('Error loading charging points:', error);
@@ -1332,7 +1529,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
             } else {
                 console.log("No stations found");
                 setStations([]);
-                toast.warning("No stations found");
+                toast("No stations found", { icon: "⚠️" });
             }
             return list;
         } catch (err: any) {
@@ -1517,7 +1714,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
     const handleViewDetails = async (station: ChargingStation) => {
         // Check if station is ACTIVE
         if (station.status !== "ACTIVE") {
-            toast.warning(
+            toast(
                 language === 'vi'
                     ? 'Trạm này không hoạt động, không thể đặt lịch sạc'
                     : 'This station is not active, cannot book charging'
@@ -1535,7 +1732,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
         if (stationPoints) {
             const hasAvailablePoints = Object.values(stationPoints).some(stats => stats.available > 0);
             if (!hasAvailablePoints) {
-                toast.warning(
+                toast(
                     language === 'vi'
                         ? 'Trạm này không còn trụ sạc trống, không thể đặt lịch'
                         : 'This station has no available charging points, cannot book'
@@ -1580,7 +1777,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
         // Check if vehicle is selected
         if (!currentVehicle) {
             console.log("No vehicle selected, showing popup");
-            toast.warning(
+            toast(
                 language === 'vi'
                     ? 'Vui lòng chọn xe trước khi đặt lịch sạc'
                     : 'Please select a vehicle before booking'
@@ -1599,7 +1796,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
             
             if (isCharging) {
                 console.log("Vehicle is currently charging, showing warning");
-                toast.warning(
+                toast(
                     language === 'vi'
                         ? 'Xe này đang trong quá trình sạc. Bạn chỉ có thể đặt lịch sạc tiếp theo.'
                         : 'This vehicle is currently charging. You can only schedule the next charging session.',
@@ -1611,7 +1808,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
 
         // Check if station is ACTIVE
         if (station.status !== "ACTIVE") {
-            toast.warning(
+            toast(
                 language === 'vi'
                     ? 'Trạm này không hoạt động, không thể đặt lịch sạc'
                     : 'This station is not active, cannot book charging'
@@ -1636,7 +1833,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                 setIsChargingConfigOpen(true);
             } else {
                 console.warn("No slots returned from API");
-                toast.warning(
+                toast(
                     language === 'vi'
                         ? 'Không có slot khả dụng phù hợp với xe của bạn'
                         : 'No available slots suitable for your vehicle'
@@ -2276,15 +2473,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
         // Show QR code only for immediate bookings, otherwise show success
 
         if (isImmediateBooking) {
-
             setBookingStep("qr");
-
-            // Generate a booking ID for immediate charging session
-            const bookingId = `booking_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-
-            // Call the callback to navigate to charging session
-            onStartCharging?.(bookingId);
-
         } else {
 
             setBookingStep("success");
@@ -3546,6 +3735,49 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
 
         <div className="min-h-screen bg-gradient-to-br from-background via-secondary/20 to-accent/30">
 
+            <Dialog open={showPenaltyDialog} onOpenChange={setShowPenaltyDialog}>
+                <DialogContent className="max-w-md space-y-4">
+                    <DialogHeader className="text-center">
+                        <DialogTitle>
+                            {language === "vi" ? "Bạn chưa thanh toán giao dịch trước đó" : "Previous transaction unpaid"}
+                        </DialogTitle>
+                        <DialogDescription>
+                            {language === "vi"
+                                ? "Vui lòng thanh toán để có thể tiếp tục sử dụng dịch vụ."
+                                : "Please complete the payment to continue using the service."}
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 p-4 text-sm">
+                        <p className="font-medium text-amber-800 dark:text-amber-200">
+                            {language === "vi"
+                                ? `Bạn đang có ${unpaidPenaltyCount} khoản phí với tổng số tiền ${formatCurrency(unpaidPenaltyTotal)}.`
+                                : `You have ${unpaidPenaltyCount} unpaid fee(s) totaling ${formatCurrency(unpaidPenaltyTotal)}.`}
+                        </p>
+                    </div>
+                    <div className="flex flex-col sm:flex-row gap-2">
+                        <Button
+                            variant="outline"
+                            onClick={() => setShowPenaltyDialog(false)}
+                            className="flex-1"
+                        >
+                            {language === "vi" ? "Để sau" : "Maybe later"}
+                        </Button>
+                        <Button
+                            onClick={() => {
+                                if (userId) {
+                                    localStorage.setItem("penaltyUserId", userId);
+                                }
+                                setShowPenaltyDialog(false);
+                                navigate("/penalty-payment");
+                            }}
+                            className="flex-1"
+                        >
+                            {language === "vi" ? "Thanh toán ngay" : "Pay now"}
+                        </Button>
+                    </div>
+                </DialogContent>
+            </Dialog>
+
             {/* Enhanced Header */}
 
             <div className="sticky top-0 z-40 bg-card/80 backdrop-blur-sm border-b border-border shadow-sm">
@@ -3687,6 +3919,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                                                 />
                                                 {searchQuery && (
                                                     <button
+                                                        aria-label={language === 'vi' ? 'Xóa tìm kiếm' : 'Clear search'}
                                                         onClick={() => {
                                                             setSearchQuery("");
                                                             setSearchResults([]);
@@ -4159,6 +4392,8 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                                                                             setCurrentBatteryLevel?.(clampedValue);
 
                                                                         }}
+
+                                                                        aria-label={language === 'vi' ? 'Mức pin hiện tại' : 'Current battery level'}
 
                                                                         className="w-16 h-12 text-center text-xl font-bold bg-transparent border-none outline-none text-primary"
 
@@ -5029,6 +5264,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                                                 setCurrentPage(page);
                                             }
                                         }}
+                                        aria-label={language === 'vi' ? 'Đi tới trang' : 'Jump to page'}
                                         className="w-16 h-8 px-2 text-center border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary"
                                     />
                                     <span className="text-muted-foreground">/ {totalPages}</span>
@@ -5421,7 +5657,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                                         variant={bookingMode === "now" ? "default" : "outline"}
                                         onClick={() => {
                                             if (isVehicleCurrentlyCharging) {
-                                                toast.warning(
+                                                toast(
                                                     language === 'vi'
                                                         ? 'Không thể sạc ngay khi xe đang trong quá trình sạc. Vui lòng đặt lịch.'
                                                         : 'Cannot book now while vehicle is charging. Please schedule instead.',
@@ -5539,7 +5775,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                                                         );
                                                     } else {
                                                         setAvailableSlots([]);
-                                                        toast.warning(
+                                                        toast(
                                                             language === 'vi'
                                                                 ? 'Không có slot khả dụng'
                                                                 : 'No available slots found'
@@ -6258,7 +6494,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                                     targetBattery: parseFloat(targetBatteryLevelConfig.toString()),
                                     energyToCharge: energyToCharge,
                                     estimatedCost: estimatedCost,
-                                    initialStatus: initialStatus,  // ✅ THÊM TRƯỜNG NÀY - Backend cần để biết status ban đầu
+                                    initialStatus: initialStatus,  // THÊM TRƯỜNG NÀY - Backend cần để biết status ban đầu
                                     slotIds: slotIds.length > 0 ? slotIds : undefined
                                 };
 
@@ -6340,6 +6576,9 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                                 if (result) {
                                     console.log("=== Booking result ===", result);
 
+                                    // Extract order data and orderId from response
+                                    const normalizedOrder = normalizeOrderResponse(result);
+
                                     // Extract orderId from response
                                     const orderId = result.orderId || result.data?.orderId;
 
@@ -6352,95 +6591,65 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                                     localStorage.setItem("currentOrderId", orderId.toString());
                                     console.log("✅ Saved orderId to localStorage:", orderId);
 
+                                    // Persist station context for ChargingSessionView
+                                    storeCurrentStationContext(normalizedOrder, configStation ?? selectedStation ?? null, slotToUse);
+
                                     toast.success(language === 'vi' ? 'Đặt lịch thành công!' : 'Booking successful!');
                                     setIsChargingConfigOpen(false);
 
                                     // Only navigate to charging session for "Book Now"
                                     if (bookingMode === "now") {
+                                        let hasNavigatedToCharging = false;
+                                        const navigateToChargingSession = () => {
+                                            if (!hasNavigatedToCharging) {
+                                                hasNavigatedToCharging = true;
+                                                onStartCharging?.(orderId.toString());
+                                            }
+                                        };
+
                                         try {
-                                            // Get user location for distance check
-                                            console.log("=== Getting user location for session start ===");
-                                            const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-                                                navigator.geolocation.getCurrentPosition(resolve, reject, {
-                                                    enableHighAccuracy: true,
-                                                    timeout: 10000,
-                                                    maximumAge: 0
-                                                });
-                                            });
+                                            console.log("=== Fetching session created during Book Now ===");
+                                            const sessionResponse = await api.get(`/api/sessions/by-order/${orderId}`);
+                                            const sessionData = sessionResponse.data?.data;
 
-                                            const userLatitude = position.coords.latitude;
-                                            const userLongitude = position.coords.longitude;
+                                            if (sessionData?.sessionId) {
+                                                const sessionId = sessionData.sessionId;
+                                                localStorage.setItem("currentSessionId", sessionId.toString());
+                                                console.log("✅ Session fetched successfully, sessionId:", sessionId);
 
-                                            console.log("User location:", { userLatitude, userLongitude });
+                                                toast.success(
+                                                    language === 'vi'
+                                                        ? 'Bắt đầu sạc thành công!'
+                                                        : 'Charging started!'
+                                                );
 
-                                            // Call API to start session
-                                            console.log("=== Calling /api/sessions/start ===");
-                                            const sessionResponse = await api.post("/api/sessions/start", {
-                                                orderId: orderId,
-                                                vehicleId: numericVehicleId,
-                                                userLatitude: userLatitude,
-                                                userLongitude: userLongitude
-                                            });
-
-                                            console.log("Session start response:", sessionResponse);
-
-                                            if (sessionResponse.status === 201 || sessionResponse.status === 200) {
-                                                const sessionId = sessionResponse.data?.data || sessionResponse.data?.sessionId;
-
-                                                if (sessionId) {
-                                                    // Save sessionId to localStorage
-                                                    localStorage.setItem("currentSessionId", sessionId.toString());
-                                                    console.log("✅ Session started successfully, sessionId:", sessionId);
-                                                    console.log("✅ Saved sessionId to localStorage:", sessionId);
-
-                                                    toast.success(language === 'vi' ? 'Bắt đầu sạc thành công!' : 'Charging started!');
-
-                                                    // Navigate to charging session with real sessionId
-                                                    onStartCharging?.(sessionId.toString());
-                                                } else {
-                                                    console.error("No sessionId in response:", sessionResponse.data);
-                                                    toast.error(language === 'vi' ? 'Không nhận được Session ID' : 'Session ID not received');
-                                                }
+                                                navigateToChargingSession();
+                                            } else {
+                                                console.error("No sessionId in response:", sessionResponse.data);
+                                                toast.error(
+                                                    language === 'vi'
+                                                        ? 'Không nhận được Session ID'
+                                                        : 'Session ID not received'
+                                                );
+                                                navigateToChargingSession();
                                             }
                                         } catch (sessionError: any) {
-                                            console.error("=== Error starting session ===", sessionError);
-                                            console.error("Error response:", sessionError?.response);
+                                            console.error("=== Error fetching session after Book Now ===", sessionError);
 
-                                            // Handle specific errors
-                                            if (sessionError?.response?.status === 400) {
-                                                const errorMsg = sessionError?.response?.data?.message;
-
-                                                // Check for distance error
-                                                if (errorMsg?.includes('too far') || errorMsg?.includes('distance') || errorMsg?.includes('meters')) {
-                                                    toast.error(
-                                                        language === 'vi'
-                                                            ? 'Bạn quá xa trạm sạc (>100m). Vui lòng di chuyển gần hơn.'
-                                                            : 'You are too far from the station (>100m). Please move closer.'
-                                                    );
-                                                } else if (errorMsg?.includes('time slot') || errorMsg?.includes('Out of booking')) {
-                                                    toast.error(
-                                                        language === 'vi'
-                                                            ? 'Ngoài thời gian đặt chỗ. Đơn đã bị hủy với phí phạt.'
-                                                            : 'Out of booking time slot. Order canceled with penalty.'
-                                                    );
-                                                } else {
-                                                    toast.error(errorMsg || (language === 'vi' ? 'Không thể bắt đầu sạc' : 'Cannot start charging'));
-                                                }
-                                            } else if (sessionError?.response?.status === 401) {
-                                                toast.error(language === 'vi' ? 'Phiên đăng nhập hết hạn' : 'Session expired');
-                                            } else if (sessionError?.code === 'PERMISSION_DENIED' || sessionError?.message?.includes('denied')) {
-                                                toast.error(
-                                                    language === 'vi'
-                                                        ? 'Cần quyền truy cập vị trí để bắt đầu sạc'
-                                                        : 'Location permission required to start charging'
-                                                );
-                                            } else {
-                                                toast.error(
-                                                    language === 'vi'
-                                                        ? 'Lỗi khi bắt đầu phiên sạc. Vui lòng thử lại.'
-                                                        : 'Error starting charging session. Please try again.'
-                                                );
+                                            const recovered = await tryRecoverExistingSession(sessionError, orderId);
+                                            if (recovered) {
+                                                return;
                                             }
+
+                                            toast.error(
+                                                sessionError?.response?.data?.message ||
+                                                (language === 'vi'
+                                                    ? 'Lỗi khi lấy chi tiết phiên sạc. Vui lòng thử lại.'
+                                                    : 'Error fetching session details. Please try again.')
+                                            );
+                                            navigateToChargingSession();
+                                        } finally {
+                                            navigateToChargingSession();
                                         }
                                     } else {
                                         // For scheduled booking, navigate to MyBookingView
@@ -6546,7 +6755,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                                                     setIsVehicleCurrentlyCharging(isCharging);
                                                     
                                                     if (isCharging) {
-                                                        toast.warning(
+                                                        toast(
                                                             language === 'vi'
                                                                 ? 'Xe này đang trong quá trình sạc. Bạn chỉ có thể đặt lịch sạc tiếp theo.'
                                                                 : 'This vehicle is currently charging. You can only schedule the next charging session.',
@@ -6613,7 +6822,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
                                         setIsVehicleSelectionOpen(false);
                                     } else {
                                         console.log("No vehicle selected at confirm");
-                                        toast.warning(
+                                        toast(
                                             language === 'vi'
                                                 ? 'Vui lòng chọn một xe'
                                                 : 'Please select a vehicle'

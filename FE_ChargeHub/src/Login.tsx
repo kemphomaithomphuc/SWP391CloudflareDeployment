@@ -105,7 +105,7 @@ export default function Login({ onSwitchToRegister, onLogin, onStaffLogin, onAdm
                         localStorage.setItem("role", role);
                         localStorage.setItem("email", decoded.sub || "");
 
-                        await getUserProfileToContinue(userId);
+                        await getUserProfileToContinue(userId, true);
 
                         // 🧹 Xóa query để URL sạch
                         window.history.replaceState({}, document.title, "/login");
@@ -241,22 +241,22 @@ export default function Login({ onSwitchToRegister, onLogin, onStaffLogin, onAdm
         }
     };
 
-    const getUserProfileToContinue = async (userId: string) => {
+    const getUserProfileToContinue = async (userId: string, isSocialLogin: boolean = false) => {
         setLoading(true);
         setError(null);
         localStorage.setItem("registeredUserId", userId);
         try {
             const res = await api.get(`/api/user/profile/${userId}?include=vehicles`);
             console.log("User profile response:", res.data);
-            
+
             if (res.status === 200 && res.data) {
                 const userProfile = res.data;
                 console.log("Fetched user profile:", userProfile);
-                
+
                 // 🆕 KIỂM TRA USER STATUS TRƯỚC
                 const userStatus = userProfile?.data?.status;
                 console.log("User status:", userStatus);
-                
+
                 // Nếu user bị BANNED → redirect to penalty payment
                 if (userStatus === 'BANNED') {
                     console.log("User is BANNED, redirecting to penalty payment");
@@ -264,14 +264,14 @@ export default function Login({ onSwitchToRegister, onLogin, onStaffLogin, onAdm
                     onSwitchToPenaltyPayment?.();
                     return;
                 }
-                
+
                 // Nếu user INACTIVE → show warning nhưng vẫn cho login (limited access)
                 if (userStatus === 'INACTIVE') {
                     console.log("User is INACTIVE, showing warning");
-                    toast.warning("Your account is inactive. Some features may be limited.");
+                    toast("Your account is inactive. Some features may be limited.");
                     // Vẫn tiếp tục flow bình thường
                 }
-                
+
                 // Determine role from profile API and route accordingly
                 try {
                     const roleFromProfile = (userProfile?.data?.role || "driver").toString().toLowerCase();
@@ -287,7 +287,13 @@ export default function Login({ onSwitchToRegister, onLogin, onStaffLogin, onAdm
                 } catch {}
 
                 // Driver flow: Check if user needs to complete profile setup
-                
+                // For social login users, always redirect to dashboard regardless of profile completion status
+                if (isSocialLogin) {
+                    console.log("Social login user - redirecting to dashboard");
+                    onLogin?.();
+                    return;
+                }
+
                 // Store user profile data in localStorage
                 if (userProfile.data) {
                     if (userProfile.data.fullName) {
@@ -299,7 +305,7 @@ export default function Login({ onSwitchToRegister, onLogin, onStaffLogin, onAdm
                         console.log("Stored email:", userProfile.data.email);
                     }
                 }
-                
+
                 // Check if user needs to complete profile setup
                 if (!userProfile.data.dateOfBirth) {
                     console.log("User needs profile completion");
@@ -310,7 +316,7 @@ export default function Login({ onSwitchToRegister, onLogin, onStaffLogin, onAdm
                     console.log("User needs vehicle setup");
                     onSwitchToVehicleSetup?.(); //Muốn sang dashboard thì chỉnh thành onLogin
                     return;
-                } 
+                }
                 else {
                     // Decide dashboard by role; store stationId for staff
                     const role = (userProfile.data.role || localStorage.getItem("role") || "driver").toLowerCase();
@@ -327,7 +333,7 @@ export default function Login({ onSwitchToRegister, onLogin, onStaffLogin, onAdm
                         return;
                     }
                 }
-                
+
                 // User profile is complete, proceed with normal login flow
                 console.log("User profile is complete, proceeding with login");
                 onLogin?.();

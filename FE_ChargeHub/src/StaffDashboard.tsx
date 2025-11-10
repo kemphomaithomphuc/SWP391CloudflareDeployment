@@ -10,6 +10,7 @@ import StaffReportView from "./components/StaffReportView";
 import PostActivatingView from "./components/PostActivatingView";
 import ChargingManagementView from "./components/ChargingManagementView";
 import StaffNotificationView from "./components/StaffNotificationView";
+import OnsitePaymentView from "./components/OnsitePaymentView";
 import {
     Menu,
     X,
@@ -89,6 +90,7 @@ export default function StaffDashboard({ onLogout, onNotifications, onReports, o
     const menuItems = useMemo(() => [
         { id: "dashboard", label: t("dashboard") || "Dashboard", icon: Home },
         { id: "chargingManagement", label: language === 'vi' ? "Quản Lý Charging" : "Charging Management", icon: Zap },
+        { id: "onsitePayment", label: language === 'vi' ? "Thanh Toán Tại Chỗ" : "Onsite Payment", icon: CreditCard },
         { id: "billing", label: t("billing_invoice") || "Billing & Invoice", icon: Receipt },
         { id: "reports", label: t("report_issues") || "Report Issues", icon: AlertTriangle },
         { id: "postActivating", label: language === 'vi' ? "Kích Hoạt Trạm" : "Post Activating", icon: Activity },
@@ -178,6 +180,11 @@ export default function StaffDashboard({ onLogout, onNotifications, onReports, o
       case "chargingManagement":
         return (
           <ChargingManagementView onBack={() => setActiveSection("dashboard")} />
+        );
+
+      case "onsitePayment":
+        return (
+          <OnsitePaymentView onBack={() => setActiveSection("dashboard")} />
         );
 
       case "notifications":
@@ -434,17 +441,49 @@ export default function StaffDashboard({ onLogout, onNotifications, onReports, o
                             </Button>
                         </div>
 
-                        {/* Station Info Header - Visible on desktop */}
+                        {/* Staff Info Header - Visible on desktop */}
                         <div className="hidden md:block p-4 border-b border-sidebar-border">
-                            <div className="flex items-center space-x-3">
-                                <div className="w-10 h-10 bg-sidebar-primary rounded-lg flex items-center justify-center">
-                                    <span className="font-bold text-sidebar-primary-foreground">V</span>
+                            <div className="flex items-center justify-between mb-3">
+                                <span className="text-sm font-medium text-sidebar-foreground">
+                                    {language === 'vi' ? 'Thông Tin Nhân Viên' : 'Staff Info'}
+                                </span>
+                                <Button variant="ghost" size="sm" onClick={() => setSidebarOpen(false)} className="h-6 w-6 p-0">
+                                    <X className="w-4 h-4" />
+                                </Button>
+                            </div>
+                            <div className="flex items-center space-x-3 mb-3">
+                                <div className="w-12 h-12 bg-sidebar-primary rounded-lg flex items-center justify-center">
+                                    <span className="font-bold text-sidebar-primary-foreground text-lg">
+                                        {localStorage.getItem("fullName")?.charAt(0)?.toUpperCase() || "S"}
+                                    </span>
                                 </div>
                                 <div className="flex-1 min-w-0">
-                                    <h2 className="font-semibold text-sidebar-foreground truncate">{currentStation.name}</h2>
+                                    <h3 className="font-semibold text-sidebar-foreground truncate">
+                                        {localStorage.getItem("fullName") || "Staff"}
+                                    </h3>
                                     <p className="text-xs text-sidebar-foreground/60 truncate">
-                                        ID: {currentStation.id}
+                                        {localStorage.getItem("email") || ""}
                                     </p>
+                                </div>
+                            </div>
+                            <div className="space-y-1.5">
+                                <div className="flex items-center justify-between">
+                                    <span className="text-xs text-sidebar-foreground/60">{language === 'vi' ? 'Vai trò' : 'Role'}:</span>
+                                    <span className="text-xs font-medium text-sidebar-foreground capitalize">
+                                        {localStorage.getItem("role") || "staff"}
+                                    </span>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                    <span className="text-xs text-sidebar-foreground/60">{language === 'vi' ? 'Trạm' : 'Station'}:</span>
+                                    <span className="text-xs font-medium text-sidebar-foreground truncate ml-2">
+                                        {currentStation.name}
+                                    </span>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                    <span className="text-xs text-sidebar-foreground/60">ID:</span>
+                                    <span className="text-xs font-medium text-sidebar-foreground">
+                                        {currentStation.id}
+                                    </span>
                                 </div>
                             </div>
                         </div>

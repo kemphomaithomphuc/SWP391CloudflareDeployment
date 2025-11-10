@@ -21,7 +21,7 @@ api.interceptors.response.use(
     async (error) => {
         const originalRequest = error.config;
 
-        // 🆕 Check if it's a 403 error with USER_BANNED reason
+        // Check if it's a 403 error with USER_BANNED reason
         if (error.response?.status === 403) {
             const errorData = error.response?.data;
             
@@ -341,6 +341,63 @@ export interface APIResponse<T> {
   data: T;
   timestamp: string;
 }
+
+// ===== TRANSACTION HISTORY =====
+export interface TransactionHistoryParams {
+  userId?: number;
+  status?: string;
+  paymentMethod?: string;
+  fromDate?: string;
+  toDate?: string;
+  stationId?: number;
+  sortBy?: string;
+  sortDirection?: "ASC" | "DESC";
+  page?: number;
+  size?: number;
+}
+
+export interface TransactionHistoryItem {
+  transactionId: number;
+  amount: number;
+  paymentMethod?: string;
+  status?: string;
+  createdAt?: string;
+  paymentTime?: string;
+  userId?: number;
+  userName?: string;
+  userEmail?: string;
+  sessionId?: number;
+  sessionStartTime?: string;
+  sessionEndTime?: string;
+  powerConsumed?: number;
+  stationName?: string;
+  stationAddress?: string;
+  vnpayTransactionNo?: string;
+  vnpayBankCode?: string;
+}
+
+export interface TransactionHistoryApiResponse {
+  success: boolean;
+  message?: string;
+  data: {
+    transactions: TransactionHistoryItem[];
+    totalElements?: number;
+  };
+}
+
+export const getTransactionHistory = async (
+  params: TransactionHistoryParams
+): Promise<TransactionHistoryApiResponse> => {
+  const response = await api.get("/api/transactions/history", {
+    params: {
+      ...params,
+      status: params.status ? params.status.toUpperCase() : undefined,
+      paymentMethod: params.paymentMethod ? params.paymentMethod.toUpperCase() : undefined,
+      sortDirection: params.sortDirection ?? "DESC",
+    },
+  });
+  return response.data as TransactionHistoryApiResponse;
+};
 
 // ===== STAFF: CHANGE CHARGING POINT TYPES =====
 export interface ChargingPointDTO {
@@ -1089,10 +1146,16 @@ export interface FeeDetailDTO {
   createdAt: string;
 }
 
+export interface UnpaidFeesData {
+  unpaidFees: FeeDTO[];
+  failedTransactionIds: number[];
+}
+
 export interface UnpaidFeesResponse {
   success: boolean;
   message: string;
-  data: FeeDTO[];
+  data: UnpaidFeesData;
+  timestamp?: string;
 }
 
 export interface PayPenaltyResponse {

@@ -42,7 +42,6 @@ public class UserServiceImpl implements UserService {
     private static int MAX_VIOLATIONS = 3;
 
     // Dependencies
-
     private final PasswordEncoder passwordEncoder;
     private final UserRepository userRepository;
     private final SubscriptionRepository subscriptionRepository;
@@ -170,22 +169,42 @@ public class UserServiceImpl implements UserService {
     public User updateUserProfile(Long userId, UpdateUserDTO updateDTO) {
         User user = getUserById(userId);
 
-        // Cập nhật các thông tin an toàn
-        if (updateDTO.getFullName() != null) {
-            user.setFullName(updateDTO.getFullName());
+        if (updateDTO.getFullName() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Họ và tên không được để trống");
         }
 
-        if (updateDTO.getAddress() != null) {
-            user.setAddress(updateDTO.getAddress());
+        if (updateDTO.getAddress() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Địa chỉ không được để trống");
         }
 
+        if (updateDTO.getDateOfBirth() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Ngày sinh không được để trống");
+        }
+
+        // Validation phone number nếu có cập nhật
         if (updateDTO.getPhoneNumber() != null) {
-            user.setPhone(updateDTO.getPhoneNumber());
+            if (!isValidVietnamPhone(updateDTO.getPhoneNumber().trim())) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Số điện thoại không hợp lệ");
+            }
+
+            String currentPhone = user.getPhone();
+            if (!updateDTO.getPhoneNumber().trim().equals(currentPhone)) {
+                if (userRepository.existsByPhoneAndUserIdNot(updateDTO.getPhoneNumber().trim(), userId)) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Số điện thoại đã được sử dụng bởi tài khoản khác");
+                }
+            }
         }
 
-        if (updateDTO.getDateOfBirth() != null) {
-            user.setDateOfBirth(updateDTO.getDateOfBirth());
+        // Cập nhật thông tin user
+        user.setFullName(updateDTO.getFullName().trim());
+        user.setAddress(updateDTO.getAddress().trim());
+
+        // Chỉ cập nhật phone nếu có giá trị mới
+        if (updateDTO.getPhoneNumber() != null && !updateDTO.getPhoneNumber().trim().isEmpty()) {
+            user.setPhone(updateDTO.getPhoneNumber().trim());
         }
+
+        user.setDateOfBirth(updateDTO.getDateOfBirth());
 
         return userRepository.save(user);
     }
@@ -489,14 +508,6 @@ public class UserServiceImpl implements UserService {
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy user với email: " + email));
 
         user.setPassword(passwordEncoder.encode(newPassword));
-        userRepository.save(user);
-    }
-
-    @Override
-    public void unbanUser(Long userId) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy user với ID: " + userId));
-        user.setStatus(User.UserStatus.ACTIVE);
         userRepository.save(user);
     }
 

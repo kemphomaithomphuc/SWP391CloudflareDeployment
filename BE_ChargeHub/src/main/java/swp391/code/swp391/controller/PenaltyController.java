@@ -8,10 +8,16 @@ import org.springframework.web.bind.annotation.*;
 import swp391.code.swp391.dto.APIResponse;
 import swp391.code.swp391.dto.FeeDetailDTO;
 import swp391.code.swp391.entity.Fee;
+import swp391.code.swp391.entity.Transaction;
+import swp391.code.swp391.entity.User;
+import swp391.code.swp391.repository.TransactionRepository;
+import swp391.code.swp391.repository.UserRepository;
 import swp391.code.swp391.service.PenaltyService;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * Controller cho Penalty/Fee Management
@@ -30,6 +36,8 @@ import java.util.Map;
 public class PenaltyController {
 
     private final PenaltyService penaltyService;
+    private final TransactionRepository transactionRepository;
+    private final UserRepository userRepository;
 
     /**
      * AC6: Lấy lịch sử phí phạt của user
@@ -77,25 +85,42 @@ public class PenaltyController {
     }
 
     /**
-     * Lấy các phí chưa thanh toán của user
+     * Lấy các phí chưa thanh toán của user + danh sách transactionId FAILED của user đó
      */
     @GetMapping("/user/{userId}/unpaid")
     @PreAuthorize("hasRole('DRIVER') or hasRole('ADMIN')")
-    public ResponseEntity<APIResponse<List<Fee>>> getUnpaidFees(@PathVariable Long userId) {
+    public ResponseEntity<APIResponse<Map<String, Object>>> getUnpaidFees(@PathVariable Long userId) {
         try {
             log.info("Getting unpaid fees for user {}", userId);
             List<Fee> unpaidFees = penaltyService.getUnpaidFees(userId);
 
-            Double totalUnpaid = unpaidFees.stream()
+            // Tổng tiền phí chưa thanh toán
+            double totalUnpaidFees = unpaidFees.stream()
                     .mapToDouble(Fee::getAmount)
                     .sum();
 
-            return ResponseEntity.ok(APIResponse.<List<Fee>>builder()
-                    .success(true)
-                    .message(String.format("Có %d phí chưa thanh toán, tổng: %,.0f VNĐ",
-                            unpaidFees.size(), totalUnpaid))
-                    .data(unpaidFees)
-                    .build());
+            // Lấy danh sách transactionId FAILED của user
+            User user = userRepository.findById(userId)
+                    .orElseThrow(() -> new IllegalArgumentException("User không tồn tại"));
+
+            List<Long> failedTransactionIds = transactionRepository
+                    .findByUserOrderByTransactionIdDesc(user)
+                    .stream()
+                    .filter(t -> t.getStatus() == Transaction.Status.FAILED)
+                    .map(Transaction::getTransactionId)
+                    .collect(Collectors.toList());
+
+            Map<String, Object> data = new HashMap<>();
+            data.put("unpaidFees", unpaidFees);                 // Danh sách phí chưa thanh toán
+            data.put("totalUnpaidFees", totalUnpaidFees);       // Tổng tiền phí
+            data.put("failedTransactionIds", failedTransactionIds); // Các transactionId thất bại
+            data.put("totalFailedTransactions", failedTransactionIds.size()); // Số lượng transaction thất bại
+
+            return ResponseEntity.ok(APIResponse.success(
+                    String.format("Có %d phí chưa thanh toán (%,.0f VNĐ) và %d transaction thất bại",
+                            unpaidFees.size(), totalUnpaidFees, failedTransactionIds.size()),
+                    data
+            ));
 
         } catch (Exception e) {
             log.error("Error getting unpaid fees: {}", e.getMessage(), e);
@@ -328,4 +353,3 @@ public class PenaltyController {
         }
     }
 }
-

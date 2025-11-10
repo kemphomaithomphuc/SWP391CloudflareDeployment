@@ -30,7 +30,7 @@ public class PaymentDetailDTO {
 
     // Chi tiết chi phí
     private BigDecimal basePrice; // Giá mỗi kWh từ ConnectorType
-    private BigDecimal priceFactor; // Hệ số giờ cao điểm/bình thường
+    // ĐÃ XÓA: priceFactor - không còn tính theo hệ số giờ cao điểm
     private BigDecimal subscriptionDiscount; // Phần trăm giảm giá
     private BigDecimal baseCost; // Chi phí cơ bản của phiên sạc
 

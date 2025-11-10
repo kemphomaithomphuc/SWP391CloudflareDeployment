@@ -10,6 +10,7 @@ import {
   Home,
   Users,
   MapPin,
+  Map,
   Settings,
   Bell,
   Receipt,
@@ -26,7 +27,8 @@ import {
   Wallet,
   FileText,
   AlertTriangle,
-  CreditCard
+  CreditCard,
+  Activity
 } from "lucide-react";
 
 interface AppLayoutProps {
@@ -90,30 +92,6 @@ export default function AppLayout({
       labelVi: 'Đặt chỗ của tôi',
       icon: Calendar,
       onClick: () => onNavigate?.('myBookings'),
-      userTypes: ['driver']
-    },
-    {
-      id: 'wallet',
-      label: 'Wallet',
-      labelVi: 'Ví tiền',
-      icon: Wallet,
-      onClick: () => onNavigate?.('wallet'),
-      userTypes: ['driver']
-    },
-    {
-      id: 'history',
-      label: 'History',
-      labelVi: 'Lịch sử',
-      icon: FileText,
-      onClick: () => onNavigate?.('history'),
-      userTypes: ['driver']
-    },
-    {
-      id: 'analysis',
-      label: 'Analytics',
-      labelVi: 'Phân tích',
-      icon: BarChart3,
-      onClick: () => onNavigate?.('analysis'),
       userTypes: ['driver']
     },
     {
@@ -198,6 +176,30 @@ export default function AppLayout({
       labelVi: 'Bảng điều khiển',
       icon: Home,
       onClick: () => onNavigate?.('adminDashboard'),
+      userTypes: ['admin']
+    },
+    {
+      id: 'adminMap',
+      label: 'Admin Map',
+      labelVi: 'Bản đồ Admin',
+      icon: Map,
+      onClick: () => onNavigate?.('adminMap'),
+      userTypes: ['admin']
+    },
+    {
+      id: 'adminChargerPostActivating',
+      label: 'Charger Post Activating',
+      labelVi: 'Kích hoạt trạm sạc',
+      icon: Activity,
+      onClick: () => onNavigate?.('adminChargerPostActivating'),
+      userTypes: ['admin']
+    },
+    {
+      id: 'issueResolvement',
+      label: 'Issue Resolvement',
+      labelVi: 'Xử lý sự cố',
+      icon: AlertTriangle,
+      onClick: () => onNavigate?.('issueResolvement'),
       userTypes: ['admin']
     },
     {

@@ -21,6 +21,7 @@ import { useLanguage } from "./contexts/LanguageContext";
 import DriverManagementView from "./components/DriverManagementView";
 import MarketTrendsWidget from "./components/MarketTrendsWidget";
 import ConnectorSuggestionsWidget from "./components/ConnectorSuggestionsWidget";
+import AdminMapView from "./components/AdminMapView";
 
 interface AdminDashboardProps {
     onLogout: () => void;
@@ -37,7 +38,7 @@ export default function AdminDashboard({ onLogout, onSystemConfig, onAdminMap, o
 
     const { language, setLanguage } = useLanguage();
     const [isLoggingOut, setIsLoggingOut] = useState(false);
-    const [currentView, setCurrentView] = useState<'dashboard' | 'driverManagement'>('dashboard');
+    const [currentView, setCurrentView] = useState<'dashboard' | 'driverManagement' | 'adminMapView'>('dashboard');
     const [marketTrendsExpanded, setMarketTrendsExpanded] = useState(false);
     const [connectorSuggestionsExpanded, setConnectorSuggestionsExpanded] = useState(false);
 
@@ -45,7 +46,22 @@ export default function AdminDashboard({ onLogout, onSystemConfig, onAdminMap, o
         setLanguage(language === 'en' ? 'vi' : 'en');
     };
 
-    const adminName = localStorage.getItem("fullName") || "Admin";
+    const adminName = localStorage.getItem("fullName") || (language === 'vi' ? 'Người dùng' : 'User');
+    const storedRole = (localStorage.getItem("role") || "admin").toLowerCase();
+    const roleLabel = (() => {
+        switch (storedRole) {
+            case 'admin':
+            case 'administrator':
+                return language === 'vi' ? 'Quản trị viên' : 'Administrator';
+            case 'staff':
+                return language === 'vi' ? 'Nhân viên' : 'Staff';
+            case 'driver':
+            case 'user':
+                return language === 'vi' ? 'Khách hàng' : 'Driver';
+            default:
+                return language === 'vi' ? 'Người dùng' : 'User';
+        }
+    })();
 
     const handleGridButtonClick = (buttonName: string) => {
         console.log(`${buttonName} button clicked`);
@@ -92,6 +108,11 @@ export default function AdminDashboard({ onLogout, onSystemConfig, onAdminMap, o
         return <DriverManagementView onBack={() => setCurrentView('dashboard')} />;
     }
 
+    // Show Admin Map View if selected
+    if (currentView === 'adminMapView') {
+        return <AdminMapView onBack={() => setCurrentView('dashboard')} />;
+    }
+
     return (
         <div className="min-h-screen bg-background">
             {/* Top Navigation Bar */}
@@ -106,7 +127,7 @@ export default function AdminDashboard({ onLogout, onSystemConfig, onAdminMap, o
                                 </div>
                                 <div className="space-y-1">
                                     <p className="font-medium text-foreground">
-                                        {language === 'en' ? 'Admin' : 'Quản trị viên'}: {adminName}
+                                        {roleLabel}: {adminName}
                                     </p>
                                 </div>
                             </div>
@@ -428,6 +449,35 @@ export default function AdminDashboard({ onLogout, onSystemConfig, onAdminMap, o
                                     className="font-medium text-foreground group-hover:text-indigo-600 transition-colors duration-300 text-center"
                                 >
                                     {language === 'en' ? 'Driver Management' : 'Quản lý Tài xế'}
+                                </motion.span>
+                            </Button>
+                        </motion.div>
+
+                        {/* Admin Map View Button */}
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.95 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            transition={{ duration: 0.5, delay: 0.7 }}
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
+                        >
+                            <Button
+                                variant="outline"
+                                onClick={() => setCurrentView('adminMapView')}
+                                className="w-full h-32 flex flex-col items-center justify-center space-y-3 bg-card hover:bg-accent/50 border-border shadow-lg hover:shadow-xl transition-all duration-300 rounded-2xl group"
+                            >
+                                <div className="w-12 h-12 bg-teal-500/10 rounded-xl flex items-center justify-center group-hover:bg-teal-500/20 transition-colors duration-300">
+                                    <Globe className="w-6 h-6 text-teal-600" />
+                                </div>
+                                <motion.span
+                                    key={language + 'adminmapview'}
+                                    initial={{ opacity: 0, y: 10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, y: -10 }}
+                                    transition={{ duration: 0.2 }}
+                                    className="font-medium text-foreground group-hover:text-teal-600 transition-colors duration-300 text-center"
+                                >
+                                    {language === 'en' ? 'Admin Map View' : 'Xem bản đồ Admin'}
                                 </motion.span>
                             </Button>
                         </motion.div>

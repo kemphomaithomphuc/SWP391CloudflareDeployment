@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ArrowLeft, Zap, Pause, Play, Square, Clock, Battery, MapPin, CreditCard, QrCode, RefreshCw, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Zap, Pause, Play, Square, Clock, Battery, MapPin, CreditCard, QrCode, RefreshCw, AlertTriangle, User, Phone, Mail, Car, Hash } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useBooking } from '../contexts/BookingContext';
@@ -40,6 +40,12 @@ interface ChargingSession {
   costPerKWh: number;
   totalCost: number; //(cost in api)
   estimatedTimeRemaining: number; // in minutes
+  userName?: string;
+  userPhone?: string;
+  userEmail?: string;
+  vehiclePlate?: string;
+  chargingPointName?: string;
+  lastMonitorTime?: string;
 }
 
 interface PaymentDetail {
@@ -61,7 +67,26 @@ interface StoredStationInfo {
   chargingPower?: number;
   pricePerKwh?: number;
   timestamp?: string;
+  chargingPointName?: string;
 }
+
+const SESSION_STORAGE_KEY = (sessionId?: string | null) =>
+  sessionId && sessionId !== 'null' ? `charging-session-${sessionId}` : null;
+
+const coerceSessionStatus = (
+  value: any,
+  fallback: ChargingSession['status']
+): ChargingSession['status'] => {
+  if (
+    value === 'charging' ||
+    value === 'paused' ||
+    value === 'completed' ||
+    value === 'stopped'
+  ) {
+    return value;
+  }
+  return fallback;
+};
 
 const getStoredStationInfo = (): StoredStationInfo | null => {
   try {
@@ -85,6 +110,9 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
   const userId = localStorage.getItem("userId");
   const orderId = localStorage.getItem("currentOrderId");
   const token = localStorage.getItem("token");
+  const defaultUserName = localStorage.getItem("fullName") || undefined;
+  const defaultUserPhone = localStorage.getItem("phone") || localStorage.getItem("phoneNumber") || undefined;
+  const defaultUserEmail = localStorage.getItem("email") || undefined;
 
   const initialStationInfo = getStoredStationInfo();
   const initialChargerType = initialStationInfo?.connectorType && typeof initialStationInfo.connectorType === 'string'
@@ -101,7 +129,7 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
   const buildInitialSession = (): ChargingSession => {
     const base: ChargingSession = {
       id: String(sessionId),
-      bookingId: String(orderId),
+      bookingId: orderId ? String(orderId) : '',
       stationName: initialStationInfo?.stationName ?? "EVN Station Thủ Đức",
       stationAddress: initialStationInfo?.stationAddress ?? "123 Võ Văn Ngân, Thủ Đức, TP.HCM",
       chargerType: initialChargerType,
@@ -118,6 +146,18 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
       estimatedTimeRemaining: 0
     };
 
+    if (defaultUserName) {
+      base.userName = defaultUserName;
+    }
+
+    if (defaultUserPhone) {
+      base.userPhone = defaultUserPhone;
+    }
+
+    if (defaultUserEmail) {
+      base.userEmail = defaultUserEmail;
+    }
+
     if (typeof initialStationInfo?.stationId === 'number' && !isNaN(initialStationInfo.stationId)) {
       base.stationId = initialStationInfo.stationId;
     }
@@ -125,7 +165,27 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
     return base;
   };
 
-  const [session, setSession] = useState<ChargingSession>(buildInitialSession);
+  const [session, setSession] = useState<ChargingSession>(() => {
+    const initial = buildInitialSession();
+    const storageKey = SESSION_STORAGE_KEY(initial.id);
+    if (storageKey) {
+      try {
+        const stored = localStorage.getItem(storageKey);
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          return {
+            ...initial,
+            ...parsed,
+            startTime: parsed.startTime || initial.startTime,
+            status: parsed.status || initial.status,
+          };
+        }
+      } catch (error) {
+        console.error("Failed to restore session from storage:", error);
+      }
+    }
+    return initial;
+  });
 
   const [elapsedTime, setElapsedTime] = useState(0); // in seconds
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
@@ -144,6 +204,36 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
   const PAYMENT_AMOUNT_TOLERANCE_VND = 500; // Allow minor rounding differences
   const stationInfoRef = useRef<StoredStationInfo | null>(initialStationInfo);
 
+  const persistSessionState = (nextSession: Partial<ChargingSession>) => {
+    const storageKey = SESSION_STORAGE_KEY(nextSession.id ?? session.id);
+    if (!storageKey) return;
+    try {
+      const data = {
+        startTime: nextSession.startTime ?? session.startTime,
+        status: coerceSessionStatus(nextSession.status, session.status),
+        energyConsumed: nextSession.energyConsumed ?? session.energyConsumed,
+        totalCost: nextSession.totalCost ?? session.totalCost,
+        currentBattery: nextSession.currentBattery ?? session.currentBattery,
+        chargingPointName: nextSession.chargingPointName ?? session.chargingPointName,
+        stationName: nextSession.stationName ?? session.stationName,
+        stationAddress: nextSession.stationAddress ?? session.stationAddress,
+        userName: nextSession.userName ?? session.userName,
+        userPhone: nextSession.userPhone ?? session.userPhone,
+        userEmail: nextSession.userEmail ?? session.userEmail,
+        vehiclePlate: nextSession.vehiclePlate ?? session.vehiclePlate,
+        costPerKWh: nextSession.costPerKWh ?? session.costPerKWh,
+        power: nextSession.power ?? session.power,
+        initialBattery: nextSession.initialBattery ?? session.initialBattery,
+        targetBattery: nextSession.targetBattery ?? session.targetBattery,
+        bookingId: nextSession.bookingId ?? session.bookingId,
+        stationId: nextSession.stationId ?? session.stationId,
+      };
+      localStorage.setItem(storageKey, JSON.stringify(data));
+    } catch (error) {
+      console.error("Failed to persist session state:", error);
+    }
+  };
+
   const updateSessionWithStationInfo = (info: StoredStationInfo) => {
     stationInfoRef.current = info;
     setSession(prev => {
@@ -159,18 +249,130 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
           : prev.power,
         costPerKWh: typeof info.pricePerKwh === 'number' && !isNaN(info.pricePerKwh)
           ? info.pricePerKwh
-          : prev.costPerKWh,
+          : prev.costPerKWh
       };
 
       if (typeof info.stationId === 'number' && !isNaN(info.stationId)) {
         next.stationId = info.stationId;
       }
 
+      if (info.chargingPointName !== undefined) {
+        next.chargingPointName = info.chargingPointName;
+      }
+
+      persistSessionState(next);
       return next;
     });
   };
 
-  
+  const updateSessionWithOrderData = (orderData: any) => {
+    if (!orderData || typeof orderData !== 'object') {
+      return;
+    }
+
+    setSession(prev => {
+      const next: ChargingSession = {
+        ...prev,
+        bookingId: orderData.orderId != null ? String(orderData.orderId) : prev.bookingId,
+        startTime: orderData.startTime ?? prev.startTime,
+        ...(orderData.endTime ? { endTime: orderData.endTime } : {}),
+        initialBattery: typeof orderData.startedBattery === 'number' && !isNaN(orderData.startedBattery)
+          ? orderData.startedBattery
+          : prev.initialBattery,
+        targetBattery: typeof orderData.expectedBattery === 'number' && !isNaN(orderData.expectedBattery)
+          ? orderData.expectedBattery
+          : prev.targetBattery,
+      };
+
+      if (typeof orderData.chargingPower === 'number' && !isNaN(orderData.chargingPower)) {
+        next.power = orderData.chargingPower;
+      }
+
+      if (typeof orderData.pricePerKwh === 'number' && !isNaN(orderData.pricePerKwh)) {
+        next.costPerKWh = orderData.pricePerKwh;
+      }
+
+      if (orderData.connectorType) {
+        next.chargerType = orderData.connectorType;
+      }
+
+      if (orderData.stationName) {
+        next.stationName = orderData.stationName;
+      }
+
+      if (orderData.stationAddress) {
+        next.stationAddress = orderData.stationAddress;
+      }
+
+      if (orderData.chargingPointName ?? orderData.chargingPoint) {
+        next.chargingPointName = orderData.chargingPointName ?? orderData.chargingPoint;
+      }
+
+      const phoneFromOrder = orderData.userPhone ?? orderData.userPhoneNumber;
+      if (phoneFromOrder) {
+        next.userPhone = phoneFromOrder;
+      }
+
+      if (orderData.userName) {
+        next.userName = orderData.userName;
+      }
+
+      if (orderData.userEmail) {
+        next.userEmail = orderData.userEmail;
+      }
+
+      if (orderData.vehiclePlate) {
+        next.vehiclePlate = orderData.vehiclePlate;
+      }
+
+      if (typeof orderData.stationId === 'number' && !isNaN(orderData.stationId)) {
+        next.stationId = orderData.stationId;
+      }
+
+      persistSessionState(next);
+      return next;
+    });
+  };
+
+  const persistStationInfoContext = (orderData: any) => {
+    if (!orderData) {
+      return;
+    }
+
+    const info: StoredStationInfo = {
+      stationId: typeof orderData.stationId === 'number'
+        ? orderData.stationId
+        : stationInfoRef.current?.stationId,
+      stationName: orderData.stationName ?? stationInfoRef.current?.stationName ?? undefined,
+      stationAddress: orderData.stationAddress ?? stationInfoRef.current?.stationAddress ?? undefined,
+      connectorType: orderData.connectorType ?? stationInfoRef.current?.connectorType ?? undefined,
+      chargingPower: typeof orderData.chargingPower === 'number'
+        ? orderData.chargingPower
+        : stationInfoRef.current?.chargingPower,
+      pricePerKwh: typeof orderData.pricePerKwh === 'number'
+        ? orderData.pricePerKwh
+        : stationInfoRef.current?.pricePerKwh,
+      chargingPointName: orderData?.chargingPointName
+        ?? stationInfoRef.current?.chargingPointName,
+      timestamp: new Date().toISOString()
+    };
+
+    stationInfoRef.current = info;
+
+    try {
+      localStorage.setItem("currentStationInfo", JSON.stringify(info));
+      if (info.stationId !== undefined) {
+        localStorage.setItem("currentStationId", info.stationId.toString());
+      }
+    } catch (storageError) {
+      console.error("Failed to persist station info:", storageError);
+    }
+
+    updateSessionWithOrderData(orderData);
+    updateSessionWithStationInfo(info);
+  };
+
+
   
   // Simulation state
   const [isSimulating, setIsSimulating] = useState(false);
@@ -182,6 +384,34 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
     timestamp: number;
   } | null>(null);
   
+  useEffect(() => {
+    if (!session.startTime) return;
+    if (elapsedTime > 0) return;
+    const start = new Date(session.startTime);
+    if (!Number.isNaN(start.getTime())) {
+      const diffSeconds = Math.max(0, Math.floor((Date.now() - start.getTime()) / 1000));
+      setElapsedTime(diffSeconds);
+    }
+  }, [session.startTime, elapsedTime]);
+
+  useEffect(() => {
+    if (!isSimulating && typeof session.currentBattery === 'number') {
+      setSmoothBattery(session.currentBattery);
+    }
+  }, [session.currentBattery, isSimulating]);
+
+  useEffect(() => {
+    if (!isSimulating && typeof session.energyConsumed === 'number') {
+      setSmoothEnergy(session.energyConsumed);
+    }
+  }, [session.energyConsumed, isSimulating]);
+
+  useEffect(() => {
+    if (!isSimulating && typeof session.totalCost === 'number') {
+      setSmoothCost(session.totalCost);
+    }
+  }, [session.totalCost, isSimulating]);
+
   // Ref to store monitoring interval ID for manual cleanup
   const monitoringIntervalRef = useRef<NodeJS.Timeout | null>(null);
   
@@ -218,10 +448,14 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
       
       // Update session state if sessionId is available
       if (currentSessionId && session.id !== currentSessionId) {
-        setSession(prev => ({
-          ...prev,
-          id: currentSessionId
-        }));
+        setSession(prev => {
+          const next = {
+            ...prev,
+            id: currentSessionId
+          };
+          persistSessionState(next);
+          return next;
+        });
         console.log("SessionId Monitor - Updated session.id to:", currentSessionId);
       }
 
@@ -255,9 +489,137 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
   useEffect(() => {
     setFinalizedMetrics(null);
     expectedPaymentAmountRef.current = null;
+    persistSessionState({});
   }, [session.id]);
 
-  
+  useEffect(() => {
+    const ensureActiveSessionContext = async () => {
+      const existingSessionId = localStorage.getItem("currentSessionId");
+      if (existingSessionId) {
+        if (!sessionStarted) {
+          setSession(prev => {
+            const next = {
+              ...prev,
+              id: existingSessionId
+            };
+            persistSessionState(next);
+            return next;
+          });
+          setSessionStarted(true);
+        }
+        return;
+      }
+
+      if (!token) {
+        return;
+      }
+
+      const headers = {
+        Authorization: `Bearer ${token}`
+      };
+
+      const processSession = (sessionData: any, relatedOrder?: any) => {
+        if (!sessionData?.sessionId) {
+          return false;
+        }
+
+        try {
+          localStorage.setItem("currentSessionId", sessionData.sessionId.toString());
+        } catch (error) {
+          console.error("Failed to persist sessionId:", error);
+        }
+
+        setSession(prev => {
+          const next = {
+            ...prev,
+            id: sessionData.sessionId.toString(),
+            startTime: sessionData.startTime ?? prev.startTime
+          };
+          persistSessionState(next);
+          return next;
+        });
+
+        if (relatedOrder) {
+          persistStationInfoContext(relatedOrder);
+        }
+
+        if (!sessionStarted) {
+          setSessionStarted(true);
+        }
+
+        return true;
+      };
+
+      const savedOrderId = localStorage.getItem("currentOrderId");
+
+      if (savedOrderId) {
+        try {
+          const sessionRes = await axios.get(
+            `http://localhost:8080/api/sessions/by-order/${savedOrderId}`,
+            { headers }
+          );
+          if (sessionRes.data?.success && sessionRes.data?.data) {
+            let relatedOrder: any = null;
+            try {
+              if (userId) {
+                const ordersRes = await axios.get(
+                  `http://localhost:8080/api/orders/my-orders?userId=${userId}`,
+                  { headers }
+                );
+                if (ordersRes.data?.success && Array.isArray(ordersRes.data.data)) {
+                  relatedOrder = ordersRes.data.data.find(
+                    (order: any) => String(order.orderId) === String(savedOrderId)
+                  );
+                }
+              }
+            } catch (orderFetchError) {
+              console.error("Failed to fetch related order:", orderFetchError);
+            }
+
+            if (processSession(sessionRes.data.data, relatedOrder)) {
+              return;
+            }
+          }
+        } catch (restoreError) {
+          console.error("Failed to restore session from saved orderId:", restoreError);
+        }
+      }
+
+      if (!userId) {
+        return;
+      }
+
+      try {
+        const ordersRes = await axios.get(
+          `http://localhost:8080/api/orders/my-orders?userId=${userId}`,
+          { headers }
+        );
+
+        if (ordersRes.data?.success && Array.isArray(ordersRes.data.data)) {
+          const chargingOrder = ordersRes.data.data.find((order: any) => order.status === 'CHARGING');
+          if (chargingOrder) {
+            try {
+              const sessionRes = await axios.get(
+                `http://localhost:8080/api/sessions/by-order/${chargingOrder.orderId}`,
+                { headers }
+              );
+              if (sessionRes.data?.success && sessionRes.data?.data) {
+                if (processSession(sessionRes.data.data, chargingOrder)) {
+                  return;
+                }
+              }
+            } catch (sessionError) {
+              console.error("Failed to fetch session for active order:", sessionError);
+            }
+          }
+        }
+      } catch (orderListError) {
+        console.error("Failed to retrieve orders for session restore:", orderListError);
+      }
+    };
+
+    ensureActiveSessionContext();
+  }, [token, sessionStarted, userId]);
 
   const translations = {
     title: language === 'vi' ? 'Phiên sạc đang hoạt động' : 'Active Charging Session',
@@ -324,16 +686,13 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
 
       console.log(`Monitoring session ID: ${sessionId}`);
       
-      // Fix: headers should be in the 3rd parameter (config), 2nd parameter is data (empty object for PUT)
-      const response = await axios.put(
+      const response = await axios.get(
         `http://localhost:8080/api/sessions/${sessionId}/monitor`,
-        {}, // Empty data body for PUT request
         {
           headers: {
             Authorization: `Bearer ${currentToken}`,
-            'Content-Type': 'application/json'
           },
-          timeout: 5000 // 5 second timeout for smooth UX
+          timeout: 5000, // 5 second timeout for smooth UX
         }
       );
 
@@ -348,11 +707,15 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
         
         // Handle initial battery setup and start simulation
         if (!isInitialized && monitoringData.currentBattery) {
-          setSession(prev => ({
-            ...prev,
-            initialBattery: monitoringData.currentBattery,
-            currentBattery: monitoringData.currentBattery
-          }));
+          setSession(prev => {
+            const next = {
+              ...prev,
+              initialBattery: monitoringData.currentBattery,
+              currentBattery: monitoringData.currentBattery
+            };
+            persistSessionState(next);
+            return next;
+          });
           setSmoothBattery(monitoringData.currentBattery);
           setSmoothEnergy(monitoringData.powerConsumed || 0);
           setSmoothCost(monitoringData.cost || 0);
@@ -363,9 +726,10 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
         }
 
         // Map API response to ChargingSession format based on actual API structure
+        const derivedStatus = coerceSessionStatus(monitoringData.status, session.status);
         const updatedSession: ChargingSession = {
           id: sessionId,
-          bookingId: String(orderId),
+          bookingId: orderId ? String(orderId) : session.bookingId,
           stationName: session.stationName,
           stationAddress: session.stationAddress,
           chargerType: session.chargerType,
@@ -373,15 +737,25 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
           startTime: session.startTime,
           ...(session.endTime && { endTime: session.endTime }),
           pausedTime: session.pausedTime,
-          status: session.status,
+          status: derivedStatus,
           currentBattery: monitoringData.currentBattery || session.currentBattery,
           targetBattery: 100, // Always 100% as final milestone
           initialBattery: session.initialBattery || monitoringData.currentBattery || 0,
           energyConsumed: monitoringData.powerConsumed || session.energyConsumed,
           costPerKWh: session.costPerKWh,
           totalCost: monitoringData.cost || session.totalCost,
-          estimatedTimeRemaining: session.estimatedTimeRemaining
+        estimatedTimeRemaining: typeof monitoringData.estimatedRemainingMinutes === 'number'
+          ? monitoringData.estimatedRemainingMinutes
+          : session.estimatedTimeRemaining
         };
+
+        if (monitoringData.startTime) {
+          updatedSession.startTime = monitoringData.startTime;
+        }
+
+        if (monitoringData.currentTime) {
+          updatedSession.lastMonitorTime = monitoringData.currentTime;
+        }
 
         if (typeof session.stationId === 'number' && !isNaN(session.stationId)) {
           updatedSession.stationId = session.stationId;
@@ -390,7 +764,12 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
         console.log('Updated Session:', updatedSession);
 
         // Update session state
+        persistSessionState(updatedSession);
         setSession(updatedSession);
+
+        if (typeof monitoringData.elapsedMinutes === 'number' && !isNaN(monitoringData.elapsedMinutes)) {
+          setElapsedTime(Math.max(0, Math.round(monitoringData.elapsedMinutes * 60)));
+        }
 
         // Update smooth values immediately with API data (no loading indicators)
         if (monitoringData.currentBattery !== undefined) {
@@ -416,7 +795,12 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
         }
         
         // Update last update time for subtle feedback
-        setLastUpdateTime(new Date());
+        if (monitoringData.currentTime) {
+          const parsedTime = new Date(monitoringData.currentTime);
+          setLastUpdateTime(isNaN(parsedTime.getTime()) ? new Date() : parsedTime);
+        } else {
+          setLastUpdateTime(new Date());
+        }
         
         // Only update loading state for initial call
         if (isInitialCall) {
@@ -480,7 +864,7 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
               
               // Don't show toast for retries, just log
               if (isInitialCall) {
-                toast.warning(errorMessage);
+                toast(errorMessage, { icon: '⚠️' });
               }
               
               // Don't stop monitoring yet, allow retry
@@ -535,7 +919,11 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
       
       // Stop session if critical error
       if (shouldStopMonitoring) {
-        setSession(prev => ({ ...prev, status: 'stopped' }));
+        setSession(prev => {
+          const next = { ...prev, status: 'stopped' as ChargingSession['status'] };
+          persistSessionState(next);
+          return next;
+        });
       }
       
       return null;
@@ -585,11 +973,15 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
         console.log('Charging session terminated successfully:', response.data);
         
         // Update session status to stopped ONLY after successful API call
-        setSession(prev => ({
-          ...prev,
-          status: 'stopped',
-                    endTime: new Date().toISOString()
-        }));
+        setSession(prev => {
+          const next = {
+            ...prev,
+            status: 'stopped' as ChargingSession['status'],
+            endTime: new Date().toISOString()
+          };
+          persistSessionState(next);
+          return next;
+        });
         
         // Show success message
         toast.success(language === 'vi' 
@@ -654,10 +1046,14 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
       setIsChargingFinishing(false);
       
       // Rollback session status to previous state
-      setSession(prev => ({
-        ...prev,
-        status: previousStatus
-      }));
+      setSession(prev => {
+        const next = {
+          ...prev,
+          status: previousStatus
+        };
+        persistSessionState(next);
+        return next;
+      });
       
       // Restart simulation if it was running before
       if (previousStatus === 'charging') {
@@ -852,9 +1248,9 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
         // Show warning when 5 minutes remaining (for 30-minute tokens)
         if (timeUntilExpiry <= 5 * 60 && timeUntilExpiry > 0) {
           setTokenWarningShown(true);
-          toast.warning(language === 'vi' 
+          toast(language === 'vi' 
             ? 'Phiên đăng nhập sắp hết hạn. Vui lòng lưu tiến trình sạc.' 
-            : 'Session will expire soon. Please save your charging progress.'
+            : 'Session will expire soon. Please save your charging progress.', { icon: '⚠️' }
           );
         }
       } catch (error) {
@@ -872,17 +1268,28 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
   }, [tokenWarningShown, language]);
 
   const handlePause = () => {
-    setSession(prev => ({ ...prev, status: 'paused' }));
+    setSession(prev => {
+      const next = { ...prev, status: 'paused' as ChargingSession['status'] };
+      persistSessionState(next);
+      return next;
+    });
     toast.info(language === 'vi' ? 'Đã tạm dừng sạc' : 'Charging paused');
   };
 
   const handleContinue = () => {
-    setSession(prev => ({ ...prev, status: 'charging' }));
+    setSession(prev => {
+      const next = { ...prev, status: 'charging' as ChargingSession['status'] };
+      persistSessionState(next);
+      return next;
+    });
     toast.success(language === 'vi' ? 'Tiếp tục sạc' : 'Charging resumed');
   };
 
   const handleStop = async () => {
-    const sessionId = localStorage.getItem("currentSessionId");
+    let sessionId = localStorage.getItem("currentSessionId");
+    if ((!sessionId || sessionId === 'null') && session.id && session.id !== 'null') {
+      sessionId = session.id;
+    }
     if (!sessionId) {
       toast.error(language === 'vi' ? 'Không tìm thấy ID phiên sạc' : 'Session ID not found');
       return;
@@ -907,7 +1314,10 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
   };
 
   const handleCompletionConfirm = async () => {
-    const sessionId = localStorage.getItem("currentSessionId");
+    let sessionId = localStorage.getItem("currentSessionId");
+    if ((!sessionId || sessionId === 'null') && session.id && session.id !== 'null') {
+      sessionId = session.id;
+    }
     if (!sessionId) {
       toast.error(language === 'vi' ? 'Không tìm thấy ID phiên sạc' : 'Session ID not found');
       return;
@@ -993,12 +1403,20 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
   };
 
   const applyPaymentDetail = (detail: PaymentDetail) => {
-    setSession(prev => ({
-      ...prev,
-      energyConsumed: detail.powerConsumed,
-      totalCost: detail.totalFee,
-      ...(detail.sessionEndTime ? { endTime: detail.sessionEndTime } : {}),
-    }));
+    setSession(prev => {
+      const next = {
+        ...prev,
+        energyConsumed: detail.powerConsumed,
+        totalCost: detail.totalFee,
+        stationName: detail.stationName ?? prev.stationName,
+        stationAddress: detail.stationAddress ?? prev.stationAddress,
+        userName: detail.userName ?? prev.userName,
+        ...(detail.sesionStartTime ? { startTime: detail.sesionStartTime } : {}),
+        ...(detail.sessionEndTime ? { endTime: detail.sessionEndTime } : {}),
+      };
+      persistSessionState(next);
+      return next;
+    });
 
     setSmoothEnergy(detail.powerConsumed);
     setSmoothCost(detail.totalFee);
@@ -1169,6 +1587,19 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
       return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
     }
     return `${minutes}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const formatDateTime = (value?: string) => {
+    if (!value) {
+      return language === 'vi' ? 'Không có dữ liệu' : 'N/A';
+    }
+
+    const parsed = new Date(value);
+    if (isNaN(parsed.getTime())) {
+      return value;
+    }
+
+    return parsed.toLocaleString(language === 'vi' ? 'vi-VN' : 'en-US');
   };
 
   const formatCurrency = (amount: number | undefined | null) => {
@@ -1484,20 +1915,71 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
               {language === 'vi' ? 'Thông tin trạm sạc' : 'Station Information'}
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent className="space-y-4 text-sm">
             <div>
-              <p className="font-medium">{session.stationName}</p>
-              <p className="text-sm text-muted-foreground">{session.stationAddress}</p>
+              <p className="font-medium text-base">{session.stationName}</p>
+              <p className="text-muted-foreground">{session.stationAddress}</p>
             </div>
-            <div className="flex items-center gap-4 text-sm">
-              <div className="flex items-center gap-1">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="flex items-center gap-2">
                 <Zap className="w-4 h-4 text-primary" />
-                <span>{session.chargerType} - {session.power}kW</span>
+                <span>{session.chargerType} · {session.power}kW</span>
               </div>
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-2">
                 <CreditCard className="w-4 h-4 text-green-500" />
                 <span>{formatCurrency(session.costPerKWh)}/kWh</span>
               </div>
+              {session.chargingPointName && (
+                <div className="flex items-center gap-2">
+                  <MapPin className="w-4 h-4 text-blue-500" />
+                  <span>{language === 'vi' ? 'Trụ sạc' : 'Charging Point'}: {session.chargingPointName}</span>
+                </div>
+              )}
+              <div className="flex items-center gap-2">
+                <Hash className="w-4 h-4 text-purple-500" />
+                <span>{language === 'vi' ? 'Mã đơn' : 'Order'}: #{session.bookingId}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Clock className="w-4 h-4 text-amber-500" />
+                <span>{language === 'vi' ? 'Bắt đầu' : 'Start'}: {formatDateTime(session.startTime)}</span>
+              </div>
+              {session.endTime && (
+                <div className="flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-emerald-500" />
+                  <span>{language === 'vi' ? 'Kết thúc dự kiến' : 'Expected End'}: {formatDateTime(session.endTime)}</span>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <User className="w-5 h-5" />
+              {language === 'vi' ? 'Thông tin khách hàng' : 'Customer Information'}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3 text-sm">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="flex items-center gap-2">
+                <User className="w-4 h-4 text-primary" />
+                <span>{session.userName || (language === 'vi' ? 'Chưa xác định' : 'Unknown')}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Phone className="w-4 h-4 text-green-500" />
+                <span>{session.userPhone || (language === 'vi' ? 'Chưa có' : 'N/A')}</span>
+              </div>
+              <div className="flex items-center gap-2 break-all">
+                <Mail className="w-4 h-4 text-blue-500" />
+                <span>{session.userEmail || (language === 'vi' ? 'Chưa có' : 'N/A')}</span>
+              </div>
+              {session.vehiclePlate && (
+                <div className="flex items-center gap-2">
+                  <Car className="w-4 h-4 text-amber-500" />
+                  <span>{language === 'vi' ? 'Biển số' : 'Vehicle'}: {session.vehiclePlate}</span>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>

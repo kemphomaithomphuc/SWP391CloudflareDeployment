@@ -3,7 +3,6 @@ package swp391.code.swp391.service;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import swp391.code.swp391.dto.NotificationDTO;
 import swp391.code.swp391.dto.NotificationSignalDTO;
@@ -26,7 +25,7 @@ public class NotificationServiceImpl implements NotificationService {
     private final NotificationRepository notificationRepository;
     private final OrderRepository orderRepository;
     private final UserRepository userRepository;
-    private final SimpMessagingTemplate simpMessagingTemplate;
+    // private final SimpMessagingTemplate simpMessagingTemplate;
     private final StaffManagementService staffManagementService;
     @Override
     @Transactional
@@ -112,16 +111,16 @@ public class NotificationServiceImpl implements NotificationService {
         dto.setNotificationCount(getUnreadCountForUser(recipientUser.getUserId()).intValue());
 
         // Gửi notification đến user cụ thể qua WebSocket
-        simpMessagingTemplate.convertAndSendToUser(
-                username,
-                "/queue/notifications",
-                dto
-        );
+//        simpMessagingTemplate.convertAndSendToUser(
+//                username,
+//                "/queue/notifications",
+//                dto
+//        );
     }
 
     public void pushNotificationToAll(Notification notification) {
         // Gửi broadcast notification đến tất cả users đang subscribe /topic/notifications
-        simpMessagingTemplate.convertAndSend("/topic/notifications", convertToDTO(notification));
+//        simpMessagingTemplate.convertAndSend("/topic/notifications", convertToDTO(notification));
     }
 
 //=====================BOOKING NOTIFICATION==========================
@@ -225,12 +224,12 @@ public class NotificationServiceImpl implements NotificationService {
         }
         notificationRepository.save(notification);
 
-        // Push via WebSocket
-        pushNotificationToUser(notification,Notification.Type.PAYMENT);
-
-        // Push updated unread count after creating notification
-        Long updatedCount = getUnreadCountForUser(user.getUserId());
-        pushUnreadCountToUser(user, updatedCount);
+//        // Push via WebSocket
+//        pushNotificationToUser(notification,Notification.Type.PAYMENT);
+//
+//        // Push updated unread count after creating notification
+//        Long updatedCount = getUnreadCountForUser(user.getUserId());
+//        pushUnreadCountToUser(user, updatedCount);
     }
 
     //=====================ISSUE NOTIFICATION==========================
@@ -342,12 +341,12 @@ public class NotificationServiceImpl implements NotificationService {
         }
         notificationRepository.save(notification);
 
-        // Push via WebSocket
-        pushNotificationToUser(notification,Notification.Type.PENALTY);
-
-        // Push updated unread count after creating notification
-        Long updatedCount = getUnreadCountForUser(user.getUserId());
-        pushUnreadCountToUser(user, updatedCount);
+//        // Push via WebSocket
+//        pushNotificationToUser(notification,Notification.Type.PENALTY);
+//
+//        // Push updated unread count after creating notification
+//        Long updatedCount = getUnreadCountForUser(user.getUserId());
+//        pushUnreadCountToUser(user, updatedCount);
     }
 
     //=====================GENERAL NOTIFICATION==========================
@@ -386,27 +385,18 @@ public class NotificationServiceImpl implements NotificationService {
         }
     }
 
-    // Push unread count to user via WebSocket
-    public void pushUnreadCountToUser(User user, Long count) {
-        String username = user.getEmail() != null ? user.getEmail() : user.getPhone();
-        if (username == null) {
-            log.warn("User {} has no email or phone to send notification count", user.getUserId());
-            return;
-        }
-
-        NotificationSignalDTO dto = new NotificationSignalDTO();
-        dto.setType(Notification.Type.GENERAL); // Hoặc type phù hợp
-        dto.setNotificationCount(count.intValue());
-
-        // Gửi đến user cụ thể
-        simpMessagingTemplate.convertAndSendToUser(
-                username,
-                "/queue/notification-count",
-                dto
-        );
-
-        log.info("Pushed unread count {} to user {}", count, username);
-    }
+//    // Push unread count to user via WebSocket
+//    public void pushUnreadCountToUser(User user, Long count) {
+//        String username = user.getEmail() != null ? user.getEmail() : user.getPhone();
+//        if (username == null) {
+//            log.warn("User {} has no email or phone to send notification count", user.getUserId());
+//            return;
+//        }
+//
+//        NotificationSignalDTO dto = new NotificationSignalDTO();
+//        dto.setType(Notification.Type.GENERAL); // Hoặc type phù hợp
+//        dto.setNotificationCount(count.intValue());
+//    }
 
     // Helper method to convert Notification to NotificationDTO
     private NotificationDTO convertToDTO(Notification notification) {

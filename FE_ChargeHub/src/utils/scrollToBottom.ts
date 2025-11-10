@@ -1,7 +1,9 @@
 /**
  * Scroll to bottom of messages container
  */
-export function scrollToBottom(messagesEndRef: React.RefObject<HTMLDivElement>) {
+import type { RefObject } from "react";
+
+export function scrollToBottom(messagesEndRef: RefObject<HTMLDivElement | null>) {
   messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
 }
 

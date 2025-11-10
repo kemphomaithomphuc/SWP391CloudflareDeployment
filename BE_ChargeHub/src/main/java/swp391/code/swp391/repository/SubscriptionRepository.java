@@ -8,6 +8,7 @@ import swp391.code.swp391.dto.SubscriptionResponseDTO;
 import swp391.code.swp391.entity.Subscription;
 import swp391.code.swp391.entity.User;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -28,6 +29,11 @@ public interface SubscriptionRepository extends JpaRepository<Subscription, Long
      * Tìm gói đăng ký theo loại
      */
     Subscription findByType(Subscription.Type type);
+
+    /**
+     * Tìm gói đăng ký theo giá (cho subscription payment callback)
+     */
+    List<Subscription> findByPrice(BigDecimal price);
 
     /**
      * Tìm gói đăng ký theo user id (lấy subscription còn hiệu lực hoặc mới nhất)

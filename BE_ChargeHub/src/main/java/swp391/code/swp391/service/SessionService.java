@@ -38,5 +38,7 @@ public interface SessionService {
 
     SessionDTO getSessionDetails(Long sessionId);
 
+    SessionDTO getSessionByOrderId(Long orderId);
+
     Long forceEndSession(Long sessionId, Long operatorId); // For admin/operator use
 }

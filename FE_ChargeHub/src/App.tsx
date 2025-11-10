@@ -8,7 +8,6 @@ import { Toaster } from "./components/ui/sonner";
 import AppLayout from "./components/AppLayout";
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom'
 import axios from "axios";
-import { jwtDecode } from "jwt-decode";
 
 
 // Import components individually to catch any import errors
@@ -21,6 +20,7 @@ import StaffLogin from "./StaffLogin";
 import StaffDashboard from "./StaffDashboard";
 import StaffNotificationView from "./components/StaffNotificationView";
 import StaffReportView from "./components/StaffReportView";
+import ChargingManagementView from "./components/ChargingManagementView";
 import AdminLogin from "./AdminLogin";
 import AdminDashboard from "./AdminDashboard";
 import BookingMap from "./BookingMap";
@@ -47,10 +47,43 @@ import ChargingSessionView from "./components/ChargingSessionView";
 import PremiumSubscriptionView from "./components/PremiumSubscriptionView";
 import PaymentResultView from "./components/PaymentResultView";
 import { ChatbotProvider } from "./contexts/ChatbotContext";
-import { checkAndRefreshToken } from "./services/api";
+import { checkAndRefreshToken, logoutUser } from "./services/api";
 import PenaltyPaymentView from "./components/PenaltyPaymentView";
 
-type ViewType = "login" | "register" | "roleSelection" | "profileSetup" | "vehicleSetup" | "staffProfileSetup" | "educationSetup" | "dashboard" | "staffLogin" | "staffDashboard" | "staffReports" | "adminLogin" | "adminDashboard" | "systemConfig" | "adminMap" | "revenue" | "staffManagement" | "usageAnalytics" | "booking" | "history" | "analysis" | "reportIssue" | "wallet" | "notifications" | "staffNotifications" | "postActivating" | "adminChargerPostActivating" | "myBookings" | "chargingSession" | "premiumSubscription" | "issueResolvement" | "penaltyPayment";
+type ViewType =
+  | "login"
+  | "register"
+  | "roleSelection"
+  | "profileSetup"
+  | "vehicleSetup"
+  | "staffProfileSetup"
+  | "educationSetup"
+  | "dashboard"
+  | "staffLogin"
+  | "staffDashboard"
+  | "staffReports"
+  | "adminLogin"
+  | "adminDashboard"
+  | "systemConfig"
+  | "adminMap"
+  | "revenue"
+  | "staffManagement"
+  | "usageAnalytics"
+  | "booking"
+  | "history"
+  | "analysis"
+  | "reportIssue"
+  | "wallet"
+  | "notifications"
+  | "staffNotifications"
+  | "postActivating"
+  | "adminChargerPostActivating"
+  | "myBookings"
+  | "chargingSession"
+  | "premiumSubscription"
+  | "issueResolvement"
+  | "penaltyPayment"
+  | "chargingManagement";
 
 function AppContent() {
   const navigate = useNavigate();
@@ -168,6 +201,10 @@ function AppContent() {
     setCurrentView("postActivating");
     navigate("/staff/post-activating");
   };
+  const switchToChargingManagement = () => {
+    setCurrentView("chargingManagement");
+    navigate("/staff/charging-management");
+  };
   const switchToAdminChargerPostActivating = () => {
     setCurrentView("adminChargerPostActivating");
     navigate("/admin/charger-post-activating");
@@ -192,6 +229,33 @@ function AppContent() {
   const switchToPenaltyPayment = () => {
     setCurrentView("penaltyPayment");
     navigate("/penalty-payment");
+  };
+
+  const clearAuthStorage = () => {
+    const keysToRemove = [
+      "token",
+      "userId",
+      "fullName",
+      "email",
+      "role",
+      "registeredUserId",
+      "refreshToken",
+      "stationId"
+    ];
+
+    keysToRemove.forEach((key) => localStorage.removeItem(key));
+  };
+
+  const handleAdminLogout = async () => {
+    try {
+      await logoutUser();
+    } catch (error) {
+      console.error("Admin logout error:", error);
+    } finally {
+      clearAuthStorage();
+      setCurrentView("login");
+      navigate("/login");
+    }
   };
 
   // Check if user needs vehicle setup after profile completion
@@ -254,6 +318,7 @@ function AppContent() {
       "staffNotifications": "/staff/notifications",
       "staffReports": "/staff/reports",
       "postActivating": "/staff/post-activating",
+      "chargingManagement": "/staff/charging-management",
       "adminLogin": "/admin/login",
       "adminDashboard": "/admin/dashboard",
       "systemConfig": "/admin/system-config",
@@ -278,7 +343,7 @@ function AppContent() {
     if (['dashboard', 'booking', 'history', 'analysis', 'reportIssue', 'wallet', 'notifications', 'myBookings', 'chargingSession', 'premiumSubscription'].includes(currentView)) {
       return 'driver';
     }
-    if (['staffDashboard', 'staffNotifications', 'staffReports', 'postActivating'].includes(currentView)) {
+    if (['staffDashboard', 'staffNotifications', 'staffReports', 'postActivating', 'chargingManagement'].includes(currentView)) {
       return 'staff';  
     }
     if (['adminDashboard', 'systemConfig', 'adminMap', 'revenue', 'staffManagement', 'usageAnalytics', 'adminChargerPostActivating'].includes(currentView)) {
@@ -331,8 +396,6 @@ function AppContent() {
           const rt = r?.data?.data?.refreshToken as string | undefined;
           console.log(at, rt);
           if (!at) throw new Error("Missing accessToken from callback");
-          const decoded: any = jwtDecode(at);
-
           localStorage.setItem("token", at);
           if (rt) localStorage.setItem("refreshToken", rt);
 
@@ -374,21 +437,9 @@ function AppContent() {
             setCurrentView("roleSelection");
             navigate("/role-selection");
           } else {
-            // Từ login, kiểm tra role để điều hướng đúng
-            try {
-              const decoded: any = jwtDecode(at);
-              if (decoded) {
-                setCurrentView("dashboard");
-                navigate("/dashboard");
-              } else {
-                setCurrentView("roleSelection");
-                navigate("/role-selection");
-              }
-            } catch (e) {
-              console.error("JWT decode failed:", e);
-              setCurrentView("login");
-              navigate("/login");
-            }
+            // Từ login, nếu có token hợp lệ thì điều hướng thẳng đến dashboard
+            setCurrentView("dashboard");
+            navigate("/dashboard");
           }
         } catch (e) {
           console.error("OAuth callback exchange failed:", e);
@@ -447,10 +498,21 @@ function AppContent() {
         return <StaffNotificationView onBack={() => navigate("/staff/dashboard")} />;
 
       case "staffDashboard":
-        return <StaffDashboard onLogout={switchToLogin} onNotifications={switchToStaffNotifications} onPostActivating={switchToPostActivating} onReports={switchToStaffReports} />;
+        return <StaffDashboard onLogout={switchToLogin} onNotifications={switchToStaffNotifications} onPostActivating={switchToPostActivating} onReports={switchToStaffReports} onChargingManagement={switchToChargingManagement} />;
 
       case "staffReports":
         return <StaffReportView onBack={() => navigate("/staff/dashboard")} />;
+
+      case "chargingManagement":
+        {
+          const storedStationId = localStorage.getItem("stationId");
+          return (
+            <ChargingManagementView
+              onBack={() => navigate("/staff/dashboard")}
+              {...(storedStationId ? { stationId: Number(storedStationId) } : {})}
+            />
+          );
+        }
 
       case "staffLogin":
         return (
@@ -512,9 +574,6 @@ function AppContent() {
         const penaltyUserId = Number(localStorage.getItem("userId") || localStorage.getItem("penaltyUserId") || 0);
         return <PenaltyPaymentView onBack={switchToLogin} userId={penaltyUserId} />;
       }
-
-
-
       case "vehicleSetup":
         return (
           <VehicleSetup 
@@ -978,6 +1037,20 @@ function AppContent() {
           <AppLayout
             userType="staff"
             currentView="postActivating"
+            onNavigate={handleNavigation}
+            onLogout={switchToLogin}
+            showSidebar={showSidebar}
+          >
+            {renderContent()}
+          </AppLayout>
+        } 
+      />
+      <Route 
+        path="/staff/charging-management" 
+        element={
+          <AppLayout
+            userType="staff"
+            currentView="chargingManagement"
             onNavigate={handleNavigation}
             onLogout={switchToLogin}
             showSidebar={showSidebar}

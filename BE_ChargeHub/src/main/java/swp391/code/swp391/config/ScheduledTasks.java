@@ -19,10 +19,10 @@ public class ScheduledTasks {
     private SystemConfigService systemConfigService;
 
     /**
-     * Tự động chạy vào 5:00 sáng Chủ Nhật hàng tuần.
+     * Tự động chạy vào 5:00 sáng HẰNG NGÀY.
      * (Cú pháp cron: Giây Phút Giờ Ngày Tháng Ngày-trong-tuần)
      */
-    @Scheduled(cron = "0 0 5 * * SUN")
+    @Scheduled(cron = "0 0 5 * * *")
     public void updateMarketTrendsWidget() {
         logger.info("Đang chạy tác vụ: Cập nhật xu hướng thị trường (Gemini)...");
         try {
