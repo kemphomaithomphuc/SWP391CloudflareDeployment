@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { ArrowLeft, Calendar, Clock, MapPin, Zap, Battery, QrCode, Phone, Navigation, MoreHorizontal, CheckCircle, XCircle, AlertTriangle, RefreshCw } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useTheme } from '../contexts/ThemeContext';
@@ -8,11 +8,12 @@ import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from './ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from './ui/alert-dialog';
 import { toast } from 'sonner';
 import { Separator } from './ui/separator';
 import api, { cancelOrder, CancelOrderDTO } from "../services/api";
+import getChargingStationDetail, { ChargingStationDetail, NearbyPlace } from '../api/chargingStationDetails';
 import {
     Pagination,
     PaginationContent,
@@ -128,6 +129,57 @@ interface APIResponse<T> {
   timestamp: string;
 }
 
+const NEARBY_COLLECTION_KEYS = [
+  "nearbyPlaces",
+  "nearbyAmenities",
+  "surroundingPlaces",
+  "neighborhoodHighlights",
+  "nearbyLocations",
+  "nearbyServices",
+];
+
+const aggregateNearbyPlaces = (detail: ChargingStationDetail | null): NearbyPlace[] => {
+  if (!detail) {
+    return [];
+  }
+
+  const collected: NearbyPlace[] = [];
+
+  for (const key of NEARBY_COLLECTION_KEYS) {
+    const value = (detail as Record<string, unknown>)[key];
+    if (Array.isArray(value)) {
+      collected.push(...(value as NearbyPlace[]));
+    }
+  }
+
+  return collected;
+};
+
+const deduplicateNearbyPlaces = (places: NearbyPlace[]): NearbyPlace[] => {
+  const seen = new Set<string>();
+  return places.filter((place) => {
+    const keySource =
+      place.id ??
+      place.name ??
+      place.address ??
+      place.description ??
+      `${place.category ?? ""}-${place.type ?? ""}-${place.distanceMeters ?? ""}`;
+
+    const key = typeof keySource === "string" ? keySource.trim().toLowerCase() : String(keySource);
+
+    if (!key) {
+      return true;
+    }
+
+    if (seen.has(key)) {
+      return false;
+    }
+
+    seen.add(key);
+    return true;
+  });
+};
+
 export default function MyBookingView({ onBack, onStartCharging }: MyBookingViewProps) {
   const { language } = useLanguage();
   const { theme } = useTheme();
@@ -142,6 +194,13 @@ export default function MyBookingView({ onBack, onStartCharging }: MyBookingView
   const [transactionLoading, setTransactionLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [transactionError, setTransactionError] = useState<string | null>(null);
+
+  const [nearbyPopupOpen, setNearbyPopupOpen] = useState(false);
+  const [nearbyLoading, setNearbyLoading] = useState(false);
+  const [nearbyError, setNearbyError] = useState<string | null>(null);
+  const [nearbyDetail, setNearbyDetail] = useState<ChargingStationDetail | null>(null);
+  const [popupStationName, setPopupStationName] = useState<string | null>(null);
+  const [hasTriggeredNearbyPopup, setHasTriggeredNearbyPopup] = useState(false);
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -232,6 +291,42 @@ export default function MyBookingView({ onBack, onStartCharging }: MyBookingView
       onStartCharging(String(order.orderId));
     }
   };
+
+  const openNearbyPopup = useCallback(
+    async (stationId: number, fallbackName?: string) => {
+      setNearbyLoading(true);
+      setNearbyError(null);
+      setNearbyDetail(null);
+      setPopupStationName(fallbackName ?? null);
+
+      try {
+        const detail = await getChargingStationDetail(stationId);
+        setNearbyDetail(detail);
+        setPopupStationName(detail?.stationName ?? fallbackName ?? null);
+        setNearbyPopupOpen(true);
+      } catch (err: any) {
+        console.error("Error loading nearby places for station:", err);
+        const message =
+          err?.response?.data?.message ||
+          err?.message ||
+          (language === 'vi'
+            ? 'Không thể tải danh sách địa điểm xung quanh trạm. Vui lòng thử lại sau.'
+            : 'Unable to load nearby locations for this station. Please try again later.');
+
+        setNearbyError(message);
+        toast.error(message);
+      } finally {
+        setNearbyLoading(false);
+        try {
+          sessionStorage.setItem(`bookingNowNearbyShown:${stationId}`, Date.now().toString());
+          sessionStorage.removeItem("bookingNowSuccessStationId");
+        } catch (storageError) {
+          console.error("Unable to persist nearby popup state:", storageError);
+        }
+      }
+    },
+    [language]
+  );
 
 
   // Function to fetch real orders from API
@@ -471,12 +566,14 @@ export default function MyBookingView({ onBack, onStartCharging }: MyBookingView
   };
 
   useEffect(() => {
-    if (!onStartCharging || apiOrders.length === 0) {
+    if (apiOrders.length === 0) {
+      chargingNavigationRef.current = null;
       return;
     }
 
     const chargingOrder = apiOrders.find(order => order.status === 'CHARGING');
     if (!chargingOrder) {
+      chargingNavigationRef.current = null;
       return;
     }
 
@@ -485,9 +582,11 @@ export default function MyBookingView({ onBack, onStartCharging }: MyBookingView
       return;
     }
 
-    // Persist station info and session context silently, then navigate
-    void navigateToChargingSession(chargingOrder, { showToast: false });
-  }, [apiOrders, onStartCharging]);
+    persistStationInfoFromOrder(chargingOrder);
+    localStorage.setItem("currentOrderId", orderKey);
+    chargingNavigationRef.current = orderKey;
+    void ensureSessionForOrder(chargingOrder, { showToast: false });
+  }, [apiOrders]);
 
   // Load orders on component mount
   useEffect(() => {
@@ -512,6 +611,54 @@ export default function MyBookingView({ onBack, onStartCharging }: MyBookingView
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, []);
+
+  useEffect(() => {
+    if (hasTriggeredNearbyPopup) {
+      return;
+    }
+
+    let stationIdStr: string | null = null;
+
+    try {
+      stationIdStr = sessionStorage.getItem("bookingNowSuccessStationId");
+    } catch (storageError) {
+      console.error("Unable to access booking now station id from sessionStorage:", storageError);
+      setHasTriggeredNearbyPopup(true);
+      return;
+    }
+
+    if (!stationIdStr) {
+      return;
+    }
+
+    try {
+      const alreadyShown = sessionStorage.getItem(`bookingNowNearbyShown:${stationIdStr}`);
+      if (alreadyShown) {
+        sessionStorage.removeItem("bookingNowSuccessStationId");
+        setHasTriggeredNearbyPopup(true);
+        return;
+      }
+    } catch (storageError) {
+      console.error("Unable to read nearby popup flags from sessionStorage:", storageError);
+    }
+
+    const parsedStationId = Number(stationIdStr);
+    if (!Number.isFinite(parsedStationId) || parsedStationId <= 0) {
+      try {
+        sessionStorage.removeItem("bookingNowSuccessStationId");
+      } catch (storageError) {
+        console.error("Unable to clear invalid booking station id:", storageError);
+      }
+      setHasTriggeredNearbyPopup(true);
+      return;
+    }
+
+    const matchingOrder = apiOrders.find(order => Number(order.stationId) === parsedStationId);
+    const fallbackName = matchingOrder?.stationName;
+
+    setHasTriggeredNearbyPopup(true);
+    void openNearbyPopup(parsedStationId, fallbackName ?? undefined);
+  }, [apiOrders, hasTriggeredNearbyPopup, openNearbyPopup]);
 
   // Refresh function
   const refreshData = () => {
@@ -788,8 +935,17 @@ export default function MyBookingView({ onBack, onStartCharging }: MyBookingView
         toast.success(language === 'vi' ? 'Bắt đầu sạc thành công!' : 'Charging session started successfully!');
         
         // Update the order status locally to move it from Upcoming to Active
-        const sessionId = response.data.data;
-        localStorage.setItem("currentSessionId", sessionId.toString());
+        const sessionPayload = response.data.data;
+        const sessionId =
+          typeof sessionPayload === "object" && sessionPayload !== null
+            ? sessionPayload.sessionId ?? sessionPayload.id ?? sessionPayload
+            : sessionPayload;
+
+        if (sessionId == null || (typeof sessionId === "number" && Number.isNaN(sessionId))) {
+          console.warn("⚠️ Không lấy được sessionId hợp lệ từ response:", sessionPayload);
+        } else {
+          localStorage.setItem("currentSessionId", String(sessionId));
+        }
         localStorage.setItem("currentOrderId", String(orderId));
         console.log("✅ Charging Session Id:", sessionId);
         
@@ -936,6 +1092,108 @@ export default function MyBookingView({ onBack, onStartCharging }: MyBookingView
     // BOOKED orders should stay in Upcoming even if their time has passed
     return ['COMPLETED', 'CANCELED'].includes(order.status);
   });
+
+  const nearbyPlaces = useMemo(
+    () => deduplicateNearbyPlaces(aggregateNearbyPlaces(nearbyDetail)),
+    [nearbyDetail]
+  );
+
+  const stationAmenities = useMemo(() => {
+    if (nearbyDetail && Array.isArray(nearbyDetail.amenities)) {
+      return nearbyDetail.amenities.filter(
+        (item): item is string => typeof item === 'string' && item.trim().length > 0
+      );
+    }
+    return [];
+  }, [nearbyDetail]);
+
+  const stationTags = useMemo(() => {
+    if (nearbyDetail && Array.isArray(nearbyDetail.tags)) {
+      return nearbyDetail.tags.filter(
+        (item): item is string => typeof item === 'string' && item.trim().length > 0
+      );
+    }
+    return [];
+  }, [nearbyDetail]);
+
+  const stationDisplayName =
+    (typeof nearbyDetail?.stationName === 'string' && nearbyDetail.stationName.trim().length > 0)
+      ? nearbyDetail.stationName.trim()
+      : popupStationName && popupStationName.trim().length > 0
+        ? popupStationName.trim()
+        : (language === 'vi' ? 'Trạm sạc bạn vừa đặt' : 'Your booked station');
+
+  const formatDistance = (place: NearbyPlace): string | null => {
+    if (!place) return null;
+
+    if (typeof place.distanceText === 'string' && place.distanceText.trim().length > 0) {
+      return place.distanceText;
+    }
+
+    if (typeof place.distanceKm === 'number' && !Number.isNaN(place.distanceKm)) {
+      if (place.distanceKm < 1) {
+        return `${Math.round(place.distanceKm * 1000)} m`;
+      }
+      return `${place.distanceKm.toFixed(1)} km`;
+    }
+
+    if (typeof place.distanceMeters === 'number' && !Number.isNaN(place.distanceMeters)) {
+      if (place.distanceMeters >= 1000) {
+        return `${(place.distanceMeters / 1000).toFixed(1)} km`;
+      }
+      return `${Math.round(place.distanceMeters)} m`;
+    }
+
+    return null;
+  };
+
+  const formatTravelTime = (place: NearbyPlace): string | null => {
+    if (!place) return null;
+
+    const rawTravelTime =
+      (typeof place.travelTimeMinutes === 'number' ? place.travelTimeMinutes : undefined) ??
+      (typeof (place as Record<string, unknown>).travelTime === 'number'
+        ? ((place as Record<string, unknown>).travelTime as number)
+        : undefined);
+
+    if (typeof rawTravelTime === 'number' && !Number.isNaN(rawTravelTime)) {
+      if (rawTravelTime < 1) {
+        return language === 'vi' ? '<1 phút' : '<1 min';
+      }
+      return `${Math.round(rawTravelTime)} ${language === 'vi' ? 'phút' : 'mins'}`;
+    }
+
+    const travelText = (place as Record<string, unknown>).travelTimeText;
+    if (typeof travelText === 'string' && travelText.trim().length > 0) {
+      return travelText;
+    }
+
+    return null;
+  };
+
+  const extractHighlights = (place: NearbyPlace): string[] => {
+    const rawHighlights =
+      place.highlights ??
+      place.tags ??
+      (place as Record<string, unknown>).keywords ??
+      (place as Record<string, unknown>).categories;
+
+    if (Array.isArray(rawHighlights)) {
+      return rawHighlights
+        .filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
+        .map((item) => item.trim());
+    }
+
+    return [];
+  };
+
+  const getPlaceCategory = (place: NearbyPlace): string | null => {
+    const category = place.category ?? place.type ?? (place as Record<string, unknown>).group;
+    if (typeof category === 'string' && category.trim().length > 0) {
+      return category.trim();
+    }
+    return null;
+  };
 
   // Check if there's an active charging session
   const hasActiveSession = apiActiveOrders.length > 0;
@@ -1197,12 +1455,7 @@ export default function MyBookingView({ onBack, onStartCharging }: MyBookingView
     };
 
     const handleViewCharging = () => {
-      // Ensure session data is available for ChargingSessionView
-      localStorage.setItem("currentOrderId", String(order.orderId));
-      
-      if (onStartCharging) {
-        onStartCharging(String(order.orderId));
-      }
+      void navigateToChargingSession(order, { showToast: false });
     };
 
     return (
@@ -2009,6 +2262,205 @@ export default function MyBookingView({ onBack, onStartCharging }: MyBookingView
           </TabsContent>
         </Tabs>
       </div>
+
+      <Dialog open={nearbyPopupOpen} onOpenChange={setNearbyPopupOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>
+              {language === 'vi' ? 'Khám phá xung quanh trạm' : 'Explore around your station'}
+            </DialogTitle>
+            <DialogDescription>
+              {language === 'vi'
+                ? 'Những gợi ý địa điểm tiện ích gần trạm sạc bạn vừa đặt để tranh thủ thời gian chờ.'
+                : 'Hand-picked nearby places around your booked station to make the most of your waiting time.'}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="rounded-lg border border-border/60 bg-muted/30 p-4">
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                  <MapPin className="w-4 h-4 text-primary" />
+                  <span>{stationDisplayName}</span>
+                </div>
+                {nearbyDetail?.address && (
+                  <div className="pl-6 text-sm text-muted-foreground">
+                    {nearbyDetail.address}
+                  </div>
+                )}
+                {nearbyDetail?.description && (
+                  <p className="pl-6 text-sm text-muted-foreground">
+                    {nearbyDetail.description}
+                  </p>
+                )}
+                {(stationAmenities.length > 0 || stationTags.length > 0) && (
+                  <div className="pl-6 flex flex-wrap gap-2 pt-2">
+                    {stationAmenities.slice(0, 6).map((amenity) => (
+                      <Badge key={`amenity-${amenity}`} variant="secondary" className="text-xs">
+                        {amenity}
+                      </Badge>
+                    ))}
+                    {stationAmenities.length > 6 && (
+                      <span className="text-xs text-muted-foreground">
+                        +{stationAmenities.length - 6} {language === 'vi' ? 'tiện ích khác' : 'more amenities'}
+                      </span>
+                    )}
+                    {stationTags.slice(0, 4).map((tag) => (
+                      <Badge key={`tag-${tag}`} variant="outline" className="text-xs">
+                        #{tag}
+                      </Badge>
+                    ))}
+                    {stationTags.length > 4 && (
+                      <span className="text-xs text-muted-foreground">
+                        +{stationTags.length - 4} {language === 'vi' ? 'thẻ khác' : 'more tags'}
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {nearbyLoading ? (
+              <div className="flex flex-col items-center justify-center gap-3 py-6 text-sm text-muted-foreground">
+                <RefreshCw className="w-5 h-5 animate-spin" />
+                {language === 'vi' ? 'Đang tải địa điểm xung quanh...' : 'Loading nearby places...'}
+              </div>
+            ) : nearbyError ? (
+              <div className="rounded-lg border border-red-200/60 bg-red-50/80 p-4 text-sm text-red-600 dark:bg-red-900/20 dark:text-red-200 dark:border-red-900/40">
+                {nearbyError}
+              </div>
+            ) : nearbyPlaces.length > 0 ? (
+              <div className="space-y-3 max-h-[360px] overflow-y-auto pr-1">
+                {nearbyPlaces.map((place, index) => {
+                  const placeName =
+                    (typeof place.name === 'string' && place.name.trim().length > 0)
+                      ? place.name.trim()
+                      : (typeof place.description === 'string' && place.description.trim().length > 0)
+                        ? place.description.trim()
+                        : `${language === 'vi' ? 'Địa điểm' : 'Place'} #${index + 1}`;
+
+                  const category = getPlaceCategory(place);
+                  const distanceText = formatDistance(place);
+                  const travelTimeText = formatTravelTime(place);
+                  const placeAddress =
+                    typeof place.address === 'string' && place.address.trim().length > 0
+                      ? place.address.trim()
+                      : null;
+                  const highlights = extractHighlights(place);
+                  const isOpenNow = typeof place.openNow === 'boolean' ? place.openNow : undefined;
+                  const rating =
+                    typeof place.rating === 'number' && !Number.isNaN(place.rating)
+                      ? place.rating
+                      : undefined;
+                  const priceLevel =
+                    typeof place.priceLevel === 'string' && place.priceLevel.trim().length > 0
+                      ? place.priceLevel.trim()
+                      : undefined;
+
+                  const key = `${place.id ?? placeName}-${index}`;
+
+                  return (
+                    <div
+                      key={key}
+                      className="rounded-lg border border-border/60 bg-background/60 p-4 shadow-sm"
+                    >
+                      <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-start">
+                        <div className="space-y-2">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="font-semibold text-sm text-foreground">{placeName}</span>
+                            {category && (
+                              <Badge variant="outline" className="text-xs">
+                                {category}
+                              </Badge>
+                            )}
+                            {isOpenNow !== undefined && (
+                              <Badge
+                                variant={isOpenNow ? 'secondary' : 'outline'}
+                                className={
+                                  isOpenNow
+                                    ? 'text-green-600 bg-green-100 dark:bg-green-900/40 dark:text-green-300 text-xs'
+                                    : 'text-red-500 border-red-300 dark:text-red-300 dark:border-red-700 text-xs'
+                                }
+                              >
+                                {isOpenNow
+                                  ? language === 'vi' ? 'Đang mở cửa' : 'Open now'
+                                  : language === 'vi' ? 'Đã đóng cửa' : 'Closed'}
+                              </Badge>
+                            )}
+                          </div>
+
+                          {placeAddress && (
+                            <div className="flex items-start gap-2 text-xs text-muted-foreground">
+                              <MapPin className="w-3.5 h-3.5 mt-0.5 text-muted-foreground" />
+                              <span>{placeAddress}</span>
+                            </div>
+                          )}
+
+                          {typeof place.description === 'string' && place.description.trim().length > 0 && (
+                            <p className="text-sm text-muted-foreground leading-relaxed">
+                              {place.description.trim()}
+                            </p>
+                          )}
+
+                          {highlights.length > 0 && (
+                            <div className="flex flex-wrap gap-2 pt-1">
+                              {highlights.slice(0, 5).map((highlight) => (
+                                <Badge key={`${key}-highlight-${highlight}`} variant="secondary" className="text-xs">
+                                  {highlight}
+                                </Badge>
+                              ))}
+                              {highlights.length > 5 && (
+                                <span className="text-xs text-muted-foreground">
+                                  +{highlights.length - 5}
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="flex flex-col items-start sm:items-end gap-2 text-xs text-muted-foreground min-w-[120px]">
+                          {distanceText && (
+                            <span className="flex items-center gap-1 text-foreground">
+                              <Navigation className="w-3.5 h-3.5 text-primary" />
+                              {distanceText}
+                            </span>
+                          )}
+                          {travelTimeText && (
+                            <span className="flex items-center gap-1">
+                              <Clock className="w-3.5 h-3.5 text-primary" />
+                              {travelTimeText}
+                            </span>
+                          )}
+                          {rating !== undefined && (
+                            <span className="flex items-center gap-1 text-amber-500 font-medium">
+                              ⭐ {rating.toFixed(1)}
+                            </span>
+                          )}
+                          {priceLevel && (
+                            <span className="text-xs text-muted-foreground">{priceLevel}</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="rounded-lg border border-dashed border-border/60 bg-muted/20 p-4 text-center text-sm text-muted-foreground">
+                {language === 'vi'
+                  ? 'Chưa có dữ liệu tiện ích xung quanh trạm này từ hệ thống.'
+                  : 'No nearby location data is available for this station yet.'}
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setNearbyPopupOpen(false)}>
+              {language === 'vi' ? 'Đóng' : 'Close'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

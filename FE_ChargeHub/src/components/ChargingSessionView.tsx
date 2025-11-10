@@ -14,6 +14,7 @@ import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import QRCodeGenerator from './QRCodeGenerator';
 import axios from 'axios';
+import { api } from '../services/api';
 
 
 interface ChargingSessionViewProps {
@@ -686,15 +687,12 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
 
       console.log(`Monitoring session ID: ${sessionId}`);
       
-      const response = await axios.get(
-        `http://localhost:8080/api/sessions/${sessionId}/monitor`,
-        {
-          headers: {
-            Authorization: `Bearer ${currentToken}`,
-          },
-          timeout: 5000, // 5 second timeout for smooth UX
-        }
-      );
+      const response = await api.get(`/api/sessions/${sessionId}/monitor`, {
+        headers: {
+          Authorization: `Bearer ${currentToken}`,
+        },
+        timeout: 5000, // 5 second timeout for smooth UX
+      });
 
       if (response.data && response.data.success) {
         const monitoringData = response.data.data;
@@ -932,7 +930,7 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
     }
   };
 
-  const handleChargingTerminating = async (sessionId: string) => {
+  const handleChargingTerminating = async () => {
     // Store previous status for rollback if error occurs
     const previousStatus = session.status;
     
@@ -944,11 +942,12 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
         throw new Error('No authentication token found');
       }
 
-      if (!sessionId) {
+      const currentSessionId = localStorage.getItem("currentSessionId");
+      if (!currentSessionId || currentSessionId === 'null') {
         throw new Error('Session ID is required for terminating charging');
       }
 
-      console.log(`Terminating charging session: ${sessionId}`);
+      console.log(`Terminating charging session: ${currentSessionId}`);
       
       // Stop monitoring immediately before API call
       if (monitoringIntervalRef.current) {
@@ -960,7 +959,7 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
       // Stop simulation immediately
       setIsSimulating(false);
       
-      const response = await axios.post(`http://localhost:8080/api/sessions/${sessionId}/end`, {
+      const response = await axios.post(`http://localhost:8080/api/sessions/${currentSessionId}/end`, {
 
       }, {
         headers: {
@@ -992,7 +991,7 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
         // Sync latest payment detail (if available) to freeze displayed values
         const userIdSnapshot = localStorage.getItem("userId");
         if (userIdSnapshot) {
-          const detail = await fetchPaymentDetail(sessionId, userIdSnapshot, { silent: true });
+          const detail = await fetchPaymentDetail(currentSessionId, userIdSnapshot, { silent: true });
           if (detail) {
             applyPaymentDetail(detail);
           }
@@ -1286,11 +1285,8 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
   };
 
   const handleStop = async () => {
-    let sessionId = localStorage.getItem("currentSessionId");
-    if ((!sessionId || sessionId === 'null') && session.id && session.id !== 'null') {
-      sessionId = session.id;
-    }
-    if (!sessionId) {
+    const sessionId = localStorage.getItem("currentSessionId");
+    if (!sessionId || sessionId === 'null') {
       toast.error(language === 'vi' ? 'Không tìm thấy ID phiên sạc' : 'Session ID not found');
       return;
     }
@@ -1310,15 +1306,12 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
     setIsSimulating(false);
     
     // Call API to terminate charging session (only once)
-    await handleChargingTerminating(sessionId);
+    await handleChargingTerminating();
   };
 
   const handleCompletionConfirm = async () => {
-    let sessionId = localStorage.getItem("currentSessionId");
-    if ((!sessionId || sessionId === 'null') && session.id && session.id !== 'null') {
-      sessionId = session.id;
-    }
-    if (!sessionId) {
+    const sessionId = localStorage.getItem("currentSessionId");
+    if (!sessionId || sessionId === 'null') {
       toast.error(language === 'vi' ? 'Không tìm thấy ID phiên sạc' : 'Session ID not found');
       return;
     }
@@ -1338,7 +1331,7 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
     setIsSimulating(false);
     
     // Call API to terminate charging session (only once)
-    await handleChargingTerminating(sessionId);
+    await handleChargingTerminating();
     
     // Close the completion dialog
     setShowCompletionDialog(false);

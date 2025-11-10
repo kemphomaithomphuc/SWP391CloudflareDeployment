@@ -84,27 +84,14 @@ public interface PenaltyService {
     void incrementViolationCount(Long userId, String reason);
 
     /**
-     * Lấy danh sách unpaid fees của user
+     * Kiểm tra user có transactions FAILED không
      * @param userId User ID
-     * @return Danh sách fees chưa thanh toán
-     */
-    List<Fee> getUnpaidFees(Long userId);
-
-    /**
-     * Đánh dấu fees đã thanh toán
-     * @param feeIds Danh sách fee IDs
-     */
-    void markFeesAsPaid(List<Long> feeIds);
-
-    /**
-     * Kiểm tra user có fees chưa thanh toán không
-     * @param userId User ID
-     * @return true nếu có fees chưa thanh toán
+     * @return true nếu có transactions FAILED
      */
     boolean hasUnpaidFees(Long userId);
 
     /**
-     * Mở khóa tài khoản user sau khi thanh toán hết phí phạt
+     * Mở khóa tài khoản user sau khi thanh toán hết transactions thất bại
      * Chuyển status từ BANNED → ACTIVE
      * @param userId User ID
      * @return true nếu mở khóa thành công
@@ -113,7 +100,7 @@ public interface PenaltyService {
 
     /**
      * Kiểm tra user có thể mở khóa không
-     * (status = BANNED và không còn fees chưa thanh toán)
+     * (status = BANNED và không còn transactions FAILED)
      * @param userId User ID
      * @return true nếu có thể mở khóa
      */

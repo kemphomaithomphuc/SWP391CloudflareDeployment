@@ -56,7 +56,7 @@ public class SessionController {
     // US11: GET /api/sessions/{sessionId}/monitor
     // NOTE: SessionProgressScheduler is currently DISABLED
     // Client should poll this endpoint for session progress updates
-    @PutMapping("/{sessionId}/monitor")
+    @GetMapping("/{sessionId}/monitor")
     public ResponseEntity<APIResponse<SessionProgressDTO>> monitorSession(@PathVariable Long sessionId,
                                                                           HttpServletRequest httpServletRequest) {
         String header = httpServletRequest.getHeader("Authorization");

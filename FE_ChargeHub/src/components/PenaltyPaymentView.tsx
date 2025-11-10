@@ -4,30 +4,35 @@ import { useLanguage } from "../contexts/LanguageContext";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
-import { Shield, AlertTriangle, CreditCard, CheckCircle, XCircle, AlertCircle } from "lucide-react";
-import { api, getUserProfile, type UserDTO, getUnpaidFees, payPenaltyAndUnlock, type FeeDTO } from "../services/api";
-import { retryPayment } from "../api/retryPayment";
+import { Shield, AlertTriangle, CreditCard, CheckCircle, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
+import {
+  fetchPenaltyUserProfile,
+  unlockBannedUser,
+  type PenaltyUserDTO,
+} from "../api/penaltyPayment";
 
 interface PenaltyPaymentViewProps {
   onBack: () => void;
   userId: number;
 }
 
-export default function PenaltyPaymentView({ onBack, userId }: PenaltyPaymentViewProps) {
+export default function PenaltyPaymentView({
+  onBack,
+  userId,
+}: PenaltyPaymentViewProps) {
   const { theme } = useTheme();
   const { language } = useLanguage();
   const navigate = useNavigate();
   
-  const [userData, setUserData] = useState<UserDTO | null>(null);
-  const [unpaidFees, setUnpaidFees] = useState<FeeDTO[]>([]);
+  const [userData, setUserData] = useState<PenaltyUserDTO | null>(null);
   const [loading, setLoading] = useState(true);
   const [paymentStatus, setPaymentStatus] = useState<'pending' | 'processing' | 'success' | 'failed'>('pending');
-  const [failedTransactionIds, setFailedTransactionIds] = useState<number[]>([]);
+  const [selectedMethod, setSelectedMethod] = useState<'CASH' | 'VNPAY'>('CASH');
 
   const statusContent = useMemo(() => {
-    const map: Record<NonNullable<UserDTO["status"]> | "UNKNOWN", {
+    const map: Record<NonNullable<PenaltyUserDTO["status"]> | "UNKNOWN", {
       header: { vi: string; en: string };
       description: { vi: string; en: string };
       badge: { vi: string; en: string; variant: "default" | "secondary" | "destructive" | "outline" };
@@ -95,10 +100,8 @@ export default function PenaltyPaymentView({ onBack, userId }: PenaltyPaymentVie
     };
 
     const status = userData?.status ?? "UNKNOWN";
-    return map[status];
+    return map[status] ?? map.UNKNOWN;
   }, [userData?.status]);
-
-  const hasRetryOnly = unpaidFees.length === 0 && failedTransactionIds.length > 0;
 
   useEffect(() => {
     fetchData();
@@ -109,44 +112,14 @@ export default function PenaltyPaymentView({ onBack, userId }: PenaltyPaymentVie
       setLoading(true);
       
       // Fetch user profile
-      const userResponse = await getUserProfile(userId);
+      const userResponse = await fetchPenaltyUserProfile(userId);
       if (userResponse.success && userResponse.data) {
         setUserData(userResponse.data);
-      }
-      
-      // Fetch unpaid fees
-      const feesResponse = await getUnpaidFees(userId);
-      if (feesResponse.success && feesResponse.data) {
-        const fees = Array.isArray(feesResponse.data.unpaidFees)
-          ? feesResponse.data.unpaidFees
-          : [];
-        const failedTransactions = Array.isArray(feesResponse.data.failedTransactionIds)
-          ? feesResponse.data.failedTransactionIds
-          : [];
-
-        setUnpaidFees(fees);
-        setFailedTransactionIds(failedTransactions);
-
-        // Persist the primary failed transaction id for retry flows
-        if (failedTransactions.length > 0) {
-          try {
-            localStorage.setItem("penaltyTransactionId", String(failedTransactions[0]));
-          } catch (storageError) {
-            console.warn('Unable to store penaltyTransactionId', storageError);
-          }
-        } else {
-          try {
-            localStorage.removeItem("penaltyTransactionId");
-          } catch (storageError) {
-            console.warn('Unable to clear penaltyTransactionId', storageError);
-          }
+        if (userResponse.data.status && userResponse.data.status !== "BANNED") {
+          navigate("/pay-unpaid", { replace: true });
+          return;
         }
-      } else {
-        setUnpaidFees([]);
-        setFailedTransactionIds([]);
-        toast.error(language === 'vi' ? 'Không thể lấy danh sách phí phạt' : 'Unable to fetch penalty fees');
       }
-      
     } catch (error: any) {
       console.error('Error fetching data:', error);
       toast.error(language === 'vi' ? 'Lỗi khi tải dữ liệu' : 'Error loading data');
@@ -155,143 +128,55 @@ export default function PenaltyPaymentView({ onBack, userId }: PenaltyPaymentVie
     }
   };
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('vi-VN', {
-      style: 'currency',
-      currency: 'VND'
-    }).format(amount);
-  };
-
-  const getTotalAmount = () => {
-    return unpaidFees.reduce((total, fee) => total + fee.amount, 0);
-  };
-
-  const getFeeTypeLabel = (feeType: string) => {
-    const labels: Record<string, { vi: string; en: string }> = {
-      'CANCEL': { vi: 'Hủy muộn', en: 'Late Cancellation' },
-      'NO_SHOW': { vi: 'Không đến', en: 'No Show' },
-      'OVERTIME': { vi: 'Quá giờ', en: 'Overtime' }
-    };
-    return labels[feeType]?.[language === 'vi' ? 'vi' : 'en'] || feeType;
-  };
-
-  const deriveRetryTransactionId = (): number | undefined => {
-    const storedId = localStorage.getItem("penaltyTransactionId");
-    if (storedId) {
-      const numeric = Number(storedId);
-      if (!Number.isNaN(numeric)) {
-        return numeric;
-      }
-    }
-    if (failedTransactionIds.length > 0) {
-      return failedTransactionIds[0];
-    }
-
-    if (unpaidFees.length === 0) {
-      return undefined;
-    }
-    const primaryFee = unpaidFees[0];
-    if (primaryFee?.orderId != null) {
-      return primaryFee.orderId;
-    }
-    if (primaryFee?.sessionId != null) {
-      return primaryFee.sessionId;
-    }
-    if (primaryFee?.feeId != null) {
-      return primaryFee.feeId;
-    }
-    return undefined;
-  };
-
   const handlePayment = async () => {
     try {
       setPaymentStatus('processing');
-      
-      const feeIds = unpaidFees.map(fee => fee.feeId);
-      console.log('[PenaltyPayment] feeIds for payment:', feeIds);
-      
-      let responseData: any;
-      if (userData?.status === 'BANNED') {
-        console.log('[PenaltyPayment] Using payPenaltyAndUnlock');
-        responseData = await payPenaltyAndUnlock(userId, feeIds);
-      } else if (userData?.status === 'ACTIVE') {
-        const transactionId = deriveRetryTransactionId();
-        console.log('[PenaltyPayment] Derived transactionId:', transactionId);
-        if (!transactionId) {
-          throw new Error(language === 'vi'
-            ? 'Không tìm thấy giao dịch cần thanh toán lại.'
-            : 'Unable to determine the transaction to retry.');
-        }
-        const retryPayload = {
-          transactionId,
-          userId,
-          paymentMethod: 'VNPAY',
-        };
-        console.log('[PenaltyPayment] Calling retryPayment with payload:', retryPayload);
-        responseData = await retryPayment({
-          transactionId,
-          userId,
-          paymentMethod: 'VNPAY',
-        });
-        try {
-          localStorage.removeItem("penaltyTransactionId");
-        } catch (cleanupError) {
-          console.warn('Unable to clear penaltyTransactionId', cleanupError);
-        }
-      } else {
-        console.log('[PenaltyPayment] Using /api/penalties/pay');
-        const response = await api.post('/api/penalties/pay', {
-          userId,
-          feeIds,
-        });
-        responseData = response?.data ?? response;
+      if (userData?.status !== 'BANNED') {
+        throw new Error(
+          language === 'vi'
+            ? 'Tài khoản của bạn không ở trạng thái bị khóa.'
+            : 'Your account is not in banned status.'
+        );
       }
 
-      console.log('[PenaltyPayment] Response data:', responseData);
-
-      const paymentUrl =
-        typeof responseData?.data?.paymentUrl === 'string'
-          ? responseData.data.paymentUrl
-          : typeof responseData?.paymentUrl === 'string'
-            ? responseData.paymentUrl
-            : undefined;
-
-      if (paymentUrl) {
-        try {
-          localStorage.setItem('penaltyPaymentUrl', paymentUrl);
-        } catch (storageError) {
-          console.warn('Unable to store penaltyPaymentUrl', storageError);
-        }
-        window.location.href = paymentUrl;
-        return;
-      }
-
-      const wasSuccessful = Boolean(responseData?.success);
-      const responseMessage = responseData?.message;
-
-      if (wasSuccessful) {
+      const response = await unlockBannedUser({ userId, paymentMethod: selectedMethod });
+      if (response?.success) {
         setPaymentStatus('success');
-        const message = language === 'vi' 
-          ? 'Thanh toán thành công! Tài khoản của bạn đã được kích hoạt lại' 
-          : 'Payment successful! Your account has been reactivated';
+        const message =
+          language === 'vi'
+            ? 'Thanh toán thành công! Tài khoản của bạn đã được mở khóa.'
+            : 'Payment successful! Your account has been unlocked.';
         toast.success(message);
-        
-        // Clear localStorage and redirect to login after 3 seconds
-        setTimeout(() => {
-          localStorage.removeItem('token');
-          localStorage.removeItem('refreshToken');
-          localStorage.removeItem('userId');
-          localStorage.removeItem('role');
-          onBack(); // Return to login
-        }, 3000);
       } else {
-        throw new Error(responseMessage || 'Payment failed');
+        throw new Error(
+          response?.message ||
+            (language === 'vi' ? 'Thanh toán thất bại' : 'Payment failed')
+        );
       }
+      
+      setTimeout(() => {
+        localStorage.removeItem('token');
+        localStorage.removeItem('refreshToken');
+        localStorage.removeItem('userId');
+        localStorage.removeItem('role');
+        onBack();
+      }, 3000);
       
     } catch (error: any) {
+      const backendMessage =
+        error?.response?.data?.message ??
+        error?.response?.data?.error ??
+        error?.message;
       console.error('Payment error:', error);
+      if (error?.response?.data) {
+        console.error('[PenaltyPayment] Backend response:', error.response.data);
+      }
       setPaymentStatus('failed');
-      toast.error(language === 'vi' ? 'Thanh toán thất bại. Vui lòng thử lại' : 'Payment failed. Please try again');
+      toast.error(
+        language === 'vi'
+          ? `Thanh toán thất bại: ${backendMessage ?? 'Vui lòng thử lại'}`
+          : `Payment failed: ${backendMessage ?? 'Please try again'}`
+      );
     }
   };
 
@@ -336,13 +221,13 @@ export default function PenaltyPaymentView({ onBack, userId }: PenaltyPaymentVie
             <CardTitle className="flex items-center space-x-2">
               <AlertTriangle className="w-5 h-5 text-red-600 dark:text-red-400" />
               <span>
-                {language === 'vi' ? 'Thông Tin Vi Phạm' : 'Violation Details'}
+                {language === 'vi' ? 'Thông Tin Tài Khoản' : 'Account Details'}
               </span>
             </CardTitle>
             <CardDescription>
               {language === 'vi' 
-                ? 'Chi tiết các vi phạm của tài khoản'
-                : 'Details of account violations'}
+                ? 'Trạng thái tài khoản và giao dịch cần thanh toán'
+                : 'Account status and pending transaction'}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -384,86 +269,83 @@ export default function PenaltyPaymentView({ onBack, userId }: PenaltyPaymentVie
             <CardTitle className="flex items-center space-x-2">
               <CreditCard className="w-5 h-5 text-blue-600 dark:text-blue-400" />
               <span>
-                {language === 'vi' ? 'Thanh Toán Phí Phạt' : 'Penalty Payment'}
+                {language === 'vi' ? 'Thanh Toán Giao Dịch' : 'Transaction Payment'}
               </span>
             </CardTitle>
             <CardDescription>
               {language === 'vi' 
-                ? 'Thanh toán để mở khóa tài khoản'
-                : 'Pay to unlock your account'}
+                ? 'Hoàn tất thanh toán giao dịch còn tồn đọng'
+                : 'Complete the pending transaction payment'}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            {/* Fees List */}
-            {unpaidFees.length > 0 && (
-              <div className="space-y-3">
-                <p className="text-sm font-medium text-muted-foreground">
-                  {language === 'vi' ? 'Danh sách phí chưa thanh toán:' : 'Unpaid Fees:'}
-                </p>
-                {unpaidFees.map((fee) => (
-                  <div 
-                    key={fee.feeId}
-                    className="flex justify-between items-center p-3 bg-muted/30 rounded-lg"
-                  >
-                    <div className="space-y-1">
-                      <p className="font-medium">{getFeeTypeLabel(fee.feeType)}</p>
-                      <p className="text-sm text-muted-foreground">{fee.description}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {new Date(fee.createdAt).toLocaleDateString('vi-VN')}
-                      </p>
-                    </div>
-                    <Badge variant="destructive" className="text-base px-3 py-1">
-                      {formatCurrency(fee.amount)}
-                    </Badge>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {failedTransactionIds.length > 0 && (
-              <div className="space-y-2">
-                <p className="text-sm font-medium text-muted-foreground">
-                  {language === 'vi'
-                    ? 'Giao dịch cần thanh toán lại:'
-                    : 'Transactions requiring retry:'}
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {failedTransactionIds.map((id) => (
-                    <Badge key={id} variant="secondary" className="px-3 py-1">
-                      #{id}
-                    </Badge>
-                  ))}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {language === 'vi'
-                    ? 'Nhấn thanh toán để tiếp tục xử lý lại giao dịch qua VNPAY.'
-                    : 'Click pay now to retry these transactions via VNPAY.'}
-                </p>
-
-                {hasRetryOnly && (
-                  <div className="text-xs text-blue-600 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md p-3">
-                    {language === 'vi'
-                      ? 'Hiện tại bạn không còn phí phạt nào, tuy nhiên vẫn còn giao dịch thanh toán bị lỗi cần xử lý lại.'
-                      : 'You have no outstanding penalty fees, but there is a failed payment that needs to be retried.'}
-                  </div>
-                )}
-              </div>
-            )}
+            <p className="text-sm text-muted-foreground">
+              {language === 'vi'
+                ? 'Thanh toán để mở khóa tài khoản và tiếp tục sử dụng dịch vụ.'
+                : 'Complete the payment to unlock your account and continue using the service.'}
+            </p>
 
             {/* Payment Status */}
             {paymentStatus === 'pending' && (
               <div className="space-y-4">
                 <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border border-yellow-200 dark:border-yellow-800">
                   <p className="text-sm text-yellow-800 dark:text-yellow-200">
-                    {userData?.status === 'ACTIVE'
-                      ? (language === 'vi'
-                        ? '⚠️ Bạn phải thanh toán để có thể tiếp tục đặt phiên sạc.'
-                        : '⚠️ You must complete the payment to continue booking charging sessions.')
-                      : (language === 'vi'
-                        ? '⚠️ Sau khi thanh toán thành công, tài khoản của bạn sẽ được mở khóa ngay lập tức.'
-                        : '⚠️ Your account will be unlocked immediately after successful payment.')}
+                    {language === 'vi'
+                      ? '⚠️ Hoàn tất thanh toán để tiếp tục sử dụng đầy đủ dịch vụ.'
+                      : '⚠️ Complete the payment to continue using all services.'}
                   </p>
                 </div>
+
+                <div className="space-y-2">
+                  <p className="text-sm font-medium">
+                    {language === 'vi' ? 'Chọn phương thức thanh toán' : 'Select payment method'}
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {[
+                      {
+                        key: 'CASH' as const,
+                        title: language === 'vi' ? 'Tiền mặt' : 'Cash',
+                        description:
+                          language === 'vi'
+                            ? 'Thanh toán trực tiếp tại quầy hỗ trợ.'
+                            : 'Pay directly at the support desk.',
+                      },
+                      {
+                        key: 'VNPAY' as const,
+                        title: 'VNPAY',
+                        description:
+                          language === 'vi'
+                            ? 'Thanh toán nhanh qua cổng VNPAY.'
+                            : 'Quick payment via VNPAY gateway.',
+                      },
+                    ].map((method) => {
+                      const isActive = selectedMethod === method.key;
+                      return (
+                        <button
+                          key={method.key}
+                          type="button"
+                          onClick={() => setSelectedMethod(method.key)}
+                          className={`rounded-xl border p-4 text-left transition-all ${
+                            isActive
+                              ? 'border-blue-600 bg-blue-50 dark:bg-blue-900/20 shadow-sm'
+                              : 'border-border hover:border-blue-400 hover:bg-blue-50/40 dark:hover:bg-blue-900/10'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="font-semibold text-base">{method.title}</span>
+                            <span
+                              className={`h-4 w-4 rounded-full border-2 ${
+                                isActive ? 'border-blue-600 bg-blue-600' : 'border-muted bg-background'
+                              }`}
+                            />
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-2">{method.description}</p>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
                 <Button 
                   onClick={handlePayment}
                   variant="default"

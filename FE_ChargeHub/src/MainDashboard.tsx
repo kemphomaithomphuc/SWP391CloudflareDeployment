@@ -46,7 +46,6 @@ interface MainDashboardProps {
   onHistory?: () => void;
   onAnalysis?: () => void;
   onReportIssue?: () => void;
-  onWallet?: () => void;
   onNotifications?: () => void;
   onMyBookings?: () => void;
   onPremiumSubscription?: () => void;
@@ -54,7 +53,7 @@ interface MainDashboardProps {
   setVehicleBatteryLevel?: (level: number) => void;
 }
 
-export default function MainDashboard({ onLogout, onBooking, onHistory, onAnalysis, onReportIssue, onWallet, onNotifications, onMyBookings, onPremiumSubscription, vehicleBatteryLevel = 75, setVehicleBatteryLevel }: MainDashboardProps) {
+export default function MainDashboard({ onLogout, onBooking, onHistory, onAnalysis, onReportIssue, onNotifications, onMyBookings, onPremiumSubscription, vehicleBatteryLevel = 75, setVehicleBatteryLevel }: MainDashboardProps) {
   const [activeSection, setActiveSection] = useState("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);

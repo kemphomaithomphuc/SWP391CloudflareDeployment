@@ -13,7 +13,7 @@ import java.time.LocalDateTime;
 @Valid
 public class SessionDTO {
 
-
+    private Long sessionId;
     private Long chargingPointId;
     private Long orderId;
     private Long vehicleId;

@@ -26,6 +26,7 @@ public class OrderServiceImpl implements OrderService {
     private final OrderRepository orderRepository;
     private final UserRepository userRepository;
     private final ChargingPointRepository chargingPointRepository;
+    private final TransactionRepository transactionRepository;
     private final SubscriptionService subscriptionService;
     private final NotificationService notificationService;
     private final SessionRepository sessionRepository;
@@ -378,6 +379,25 @@ public class OrderServiceImpl implements OrderService {
             throw new ApiRequestException(
                 "Bạn có đơn đặt chỗ đã hoàn thành nhưng chưa thanh toán. " +
                 "Vui lòng thanh toán các đơn cũ trước khi đặt chỗ mới."
+            );
+        }
+
+        // ===== 2.2. KIỂM TRA PHÍ PHẠT - USER PHẢI THANH TOÁN HẾT TRANSACTIONS FAILED (chứa fees) =====
+        List<Transaction> failedTransactions = transactionRepository
+                .findByUserOrderByTransactionIdDesc(user)
+                .stream()
+                .filter(t -> t.getStatus() == Transaction.Status.FAILED)
+                .filter(t -> t.getSession() != null)
+                .toList();
+
+        if (!failedTransactions.isEmpty()) {
+            double totalUnpaid = failedTransactions.stream()
+                    .mapToDouble(Transaction::getAmount)
+                    .sum();
+            throw new ApiRequestException(
+                String.format("Bạn có %d giao dịch thất bại chưa thanh toán (tổng: %,.0f VNĐ). " +
+                    "Vui lòng thanh toán các khoản phí phạt trước khi đặt chỗ mới.",
+                    failedTransactions.size(), totalUnpaid)
             );
         }
 

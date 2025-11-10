@@ -372,6 +372,7 @@ public class SessionServiceImpl implements SessionService {
     public List<SessionDTO> getAllSessions() {
         return sessionRepository.findAll().stream().map(s -> {
             SessionDTO dto = new SessionDTO();
+            dto.setSessionId(s.getSessionId());
             if (s.getOrder() != null) {
                 dto.setOrderId(s.getOrder().getOrderId());
                 var cp = s.getOrder().getChargingPoint();
@@ -393,6 +394,7 @@ public class SessionServiceImpl implements SessionService {
         Session s = sessionRepository.findById(sessionId)
                 .orElseThrow(() -> new RuntimeException("Session not found"));
         SessionDTO dto = new SessionDTO();
+        dto.setSessionId(s.getSessionId());
         if (s.getOrder() != null) {
             dto.setOrderId(s.getOrder().getOrderId());
             var cp = s.getOrder().getChargingPoint();
@@ -415,6 +417,7 @@ public class SessionServiceImpl implements SessionService {
             return null;
         }
         SessionDTO dto = new SessionDTO();
+        dto.setSessionId(s.getSessionId());
         if (s.getOrder() != null) {
             dto.setOrderId(s.getOrder().getOrderId());
             var cp = s.getOrder().getChargingPoint();

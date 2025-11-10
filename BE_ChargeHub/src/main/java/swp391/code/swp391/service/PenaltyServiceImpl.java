@@ -12,6 +12,7 @@ import swp391.code.swp391.repository.*;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * Implementation của PenaltyService
@@ -26,6 +27,7 @@ public class PenaltyServiceImpl implements PenaltyService {
     private final OrderRepository orderRepository;
     private final SessionRepository sessionRepository;
     private final UserRepository userRepository;
+    private final TransactionRepository transactionRepository;
     private final FeeCalculationService feeCalculationService;
     private final NotificationService notificationService;
 
@@ -339,32 +341,22 @@ public class PenaltyServiceImpl implements PenaltyService {
         log.info("User {} now has {} violations", userId, user.getViolations());
     }
 
-    @Override
-    @Transactional(readOnly = true)
-    public List<Fee> getUnpaidFees(Long userId) {
-        List<Fee> allFees = getUserFees(userId);
-        return allFees.stream()
-                .filter(fee -> !fee.getIsPaid())
-                .toList();
-    }
-
-    @Override
-    @Transactional
-    public void markFeesAsPaid(List<Long> feeIds) {
-        log.info("Marking fees as paid: {}", feeIds);
-
-        for (Long feeId : feeIds) {
-            Fee fee = feeRepository.findById(feeId)
-                    .orElseThrow(() -> new ApiRequestException("Fee không tồn tại: " + feeId));
-            fee.setIsPaid(true);
-            feeRepository.save(fee);
-        }
-    }
 
     @Override
     @Transactional(readOnly = true)
     public boolean hasUnpaidFees(Long userId) {
-        return !getUnpaidFees(userId).isEmpty();
+        // Đổi logic: CHỈ check transactions FAILED, KHÔNG check fees
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ApiRequestException("User không tồn tại"));
+
+        List<Transaction> failedTransactions = transactionRepository
+                .findByUserOrderByTransactionIdDesc(user)
+                .stream()
+                .filter(t -> t.getStatus() == Transaction.Status.FAILED)
+                .filter(t -> t.getSession() != null)
+                .collect(Collectors.toList());
+
+        return !failedTransactions.isEmpty();
     }
 
     @Override
@@ -381,8 +373,9 @@ public class PenaltyServiceImpl implements PenaltyService {
             return false;
         }
 
+        // CHỈ check transactions FAILED
         if (hasUnpaidFees(userId)) {
-            log.warn("User {} still has unpaid fees, cannot unlock", userId);
+            log.warn("User {} still has failed transactions, cannot unlock", userId);
             return false;
         }
 
@@ -390,7 +383,7 @@ public class PenaltyServiceImpl implements PenaltyService {
         user.setStatus(User.UserStatus.ACTIVE);
         user.setReasonReport(user.getReasonReport() +
                 "\n[Mở khóa: " + LocalDateTime.now() +
-                "] Tài khoản được mở khóa sau khi thanh toán phí phạt.");
+                "] Tài khoản được mở khóa sau khi thanh toán tất cả giao dịch thất bại.");
         userRepository.save(user);
 
         log.info("Successfully unlocked user account: {}", userId);
@@ -399,7 +392,7 @@ public class PenaltyServiceImpl implements PenaltyService {
         notificationService.createGeneralNotification(
                 List.of(userId),
                 "Tài khoản đã được mở khóa",
-                "Tài khoản của bạn đã được mở khóa sau khi thanh toán phí phạt. " +
+                "Tài khoản của bạn đã được mở khóa sau khi thanh toán tất cả giao dịch thất bại. " +
                 "Bạn có thể tiếp tục sử dụng dịch vụ."
         );
 
@@ -412,7 +405,7 @@ public class PenaltyServiceImpl implements PenaltyService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ApiRequestException("User không tồn tại"));
 
-        // Chỉ có thể mở khóa nếu: BANNED và không còn fees chưa thanh toán
+        // Chỉ có thể mở khóa nếu: BANNED và không còn transactions FAILED
         return user.getStatus() == User.UserStatus.BANNED &&
                !hasUnpaidFees(userId);
     }
