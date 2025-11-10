@@ -95,30 +95,6 @@ export default function AppLayout({
       userTypes: ['driver']
     },
     {
-      id: 'wallet',
-      label: 'Wallet',
-      labelVi: 'Ví tiền',
-      icon: Wallet,
-      onClick: () => onNavigate?.('wallet'),
-      userTypes: ['driver']
-    },
-    {
-      id: 'history',
-      label: 'History',
-      labelVi: 'Lịch sử',
-      icon: FileText,
-      onClick: () => onNavigate?.('history'),
-      userTypes: ['driver']
-    },
-    {
-      id: 'analysis',
-      label: 'Analytics',
-      labelVi: 'Phân tích',
-      icon: BarChart3,
-      onClick: () => onNavigate?.('analysis'),
-      userTypes: ['driver']
-    },
-    {
       id: 'premiumSubscription',
       label: 'Premium',
       labelVi: 'Gói premium',

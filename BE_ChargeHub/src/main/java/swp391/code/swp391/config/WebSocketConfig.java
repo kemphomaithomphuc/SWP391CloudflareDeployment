@@ -1,3 +1,5 @@
+// TEMPORARILY DISABLED - Not using WebSocket anymore, switching to SSE or polling
+/*
 package swp391.code.swp391.config;
 
 import lombok.RequiredArgsConstructor;
@@ -203,3 +205,4 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
         });
     }
 }
+*/

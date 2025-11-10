@@ -7,7 +7,6 @@ import swp391.code.swp391.dto.SessionProgressDTO;
 import swp391.code.swp391.dto.SessionDTO;
 import swp391.code.swp391.entity.*;
 import swp391.code.swp391.repository.*;
-import swp391.code.swp391.websocket.SessionWebSocketService;
 
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
@@ -25,7 +24,7 @@ public class SessionServiceImpl implements SessionService {
     private final UserRepository userRepository;
     private final NotificationService notificationService;
     private final FeeRepository feeRepository;
-    private final SessionWebSocketService sessionWebSocketService;
+    // private final SessionWebSocketService sessionWebSocketService;
 
     // Khoảng cách tối đa cho phép (tính bằng mét)
     private static final double MAX_DISTANCE_METERS = 10000000.0; // 100 mét
@@ -167,7 +166,7 @@ public class SessionServiceImpl implements SessionService {
                 startTime, // start time
                 startTime // current time (just started)
             );
-            sessionWebSocketService.sendSessionProgressToUser(order.getUser(), dto);
+            // sessionWebSocketService.sendSessionProgressToUser(order.getUser(), dto);
         } catch (Exception ignored) {}
 
         return session.getSessionId();
@@ -316,9 +315,9 @@ public class SessionServiceImpl implements SessionService {
                 minutesElapsed, // elapsed minutes
                 0L, // remaining = 0 (completed)
                 session.getStartTime(), // start time
-                now // current time (end time)
+                now // current time
             );
-            sessionWebSocketService.sendSessionProgressToUser(order.getUser(), finalDto);
+            // sessionWebSocketService.sendSessionProgressToUser(order.getUser(), finalDto);
         } catch (Exception ignored) {}
 
         return session.getSessionId();
@@ -507,7 +506,7 @@ public class SessionServiceImpl implements SessionService {
                 session.getStartTime(), // start time
                 now // current time (end time)
             );
-            sessionWebSocketService.sendSessionProgressToUser(order.getUser(), finalDto);
+            // sessionWebSocketService.sendSessionProgressToUser(order.getUser(), finalDto);
         } catch (Exception ignored) {}
 
         return session.getSessionId();

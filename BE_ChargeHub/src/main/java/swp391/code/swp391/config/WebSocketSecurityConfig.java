@@ -1,5 +1,7 @@
 package swp391.code.swp391.config;
 
+// TEMPORARILY DISABLED - Not using WebSocket anymore, switching to SSE or polling
+/*
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.messaging.Message;
@@ -34,3 +36,4 @@ public class WebSocketSecurityConfig {
         return messages.build();
     }
 }
+*/

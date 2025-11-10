@@ -114,7 +114,5 @@ public interface UserService {
 
     void resetPassword(String email, String newPassword);
 
-    void unbanUser(Long id);
-
     List<UserDTO> getAllDriver();
 }

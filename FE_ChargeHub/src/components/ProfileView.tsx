@@ -27,6 +27,8 @@ interface UserProfile {
     role: string;
     address: string | null;
     status: string;
+    facebookId?: string | null;
+    googleId?: string | null;
 }
 
 export default function ProfileView({ onBack }: ProfileViewProps) {
@@ -378,6 +380,13 @@ export default function ProfileView({ onBack }: ProfileViewProps) {
 
     // -------------------- EMAIL CHANGE-------------------- //
     const handleOpenEmailChangeDialog = () => {
+        // Check if user has social login IDs - prevent email change for social login users
+        if (profileData.facebookId || profileData.googleId) {
+            const provider = profileData.facebookId ? "Facebook" : "Google";
+            toast.error(`Email cannot be changed for ${provider} login users. Please use your ${provider} account to manage your email.`);
+            return;
+        }
+
         setNewEmailInput("");
         setEmailOtpCode("");
         setEmailChangeStep("input");
@@ -507,6 +516,8 @@ export default function ProfileView({ onBack }: ProfileViewProps) {
                     role: profile.role,
                     address: profile.address || null,
                     status: profile.status,
+                    facebookId: profile.facebookId || null,
+                    googleId: profile.googleId || null,
                 };
                 setProfileData(normalizedData);
                 console.log("Profile fetched:", profile);

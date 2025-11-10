@@ -38,7 +38,9 @@ public class User {
     @Column(name = "date_Of_Birth")
     private LocalDate dateOfBirth;
 
+    @Column(name = "google_id", unique = true)
     private String googleId; // For OAuth2 Google login
+    @Column(name = "facebook_id", unique = true)
     private String facebookId; // For OAuth2 Facebook login
 
     @Enumerated(EnumType.STRING)

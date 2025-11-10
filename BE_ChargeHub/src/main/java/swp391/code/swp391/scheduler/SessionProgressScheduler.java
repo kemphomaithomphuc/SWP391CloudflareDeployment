@@ -7,7 +7,6 @@ import swp391.code.swp391.dto.SessionProgressDTO;
 import swp391.code.swp391.entity.*;
 import swp391.code.swp391.repository.SessionRepository;
 import swp391.code.swp391.repository.VehicleRepository;
-import swp391.code.swp391.websocket.SessionWebSocketService;
 
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
@@ -23,7 +22,7 @@ public class SessionProgressScheduler {
 
     private final SessionRepository sessionRepository;
     private final VehicleRepository vehicleRepository;
-    private final SessionWebSocketService sessionWebSocketService;
+    // private final SessionWebSocketService sessionWebSocketService;
 
     // DISABLED: Temporarily not using scheduler for session progress
     // @Scheduled(fixedRate = 1000*5) // 5 seconds
@@ -96,7 +95,7 @@ public class SessionProgressScheduler {
         );
 
         // Push via WebSocket
-        sessionWebSocketService.sendSessionProgressToUser(order.getUser(), dto);
+        // sessionWebSocketService.sendSessionProgressToUser(order.getUser(), dto);
 
         log.debug("Pushed progress for session {}: {}% battery, {} minutes elapsed",
             session.getSessionId(), currentBattery, minutesElapsed);
@@ -135,4 +134,3 @@ public class SessionProgressScheduler {
         return Math.round(hoursNeeded * 60); // convert to minutes
     }
 }
-

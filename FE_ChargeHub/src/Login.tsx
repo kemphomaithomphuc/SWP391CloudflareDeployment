@@ -105,7 +105,7 @@ export default function Login({ onSwitchToRegister, onLogin, onStaffLogin, onAdm
                         localStorage.setItem("role", role);
                         localStorage.setItem("email", decoded.sub || "");
 
-                        await getUserProfileToContinue(userId);
+                        await getUserProfileToContinue(userId, true);
 
                         // 🧹 Xóa query để URL sạch
                         window.history.replaceState({}, document.title, "/login");
@@ -241,7 +241,7 @@ export default function Login({ onSwitchToRegister, onLogin, onStaffLogin, onAdm
         }
     };
 
-    const getUserProfileToContinue = async (userId: string) => {
+    const getUserProfileToContinue = async (userId: string, isSocialLogin: boolean = false) => {
         setLoading(true);
         setError(null);
         localStorage.setItem("registeredUserId", userId);
@@ -287,6 +287,12 @@ export default function Login({ onSwitchToRegister, onLogin, onStaffLogin, onAdm
                 } catch {}
 
                 // Driver flow: Check if user needs to complete profile setup
+                // For social login users, always redirect to dashboard regardless of profile completion status
+                if (isSocialLogin) {
+                    console.log("Social login user - redirecting to dashboard");
+                    onLogin?.();
+                    return;
+                }
 
                 // Store user profile data in localStorage
                 if (userProfile.data) {
