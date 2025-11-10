@@ -242,10 +242,6 @@ public class PaymentController {
         }
     }
 
-    /**
-     * Lấy thông tin giao dịch
-     * GET /api/payment/transaction/{transactionId}
-     */
     @GetMapping("/transaction/{transactionId}")
     public ResponseEntity<?> getTransaction(@PathVariable Long transactionId) {
         try {
@@ -269,16 +265,10 @@ public class PaymentController {
         }
     }
 
-    /**
-     * Thanh toán cho subscription (CHỈ VNPAY)
-     * POST /api/payment/subscription
-     */
+
     @PostMapping("/subscription")
     public ResponseEntity<?> payForSubscription(@Valid @RequestBody SubscriptionPaymentRequestDTO request) {
         try {
-            log.info("API: Thanh toán subscription VNPay - User: {}, Subscription: {}",
-                    request.getUserId(), request.getSubscriptionId());
-
             PaymentResponseDTO response = paymentService.payForSubscription(
                     request.getUserId(),
                     request.getSubscriptionId(),

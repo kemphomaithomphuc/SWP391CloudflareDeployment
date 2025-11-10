@@ -178,7 +178,7 @@ public class UserServiceImpl implements UserService {
             user.setAddress(updateDTO.getAddress());
         }
 
-        if (!(updateDTO.getPhoneNumber() != null || !updateDTO.getPhoneNumber().equals(getUserByPhone(updateDTO.getPhoneNumber())))) {
+        if (updateDTO.getPhoneNumber() != null) {
             user.setPhone(updateDTO.getPhoneNumber());
         }
 
