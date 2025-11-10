@@ -7,13 +7,16 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import swp391.code.swp391.dto.APIResponse;
 import swp391.code.swp391.dto.FeeDetailDTO;
+import swp391.code.swp391.dto.RetryPaymentRequestDTO;
 import swp391.code.swp391.entity.Fee;
 import swp391.code.swp391.entity.Transaction;
 import swp391.code.swp391.entity.User;
 import swp391.code.swp391.repository.TransactionRepository;
 import swp391.code.swp391.repository.UserRepository;
+import swp391.code.swp391.service.PaymentService;
 import swp391.code.swp391.service.PenaltyService;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -38,6 +41,7 @@ public class PenaltyController {
     private final PenaltyService penaltyService;
     private final TransactionRepository transactionRepository;
     private final UserRepository userRepository;
+    private final PaymentService paymentService;
 
     /**
      * AC6: Lấy lịch sử phí phạt của user
@@ -85,47 +89,73 @@ public class PenaltyController {
     }
 
     /**
-     * Lấy các phí chưa thanh toán của user + danh sách transactionId FAILED của user đó
+     * Lấy danh sách transactions FAILED/PENDING của user
+     * CHỈ trả về transactions thực sự cần xử lý
      */
     @GetMapping("/user/{userId}/unpaid")
     @PreAuthorize("hasRole('DRIVER') or hasRole('ADMIN')")
     public ResponseEntity<APIResponse<Map<String, Object>>> getUnpaidFees(@PathVariable Long userId) {
         try {
-            log.info("Getting unpaid fees for user {}", userId);
-            List<Fee> unpaidFees = penaltyService.getUnpaidFees(userId);
+            log.info("Getting unpaid transactions for user {}", userId);
 
-            // Tổng tiền phí chưa thanh toán
-            double totalUnpaidFees = unpaidFees.stream()
-                    .mapToDouble(Fee::getAmount)
-                    .sum();
-
-            // Lấy danh sách transactionId FAILED của user
+            // Validate user exists
             User user = userRepository.findById(userId)
                     .orElseThrow(() -> new IllegalArgumentException("User không tồn tại"));
 
-            List<Long> failedTransactionIds = transactionRepository
-                    .findByUserOrderByTransactionIdDesc(user)
-                    .stream()
+            // Lấy tất cả transactions của user
+            List<Transaction> allTransactions = transactionRepository.findByUserOrderByTransactionIdDesc(user);
+
+            // Filter FAILED transactions - CẦN RETRY PAYMENT
+            List<Transaction> failedTransactions = allTransactions.stream()
                     .filter(t -> t.getStatus() == Transaction.Status.FAILED)
+                    .filter(t -> t.getSession() != null) // Chỉ lấy transactions có session
+                    .toList();
+
+            List<Long> failedTransactionIds = failedTransactions.stream()
                     .map(Transaction::getTransactionId)
                     .collect(Collectors.toList());
 
+            double totalFailedAmount = failedTransactions.stream()
+                    .mapToDouble(Transaction::getAmount)
+                    .sum();
+
+            // Filter PENDING transactions - ĐANG CHỜ VNPAY CALLBACK
+            List<Transaction> pendingTransactions = allTransactions.stream()
+                    .filter(t -> t.getStatus() == Transaction.Status.PENDING)
+                    .filter(t -> t.getSession() != null) // Chỉ lấy transactions có session
+                    .toList();
+
+            List<Long> pendingTransactionIds = pendingTransactions.stream()
+                    .map(Transaction::getTransactionId)
+                    .collect(Collectors.toList());
+
+            double totalPendingAmount = pendingTransactions.stream()
+                    .mapToDouble(Transaction::getAmount)
+                    .sum();
+
+            // Tổng hợp response - CHỈ TRANSACTIONS
             Map<String, Object> data = new HashMap<>();
-            data.put("unpaidFees", unpaidFees);                 // Danh sách phí chưa thanh toán
-            data.put("totalUnpaidFees", totalUnpaidFees);       // Tổng tiền phí
-            data.put("failedTransactionIds", failedTransactionIds); // Các transactionId thất bại
-            data.put("totalFailedTransactions", failedTransactionIds.size()); // Số lượng transaction thất bại
+            data.put("failedTransactionIds", failedTransactionIds);
+            data.put("totalFailedTransactions", failedTransactions.size());
+            data.put("totalFailedAmount", totalFailedAmount);
+            data.put("pendingTransactionIds", pendingTransactionIds);
+            data.put("totalPendingTransactions", pendingTransactions.size());
+            data.put("totalPendingAmount", totalPendingAmount);
+
+            log.info("User {} - Failed Txs: {}, Pending Txs: {}",
+                    userId, failedTransactions.size(), pendingTransactions.size());
 
             return ResponseEntity.ok(APIResponse.success(
-                    String.format("Có %d phí chưa thanh toán (%,.0f VNĐ) và %d transaction thất bại",
-                            unpaidFees.size(), totalUnpaidFees, failedTransactionIds.size()),
+                    String.format("%d transaction thất bại (%,.0f VNĐ), %d transaction đang chờ (%,.0f VNĐ)",
+                            failedTransactions.size(), totalFailedAmount,
+                            pendingTransactions.size(), totalPendingAmount),
                     data
             ));
 
         } catch (Exception e) {
-            log.error("Error getting unpaid fees: {}", e.getMessage(), e);
+            log.error("Error getting unpaid transactions: {}", e.getMessage(), e);
             return ResponseEntity.badRequest()
-                    .body(APIResponse.error("Lỗi khi lấy phí chưa thanh toán: " + e.getMessage()));
+                    .body(APIResponse.error("Lỗi khi lấy transactions: " + e.getMessage()));
         }
     }
 
@@ -263,8 +293,18 @@ public class PenaltyController {
     }
 
     /**
-     * Thanh toán tất cả phí phạt và mở khóa tài khoản
+     * Thanh toán TẤT CẢ transactions chưa thanh toán và reset user về trạng thái bình thường
      * POST /api/penalties/pay-and-unlock
+     *
+     * Request body: {
+     *   "userId": 456,
+     *   "paymentMethod": "CASH"  // Optional, default CASH
+     * }
+     *
+     * Logic:
+     * 1. Tự động thanh toán TẤT CẢ FAILED + PENDING transactions
+     * 2. Reset user.status = ACTIVE
+     * 3. Reset user.violations = 0
      */
     @PostMapping("/pay-and-unlock")
     @PreAuthorize("hasRole('DRIVER') or hasRole('ADMIN')")
@@ -272,58 +312,132 @@ public class PenaltyController {
             @RequestBody Map<String, Object> requestBody
     ) {
         try {
-            log.info("📥 Received payment request: {}", requestBody);
-            
-            // Validate request body
+            log.info("📥 Received pay-and-unlock request: {}", requestBody);
+
+            // Validate required fields
             if (requestBody.get("userId") == null) {
-                log.error("❌ userId is null");
                 return ResponseEntity.badRequest()
                         .body(APIResponse.error("userId is required"));
             }
-            
-            if (requestBody.get("feeIds") == null) {
-                log.error("❌ feeIds is null");
-                return ResponseEntity.badRequest()
-                        .body(APIResponse.error("feeIds is required"));
-            }
-            
+
             Long userId = Long.valueOf(requestBody.get("userId").toString());
-            
-            @SuppressWarnings("unchecked")
-            List<Long> feeIds = ((List<?>) requestBody.get("feeIds")).stream()
-                    .map(id -> Long.valueOf(id.toString()))
-                    .collect(java.util.stream.Collectors.toList());
 
-            log.info("User {} attempting to pay fees and unlock account. Fee IDs: {}", userId, feeIds);
+            // Get payment method (default to CASH)
+            String paymentMethodStr = requestBody.getOrDefault("paymentMethod", "CASH").toString();
+            Transaction.PaymentMethod paymentMethod;
+            try {
+                paymentMethod = Transaction.PaymentMethod.valueOf(paymentMethodStr.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                paymentMethod = Transaction.PaymentMethod.CASH;
+            }
 
-            // Đánh dấu fees đã thanh toán
-            penaltyService.markFeesAsPaid(feeIds);
+            // Validate user exists
+            User user = userRepository.findById(userId)
+                    .orElseThrow(() -> new IllegalArgumentException("User không tồn tại"));
 
-            // Kiểm tra nếu không còn phí chưa thanh toán thì mở khóa
-            boolean unlocked = penaltyService.unlockUserAfterPayment(userId);
+            log.info("User {} attempting to pay all unpaid transactions with {} and unlock account",
+                    userId, paymentMethod);
 
-            int remainingFees = penaltyService.getUnpaidFees(userId).size();
+            // ===== BƯỚC 1: LẤY TẤT CẢ UNPAID TRANSACTIONS =====
+            List<Transaction> unpaidTransactions = transactionRepository
+                    .findByUserOrderByTransactionIdDesc(user)
+                    .stream()
+                    .filter(t -> t.getStatus() == Transaction.Status.FAILED ||
+                                 t.getStatus() == Transaction.Status.PENDING)
+                    .filter(t -> t.getSession() != null)
+                    .toList();
 
-            if (unlocked) {
+            if (unpaidTransactions.isEmpty()) {
+                // Không có transaction nào cần thanh toán - Vẫn reset user
+                user.setStatus(User.UserStatus.ACTIVE);
+                user.setViolations(0);
+                String currentReason = user.getReasonReport() != null ? user.getReasonReport() : "";
+                user.setReasonReport(currentReason +
+                        "\n[Mở khóa: " + java.time.LocalDateTime.now() +
+                        "] Tài khoản được mở khóa và reset violations (không có transaction cần thanh toán)");
+                userRepository.save(user);
+
                 return ResponseEntity.ok(APIResponse.success(
-                        "Thanh toán thành công! Tài khoản đã được mở khóa.",
+                        "Không có giao dịch nào cần thanh toán. Tài khoản đã được mở khóa!",
                         Map.of(
                                 "unlocked", true,
-                                "remainingFees", remainingFees
-                        )
-                ));
-            } else {
-                return ResponseEntity.ok(APIResponse.success(
-                        "Thanh toán thành công! Vẫn còn phí chưa thanh toán.",
-                        Map.of(
-                                "unlocked", false,
-                                "remainingFees", remainingFees
+                                "userStatus", "ACTIVE",
+                                "violations", 0,
+                                "paidTransactions", 0,
+                                "totalAmount", 0.0
                         )
                 ));
             }
 
+            // ===== BƯỚC 2: THANH TOÁN TẤT CẢ TRANSACTIONS =====
+            List<Long> paidTransactionIds = new ArrayList<>();
+            List<String> errors = new ArrayList<>();
+            double totalPaid = 0.0;
+
+            for (Transaction tx : unpaidTransactions) {
+                try {
+                    log.info("Retrying payment for transaction #{} (status: {})",
+                            tx.getTransactionId(), tx.getStatus());
+
+                    RetryPaymentRequestDTO retryRequest = RetryPaymentRequestDTO.builder()
+                            .transactionId(tx.getTransactionId())
+                            .userId(userId)
+                            .paymentMethod(paymentMethod)
+                            .build();
+
+                    paymentService.retryPayment(retryRequest);
+                    paidTransactionIds.add(tx.getTransactionId());
+                    totalPaid += tx.getAmount();
+
+                    log.info("✅ Successfully paid transaction #{}", tx.getTransactionId());
+
+                } catch (Exception e) {
+                    log.error("❌ Failed to pay transaction #{}: {}",
+                            tx.getTransactionId(), e.getMessage());
+                    errors.add("Transaction #" + tx.getTransactionId() + ": " + e.getMessage());
+                }
+            }
+
+            // ===== BƯỚC 3: RESET USER STATUS & VIOLATIONS =====
+            user.setStatus(User.UserStatus.ACTIVE);
+            user.setViolations(0);
+            String currentReason = user.getReasonReport() != null ? user.getReasonReport() : "";
+            user.setReasonReport(currentReason +
+                    "\n[Mở khóa: " + java.time.LocalDateTime.now() +
+                    "] Tài khoản được mở khóa và reset violations sau khi thanh toán " +
+                    paidTransactionIds.size() + " giao dịch");
+            userRepository.save(user);
+
+            log.info("✅ User {} unlocked: status=ACTIVE, violations=0", userId);
+
+            // ===== RESPONSE =====
+            String message;
+            if (errors.isEmpty()) {
+                message = String.format("✅ Đã thanh toán thành công %d giao dịch (tổng: %,.0f VNĐ). Tài khoản đã được mở khóa!",
+                        paidTransactionIds.size(), totalPaid);
+            } else {
+                message = String.format("⚠️ Đã thanh toán %d/%d giao dịch. Tài khoản đã được mở khóa!",
+                        paidTransactionIds.size(), unpaidTransactions.size());
+            }
+
+            return ResponseEntity.ok(APIResponse.success(
+                    message,
+                    Map.of(
+                            "unlocked", true,
+                            "userStatus", "ACTIVE",
+                            "violations", 0,
+                            "totalTransactions", unpaidTransactions.size(),
+                            "paidTransactions", paidTransactionIds.size(),
+                            "failedPayments", errors.size(),
+                            "totalAmount", totalPaid,
+                            "paidTransactionIds", paidTransactionIds,
+                            "errors", errors,
+                            "paymentMethod", paymentMethod.toString()
+                    )
+            ));
+
         } catch (Exception e) {
-            log.error("Error paying and unlocking: {}", e.getMessage(), e);
+            log.error("Error in pay-and-unlock: {}", e.getMessage(), e);
             return ResponseEntity.badRequest()
                     .body(APIResponse.error("Lỗi khi thanh toán: " + e.getMessage()));
         }

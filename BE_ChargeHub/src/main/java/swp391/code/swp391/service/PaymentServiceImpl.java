@@ -402,6 +402,7 @@ public class PaymentServiceImpl implements PaymentService {
         throw new ApiRequestException("Phương thức thanh toán không hợp lệ");
     }
 
+
     /**
      * Retry payment với CASH
      * Changed from private to protected to allow @Transactional
@@ -512,7 +513,7 @@ public class PaymentServiceImpl implements PaymentService {
         // ============ TỰ ĐỘNG MỞ KHÓA TÀI KHOẢN ============
         Long userId = transaction.getUser().getUserId();
 
-        // Kiểm tra và tự động mở khóa tài khoản nếu user đã thanh toán hết phí
+        // Kiểm tra và tự động mở khóa tài khoản nếu user đã thanh toán hết transactions thất bại
         if (penaltyService.canUnlockUser(userId)) {
             boolean unlocked = penaltyService.unlockUserAfterPayment(userId);
             if (unlocked) {
@@ -522,7 +523,7 @@ public class PaymentServiceImpl implements PaymentService {
                 notificationService.createGeneralNotification(
                         List.of(userId),
                         "Tài khoản đã được mở khóa",
-                        "Tài khoản của bạn đã được mở khóa tự động sau khi thanh toán phí phạt. " +
+                        "Tài khoản của bạn đã được mở khóa tự động sau khi thanh toán tất cả giao dịch thất bại. " +
                                 "Bạn có thể tiếp tục sử dụng dịch vụ."
                 );
             }

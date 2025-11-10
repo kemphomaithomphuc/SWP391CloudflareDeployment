@@ -7,14 +7,22 @@ export interface RetryPaymentRequest {
 }
 
 export interface RetryPaymentData {
+  transactionId?: number;
+  sessionId?: number;
+  amount?: number;
+  paymentMethod?: string;
+  status?: string;
+  message?: string;
   paymentUrl?: string;
-  [key: string]: unknown;
+  createdAt?: string;
+  paymentDetail?: unknown;
 }
 
 export interface RetryPaymentResponse {
   success: boolean;
   message?: string;
   data?: RetryPaymentData;
+  timestamp?: string;
 }
 
 export const retryPayment = async (
@@ -23,3 +31,6 @@ export const retryPayment = async (
   const response = await api.post<RetryPaymentResponse>("/api/payment/retry", payload);
   return response.data;
 };
+
+export default retryPayment;
+

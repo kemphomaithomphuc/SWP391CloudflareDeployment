@@ -27,7 +27,6 @@ import BookingMap from "./BookingMap";
 import HistoryView from "./components/HistoryView";
 import PersonalAnalysisView from "./components/PersonalAnalysisView";
 import ReportIssueView from "./components/ReportIssueView";
-import WalletView from "./components/WalletView";
 import NotificationView from "./components/NotificationView";
 import SystemConfigView from "./components/SystemConfigView";
 import AdminMapView from "./components/AdminMapView";
@@ -48,7 +47,8 @@ import PremiumSubscriptionView from "./components/PremiumSubscriptionView";
 import PaymentResultView from "./components/PaymentResultView";
 import { ChatbotProvider } from "./contexts/ChatbotContext";
 import { checkAndRefreshToken, logoutUser } from "./services/api";
-import PenaltyPaymentView from "./components/PenaltyPaymentView";
+import PenaltyPayment from "./PenaltyPayment";
+import PayUnpaid from "./payUnpaid";
 
 type ViewType =
   | "login"
@@ -73,7 +73,6 @@ type ViewType =
   | "history"
   | "analysis"
   | "reportIssue"
-  | "wallet"
   | "notifications"
   | "staffNotifications"
   | "postActivating"
@@ -83,6 +82,7 @@ type ViewType =
   | "premiumSubscription"
   | "issueResolvement"
   | "penaltyPayment"
+  | "payUnpaid"
   | "chargingManagement";
 
 function AppContent() {
@@ -164,10 +164,6 @@ function AppContent() {
   const switchToReportIssue = () => {
     setCurrentView("reportIssue");
     navigate("/report-issue");
-  };
-  const switchToWallet = () => {
-    setCurrentView("wallet");
-    navigate("/wallet");
   };
   const switchToNotifications = () => {
     setCurrentView("notifications");
@@ -308,11 +304,11 @@ function AppContent() {
       "history": "/history",
       "analysis": "/analysis",
       "reportIssue": "/report-issue",
-      "wallet": "/wallet",
       "notifications": "/notifications",
       "myBookings": "/my-bookings",
       "premiumSubscription": "/premium-subscription",
       "penaltyPayment": "/penalty-payment",
+      "payUnpaid": "/pay-unpaid",
       "staffLogin": "/staff/login",
       "staffDashboard": "/staff/dashboard",
       "staffNotifications": "/staff/notifications",
@@ -340,7 +336,7 @@ function AppContent() {
 
   // Determine user type and whether to show sidebar based on current view
   const getUserType = (): 'driver' | 'staff' | 'admin' | undefined => {
-    if (['dashboard', 'booking', 'history', 'analysis', 'reportIssue', 'wallet', 'notifications', 'myBookings', 'chargingSession', 'premiumSubscription'].includes(currentView)) {
+    if (['dashboard', 'booking', 'history', 'analysis', 'reportIssue', 'notifications', 'myBookings', 'chargingSession', 'premiumSubscription'].includes(currentView)) {
       return 'driver';
     }
     if (['staffDashboard', 'staffNotifications', 'staffReports', 'postActivating', 'chargingManagement'].includes(currentView)) {
@@ -474,7 +470,7 @@ function AppContent() {
   const renderContent = () => {
     switch (currentView) {
       case "dashboard":
-        return <MainDashboard onLogout={switchToLogin} onBooking={switchToBooking} onHistory={switchToHistory} onAnalysis={switchToAnalysis} onReportIssue={switchToReportIssue} onWallet={switchToWallet} onNotifications={switchToNotifications} onMyBookings={switchToMyBookings} onPremiumSubscription={switchToPremiumSubscription} vehicleBatteryLevel={vehicleBatteryLevel} setVehicleBatteryLevel={setVehicleBatteryLevel} />;
+        return <MainDashboard onLogout={switchToLogin} onBooking={switchToBooking} onHistory={switchToHistory} onAnalysis={switchToAnalysis} onReportIssue={switchToReportIssue} onNotifications={switchToNotifications} onMyBookings={switchToMyBookings} onPremiumSubscription={switchToPremiumSubscription} vehicleBatteryLevel={vehicleBatteryLevel} setVehicleBatteryLevel={setVehicleBatteryLevel} />;
 
       case "booking":
         return <BookingMap onBack={() => navigate("/dashboard")} currentBatteryLevel={vehicleBatteryLevel} setCurrentBatteryLevel={setVehicleBatteryLevel} onStartCharging={switchToChargingSession} />;
@@ -487,9 +483,6 @@ function AppContent() {
 
       case "reportIssue":
         return <ReportIssueView onBack={() => navigate("/dashboard")} />;
-
-      case "wallet":
-        return <WalletView onBack={() => navigate("/dashboard")} />;
 
       case "notifications":
         return <NotificationView onBack={() => navigate("/dashboard")} />;
@@ -570,10 +563,10 @@ function AppContent() {
       case "premiumSubscription":
         return <PremiumSubscriptionView onBack={() => navigate("/dashboard")} userType="driver" />;
 
-      case "penaltyPayment": {
-        const penaltyUserId = Number(localStorage.getItem("userId") || localStorage.getItem("penaltyUserId") || 0);
-        return <PenaltyPaymentView onBack={switchToLogin} userId={penaltyUserId} />;
-      }
+      case "penaltyPayment":
+        return <PenaltyPayment />;
+      case "payUnpaid":
+        return <PayUnpaid />;
       case "vehicleSetup":
         return (
           <VehicleSetup 
@@ -662,11 +655,11 @@ function AppContent() {
       "/history": "history",
       "/analysis": "analysis",
       "/report-issue": "reportIssue",
-      "/wallet": "wallet",
       "/notifications": "notifications",
       "/my-bookings": "myBookings",
       "/premium-subscription": "premiumSubscription",
       "/penalty-payment": "penaltyPayment",
+      "/pay-unpaid": "payUnpaid",
       "/staff/login": "staffLogin",
       "/staff/dashboard": "staffDashboard",
       "/staff/notifications": "staffNotifications",
@@ -895,20 +888,6 @@ function AppContent() {
           <AppLayout
             userType="driver"
             currentView="reportIssue"
-            onNavigate={handleNavigation}
-            onLogout={switchToLogin}
-            showSidebar={showSidebar}
-          >
-            {renderContent()}
-          </AppLayout>
-        } 
-      />
-      <Route 
-        path="/wallet" 
-        element={
-          <AppLayout
-            userType="driver"
-            currentView="wallet"
             onNavigate={handleNavigation}
             onLogout={switchToLogin}
             showSidebar={showSidebar}
@@ -1203,7 +1182,21 @@ function AppContent() {
             onLogout={switchToLogin}
             showSidebar={false}
           >
-            <PenaltyPaymentView onBack={switchToLogin} userId={Number(localStorage.getItem("userId") || localStorage.getItem("penaltyUserId") || 0)} />
+            <PenaltyPayment />
+          </AppLayout>
+        }
+      />
+      <Route
+        path="/pay-unpaid"
+        element={
+          <AppLayout
+            userType={userType || "driver"}
+            currentView="payUnpaid"
+            onNavigate={handleNavigation}
+            onLogout={switchToLogin}
+            showSidebar={false}
+          >
+            <PayUnpaid />
           </AppLayout>
         }
       />
