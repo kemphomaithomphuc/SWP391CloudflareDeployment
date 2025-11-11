@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, Calendar, Clock, DollarSign, CheckCircle, Zap, Star, Shield, Crown, Sparkles, Gift, Info, ExternalLink, Check, CreditCard, QrCode } from 'lucide-react';
+import { ArrowLeft, Calendar, Clock, DollarSign, CheckCircle, Zap, Star, Shield, Crown, Sparkles, Gift, Info, Check, CreditCard } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { Button } from './ui/button';
@@ -9,7 +9,7 @@ import { Separator } from './ui/separator';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog';
 import { motion } from 'motion/react';
 import { toast } from 'sonner';
-import { getAllSubscriptions, getUserSubscription, upgradeUserSubscription, type SubscriptionResponseDTO } from '../services/api';
+import { getAllSubscriptions, getUserSubscription, upgradeUserSubscription, createSubscriptionPayment, type SubscriptionResponseDTO } from '../services/api';
 
 interface PremiumSubscriptionViewProps {
     onBack: () => void;
@@ -25,7 +25,6 @@ export default function PremiumSubscriptionView({ onBack, userType = 'driver' }:
     const [loading, setLoading] = useState(true);
     const [selectedPlan, setSelectedPlan] = useState<any>(null);
     const [showPaymentDialog, setShowPaymentDialog] = useState(false);
-    const [paymentMethod, setPaymentMethod] = useState<'vnpay' | 'wallet' | null>(null);
     const [paymentStatus, setPaymentStatus] = useState<'pending' | 'processing' | 'success' | 'failed'>('pending');
 
     const translations = {
@@ -116,6 +115,41 @@ export default function PremiumSubscriptionView({ onBack, userType = 'driver' }:
             }
         })();
     }, []);
+
+    useEffect(() => {
+        const paymentStatus = localStorage.getItem('subscriptionPaymentStatus');
+        if (!paymentStatus) {
+            return;
+        }
+
+        const userId = localStorage.getItem('userId');
+
+        if (paymentStatus === 'success') {
+            toast.success(language === 'vi'
+                ? 'Thanh toán gói đăng ký thành công!'
+                : 'Subscription payment successful!'
+            );
+            if (userId) {
+                getUserSubscription(Number(userId))
+                    .then(res => {
+                        setCurrentSub(res?.data || null);
+                    })
+                    .catch(err => {
+                        console.error('Error refreshing subscription after payment:', err);
+                    });
+            }
+        } else if (paymentStatus === 'cancelled') {
+            toast.error(language === 'vi'
+                ? 'Bạn đã hủy giao dịch thanh toán.'
+                : 'You cancelled the payment.');
+        } else if (paymentStatus === 'failed') {
+            toast.error(language === 'vi'
+                ? 'Thanh toán gói đăng ký không thành công.'
+                : 'Subscription payment failed.');
+        }
+
+        localStorage.removeItem('subscriptionPaymentStatus');
+    }, [language]);
 
     // Canonicalize BE types to exactly 3 plans: BASIC -> basic, PLUS -> plus, PRO -> premium
     const canonicalKey = (t: string) => {
@@ -210,118 +244,157 @@ export default function PremiumSubscriptionView({ onBack, userType = 'driver' }:
         
         const currentKey = canonicalKey(currentSub?.type || '');
         const keys: Array<'basic'|'plus'|'premium'> = ['basic','plus','premium'];
-        return keys.map(key => ({
-            id: key,
-            name: canonicalName(key),
-            price: priceFromBackend(key),  // Only from BE, no fallback
-            features: featuresByKey(key),
-            popular: key === 'plus',
-            current: key === currentKey,
-        }));
+        return keys.map(key => {
+            const match = plans.find(p => canonicalKey(p.type || '') === key);
+            return {
+                id: key,
+                subscriptionId: match?.subscriptionId,
+                name: canonicalName(key),
+                price: priceFromBackend(key),  // Only from BE, no fallback
+                features: featuresByKey(key),
+                popular: key === 'plus',
+                current: key === currentKey,
+            };
+        });
     }, [plans, currentSub, language, userType]);
 
-    const handleUpgrade = (plan: any) => {
+    const upgradeBasicPlan = async (userId: number): Promise<boolean> => {
+        setIsUpgrading(true);
+        try {
+            const response = await upgradeUserSubscription(userId, 'BASIC');
+
+            if (!response.success) {
+                throw new Error(response.message || 'Upgrade failed');
+            }
+
+            toast.success(
+                language === 'vi'
+                    ? 'Nâng cấp thành công! Gói đăng ký đã được kích hoạt'
+                    : 'Upgrade successful! Subscription activated'
+            );
+
+            try {
+                const refreshed = await getUserSubscription(userId);
+                setCurrentSub(refreshed?.data || null);
+                console.log('Subscription refreshed:', refreshed?.data);
+            } catch (refreshError) {
+                console.error('Error refreshing subscription:', refreshError);
+            }
+
+            return true;
+        } catch (error: any) {
+            console.error('=== Error upgrading BASIC subscription ===', error);
+            const errorMsg = error.response?.data?.message || error.message;
+            toast.error(errorMsg || (language === 'vi' ? 'Lỗi khi nâng cấp gói đăng ký' : 'Error upgrading subscription'));
+            return false;
+        } finally {
+            setIsUpgrading(false);
+        }
+    };
+
+    const handleUpgrade = async (plan: any) => {
+        if (!plan) {
+            return;
+        }
+
+        if (plan.id === 'basic') {
+            const userIdValue = localStorage.getItem('userId');
+            if (!userIdValue) {
+                toast.error(language === 'vi' ? 'Vui lòng đăng nhập' : 'Please login');
+                return;
+            }
+            await upgradeBasicPlan(Number(userIdValue));
+            return;
+        }
+
         setSelectedPlan(plan);
         setShowPaymentDialog(true);
-        setPaymentMethod(null);
         setPaymentStatus('pending');
     };
 
     const handlePaymentConfirm = async () => {
-        if (!paymentMethod) {
-            toast.error(language === 'vi' ? 'Vui lòng chọn phương thức thanh toán' : 'Please select a payment method');
+        const userIdValue = localStorage.getItem('userId');
+        if (!userIdValue) {
+            toast.error(language === 'vi' ? 'Vui lòng đăng nhập' : 'Please login');
             return;
         }
 
-        const userId = localStorage.getItem('userId');
-        if (!userId) {
-            toast.error(language === 'vi' ? 'Vui lòng đăng nhập' : 'Please login');
+        if (!selectedPlan) {
+            toast.error(language === 'vi' ? 'Vui lòng chọn gói đăng ký' : 'Please select a plan');
+            return;
+        }
+
+        const subscriptionId = selectedPlan.subscriptionId;
+        if (!subscriptionId) {
+            toast.error(language === 'vi' ? 'Không tìm thấy mã gói đăng ký' : 'Subscription ID not found');
+            return;
+        }
+
+        const planTypeMap: Record<string, 'BASIC' | 'PLUS' | 'PREMIUM'> = {
+            basic: 'BASIC',
+            plus: 'PLUS',
+            premium: 'PREMIUM'
+        };
+
+        const subscriptionType = planTypeMap[selectedPlan.id];
+
+        if (!subscriptionType) {
+            toast.error(language === 'vi' ? 'Gói đăng ký không hợp lệ' : 'Invalid subscription plan');
+            return;
+        }
+
+        if (subscriptionType === 'BASIC') {
+            setPaymentStatus('processing');
+            const success = await upgradeBasicPlan(Number(userIdValue));
+            if (success) {
+                setPaymentStatus('success');
+                setTimeout(() => {
+                    setShowPaymentDialog(false);
+                    setSelectedPlan(null);
+                    setPaymentStatus('pending');
+                }, 2000);
+            } else {
+                setPaymentStatus('failed');
+                setTimeout(() => setPaymentStatus('pending'), 2000);
+            }
             return;
         }
 
         setPaymentStatus('processing');
 
         try {
-            // Map plan.id (basic/plus/premium) -> BE Type (BASIC/PLUS/PREMIUM)
-            const planTypeMap: Record<string, 'BASIC' | 'PLUS' | 'PREMIUM'> = {
-                'basic': 'BASIC',
-                'plus': 'PLUS',
-                'premium': 'PREMIUM'
-            };
-            
-            const subscriptionType = planTypeMap[selectedPlan.id];
-            if (!subscriptionType) {
-                throw new Error('Invalid plan type');
+            localStorage.setItem('paymentOrigin', 'premium-subscription');
+            const paymentResponse = await createSubscriptionPayment({
+                userId: Number(userIdValue),
+                subscriptionId,
+                returnUrl: `${window.location.origin}/payment/result`,
+                cancelUrl: `${window.location.origin}/payment/result`
+            });
+
+            if (!paymentResponse.success) {
+                throw new Error(paymentResponse.message || 'Payment initiation failed');
             }
 
-            console.log("=== Upgrading subscription ===");
-            console.log("User ID:", userId);
-            console.log("Plan type:", subscriptionType);
-            console.log("Plan name:", selectedPlan.name);
-            console.log("Plan price:", selectedPlan.price);
-            console.log("Payment method:", paymentMethod);
-
-            // Note: Giả định payment đã thành công (VNPay external hoặc Wallet deduction manual)
-            // TODO: Integrate VNPay gateway hoặc Wallet deduction API khi BE có sẵn
-            
-            if (paymentMethod === 'vnpay') {
-                console.log("VNPay payment - Assuming external payment completed");
-            } else if (paymentMethod === 'wallet') {
-                console.log("Wallet payment - Assuming sufficient balance and deducted");
+            const paymentUrl = paymentResponse.data?.paymentUrl;
+            if (!paymentUrl) {
+                throw new Error(language === 'vi' ? 'Không tìm thấy đường dẫn thanh toán' : 'Missing payment URL');
             }
 
-            // Call API upgrade subscription
-            const response = await upgradeUserSubscription(
-                Number(userId),
-                subscriptionType
-            );
-
-            console.log("✅ Upgrade response:", response);
-
-            if (response.success) {
-                setPaymentStatus('success');
-                toast.success(
-                    language === 'vi' 
-                        ? 'Nâng cấp thành công! Gói đăng ký đã được kích hoạt' 
-                        : 'Upgrade successful! Subscription activated'
-                );
-
-                // Close dialog after 2 seconds
-                setTimeout(() => {
-                    setShowPaymentDialog(false);
-                    setSelectedPlan(null);
-                    setPaymentStatus('pending');
-                    
-                    // Refresh subscription data
-                    getUserSubscription(Number(userId)).then(res => {
-                        setCurrentSub(res?.data || null);
-                        console.log("✅ Subscription refreshed:", res?.data);
-                    }).catch(err => {
-                        console.error("Error refreshing subscription:", err);
-                    });
-                }, 2000);
-            } else {
-                throw new Error(response.message || 'Upgrade failed');
-            }
+            localStorage.setItem('pendingSubscriptionType', subscriptionType);
+            localStorage.setItem('pendingSubscriptionUserId', userIdValue);
+            window.location.href = paymentUrl;
         } catch (error: any) {
-            console.error('=== Error upgrading subscription ===', error);
-            console.error('Error response:', error.response);
-            setPaymentStatus('failed');
-            
+            console.error('=== Error initiating subscription payment ===', error);
             const errorMsg = error.response?.data?.message || error.message;
-            toast.error(errorMsg || (language === 'vi' ? 'Lỗi khi nâng cấp gói đăng ký' : 'Error upgrading subscription'));
-            
-            // Reset status after 2 seconds
-            setTimeout(() => {
-                setPaymentStatus('pending');
-            }, 2000);
+            toast.error(errorMsg || (language === 'vi' ? 'Lỗi thanh toán' : 'Payment error'));
+            setPaymentStatus('failed');
+            setTimeout(() => setPaymentStatus('pending'), 2000);
         }
     };
 
     const handlePaymentCancel = () => {
         setShowPaymentDialog(false);
         setSelectedPlan(null);
-        setPaymentMethod(null);
         setPaymentStatus('pending');
     };
 
@@ -501,7 +574,7 @@ export default function PremiumSubscriptionView({ onBack, userType = 'driver' }:
                                                             ? 'bg-primary hover:bg-primary/90'
                                                             : ''
                                                 }`}
-                                                disabled={plan.current}
+                                                disabled={plan.current || (plan.id === 'basic' && isUpgrading)}
                                                 onClick={() => handleUpgrade(plan)}
                                             >
                                                 {plan.current
@@ -626,7 +699,7 @@ export default function PremiumSubscriptionView({ onBack, userType = 'driver' }:
 
             {/* Payment Dialog */}
             <Dialog open={showPaymentDialog} onOpenChange={setShowPaymentDialog}>
-                <DialogContent className="bg-card/95 backdrop-blur-sm border-border/60 max-w-2xl">
+                <DialogContent className="w-[min(95vw,32rem)] max-h-[85vh] overflow-y-auto bg-card/95 backdrop-blur-sm border-border/60 p-6">
                     <DialogHeader>
                         <DialogTitle className="flex items-center space-x-2">
                             <CreditCard className="w-5 h-5 text-primary" />
@@ -661,53 +734,18 @@ export default function PremiumSubscriptionView({ onBack, userType = 'driver' }:
                             </Card>
 
                             {/* Payment Methods */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                {/* VNPay */}
-                                <div
-                                    className={`p-6 rounded-lg border-2 cursor-pointer transition-all ${
-                                        paymentMethod === 'vnpay'
-                                            ? 'border-primary bg-primary/5 shadow-lg'
-                                            : 'border-border hover:border-primary/50'
-                                    }`}
-                                    onClick={() => setPaymentMethod('vnpay')}
-                                >
-                                    <div className="flex items-start space-x-4">
-                                        <CreditCard className={`w-8 h-8 ${paymentMethod === 'vnpay' ? 'text-primary' : 'text-muted-foreground'}`} />
-                                        <div className="flex-1">
-                                            <h4 className="font-semibold mb-1">VNPay</h4>
-                                            <p className="text-sm text-muted-foreground">
-                                                {language === 'vi' ? 'Thanh toán trực tuyến' : 'Online payment'}
-                                            </p>
-                                        </div>
-                                        {paymentMethod === 'vnpay' && (
-                                            <CheckCircle className="w-5 h-5 text-primary" />
-                                        )}
+                            <div className="p-6 rounded-lg border-2 border-primary bg-primary/5 shadow-lg">
+                                <div className="flex items-start space-x-4">
+                                    <CreditCard className="w-8 h-8 text-primary" />
+                                    <div className="flex-1">
+                                        <h4 className="font-semibold mb-1">VNPay</h4>
+                                        <p className="text-sm text-muted-foreground">
+                                            {language === 'vi'
+                                                ? 'Thanh toán trực tuyến qua cổng VNPay'
+                                                : 'Secure online payment via VNPay gateway'}
+                                        </p>
                                     </div>
-                                </div>
-
-                                {/* Wallet */}
-                                <div
-                                    className={`p-6 rounded-lg border-2 cursor-pointer transition-all ${
-                                        paymentMethod === 'wallet'
-                                            ? 'border-primary bg-primary/5 shadow-lg'
-                                            : 'border-border hover:border-primary/50'
-                                    }`}
-                                    onClick={() => setPaymentMethod('wallet')}
-                                >
-                                    <div className="flex items-start space-x-4">
-                                        <QrCode className={`w-8 h-8 ${paymentMethod === 'wallet' ? 'text-primary' : 'text-muted-foreground'}`} />
-                                        <div className="flex-1">
-                                            <h4 className="font-semibold mb-1">
-                                                {language === 'vi' ? 'Ví Điện Tử' : 'Digital Wallet'}
-                                            </h4>
-                                            <p className="text-sm text-muted-foreground">
-                                                {language === 'vi' ? 'Thanh toán bằng ví' : 'Pay with wallet'}
-                                            </p>
-                                        </div>
-                                        {paymentMethod === 'wallet' && (
-                                            <CheckCircle className="w-5 h-5 text-primary" />
-                                        )}
-                                    </div>
+                                    <CheckCircle className="w-5 h-5 text-primary" />
                                 </div>
                             </div>
 
@@ -728,7 +766,6 @@ export default function PremiumSubscriptionView({ onBack, userType = 'driver' }:
                                 </Button>
                                 <Button
                                     onClick={handlePaymentConfirm}
-                                    disabled={!paymentMethod}
                                     className="bg-primary hover:bg-primary/90"
                                 >
                                     {language === 'vi' ? 'Thanh Toán' : 'Pay Now'}

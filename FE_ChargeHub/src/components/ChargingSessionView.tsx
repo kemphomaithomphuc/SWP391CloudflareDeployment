@@ -1171,7 +1171,7 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
     
     // Check prerequisites - IMPORTANT: Stop if session is already stopped
     if (!sessionId || !sessionStarted || session.status === 'stopped' || !currentToken) {
-      console.log("❌ Monitoring skipped - prerequisites not met:", { 
+      console.log("Monitoring skipped - prerequisites not met:", {
         hasSessionId: !!sessionId, 
         sessionStarted, 
         status: session.status,
@@ -1188,7 +1188,7 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
       return;
     }
     
-    console.log("✅ Starting monitoring for session:", sessionId);
+    console.log("Starting monitoring for session:", sessionId);
 
     // Initial monitoring call to get initial battery (with loading)
     handleChargingMonitoring(sessionId, true);

@@ -611,6 +611,29 @@ export const upgradeUserSubscription = async (
   return response.data;
 };
 
+export interface SubscriptionPaymentRequest {
+  userId: number;
+  subscriptionId: number;
+  returnUrl?: string;
+  cancelUrl?: string;
+  bankCode?: string;
+}
+
+export interface SubscriptionPaymentResult {
+  paymentUrl?: string;
+  [key: string]: unknown;
+}
+
+export const createSubscriptionPayment = async (
+  payload: SubscriptionPaymentRequest
+): Promise<APIResponse<SubscriptionPaymentResult>> => {
+  const response = await api.post<APIResponse<SubscriptionPaymentResult>>(
+    '/api/payment/subscription',
+    payload
+  );
+  return response.data;
+};
+
 
 // ===== AUTH API FUNCTIONS =====
 

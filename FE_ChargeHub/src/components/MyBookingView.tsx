@@ -14,6 +14,7 @@ import { toast } from 'sonner';
 import { Separator } from './ui/separator';
 import api, { cancelOrder, CancelOrderDTO } from "../services/api";
 import getChargingStationDetail, { ChargingStationDetail, NearbyPlace } from '../api/chargingStationDetails';
+import getNearbyPlacesByStation, { NearbyPlaceInfo } from '../api/nearbyPlaces';
 import {
     Pagination,
     PaginationContent,
@@ -238,6 +239,7 @@ export default function MyBookingView({ onBack, onStartCharging }: MyBookingView
   const [nearbyDetail, setNearbyDetail] = useState<ChargingStationDetail | null>(null);
   const [popupStationName, setPopupStationName] = useState<string | null>(null);
   const [hasTriggeredNearbyPopup, setHasTriggeredNearbyPopup] = useState(false);
+  const [nearbyAmenitiesList, setNearbyAmenitiesList] = useState<NearbyPlace[]>([]);
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -334,13 +336,29 @@ export default function MyBookingView({ onBack, onStartCharging }: MyBookingView
       setNearbyLoading(true);
       setNearbyError(null);
       setNearbyDetail(null);
+      setNearbyAmenitiesList([]);
       setPopupStationName(fallbackName ?? null);
 
       try {
-        const detail = await getChargingStationDetail(stationId);
+        const [detail, amenities] = await Promise.all([
+          getChargingStationDetail(stationId),
+          getNearbyPlacesByStation(stationId).catch((amenitiesError) => {
+            console.error("Error fetching nearby amenities:", amenitiesError);
+            return [];
+          }),
+        ]);
+
         console.log("[MyBookingView] Nearby detail response:", detail);
         setNearbyDetail(detail);
         setPopupStationName(detail?.stationName ?? fallbackName ?? null);
+
+        if (Array.isArray(amenities) && amenities.length > 0) {
+          setNearbyAmenitiesList(
+            amenities
+              .filter((item): item is NearbyPlaceInfo => !!item && typeof item === 'object')
+              .map((item) => ({ ...item }))
+          );
+        }
         setNearbyPopupOpen(true);
       } catch (err: any) {
         console.error("Error loading nearby places for station:", err);
@@ -1216,8 +1234,12 @@ export default function MyBookingView({ onBack, onStartCharging }: MyBookingView
   }, [apiActiveOrders, apiUpcomingOrders, language, openNearbyPopup]);
 
   const nearbyPlaces = useMemo(
-    () => deduplicateNearbyPlaces(aggregateNearbyPlaces(nearbyDetail)),
-    [nearbyDetail]
+    () =>
+      deduplicateNearbyPlaces([
+        ...aggregateNearbyPlaces(nearbyDetail),
+        ...nearbyAmenitiesList,
+      ]),
+    [nearbyDetail, nearbyAmenitiesList]
   );
 
   const stationAmenities = useMemo(() => {
