@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, Calendar, Clock, DollarSign, CheckCircle, Zap, Star, Shield, Crown, Sparkles, Gift, Info, Check, CreditCard } from 'lucide-react';
+import { ArrowLeft, Calendar, Clock, DollarSign, CheckCircle, Zap, Star, Shield, Crown, Sparkles, Gift, Info, ExternalLink, Check, CreditCard, QrCode } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { Button } from './ui/button';
@@ -9,7 +9,7 @@ import { Separator } from './ui/separator';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog';
 import { motion } from 'motion/react';
 import { toast } from 'sonner';
-import { getAllSubscriptions, getUserSubscription, upgradeUserSubscription, createSubscriptionPayment, type SubscriptionResponseDTO } from '../services/api';
+import { getAllSubscriptions, getUserSubscription, upgradeUserSubscription, createSubscriptionPayment, type SubscriptionResponseDTO, type SubscriptionPaymentRequest } from '../services/api';
 
 interface PremiumSubscriptionViewProps {
     onBack: () => void;
@@ -25,6 +25,7 @@ export default function PremiumSubscriptionView({ onBack, userType = 'driver' }:
     const [loading, setLoading] = useState(true);
     const [selectedPlan, setSelectedPlan] = useState<any>(null);
     const [showPaymentDialog, setShowPaymentDialog] = useState(false);
+    const [paymentMethod, setPaymentMethod] = useState<'vnpay' | 'wallet'>('vnpay');
     const [paymentStatus, setPaymentStatus] = useState<'pending' | 'processing' | 'success' | 'failed'>('pending');
 
     const translations = {
@@ -115,41 +116,6 @@ export default function PremiumSubscriptionView({ onBack, userType = 'driver' }:
             }
         })();
     }, []);
-
-    useEffect(() => {
-        const paymentStatus = localStorage.getItem('subscriptionPaymentStatus');
-        if (!paymentStatus) {
-            return;
-        }
-
-        const userId = localStorage.getItem('userId');
-
-        if (paymentStatus === 'success') {
-            toast.success(language === 'vi'
-                ? 'Thanh toán gói đăng ký thành công!'
-                : 'Subscription payment successful!'
-            );
-            if (userId) {
-                getUserSubscription(Number(userId))
-                    .then(res => {
-                        setCurrentSub(res?.data || null);
-                    })
-                    .catch(err => {
-                        console.error('Error refreshing subscription after payment:', err);
-                    });
-            }
-        } else if (paymentStatus === 'cancelled') {
-            toast.error(language === 'vi'
-                ? 'Bạn đã hủy giao dịch thanh toán.'
-                : 'You cancelled the payment.');
-        } else if (paymentStatus === 'failed') {
-            toast.error(language === 'vi'
-                ? 'Thanh toán gói đăng ký không thành công.'
-                : 'Subscription payment failed.');
-        }
-
-        localStorage.removeItem('subscriptionPaymentStatus');
-    }, [language]);
 
     // Canonicalize BE types to exactly 3 plans: BASIC -> basic, PLUS -> plus, PRO -> premium
     const canonicalKey = (t: string) => {
@@ -248,8 +214,8 @@ export default function PremiumSubscriptionView({ onBack, userType = 'driver' }:
             const match = plans.find(p => canonicalKey(p.type || '') === key);
             return {
                 id: key,
-                subscriptionId: match?.subscriptionId,
                 name: canonicalName(key),
+                subscriptionId: match?.subscriptionId,
                 price: priceFromBackend(key),  // Only from BE, no fallback
                 features: featuresByKey(key),
                 popular: key === 'plus',
@@ -258,118 +224,105 @@ export default function PremiumSubscriptionView({ onBack, userType = 'driver' }:
         });
     }, [plans, currentSub, language, userType]);
 
-    const upgradeBasicPlan = async (userId: number): Promise<boolean> => {
-        setIsUpgrading(true);
-        try {
-            const response = await upgradeUserSubscription(userId, 'BASIC');
-
-            if (!response.success) {
-                throw new Error(response.message || 'Upgrade failed');
-            }
-
-            toast.success(
-                language === 'vi'
-                    ? 'Nâng cấp thành công! Gói đăng ký đã được kích hoạt'
-                    : 'Upgrade successful! Subscription activated'
-            );
-
-            try {
-                const refreshed = await getUserSubscription(userId);
-                setCurrentSub(refreshed?.data || null);
-                console.log('Subscription refreshed:', refreshed?.data);
-            } catch (refreshError) {
-                console.error('Error refreshing subscription:', refreshError);
-            }
-
-            return true;
-        } catch (error: any) {
-            console.error('=== Error upgrading BASIC subscription ===', error);
-            const errorMsg = error.response?.data?.message || error.message;
-            toast.error(errorMsg || (language === 'vi' ? 'Lỗi khi nâng cấp gói đăng ký' : 'Error upgrading subscription'));
-            return false;
-        } finally {
-            setIsUpgrading(false);
-        }
-    };
-
-    const handleUpgrade = async (plan: any) => {
+    const handleUpgrade = (plan: any) => {
         if (!plan) {
             return;
         }
 
+        const userId = localStorage.getItem('userId');
+        if (!userId) {
+            toast.error(language === 'vi' ? 'Vui lòng đăng nhập' : 'Please login');
+            return;
+        }
+
         if (plan.id === 'basic') {
-            const userIdValue = localStorage.getItem('userId');
-            if (!userIdValue) {
-                toast.error(language === 'vi' ? 'Vui lòng đăng nhập' : 'Please login');
-                return;
-            }
-            await upgradeBasicPlan(Number(userIdValue));
+            void handleBasicUpgrade(Number(userId));
             return;
         }
 
         setSelectedPlan(plan);
         setShowPaymentDialog(true);
         setPaymentStatus('pending');
+        setPaymentMethod('vnpay');
+    };
+
+    const handleBasicUpgrade = async (userId: number) => {
+        if (isUpgrading) {
+            return;
+        }
+        setIsUpgrading(true);
+        try {
+            const response = await upgradeUserSubscription(userId, 'BASIC');
+            if (!response.success) {
+                throw new Error(response.message || 'Upgrade failed');
+            }
+            toast.success(
+                language === 'vi'
+                    ? 'Nâng cấp gói Cơ Bản thành công!'
+                    : 'Basic plan activated successfully!'
+            );
+            try {
+                const refreshed = await getUserSubscription(userId);
+                setCurrentSub(refreshed?.data || null);
+            } catch (refreshError) {
+                console.error('Error refreshing subscription after basic upgrade:', refreshError);
+            }
+        } catch (error: any) {
+            console.error('=== Error upgrading BASIC subscription ===', error);
+            const errorMsg = error.response?.data?.message || error.message;
+            toast.error(errorMsg || (language === 'vi' ? 'Lỗi khi nâng cấp gói đăng ký' : 'Error upgrading subscription'));
+        } finally {
+            setIsUpgrading(false);
+        }
     };
 
     const handlePaymentConfirm = async () => {
-        const userIdValue = localStorage.getItem('userId');
-        if (!userIdValue) {
+        if (!paymentMethod) {
+            toast.error(language === 'vi' ? 'Vui lòng chọn phương thức thanh toán' : 'Please select a payment method');
+            return;
+        }
+
+        const userId = localStorage.getItem('userId');
+        if (!userId) {
             toast.error(language === 'vi' ? 'Vui lòng đăng nhập' : 'Please login');
-            return;
-        }
-
-        if (!selectedPlan) {
-            toast.error(language === 'vi' ? 'Vui lòng chọn gói đăng ký' : 'Please select a plan');
-            return;
-        }
-
-        const subscriptionId = selectedPlan.subscriptionId;
-        if (!subscriptionId) {
-            toast.error(language === 'vi' ? 'Không tìm thấy mã gói đăng ký' : 'Subscription ID not found');
-            return;
-        }
-
-        const planTypeMap: Record<string, 'BASIC' | 'PLUS' | 'PREMIUM'> = {
-            basic: 'BASIC',
-            plus: 'PLUS',
-            premium: 'PREMIUM'
-        };
-
-        const subscriptionType = planTypeMap[selectedPlan.id];
-
-        if (!subscriptionType) {
-            toast.error(language === 'vi' ? 'Gói đăng ký không hợp lệ' : 'Invalid subscription plan');
-            return;
-        }
-
-        if (subscriptionType === 'BASIC') {
-            setPaymentStatus('processing');
-            const success = await upgradeBasicPlan(Number(userIdValue));
-            if (success) {
-                setPaymentStatus('success');
-                setTimeout(() => {
-                    setShowPaymentDialog(false);
-                    setSelectedPlan(null);
-                    setPaymentStatus('pending');
-                }, 2000);
-            } else {
-                setPaymentStatus('failed');
-                setTimeout(() => setPaymentStatus('pending'), 2000);
-            }
             return;
         }
 
         setPaymentStatus('processing');
 
         try {
+            const planTypeMap: Record<string, 'BASIC' | 'PLUS' | 'PREMIUM'> = {
+                'basic': 'BASIC',
+                'plus': 'PLUS',
+                'premium': 'PREMIUM'
+            };
+
+            const subscriptionType = planTypeMap[selectedPlan.id];
+            if (!subscriptionType) {
+                throw new Error('Invalid plan type');
+            }
+
+            const subscriptionId = selectedPlan.subscriptionId;
+            if (!subscriptionId) {
+                throw new Error(language === 'vi' ? 'Không tìm thấy mã gói đăng ký' : 'Subscription ID not found');
+            }
+
             localStorage.setItem('paymentOrigin', 'premium-subscription');
-            const paymentResponse = await createSubscriptionPayment({
-                userId: Number(userIdValue),
+            localStorage.setItem('pendingSubscriptionType', subscriptionType);
+            localStorage.setItem('pendingSubscriptionUserId', userId);
+
+            const payload = {
+                userId: Number(userId),
                 subscriptionId,
                 returnUrl: `${window.location.origin}/payment/result`,
                 cancelUrl: `${window.location.origin}/payment/result`
-            });
+            } as SubscriptionPaymentRequest;
+
+            if (paymentMethod && paymentMethod !== 'vnpay') {
+                payload.bankCode = paymentMethod;
+            }
+
+            const paymentResponse = await createSubscriptionPayment(payload);
 
             if (!paymentResponse.success) {
                 throw new Error(paymentResponse.message || 'Payment initiation failed');
@@ -380,8 +333,6 @@ export default function PremiumSubscriptionView({ onBack, userType = 'driver' }:
                 throw new Error(language === 'vi' ? 'Không tìm thấy đường dẫn thanh toán' : 'Missing payment URL');
             }
 
-            localStorage.setItem('pendingSubscriptionType', subscriptionType);
-            localStorage.setItem('pendingSubscriptionUserId', userIdValue);
             window.location.href = paymentUrl;
         } catch (error: any) {
             console.error('=== Error initiating subscription payment ===', error);
@@ -395,6 +346,7 @@ export default function PremiumSubscriptionView({ onBack, userType = 'driver' }:
     const handlePaymentCancel = () => {
         setShowPaymentDialog(false);
         setSelectedPlan(null);
+        setPaymentMethod('vnpay');
         setPaymentStatus('pending');
     };
 
@@ -574,7 +526,7 @@ export default function PremiumSubscriptionView({ onBack, userType = 'driver' }:
                                                             ? 'bg-primary hover:bg-primary/90'
                                                             : ''
                                                 }`}
-                                                disabled={plan.current || (plan.id === 'basic' && isUpgrading)}
+                                                disabled={plan.current}
                                                 onClick={() => handleUpgrade(plan)}
                                             >
                                                 {plan.current
@@ -766,6 +718,7 @@ export default function PremiumSubscriptionView({ onBack, userType = 'driver' }:
                                 </Button>
                                 <Button
                                     onClick={handlePaymentConfirm}
+                                    disabled={!paymentMethod}
                                     className="bg-primary hover:bg-primary/90"
                                 >
                                     {language === 'vi' ? 'Thanh Toán' : 'Pay Now'}

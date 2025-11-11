@@ -876,7 +876,8 @@ public class PaymentServiceImpl implements PaymentService {
      * Method này được gọi từ VNPayService sau khi verify payment thành công
      */
     @Transactional
-    public void processSubscriptionVNPayCallback(Long transactionId) {
+    @Override
+    public void completeSubscriptionPayment(Long transactionId, String vnpTransactionNo, String vnpBankCode, String vnpCardType) {
         log.info("Processing VNPay callback for subscription payment - TransactionId: {}", transactionId);
 
         try {
@@ -896,6 +897,9 @@ public class PaymentServiceImpl implements PaymentService {
             // 1. Update transaction status
             transaction.setStatus(Transaction.Status.SUCCESS);
             transaction.setPaymentTime(LocalDateTime.now());
+            transaction.setVnpayTransactionNo(vnpTransactionNo);
+            transaction.setVnpayBankCode(vnpBankCode);
+            transaction.setVnpayCardType(vnpCardType);
             transactionRepository.save(transaction);
 
             // 2. Lấy subscription từ transaction (đã lưu khi tạo transaction)
@@ -953,7 +957,6 @@ public class PaymentServiceImpl implements PaymentService {
             } catch (Exception ex) {
                 log.error("Failed to update transaction status: {}", ex.getMessage());
             }
-
             handleFailedSubscriptionPayment(transactionId, e.getMessage());
             throw new RuntimeException("Lỗi xử lý VNPay callback cho subscription: " + e.getMessage(), e);
         }
@@ -962,8 +965,9 @@ public class PaymentServiceImpl implements PaymentService {
     /**
      * Xử lý thanh toán subscription thất bại
      */
+    @Override
     @Transactional
-    protected void handleFailedSubscriptionPayment(Long transactionId, String reason) {
+    public void handleFailedSubscriptionPayment(Long transactionId, String reason) {
         log.error("Subscription payment FAILED - TransactionId: {}, Reason: {}", transactionId, reason);
 
         try {

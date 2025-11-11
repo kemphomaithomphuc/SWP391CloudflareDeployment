@@ -108,7 +108,7 @@ export default function Login({ onSwitchToRegister, onLogin, onStaffLogin, onAdm
                         await getUserProfileToContinue(userId, true);
 
                         // 🧹 Xóa query để URL sạch
-                        window.history.replaceState({}, document.title, "/login");
+                        window.history.replaceState({}, document.title, "/dashboard");
                     } else {
                         setError("Social login failed: Invalid response");
                         toast.error("Social login failed: Invalid response");
@@ -259,10 +259,11 @@ export default function Login({ onSwitchToRegister, onLogin, onStaffLogin, onAdm
 
                 // Nếu user bị BANNED → redirect to penalty payment
                 if (userStatus === 'BANNED') {
-                    console.log("User is BANNED, redirecting to penalty payment");
-                    toast.error("Your account has been banned. Please pay the penalty to unlock.");
-                    onSwitchToPenaltyPayment?.();
-                    return;
+                console.log("User is BANNED, redirecting to penalty payment");
+                toast.error("Your account has been banned. Please pay the penalty to unlock.");
+                onSwitchToPenaltyPayment?.();
+                setLoading(false);
+                return;
                 }
 
                 // Nếu user INACTIVE → show warning nhưng vẫn cho login (limited access)
@@ -351,9 +352,24 @@ export default function Login({ onSwitchToRegister, onLogin, onStaffLogin, onAdm
             }
         } catch (err: any) {
             console.error("Error getting user profile:", err);
+
+            const errorReason = err?.response?.data?.data?.reason;
+            const errorMessage = err?.response?.data?.message || "";
+            const isBanned =
+                errorReason === "USER_BANNED" ||
+                errorMessage.toLowerCase().includes("banned") ||
+                errorMessage.toLowerCase().includes("khóa");
+
+            if (isBanned) {
+                toast.error(
+                    t("Your account has been banned. Please pay the penalty to unlock.")
+                );
+                onSwitchToPenaltyPayment?.();
+                setLoading(false);
+                return;
+            }
+
             console.log("Profile check failed, proceeding with default login");
-            
-            // Fallback to default login flow when profile check fails
             const role = localStorage.getItem("role")?.toLowerCase() || "driver";
             if (role === "staff") onStaffLogin?.();
             else if (role === "admin") onAdminLogin?.();

@@ -155,7 +155,7 @@ public class VNPayServiceImpl implements VNPayService {
         String vnpResponseCode = params.get("vnp_ResponseCode");
         String vnpTransactionNo = params.get("vnp_TransactionNo");
         String vnpBankCode = params.get("vnp_BankCode");
-        String vnpAmount = params.get("vnp_Amount");
+        String vnpCardType = params.get("vnp_CardType");
 
         log.info("VNPay callback - TxnRef: {}, ResponseCode: {}, TransactionNo: {}",
                 vnpTxnRef, vnpResponseCode, vnpTransactionNo);
@@ -165,18 +165,32 @@ public class VNPayServiceImpl implements VNPayService {
         Transaction transaction = transactionRepository.findById(transactionId)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy giao dịch với ID: " + transactionId));
 
+        // Lưu lại thông tin giao dịch VNPay cho cả success lẫn failure
+        transaction.setVnpayTransactionNo(vnpTransactionNo);
+        transaction.setVnpayBankCode(vnpBankCode);
+        transaction.setVnpayCardType(vnpCardType);
+        transactionRepository.save(transaction);
+
         // Kiểm tra mã phản hồi từ VNPay
         if ("00".equals(vnpResponseCode)) {
             // Thanh toán thành công
             log.info("Thanh toán VNPay thành công cho transaction: {}", transactionId);
-            paymentService.completePayment(transactionId);
+            if (transaction.getSubscription() != null) {
+                paymentService.completeSubscriptionPayment(transactionId, vnpTransactionNo, vnpBankCode, vnpCardType);
+            } else {
+                paymentService.completePayment(transactionId);
+            }
             return true;
         } else {
             // Thanh toán thất bại
             String errorMessage = getVNPayErrorMessage(vnpResponseCode);
             log.error("Thanh toán VNPay thất bại cho transaction: {}, lỗi: {}",
                     transactionId, errorMessage);
-            paymentService.handleFailedPayment(transactionId, errorMessage);
+            if (transaction.getSubscription() != null) {
+                paymentService.handleFailedSubscriptionPayment(transactionId, errorMessage);
+            } else {
+                paymentService.handleFailedPayment(transactionId, errorMessage);
+            }
             return false;
         }
     }
