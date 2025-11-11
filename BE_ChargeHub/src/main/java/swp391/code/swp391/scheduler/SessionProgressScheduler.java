@@ -65,10 +65,11 @@ public class SessionProgressScheduler {
 
         // Calculate progress
         LocalDateTime now = LocalDateTime.now();
-        long minutesElapsed = ChronoUnit.MINUTES.between(session.getStartTime(), now);
+        long secondsElapsed = ChronoUnit.SECONDS.between(session.getStartTime(), now);
+        long minutesElapsed = secondsElapsed / 60;
 
         double power = connectorType.getPowerOutput(); // kW
-        double powerConsumed = power * (minutesElapsed / 60.0);
+        double powerConsumed = power * (secondsElapsed / 3600.0); // Tính chính xác từ giây
 
         double basePrice = connectorType.getPricePerKWh();
         double cost = powerConsumed * basePrice;
@@ -88,7 +89,8 @@ public class SessionProgressScheduler {
             currentBattery,
             powerConsumed,
             cost,
-            minutesElapsed,
+            secondsElapsed, // elapsed seconds
+            minutesElapsed, // elapsed minutes
             remainingMinutes,
             session.getStartTime(),
             now

@@ -17,6 +17,7 @@ import swp391.code.swp391.entity.User;
 import swp391.code.swp391.repository.UserRepository;
 
 import java.text.ParseException;
+import java.time.temporal.ChronoUnit;
 import java.util.Date;
 import java.util.List;
 import java.util.Optional;
@@ -34,7 +35,7 @@ public class JwtUtil {
 
     public String generateAccessToken(CustomUserDetails user){
         Date issueTime = new Date();
-        Date expiredTime = Date.from(issueTime.toInstant().plus(60, java.time.temporal.ChronoUnit.MINUTES));
+        Date expiredTime = Date.from(issueTime.toInstant().plus(1, ChronoUnit.DAYS));
         JWSHeader header = new JWSHeader(JWSAlgorithm.HS512); //HS512: thuật toán băm, mã hóa đối xứng
 
         JWTClaimsSet claimsSet = new JWTClaimsSet.Builder() //tạo các thông tin trong payload

@@ -95,34 +95,37 @@ public class PaymentServiceImpl implements PaymentService {
         BigDecimal subscriptionDiscount = getSubscriptionDiscount(user);
 
         // Tính toán: billablePowerConsumed × basePrice × (1 - subscriptionDiscount)
-        // ĐÃ XÓA: priceFactor không còn được áp dụng
         BigDecimal baseCost = billablePowerConsumed
                 .multiply(basePrice)
                 .multiply(BigDecimal.ONE.subtract(subscriptionDiscount))
                 .setScale(2, RoundingMode.HALF_UP);
-
-        log.info("Chi tiết tính baseCost - Actual Power: {} kWh, Billable Power: {} kWh, BasePrice: {} VND/kWh, Discount: {}%, Result: {} VND",
-                actualPowerConsumed, billablePowerConsumed, basePrice, subscriptionDiscount.multiply(new BigDecimal("100")), baseCost);
-
         return baseCost;
     }
 
+    // java
     private BigDecimal applyMinimumChargingTime(Session session, BigDecimal actualPowerConsumed) {
         if (session.getStartTime() == null || session.getEndTime() == null) {
             return actualPowerConsumed;
         }
-        long actualMinutes = java.time.Duration.between(session.getStartTime(), session.getEndTime()).toMinutes();
-        int minimumMinutes = MINIMUM_CHARGING_TIME_MINUTES;
 
-        if (actualMinutes >= minimumMinutes) {
+        long actualSeconds = java.time.Duration.between(session.getStartTime(), session.getEndTime()).getSeconds();
+        int minimumMinutes = MINIMUM_CHARGING_TIME_MINUTES;
+        long minimumSeconds = minimumMinutes * 60L;
+
+        // Avoid division by zero and treat extremely short durations as 1s
+        actualSeconds = Math.max(1L, actualSeconds);
+
+        // If actual duration already >= minimum, bill actual consumption
+        if (actualSeconds >= minimumSeconds) {
             return actualPowerConsumed;
         }
-
-        BigDecimal ratio = BigDecimal.valueOf(minimumMinutes)
-                .divide(BigDecimal.valueOf(actualMinutes), 4, RoundingMode.HALF_UP);
-
-        BigDecimal billablePowerConsumed = actualPowerConsumed.multiply(ratio)
-                .setScale(3, RoundingMode.HALF_UP);
+        
+        // Tính billable power dựa trên tỷ lệ: (minimumSeconds / actualSeconds) × actualPowerConsumed
+        // Ví dụ: Sạc 1 phút (60s) nhưng minimum là 30 phút (1800s)
+        // → billablePowerConsumed = actualPowerConsumed × (1800 / 60) = actualPowerConsumed × 30
+        BigDecimal billablePowerConsumed = actualPowerConsumed
+                .multiply(BigDecimal.valueOf(minimumSeconds))
+                .divide(BigDecimal.valueOf(actualSeconds), 3, RoundingMode.HALF_UP);
         return billablePowerConsumed;
     }
 

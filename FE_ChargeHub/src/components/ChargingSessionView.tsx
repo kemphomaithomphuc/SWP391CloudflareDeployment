@@ -194,7 +194,7 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
   const [sessionStarted, setSessionStarted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isInitialized, setIsInitialized] = useState(false);
+  const isInitializedRef = useRef(false); // Use ref to persist across re-renders without causing re-renders
   const [isMonitoring, setIsMonitoring] = useState(false); // Track if monitoring call is in progress
   const [smoothBattery, setSmoothBattery] = useState(0);
   const [smoothEnergy, setSmoothEnergy] = useState(0);
@@ -421,31 +421,21 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
   
   useEffect(() => {
     if (!session.startTime) return;
-    if (elapsedTime > 0) return;
     const start = new Date(session.startTime);
-    if (!Number.isNaN(start.getTime())) {
+    if (Number.isNaN(start.getTime())) return;
+    
+    const updateElapsed = () => {
       const diffSeconds = Math.max(0, Math.floor((Date.now() - start.getTime()) / 1000));
       setElapsedTime(diffSeconds);
+    };
+    
+    updateElapsed(); // Cập nhật ngay
+    
+    if (session.status === 'charging') {
+      const interval = setInterval(updateElapsed, 1000);
+      return () => clearInterval(interval);
     }
-  }, [session.startTime, elapsedTime]);
-
-  useEffect(() => {
-    if (!isSimulating && typeof session.currentBattery === 'number') {
-      setSmoothBattery(session.currentBattery);
-    }
-  }, [session.currentBattery, isSimulating]);
-
-  useEffect(() => {
-    if (!isSimulating && typeof session.energyConsumed === 'number') {
-      setSmoothEnergy(session.energyConsumed);
-    }
-  }, [session.energyConsumed, isSimulating]);
-
-  useEffect(() => {
-    if (!isSimulating && typeof session.totalCost === 'number') {
-      setSmoothCost(session.totalCost);
-    }
-  }, [session.totalCost, isSimulating]);
+  }, [session.startTime, session.status]);
 
   // Ref to store monitoring interval ID for manual cleanup
   const monitoringIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -524,7 +514,9 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
   useEffect(() => {
     setFinalizedMetrics(null);
     expectedPaymentAmountRef.current = null;
+    isInitializedRef.current = false; // Reset initialization flag for new session
     persistSessionState({});
+    console.log('🔄 Session ID changed, resetting initialization flag');
   }, [session.id]);
 
   useEffect(() => {
@@ -737,8 +729,11 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
         // Reset unauthorized count on successful call
         setUnauthorizedCount(0);
         
-        // Handle initial battery setup and start simulation
-        if (!isInitialized && monitoringData.currentBattery) {
+        // Handle initial battery setup and start simulation - ONLY ONCE
+        // Use ref to avoid re-initialization on every API call
+        if (!isInitializedRef.current && monitoringData.currentBattery !== undefined) {
+          console.log('🎬 INITIALIZING SESSION (ONCE) - Battery:', monitoringData.currentBattery);
+
           setSession(prev => {
             const next = {
               ...prev,
@@ -751,10 +746,14 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
           setSmoothBattery(monitoringData.currentBattery);
           setSmoothEnergy(monitoringData.powerConsumed || 0);
           setSmoothCost(monitoringData.cost || 0);
-          setIsInitialized(true);
-          setIsSimulating(true);
-          setSimulationStartTime(Date.now());
-          console.log('Initial battery set:', monitoringData.currentBattery);
+          isInitializedRef.current = true; // Mark as initialized using ref
+          // Don't restart simulation if already running
+          if (!isSimulating) {
+            setIsSimulating(true);
+            setSimulationStartTime(Date.now());
+          }
+        } else {
+          console.log('📊 Updating from API (not reinitializing) - Battery:', monitoringData.currentBattery, 'Energy:', monitoringData.powerConsumed, 'Cost:', monitoringData.cost);
         }
 
         // Map API response to ChargingSession format based on actual API structure
@@ -799,11 +798,29 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
         persistSessionState(updatedSession);
         setSession(updatedSession);
 
-        if (typeof monitoringData.elapsedMinutes === 'number' && !isNaN(monitoringData.elapsedMinutes)) {
-          setElapsedTime(Math.max(0, Math.round(monitoringData.elapsedMinutes * 60)));
+        // Handle elapsed time sync from API with priority:
+        // 1. If API returns elapsedSeconds (precise) → use it directly and sync
+        // 2. Otherwise → let local timer continue running (don't sync from imprecise elapsedMinutes)
+        if (typeof monitoringData.elapsedSeconds === 'number' && !isNaN(monitoringData.elapsedSeconds)) {
+          // Best case: API returns precise seconds
+          const apiElapsedSeconds = Math.round(monitoringData.elapsedSeconds);
+          const currentElapsedSeconds = elapsedTime;
+          const discrepancy = Math.abs(apiElapsedSeconds - currentElapsedSeconds);
+          
+          console.log(`⏱️ API time (precise): ${apiElapsedSeconds}s, Local: ${currentElapsedSeconds}s, Discrepancy: ${discrepancy}s`);
+          
+          // Sync if discrepancy > 2 seconds (allow small variance for network delay)
+          if (discrepancy > 2) {
+            console.log(`🔄 Syncing from precise API elapsedSeconds: ${apiElapsedSeconds}s`);
+            setElapsedTime(apiElapsedSeconds);
+          } else {
+            console.log(`✅ Time in sync with API (within 2s tolerance)`);
+          }
+        } else {
+          console.log(`⏱️ No precise elapsed time from API, keeping local timer: ${elapsedTime}s`);
         }
 
-        // Update smooth values immediately with API data (no loading indicators)
+        // ALWAYS update smooth values from API data (Backend always provides these values)
         if (monitoringData.currentBattery !== undefined) {
           setSmoothBattery(monitoringData.currentBattery);
         }
@@ -1190,6 +1207,16 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
     
     console.log("Starting monitoring for session:", sessionId);
 
+    // Start simulation immediately for smooth UI, will be corrected by API data
+    if (!isInitializedRef.current && !isSimulating) {
+      setIsSimulating(true);
+      setSimulationStartTime(Date.now());
+      setSmoothBattery(session.initialBattery || 0);
+      setSmoothEnergy(0);
+      setSmoothCost(0);
+      console.log('🎬 Starting simulation immediately for smooth UI');
+    }
+
     // Initial monitoring call to get initial battery (with loading)
     handleChargingMonitoring(sessionId, true);
 
@@ -1232,20 +1259,7 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
     };
   }, [sessionStarted, session.status]);
 
-  // Separate effect for 1-second updates (elapsed time only)
-  useEffect(() => {
-    let timeInterval: NodeJS.Timeout;
-    
-    if (session.status === 'charging') {
-      timeInterval = setInterval(() => {
-        setElapsedTime(prev => prev + 1);
-      }, 1000); // Update elapsed time every 1 second
-    }
-
-    return () => {
-      if (timeInterval) clearInterval(timeInterval);
-    };
-  }, [session.status]);
+  // Separate effect for 1-second updates (elapsed time only) - REMOVED: now handled in startTime useEffect
 
   // Retry mechanism for failed monitoring
   const retryMonitoring = () => {

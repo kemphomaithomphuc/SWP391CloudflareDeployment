@@ -161,6 +161,7 @@ public class SessionServiceImpl implements SessionService {
                 order.getStartedBattery(), // current battery = started battery
                 0.0, // power consumed
                 0.0, // cost
+                0L, // elapsed seconds
                 0L, // elapsed minutes
                 estimatedTotalMinutes, // estimated remaining
                 startTime, // start time
@@ -197,9 +198,13 @@ public class SessionServiceImpl implements SessionService {
 
         double power = connectorType.getPowerOutput(); // kW
         LocalDateTime now = LocalDateTime.now();
-        long minutesElapsed = ChronoUnit.MINUTES.between(session.getStartTime(), now);
+        
+        // Tính toán chính xác theo giây thay vì phút để tránh làm tròn
+        long secondsElapsed = ChronoUnit.SECONDS.between(session.getStartTime(), now);
+        long minutesElapsed = secondsElapsed / 60; // Tính phút từ giây
 
-        double powerConsumed = power * (minutesElapsed / 60.0); // Simplified
+        // Tính powerConsumed chính xác từ giây
+        double powerConsumed = power * (secondsElapsed / 3600.0); // kWh = kW * (seconds / 3600)
 
         double basePrice = connectorType.getPricePerKWh();
         double priceFactor = 1.0;
@@ -231,7 +236,8 @@ public class SessionServiceImpl implements SessionService {
             currentBattery,
             powerConsumed,
             cost,
-            minutesElapsed, // elapsed minutes
+            secondsElapsed, // elapsed seconds (CHÍNH XÁC)
+            minutesElapsed, // elapsed minutes (để backward compatibility)
             remainingMinutes, // estimated remaining
             session.getStartTime(), // start time
             now // current time
@@ -260,8 +266,11 @@ public class SessionServiceImpl implements SessionService {
 
         LocalDateTime now = LocalDateTime.now();
         double power = connectorType.getPowerOutput();
-        long minutesElapsed = ChronoUnit.MINUTES.between(session.getStartTime(), now);
-        double powerConsumed = power * (minutesElapsed / 60.0);
+        
+        // Tính toán chính xác theo giây thay vì phút để tránh làm tròn
+        long secondsElapsed = ChronoUnit.SECONDS.between(session.getStartTime(), now);
+        long minutesElapsed = secondsElapsed / 60; // Tính phút từ giây
+        double powerConsumed = power * (secondsElapsed / 3600.0); // kWh = kW * (seconds / 3600)
 
         // Calculate cost
         double basePrice = connectorType.getPricePerKWh();
@@ -312,6 +321,7 @@ public class SessionServiceImpl implements SessionService {
                 finalBatteryPercent,
                 powerConsumed,
                 session.getBaseCost(),
+                secondsElapsed, // elapsed seconds (use variable from above)
                 minutesElapsed, // elapsed minutes
                 0L, // remaining = 0 (completed)
                 session.getStartTime(), // start time
@@ -450,8 +460,11 @@ public class SessionServiceImpl implements SessionService {
 
         LocalDateTime now = LocalDateTime.now();
         double power = connectorType.getPowerOutput();
-        long minutesElapsed = ChronoUnit.MINUTES.between(session.getStartTime(), now);
-        double powerConsumed = power * (minutesElapsed / 60.0);
+        
+        // Tính toán chính xác theo giây thay vì phút để tránh làm tròn
+        long secondsElapsed = ChronoUnit.SECONDS.between(session.getStartTime(), now);
+        long minutesElapsed = secondsElapsed / 60; // Tính phút từ giây
+        double powerConsumed = power * (secondsElapsed / 3600.0); // kWh = kW * (seconds / 3600)
 
         // Calculate cost
         double basePrice = connectorType.getPricePerKWh();
@@ -504,6 +517,7 @@ public class SessionServiceImpl implements SessionService {
                 finalBatteryPercent,
                 powerConsumed,
                 session.getBaseCost(),
+                secondsElapsed, // elapsed seconds (use variable from above)
                 minutesElapsed, // elapsed minutes
                 0L, // remaining = 0 (force completed)
                 session.getStartTime(), // start time

@@ -63,11 +63,6 @@ export default function NotificationView({ onBack }: NotificationViewProps) {
     const unread = notifications.filter(n => !n.isRead).length;
     const actionRequired = notifications.filter(n => n.requiresAction && !n.isRead).length;
     
-    console.log("=== NOTIFICATION VIEW COUNT DEBUG ===");
-    console.log("Total notifications:", total);
-    console.log("Unread notifications:", unread);
-    console.log("Action required:", actionRequired);
-    
     setNotificationCounts({
       total,
       unread,
@@ -91,11 +86,6 @@ export default function NotificationView({ onBack }: NotificationViewProps) {
 
   // Update counts when notifications change
   useEffect(() => {
-    console.log("=== NOTIFICATION VIEW NOTIFICATIONS DEBUG ===");
-    console.log("API notifications received:", apiNotifications);
-    console.log("API notifications length:", apiNotifications.length);
-    console.log("API notifications types:", apiNotifications.map(n => ({ id: n.notificationId, type: n.type, title: n.title, content: n.content })));
-    
     // 🆕 Update counts with sorted notifications
     const sortedNotifications = sortNotifications(apiNotifications);
     updateNotificationCounts(sortedNotifications);
@@ -103,25 +93,21 @@ export default function NotificationView({ onBack }: NotificationViewProps) {
     // 🆕 Log read status for debugging
     const unreadCount = sortedNotifications.filter(n => !n.isRead).length;
     const readCount = sortedNotifications.filter(n => n.isRead).length;
-    console.log("Unread notifications:", unreadCount);
-    console.log("Read notifications:", readCount);
   }, [apiNotifications]);
 
   // 🆕 Auto-load notifications when component mounts
   useEffect(() => {
-    console.log("=== NOTIFICATION VIEW MOUNT DEBUG ===");
-    console.log("NotificationView mounted, auto-loading notifications...");
     refreshNotifications();
   }, []);
 
   // Handle mark as read
   const handleMarkAsRead = async (notificationId: string | number) => {
     console.log('handleMarkAsRead called with:', notificationId, 'type:', typeof notificationId);
-    
+
     // Ensure we have a valid ID before making the API call
     const id = typeof notificationId === 'string' ? notificationId : notificationId.toString();
     console.log('Converted ID:', id);
-    
+
     if (!id || id === 'undefined' || id === 'null' || isNaN(Number(id))) {
       console.error('Invalid notification ID:', notificationId, 'converted to:', id);
       toast.error(language === 'vi' ? 'ID thông báo không hợp lệ' : 'Invalid notification ID');
@@ -361,13 +347,7 @@ export default function NotificationView({ onBack }: NotificationViewProps) {
   // 🆕 Sort and display API notifications (database-driven)
   const sortedApiNotifications = sortNotifications(apiNotifications);
   const displayNotifications = sortedApiNotifications.map((notif, index) => {
-    console.log(`=== PROCESSING NOTIFICATION ${index} ===`);
-    console.log("Raw notification:", notif);
-    console.log("Notification ID:", notif.notificationId);
-    console.log("Notification type:", notif.type);
-    console.log("Notification title:", notif.title);
-    console.log("Notification content:", notif.content);
-    console.log("Notification isRead:", notif.isRead);
+
     
     const id = notif.notificationId ? notif.notificationId.toString() : `temp-${Math.random()}`;
     console.log(`Notification ${index} ID:`, id, 'original:', notif.notificationId);
@@ -414,10 +394,6 @@ export default function NotificationView({ onBack }: NotificationViewProps) {
     
     return mappedNotification;
   });
-  
-  console.log("=== FINAL DISPLAY NOTIFICATIONS ===");
-  console.log("Display notifications count:", displayNotifications.length);
-  console.log("Display notifications:", displayNotifications);
   
 
   const getNotificationIcon = (type: string) => {
