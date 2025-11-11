@@ -136,6 +136,8 @@ const NEARBY_COLLECTION_KEYS = [
   "neighborhoodHighlights",
   "nearbyLocations",
   "nearbyServices",
+  "nearestStation",
+  "nearestStations",
 ];
 
 const aggregateNearbyPlaces = (detail: ChargingStationDetail | null): NearbyPlace[] => {
@@ -145,10 +147,45 @@ const aggregateNearbyPlaces = (detail: ChargingStationDetail | null): NearbyPlac
 
   const collected: NearbyPlace[] = [];
 
+  const pushPlace = (place: unknown) => {
+    if (!place) return;
+
+    if (typeof place === "string") {
+      const trimmed = place.trim();
+      if (trimmed.length > 0) {
+        collected.push({ name: trimmed });
+      }
+      return;
+    }
+
+    if (typeof place === "object") {
+      const candidate = place as Record<string, unknown>;
+
+      if (
+        typeof candidate.name === "string" ||
+        typeof candidate.address === "string" ||
+        typeof candidate.description === "string" ||
+        typeof candidate.category === "string"
+      ) {
+        collected.push(candidate as NearbyPlace);
+        return;
+      }
+
+      const summary = Object.values(candidate)
+        .filter((value): value is string => typeof value === "string" && value.trim().length > 0)
+        .join(" • ");
+      if (summary.length > 0) {
+        collected.push({ name: summary });
+      }
+    }
+  };
+
   for (const key of NEARBY_COLLECTION_KEYS) {
     const value = (detail as Record<string, unknown>)[key];
     if (Array.isArray(value)) {
-      collected.push(...(value as NearbyPlace[]));
+      value.forEach((entry) => pushPlace(entry));
+    } else if (value !== undefined) {
+      pushPlace(value);
     }
   }
 
@@ -301,6 +338,7 @@ export default function MyBookingView({ onBack, onStartCharging }: MyBookingView
 
       try {
         const detail = await getChargingStationDetail(stationId);
+        console.log("[MyBookingView] Nearby detail response:", detail);
         setNearbyDetail(detail);
         setPopupStationName(detail?.stationName ?? fallbackName ?? null);
         setNearbyPopupOpen(true);
@@ -319,6 +357,7 @@ export default function MyBookingView({ onBack, onStartCharging }: MyBookingView
         setNearbyLoading(false);
         try {
           sessionStorage.setItem(`bookingNowNearbyShown:${stationId}`, Date.now().toString());
+          sessionStorage.setItem(`nearbyLastChargedShown:${stationId}`, Date.now().toString());
           sessionStorage.removeItem("bookingNowSuccessStationId");
         } catch (storageError) {
           console.error("Unable to persist nearby popup state:", storageError);
@@ -618,21 +657,50 @@ export default function MyBookingView({ onBack, onStartCharging }: MyBookingView
     }
 
     let stationIdStr: string | null = null;
+    let stationNameFallback: string | undefined;
+    let source: "sessionStorage" | "localStorage" | null = null;
 
     try {
       stationIdStr = sessionStorage.getItem("bookingNowSuccessStationId");
+      if (stationIdStr) {
+        source = "sessionStorage";
+      }
     } catch (storageError) {
       console.error("Unable to access booking now station id from sessionStorage:", storageError);
-      setHasTriggeredNearbyPopup(true);
-      return;
+    }
+
+    if (!stationIdStr) {
+      try {
+        const rawSnapshot = localStorage.getItem("lastChargedStation");
+        if (rawSnapshot) {
+          const parsedSnapshot = JSON.parse(rawSnapshot);
+          if (
+            parsedSnapshot &&
+            typeof parsedSnapshot.stationId === "number" &&
+            Number.isFinite(parsedSnapshot.stationId)
+          ) {
+            stationIdStr = parsedSnapshot.stationId.toString();
+            stationNameFallback =
+              typeof parsedSnapshot.stationName === "string"
+                ? parsedSnapshot.stationName
+                : undefined;
+            source = "localStorage";
+          }
+        }
+      } catch (storageError) {
+        console.error("Unable to access last charged station snapshot:", storageError);
+      }
     }
 
     if (!stationIdStr) {
       return;
     }
 
+    const alreadyHandledKey =
+      source === "localStorage" ? `nearbyLastChargedShown:${stationIdStr}` : `bookingNowNearbyShown:${stationIdStr}`;
+
     try {
-      const alreadyShown = sessionStorage.getItem(`bookingNowNearbyShown:${stationIdStr}`);
+      const alreadyShown = sessionStorage.getItem(alreadyHandledKey);
       if (alreadyShown) {
         sessionStorage.removeItem("bookingNowSuccessStationId");
         setHasTriggeredNearbyPopup(true);
@@ -657,7 +725,7 @@ export default function MyBookingView({ onBack, onStartCharging }: MyBookingView
     const fallbackName = matchingOrder?.stationName;
 
     setHasTriggeredNearbyPopup(true);
-    void openNearbyPopup(parsedStationId, fallbackName ?? undefined);
+    void openNearbyPopup(parsedStationId, fallbackName ?? stationNameFallback ?? undefined);
   }, [apiOrders, hasTriggeredNearbyPopup, openNearbyPopup]);
 
   // Refresh function
@@ -1092,6 +1160,60 @@ export default function MyBookingView({ onBack, onStartCharging }: MyBookingView
     // BOOKED orders should stay in Upcoming even if their time has passed
     return ['COMPLETED', 'CANCELED'].includes(order.status);
   });
+
+  const handleShowNearestStation = useCallback(() => {
+    let stationId: number | null = null;
+    let stationNameFallback: string | undefined;
+
+    if (apiActiveOrders.length > 0) {
+      const active = apiActiveOrders[0];
+      if (typeof active.stationId === "number" && !Number.isNaN(active.stationId)) {
+        stationId = active.stationId;
+        stationNameFallback = active.stationName;
+      }
+    }
+
+    if (stationId === null && apiUpcomingOrders.length > 0) {
+      const upcoming = apiUpcomingOrders[0];
+      if (typeof upcoming.stationId === "number" && !Number.isNaN(upcoming.stationId)) {
+        stationId = upcoming.stationId;
+        stationNameFallback = upcoming.stationName;
+      }
+    }
+
+    if (stationId === null) {
+      try {
+        const rawSnapshot = localStorage.getItem("lastChargedStation");
+        if (rawSnapshot) {
+          const parsedSnapshot = JSON.parse(rawSnapshot);
+          if (
+            parsedSnapshot &&
+            typeof parsedSnapshot.stationId === "number" &&
+            Number.isFinite(parsedSnapshot.stationId)
+          ) {
+            stationId = parsedSnapshot.stationId;
+            if (typeof parsedSnapshot.stationName === "string") {
+              stationNameFallback = parsedSnapshot.stationName;
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Unable to parse lastChargedStation snapshot:", error);
+      }
+    }
+
+    if (stationId === null) {
+      toast.info(
+        language === "vi"
+          ? "Không tìm thấy trạm nào để hiển thị địa điểm lân cận."
+          : "No station found to show nearby locations."
+      );
+      return;
+    }
+
+    setHasTriggeredNearbyPopup(true);
+    void openNearbyPopup(stationId, stationNameFallback);
+  }, [apiActiveOrders, apiUpcomingOrders, language, openNearbyPopup]);
 
   const nearbyPlaces = useMemo(
     () => deduplicateNearbyPlaces(aggregateNearbyPlaces(nearbyDetail)),
@@ -1844,6 +1966,15 @@ export default function MyBookingView({ onBack, onStartCharging }: MyBookingView
               className="p-2 hover:bg-primary/10 rounded-full"
             >
               <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleShowNearestStation}
+              className="h-9 px-3 flex items-center gap-2"
+            >
+              <MapPin className="w-4 h-4" />
+              {language === 'vi' ? 'Địa điểm lân cận' : 'Nearby places'}
             </Button>
             <div>
               <h1 className="text-xl font-semibold">{translations.title}</h1>

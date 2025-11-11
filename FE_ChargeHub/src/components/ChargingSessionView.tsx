@@ -205,6 +205,40 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
   const PAYMENT_AMOUNT_TOLERANCE_VND = 500; // Allow minor rounding differences
   const stationInfoRef = useRef<StoredStationInfo | null>(initialStationInfo);
 
+  const saveLastChargedStationSnapshot = (overrides?: Partial<StoredStationInfo>) => {
+    const fallbackStationId =
+      typeof stationInfoRef.current?.stationId === "number" && !isNaN(stationInfoRef.current.stationId)
+        ? stationInfoRef.current.stationId
+        : undefined;
+
+    const activeStationId =
+      typeof session.stationId === "number" && !isNaN(session.stationId)
+        ? session.stationId
+        : fallbackStationId;
+
+    const targetStationId =
+      typeof overrides?.stationId === "number" && !isNaN(overrides.stationId)
+        ? overrides.stationId
+        : activeStationId;
+
+    if (targetStationId === undefined) {
+      return;
+    }
+
+    const payload = {
+      stationId: targetStationId,
+      stationName: overrides?.stationName ?? session.stationName ?? stationInfoRef.current?.stationName,
+      stationAddress: overrides?.stationAddress ?? session.stationAddress ?? stationInfoRef.current?.stationAddress,
+      savedAt: new Date().toISOString(),
+    };
+
+    try {
+      localStorage.setItem("lastChargedStation", JSON.stringify(payload));
+    } catch (storageError) {
+      console.error("Failed to persist last charged station snapshot:", storageError);
+    }
+  };
+
   const persistSessionState = (nextSession: Partial<ChargingSession>) => {
     const storageKey = SESSION_STORAGE_KEY(nextSession.id ?? session.id);
     if (!storageKey) return;
@@ -971,6 +1005,8 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
       if (response.data && response.data.success) {
         console.log('Charging session terminated successfully:', response.data);
         
+        saveLastChargedStationSnapshot();
+        
         // Update session status to stopped ONLY after successful API call
         setSession(prev => {
           const next = {
@@ -1528,6 +1564,8 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
         // Close dialogs before redirecting
         setShowPaymentConfirmation(false);
         setShowPaymentDialog(false);
+        
+        saveLastChargedStationSnapshot();
         
         // Clear session data from localStorage before redirecting to payment
         localStorage.removeItem("currentSessionId");

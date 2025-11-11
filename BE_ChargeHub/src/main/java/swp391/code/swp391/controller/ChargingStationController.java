@@ -184,32 +184,43 @@ public class ChargingStationController {
     private GeminiService geminiService;
 
     /**
-     * API lấy chi tiết trạm sạc VÀ các tiện ích xung quanh
+     * API lấy chi tiết trạm sạc (không bao gồm amenities)
+     * Tối ưu cho trường hợp chỉ cần thông tin cơ bản
      */
     @GetMapping("/{id}")
     public ResponseEntity<ChargingStationDTO> getStationById(@PathVariable Long id) {
-
-        // Bước 1: Lấy dữ liệu trạm sạc từ CSDL
         ChargingStationDTO station = chargingStationService.getChargingStationById(id);
 
         if (station == null) {
             return ResponseEntity.notFound().build();
         }
 
-        // Bước 2: Gọi Gemini để lấy tiện ích xung quanh
+        return new ResponseEntity<>(station, HttpStatus.OK);
+    }
+
+    /**
+     * API lấy các tiện ích xung quanh trạm sạc
+     * Gọi riêng khi cần thông tin về amenities
+     */
+    @GetMapping("/{id}/amenities")
+    public ResponseEntity<?> getStationAmenities(@PathVariable Long id) {
+        // Kiểm tra trạm có tồn tại không
+        ChargingStationDTO station = chargingStationService.getChargingStationById(id);
+
+        if (station == null) {
+            return ResponseEntity.notFound().build();
+        }
+
+        // Gọi Gemini để lấy tiện ích xung quanh
         try {
             String amenities = geminiService.getAmenitiesAround(
                     station.getLatitude(),
                     station.getLongitude()
             );
-            // Gán kết quả vào DTO
-            station.setSurroundingAmenities(amenities != null ? amenities : "No amenities found.");
+            return new ResponseEntity<>(amenities != null ? amenities : "No amenities found.", HttpStatus.OK);
         } catch (Exception e) {
-            // Nếu Gemini lỗi, vẫn trả về thông tin trạm
-            station.setSurroundingAmenities("Không thể tải gợi ý tiện ích.");
+            return new ResponseEntity<>("Không thể tải gợi ý tiện ích.", HttpStatus.INTERNAL_SERVER_ERROR);
         }
-
-        return new ResponseEntity<>(station, HttpStatus.OK);
     }
 
     // ===== CRUD CHARGING POINTS CHO TỪNG TRẠM =====
