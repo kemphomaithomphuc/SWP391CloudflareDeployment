@@ -43,18 +43,15 @@ public class StaffServiceImpl implements StaffService {
             throw new RuntimeException("Không tìm thấy đơn đặt chỗ với ID: " + request.getOrderId());
         }
 
-        // 2. Kiểm tra trạng thái order (chỉ cho phép đổi khi BOOKED - chưa bắt đầu sạc)
-        if (order.getStatus() != Order.Status.BOOKED) {
+        // 2. Kiểm tra trạng thái order (cho phép đổi khi BOOKED hoặc CHARGING)
+        if (order.getStatus() != Order.Status.BOOKED && order.getStatus() != Order.Status.CHARGING) {
             throw new RuntimeException(
-                    String.format("Không thể đổi trụ sạc cho đơn có trạng thái: %s. Chỉ cho phép đổi khi trạng thái BOOKED",
+                    String.format("Không thể đổi trụ sạc cho đơn có trạng thái: %s. Chỉ cho phép đổi khi trạng thái BOOKED hoặc CHARGING",
                             order.getStatus())
             );
         }
 
-        // 3. Kiểm tra thời gian - chỉ cho phép đổi trước giờ bắt đầu
-        if (LocalDateTime.now().isAfter(order.getStartTime())) {
-            throw new RuntimeException("Không thể đổi trụ sạc sau thời gian bắt đầu đã đặt");
-        }
+        // 3. Không kiểm tra thời gian - cho phép đổi trụ bất cứ lúc nào khi order đang BOOKED hoặc CHARGING
 
         // 4. Validate Current Charging Point
         ChargingPoint currentPoint = chargingPointRepository.findById(request.getCurrentChargingPointId())
@@ -100,20 +97,23 @@ public class StaffServiceImpl implements StaffService {
             );
         }
 
-        // 10. Kiểm tra trụ mới có bị trùng thời gian với booking khác không
-        List<Order> conflictingOrders = orderRepository.findConflictingOrders(
-                newPoint.getChargingPointId(),
-                order.getStartTime(),
-                order.getEndTime(),
-                order.getOrderId()
-        );
-
-        if (!conflictingOrders.isEmpty()) {
-            throw new RuntimeException(
-                    String.format("Trụ sạc mới đã có booking khác trong khung giờ %s - %s",
-                            order.getStartTime(), order.getEndTime())
+        // 10. Kiểm tra trụ mới có bị trùng thời gian với booking khác không (chỉ check khi BOOKED)
+        if (order.getStatus() == Order.Status.BOOKED) {
+            List<Order> conflictingOrders = orderRepository.findConflictingOrders(
+                    newPoint.getChargingPointId(),
+                    order.getStartTime(),
+                    order.getEndTime(),
+                    order.getOrderId()
             );
+
+            if (!conflictingOrders.isEmpty()) {
+                throw new RuntimeException(
+                        String.format("Trụ sạc mới đã có booking khác trong khung giờ %s - %s",
+                                order.getStartTime(), order.getEndTime())
+                );
+            }
         }
+        // Nếu order đang CHARGING, không cần check conflict vì đang sạc tức thì
 
         // 11. Cập nhật Order với Charging Point mới
         ChargingPoint oldPoint = order.getChargingPoint();
@@ -123,18 +123,33 @@ public class StaffServiceImpl implements StaffService {
         log.info("Updated order {} from charging point {} to {}",
                 order.getOrderId(), oldPoint.getChargingPointId(), newPoint.getChargingPointId());
 
-        // 12. Cập nhật trạng thái các trụ sạc
-        // Nếu current point đang RESERVED, đổi về AVAILABLE
-        if (currentPoint.getStatus() == ChargingPointStatus.RESERVED) {
+        // 12. Cập nhật trạng thái các trụ sạc dựa trên trạng thái hiện tại
+        // Lưu trạng thái hiện tại của trụ cũ để biết cần set trạng thái gì cho trụ mới
+        ChargingPointStatus oldPointCurrentStatus = currentPoint.getStatus();
+
+        // Cập nhật trụ cũ về AVAILABLE (khi đang RESERVED hay OCCUPIED)
+        if (currentPoint.getStatus() == ChargingPointStatus.RESERVED ||
+                currentPoint.getStatus() == ChargingPointStatus.OCCUPIED) {
             currentPoint.setStatus(ChargingPointStatus.AVAILABLE);
             chargingPointRepository.save(currentPoint);
-            log.info("Released charging point {} to AVAILABLE", currentPoint.getChargingPointId());
+            log.info("Released charging point {} from {} to AVAILABLE",
+                    currentPoint.getChargingPointId(), oldPointCurrentStatus);
         }
 
-        // Đặt trụ mới thành RESERVED
-        newPoint.setStatus(ChargingPointStatus.RESERVED);
-        chargingPointRepository.save(newPoint);
-        log.info("Reserved new charging point {}", newPoint.getChargingPointId());
+        // Set trạng thái cho trụ mới dựa trên trạng thái của trụ cũ
+        // Nếu trụ cũ đang OCCUPIED (đang sạc) -> set trụ mới thành OCCUPIED
+        // Nếu trụ cũ đang RESERVED (đã book) -> set trụ mới thành RESERVED
+        if (oldPointCurrentStatus == ChargingPointStatus.OCCUPIED) {
+            newPoint.setStatus(ChargingPointStatus.OCCUPIED);
+            chargingPointRepository.save(newPoint);
+            log.info("Set new charging point {} to OCCUPIED (old point was OCCUPIED)",
+                    newPoint.getChargingPointId());
+        } else if (oldPointCurrentStatus == ChargingPointStatus.RESERVED) {
+            newPoint.setStatus(ChargingPointStatus.RESERVED);
+            chargingPointRepository.save(newPoint);
+            log.info("Set new charging point {} to RESERVED (old point was RESERVED)",
+                    newPoint.getChargingPointId());
+        }
 
         // 13. Lấy thông tin Staff
         User staff = null;
@@ -183,7 +198,7 @@ public class StaffServiceImpl implements StaffService {
             log.error("Failed to send notification to driver: {}", e.getMessage());
         }
 
-// 15. GỬI EMAIL CHO DRIVER ← THÊM MỚI
+        // 15. GỬI EMAIL CHO DRIVER
         boolean emailSent = false;
         try {
             String driverEmail = order.getUser().getEmail();
@@ -209,7 +224,7 @@ public class StaffServiceImpl implements StaffService {
             log.error("Failed to send email to driver: {}", e.getMessage());
         }
 
-// 16. Tạo response ← CẬP NHẬT
+        // 16. Tạo response
         return ChangeChargingPointResponseDTO.builder()
                 .orderId(order.getOrderId())
                 .oldChargingPointId(currentPoint.getChargingPointId())
@@ -228,7 +243,7 @@ public class StaffServiceImpl implements StaffService {
                 .changedAt(LocalDateTime.now())
                 .changedByStaff(staffName)
                 .notificationSent(notificationSent)
-                .message(buildSuccessMessage(notificationSent, emailSent)) // ← CẬP NHẬT
+                .message(buildSuccessMessage(notificationSent, emailSent))
                 .build();
     }
 
@@ -255,7 +270,7 @@ public class StaffServiceImpl implements StaffService {
             throw new RuntimeException("Không tìm thấy đơn đặt chỗ với ID: " + orderId);
         }
 
-        // 2. Kiểm tra trạng thái order
+        // 2. Kiểm tra trạng thái order (cho phép cả BOOKED và CHARGING)
         if (order.getStatus() != Order.Status.BOOKED && order.getStatus() != Order.Status.CHARGING) {
             throw new RuntimeException(
                     String.format("Không thể tìm trụ thay thế cho đơn có trạng thái: %s", order.getStatus())
@@ -286,7 +301,12 @@ public class StaffServiceImpl implements StaffService {
                         return false;
                     }
 
-                    // Kiểm tra xem trụ này có bị trùng lịch không
+                    // Nếu order đang CHARGING, không cần check conflict, chỉ cần AVAILABLE
+                    if (order.getStatus() == Order.Status.CHARGING) {
+                        return true;
+                    }
+
+                    // Nếu order đang BOOKED, kiểm tra xem trụ này có bị trùng lịch không
                     List<Order> conflicts = orderRepository.findConflictingOrders(
                             point.getChargingPointId(),
                             order.getStartTime(),
