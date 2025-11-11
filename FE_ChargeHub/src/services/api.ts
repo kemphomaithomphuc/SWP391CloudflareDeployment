@@ -1146,19 +1146,47 @@ export interface FeeDetailDTO {
   createdAt: string;
 }
 
+export interface PenaltyTransactionDTO {
+  penaltyId?: number;
+  feeId?: number;
+  transactionId?: number;
+  amount?: number;
+  status?: string;
+  description?: string;
+  [key: string]: unknown;
+}
+
 export interface UnpaidFeesData {
-  failedTransactionIds: number[];
-  totalFailedTransactions: number;
-  totalFailedAmount: number;
-  pendingTransactionIds: number[];
-  totalPendingTransactions: number;
-  totalPendingAmount: number;
+  failedTransactionIds?: number[];
+  totalFailedTransactions?: number;
+  totalFailedAmount?: number;
+  pendingTransactionIds?: number[];
+  totalPendingTransactions?: number;
+  totalPendingAmount?: number;
+  penalties?: PenaltyTransactionDTO[];
+  summary?: {
+    failedTransactionIds?: number[];
+    totalFailedTransactions?: number;
+    totalFailedAmount?: number;
+    pendingTransactionIds?: number[];
+    totalPendingTransactions?: number;
+    totalPendingAmount?: number;
+    [key: string]: unknown;
+  };
+  [key: string]: unknown;
 }
 
 export interface UnpaidFeesResponse {
-  success: boolean;
-  message: string;
-  data: UnpaidFeesData;
+  success?: boolean;
+  message?: string;
+  data?:
+    | UnpaidFeesData
+    | PenaltyTransactionDTO[]
+    | {
+        summary?: UnpaidFeesData;
+        penalties?: PenaltyTransactionDTO[];
+        [key: string]: unknown;
+      };
   timestamp?: string;
 }
 

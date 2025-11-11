@@ -6,6 +6,14 @@ import { CheckCircle2, XCircle, Loader2, CreditCard } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { toast } from 'sonner';
 import { api } from '../services/api';
+import NearbyPlacesWidget from './NearbyPlacesWidget';
+
+interface LastChargedStationSnapshot {
+  stationId: number;
+  stationName?: string;
+  stationAddress?: string;
+  savedAt?: string;
+}
 
 export default function PaymentResultView() {
   const navigate = useNavigate();
@@ -19,6 +27,28 @@ export default function PaymentResultView() {
     orderId?: string;
     message?: string;
   }>({});
+  const [lastStationSnapshot, setLastStationSnapshot] = useState<LastChargedStationSnapshot | null>(null);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('lastChargedStation');
+      if (!raw) {
+        return;
+      }
+
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed.stationId === 'number' && !Number.isNaN(parsed.stationId)) {
+        setLastStationSnapshot({
+          stationId: parsed.stationId,
+          stationName: typeof parsed.stationName === 'string' ? parsed.stationName : undefined,
+          stationAddress: typeof parsed.stationAddress === 'string' ? parsed.stationAddress : undefined,
+          savedAt: typeof parsed.savedAt === 'string' ? parsed.savedAt : undefined
+        });
+      }
+    } catch (error) {
+      console.error('Failed to restore last charged station snapshot:', error);
+    }
+  }, []);
 
   useEffect(() => {
     const processPaymentResult = async () => {
@@ -135,7 +165,8 @@ export default function PaymentResultView() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-black via-neutral-950 to-black p-4">
+    <>
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-black via-neutral-950 to-black p-4">
       <Card className="w-full max-w-2xl bg-neutral-900 text-neutral-100 border border-neutral-800 shadow-[0_25px_80px_rgba(0,0,0,0.6)]">
         <CardHeader>
           <CardTitle className="flex items-center justify-center gap-3 text-2xl text-emerald-400">
@@ -236,6 +267,13 @@ export default function PaymentResultView() {
         </CardContent>
       </Card>
     </div>
+      {paymentStatus === 'success' && lastStationSnapshot?.stationId !== undefined && (
+        <NearbyPlacesWidget
+          stationId={lastStationSnapshot.stationId}
+          stationName={lastStationSnapshot.stationName}
+        />
+      )}
+    </>
   );
 }
 

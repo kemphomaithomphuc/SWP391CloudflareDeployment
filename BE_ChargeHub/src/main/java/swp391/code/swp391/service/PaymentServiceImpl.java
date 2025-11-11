@@ -365,8 +365,8 @@ public class PaymentServiceImpl implements PaymentService {
                 .orElseThrow(() -> new ApiRequestException("Không tìm thấy giao dịch #" + request.getTransactionId()));
 
         // Kiểm tra transaction phải có status FAILED
-        if (transaction.getStatus() != Transaction.Status.FAILED) {
-            throw new ApiRequestException("Chỉ có thể thanh toán lại các giao dịch thất bại. " +
+        if (transaction.getStatus() == Transaction.Status.SUCCESS ) {
+            throw new ApiRequestException("Chỉ có thể thanh toán lại các giao dịch thất bại hoặc đang chò. " +
                     "Trạng thái hiện tại: " + transaction.getStatus());
         }
 

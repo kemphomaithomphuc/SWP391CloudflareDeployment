@@ -107,7 +107,7 @@ public class PenaltyController {
 
             // Filter FAILED transactions - CẦN RETRY PAYMENT
             List<Transaction> failedTransactions = allTransactions.stream()
-                    .filter(t -> t.getStatus() == Transaction.Status.FAILED)
+                    .filter(t -> t.getStatus() == Transaction.Status.FAILED || t.getStatus() == Transaction.Status.PENDING)
                     .filter(t -> t.getSession() != null) // Chỉ lấy transactions có session
                     .toList();
 
