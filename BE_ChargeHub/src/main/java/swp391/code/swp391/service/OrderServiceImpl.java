@@ -374,31 +374,35 @@ public class OrderServiceImpl implements OrderService {
                     "Nâng cấp lên gói PLUS hoặc PRO để đặt sớm hơn!");
         }
 
-        // ===== 2.1. KIỂM TRA THANH TOÁN - USER PHẢI THANH TOÁN HẾT ĐƠN CŨ =====
-        if (orderRepository.hasUnpaidCompletedOrders(user.getUserId())) {
-            throw new ApiRequestException(
-                "Bạn có đơn đặt chỗ đã hoàn thành nhưng chưa thanh toán. " +
-                "Vui lòng thanh toán các đơn cũ trước khi đặt chỗ mới."
-            );
-        }
-
-        // ===== 2.2. KIỂM TRA PHÍ PHẠT - USER PHẢI THANH TOÁN HẾT TRANSACTIONS FAILED (chứa fees) =====
-        List<Transaction> failedTransactions = transactionRepository
+        // ===== 2.1. KIỂM TRA THANH TOÁN - USER PHẢI THANH TOÁN HẾT CÁC GIAO DỊCH CHƯA HOÀN THÀNH =====
+        // Kiểm tra transactions có status FAILED hoặc PENDING
+        List<Transaction> unpaidTransactions = transactionRepository
                 .findByUserOrderByTransactionIdDesc(user)
                 .stream()
-                .filter(t -> t.getStatus() == Transaction.Status.FAILED)
+                .filter(t -> t.getStatus() == Transaction.Status.FAILED ||
+                            t.getStatus() == Transaction.Status.PENDING)
                 .filter(t -> t.getSession() != null)
                 .toList();
 
-        if (!failedTransactions.isEmpty()) {
-            double totalUnpaid = failedTransactions.stream()
+        if (!unpaidTransactions.isEmpty()) {
+            double totalUnpaid = unpaidTransactions.stream()
                     .mapToDouble(Transaction::getAmount)
                     .sum();
-            throw new ApiRequestException(
-                String.format("Bạn có %d giao dịch thất bại chưa thanh toán (tổng: %,.0f VNĐ). " +
-                    "Vui lòng thanh toán các khoản phí phạt trước khi đặt chỗ mới.",
-                    failedTransactions.size(), totalUnpaid)
+
+            long failedCount = unpaidTransactions.stream()
+                    .filter(t -> t.getStatus() == Transaction.Status.FAILED)
+                    .count();
+            long pendingCount = unpaidTransactions.stream()
+                    .filter(t -> t.getStatus() == Transaction.Status.PENDING)
+                    .count();
+
+            String message = String.format(
+                "Bạn có %d giao dịch chưa thanh toán (%d thất bại, %d đang chờ) với tổng số tiền: %,.0f VNĐ. " +
+                "Vui lòng thanh toán hoặc hủy các giao dịch này trước khi đặt chỗ mới.",
+                unpaidTransactions.size(), failedCount, pendingCount, totalUnpaid
             );
+
+            throw new ApiRequestException(message);
         }
 
         // ===== 3. KIỂM TRA GIỚI HẠN ĐƠN ĐẶT CHỖ =====

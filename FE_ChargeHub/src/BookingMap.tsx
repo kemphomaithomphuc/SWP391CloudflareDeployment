@@ -423,6 +423,76 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
     const [stationTotalPoints, setStationTotalPoints] = useState<{ [stationId: string]: number }>({});
     const userId = localStorage.getItem("userId");
 
+    interface NormalizedPenaltySummary {
+        failedTransactionIds: number[];
+        pendingTransactionIds: number[];
+        totalFailedTransactions: number;
+        totalPendingTransactions: number;
+        totalFailedAmount: number;
+        totalPendingAmount: number;
+    }
+
+    const normalizeUnpaidPenaltySummary = (raw: any): NormalizedPenaltySummary => {
+        const toNumeric = (value: unknown): number => {
+            const num = Number(value);
+            return Number.isFinite(num) ? num : 0;
+        };
+
+        const toNumericArray = (value: unknown): number[] => {
+            if (!Array.isArray(value)) {
+                return [];
+            }
+            return value
+                .map((item) => Number(item))
+                .filter((num) => Number.isFinite(num) && num !== 0);
+        };
+
+        const summary: NormalizedPenaltySummary = {
+            failedTransactionIds: [],
+            pendingTransactionIds: [],
+            totalFailedTransactions: 0,
+            totalPendingTransactions: 0,
+            totalFailedAmount: 0,
+            totalPendingAmount: 0,
+        };
+
+        if (!raw) {
+            return summary;
+        }
+
+        const root = raw?.data !== undefined ? raw.data : raw;
+
+        const penaltyCollections: Array<unknown> = [
+            Array.isArray(root) ? root : null,
+            Array.isArray(root?.penalties) ? root.penalties : null,
+            Array.isArray(root?.items) ? root.items : null,
+            Array.isArray(root?.unpaidPenalties) ? root.unpaidPenalties : null,
+            Array.isArray(root?.records) ? root.records : null,
+        ].filter((collection): collection is unknown[] => Array.isArray(collection));
+
+        const summaryNode = (root as any)?.summary ?? root;
+        summary.failedTransactionIds = toNumericArray(summaryNode?.failedTransactionIds);
+        summary.pendingTransactionIds = toNumericArray(summaryNode?.pendingTransactionIds);
+        summary.totalFailedTransactions =
+            toNumeric(summaryNode?.totalFailedTransactions) || summary.failedTransactionIds.length;
+        summary.totalPendingTransactions =
+            toNumeric(summaryNode?.totalPendingTransactions) || summary.pendingTransactionIds.length;
+        summary.totalFailedAmount = toNumeric(summaryNode?.totalFailedAmount);
+        summary.totalPendingAmount = toNumeric(summaryNode?.totalPendingAmount);
+
+        return summary;
+    };
+
+    const pickPrimaryTransactionId = (summary: NormalizedPenaltySummary): number | null => {
+        const candidate =
+            summary.failedTransactionIds[0] ??
+            summary.pendingTransactionIds[0] ??
+            null;
+
+        const numericCandidate = Number(candidate);
+        return Number.isFinite(numericCandidate) && numericCandidate > 0 ? numericCandidate : null;
+    };
+
     const checkUnpaidPenalties = useCallback(async () => {
         if (!userId) return;
         const numericUserId = Number(userId);
@@ -432,90 +502,95 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
         }
         try {
             const response = await getUnpaidFees(numericUserId);
-            const penaltiesData = response?.data;
-            const failedTransactions = penaltiesData?.failedTransactionIds ?? [];
-            const pendingTransactions = penaltiesData?.pendingTransactionIds ?? [];
-            const totalFailedTransactions = penaltiesData?.totalFailedTransactions ?? failedTransactions.length;
-            const totalPendingTransactions = penaltiesData?.totalPendingTransactions ?? pendingTransactions.length;
-            const totalFailedAmount = penaltiesData?.totalFailedAmount ?? 0;
-            const totalPendingAmount = penaltiesData?.totalPendingAmount ?? 0;
+            console.log("[BookingMap] Raw unpaid fees response:", response);
+            const summary = normalizeUnpaidPenaltySummary(response);
+            console.log("[BookingMap] Unpaid penalty summary:", summary);
+            const totalOutstandingTransactions = summary.totalFailedTransactions + summary.totalPendingTransactions;
+            const totalOutstandingAmount = summary.totalFailedAmount + summary.totalPendingAmount;
             const hasPenalties =
-                response?.success && totalFailedTransactions > 0;
+                totalOutstandingTransactions > 0 ||
+                summary.penalties.length > 0 ||
+                summary.failedTransactionIds.length > 0 ||
+                summary.pendingTransactionIds.length > 0;
 
             if (hasPenalties) {
                 try {
                     localStorage.setItem("penaltyUserId", String(numericUserId));
-                    if (failedTransactions.length > 0) {
-                        localStorage.setItem("penaltyFailedTransactionIds", JSON.stringify(failedTransactions));
+
+                    if (summary.failedTransactionIds.length > 0) {
+                        localStorage.setItem(
+                            "penaltyFailedTransactionIds",
+                            JSON.stringify(summary.failedTransactionIds)
+                        );
                     } else {
                         localStorage.removeItem("penaltyFailedTransactionIds");
                     }
 
-                    if (pendingTransactions.length > 0) {
-                        localStorage.setItem("penaltyPendingTransactionIds", JSON.stringify(pendingTransactions));
+                    if (summary.pendingTransactionIds.length > 0) {
+                        localStorage.setItem(
+                            "penaltyPendingTransactionIds",
+                            JSON.stringify(summary.pendingTransactionIds)
+                        );
                     } else {
                         localStorage.removeItem("penaltyPendingTransactionIds");
-                    }
-
-                    const primaryTransactionId = failedTransactions[0] ?? pendingTransactions[0];
-                    if (primaryTransactionId != null) {
-                        localStorage.setItem("penaltyTransactionId", String(primaryTransactionId));
                     }
 
                     localStorage.setItem(
                         "penaltySummary",
                         JSON.stringify({
-                            failedTransactionIds: failedTransactions,
-                            totalFailedTransactions,
-                            totalFailedAmount,
-                            pendingTransactionIds: pendingTransactions,
-                            totalPendingTransactions,
-                            totalPendingAmount,
+                            failedTransactionIds: summary.failedTransactionIds,
+                            totalFailedTransactions: summary.totalFailedTransactions,
+                            totalFailedAmount: summary.totalFailedAmount,
+                            pendingTransactionIds: summary.pendingTransactionIds,
+                            totalPendingTransactions: summary.totalPendingTransactions,
+                            totalPendingAmount: summary.totalPendingAmount,
                         })
                     );
                 } catch (storageError) {
                     console.warn("Unable to store penalty metadata locally", storageError);
                 }
 
-                setFailedTransactionCount(totalFailedTransactions);
-                setPendingTransactionCount(totalPendingTransactions);
-                setFailedTransactionAmount(totalFailedAmount);
-                setPendingTransactionAmount(totalPendingAmount);
-                setUnpaidPenaltyCount(totalFailedTransactions + totalPendingTransactions);
-                setUnpaidPenaltyTotal(totalFailedAmount + totalPendingAmount);
+                setFailedTransactionCount(summary.totalFailedTransactions);
+                setPendingTransactionCount(summary.totalPendingTransactions);
+                setFailedTransactionAmount(summary.totalFailedAmount);
+                setPendingTransactionAmount(summary.totalPendingAmount);
+                setUnpaidPenaltyCount(totalOutstandingTransactions);
+                setUnpaidPenaltyTotal(totalOutstandingAmount);
                 setShowPenaltyDialog(true);
 
-                const derivedTransactionId = failedTransactions[0] ?? pendingTransactions[0];
+                const derivedTransactionId = pickPrimaryTransactionId(summary);
                 if (derivedTransactionId != null) {
-                    const numericTransactionId = Number(derivedTransactionId);
-                    if (Number.isFinite(numericTransactionId)) {
-                        try {
-                            const retryInfo = await calculateRetryPayment({
-                                transactionId: numericTransactionId,
-                                userId: numericUserId,
-                            });
-
-                            if (retryInfo?.success && retryInfo?.data) {
-                                setPenaltyRetryInfo(retryInfo.data);
-                                try {
-                                    localStorage.setItem("penaltyRetryInfo", JSON.stringify(retryInfo.data));
-                                } catch (storageError) {
-                                    console.warn("Unable to store penaltyRetryInfo locally", storageError);
-                                }
-
-                                const apiTotal = retryInfo.data.totalAmount;
-                                if (apiTotal != null && !isNaN(Number(apiTotal))) {
-                                    setUnpaidPenaltyTotal(Number(apiTotal));
-                                }
-
-                                if (Array.isArray(retryInfo.data.penalties)) {
-                                    setUnpaidPenaltyCount(retryInfo.data.penalties.length);
-                                }
-                            }
-                        } catch (calculateError) {
-                            console.error("Error calculating retry payment:", calculateError);
-                        }
+                    try {
+                        localStorage.setItem("penaltyTransactionId", String(derivedTransactionId));
+                    } catch (storageError) {
+                        console.warn("Unable to store penaltyTransactionId", storageError);
                     }
+
+                    try {
+                        const retryInfo = await calculateRetryPayment({
+                            transactionId: derivedTransactionId,
+                            userId: numericUserId,
+                        });
+
+                        if (retryInfo?.success && retryInfo?.data) {
+                            setPenaltyRetryInfo(retryInfo.data);
+                            try {
+                                localStorage.setItem("penaltyRetryInfo", JSON.stringify(retryInfo.data));
+                            } catch (storageError) {
+                                console.warn("Unable to store penaltyRetryInfo locally", storageError);
+                            }
+
+                            const apiTotal = retryInfo.data.totalAmount;
+                            if (apiTotal != null && !isNaN(Number(apiTotal))) {
+                                setUnpaidPenaltyTotal(Number(apiTotal));
+                            }
+
+                        }
+                    } catch (calculateError) {
+                        console.error("Error calculating retry payment:", calculateError);
+                    }
+                } else {
+                    localStorage.removeItem("penaltyTransactionId");
                 }
             } else {
                 localStorage.removeItem("penaltyFailedTransactionIds");
