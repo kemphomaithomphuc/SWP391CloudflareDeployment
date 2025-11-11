@@ -68,4 +68,15 @@ public interface PaymentService {
      * - Gửi notification
      */
     PaymentResponseDTO payForSubscription(Long userId, Long subscriptionId, String returnUrl, String bankCode);
+
+    /**
+     * Hoàn tất thanh toán subscription khi VNPay trả về thành công.
+     * Lưu lại thông tin giao dịch từ VNPay và cập nhật subscription cho user.
+     */
+    void completeSubscriptionPayment(Long transactionId, String vnpTransactionNo, String vnpBankCode, String vnpCardType);
+
+    /**
+     * Xử lý thất bại cho giao dịch subscription.
+     */
+    void handleFailedSubscriptionPayment(Long transactionId, String reason);
 }

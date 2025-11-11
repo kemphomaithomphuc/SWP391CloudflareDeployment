@@ -14,7 +14,6 @@ import { toast } from 'sonner';
 import { Separator } from './ui/separator';
 import api, { cancelOrder, CancelOrderDTO } from "../services/api";
 import getChargingStationDetail, { ChargingStationDetail, NearbyPlace } from '../api/chargingStationDetails';
-import getNearbyPlacesByStation, { NearbyPlaceInfo } from '../api/nearbyPlaces';
 import {
     Pagination,
     PaginationContent,
@@ -239,7 +238,6 @@ export default function MyBookingView({ onBack, onStartCharging }: MyBookingView
   const [nearbyDetail, setNearbyDetail] = useState<ChargingStationDetail | null>(null);
   const [popupStationName, setPopupStationName] = useState<string | null>(null);
   const [hasTriggeredNearbyPopup, setHasTriggeredNearbyPopup] = useState(false);
-  const [nearbyAmenitiesList, setNearbyAmenitiesList] = useState<NearbyPlace[]>([]);
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -336,29 +334,13 @@ export default function MyBookingView({ onBack, onStartCharging }: MyBookingView
       setNearbyLoading(true);
       setNearbyError(null);
       setNearbyDetail(null);
-      setNearbyAmenitiesList([]);
       setPopupStationName(fallbackName ?? null);
 
       try {
-        const [detail, amenities] = await Promise.all([
-          getChargingStationDetail(stationId),
-          getNearbyPlacesByStation(stationId).catch((amenitiesError) => {
-            console.error("Error fetching nearby amenities:", amenitiesError);
-            return [];
-          }),
-        ]);
-
+        const detail = await getChargingStationDetail(stationId);
         console.log("[MyBookingView] Nearby detail response:", detail);
         setNearbyDetail(detail);
         setPopupStationName(detail?.stationName ?? fallbackName ?? null);
-
-        if (Array.isArray(amenities) && amenities.length > 0) {
-          setNearbyAmenitiesList(
-            amenities
-              .filter((item): item is NearbyPlaceInfo => !!item && typeof item === 'object')
-              .map((item) => ({ ...item }))
-          );
-        }
         setNearbyPopupOpen(true);
       } catch (err: any) {
         console.error("Error loading nearby places for station:", err);
@@ -1183,19 +1165,21 @@ export default function MyBookingView({ onBack, onStartCharging }: MyBookingView
     let stationId: number | null = null;
     let stationNameFallback: string | undefined;
 
-    if (apiActiveOrders.length > 0) {
-      const active = apiActiveOrders[0];
-      if (typeof active.stationId === "number" && !Number.isNaN(active.stationId)) {
-        stationId = active.stationId;
-        stationNameFallback = active.stationName;
-      }
+    const activeOrder = apiActiveOrders.find(
+      (order) => typeof order.stationId === "number" && !Number.isNaN(order.stationId)
+    );
+    if (activeOrder) {
+      stationId = activeOrder.stationId ?? null;
+      stationNameFallback = activeOrder.stationName;
     }
 
-    if (stationId === null && apiUpcomingOrders.length > 0) {
-      const upcoming = apiUpcomingOrders[0];
-      if (typeof upcoming.stationId === "number" && !Number.isNaN(upcoming.stationId)) {
-        stationId = upcoming.stationId;
-        stationNameFallback = upcoming.stationName;
+    if (stationId === null) {
+      const upcomingOrder = apiUpcomingOrders.find(
+        (order) => typeof order.stationId === "number" && !Number.isNaN(order.stationId)
+      );
+      if (upcomingOrder) {
+        stationId = upcomingOrder.stationId ?? null;
+        stationNameFallback = upcomingOrder.stationName;
       }
     }
 
@@ -1234,12 +1218,8 @@ export default function MyBookingView({ onBack, onStartCharging }: MyBookingView
   }, [apiActiveOrders, apiUpcomingOrders, language, openNearbyPopup]);
 
   const nearbyPlaces = useMemo(
-    () =>
-      deduplicateNearbyPlaces([
-        ...aggregateNearbyPlaces(nearbyDetail),
-        ...nearbyAmenitiesList,
-      ]),
-    [nearbyDetail, nearbyAmenitiesList]
+    () => deduplicateNearbyPlaces(aggregateNearbyPlaces(nearbyDetail)),
+    [nearbyDetail]
   );
 
   const stationAmenities = useMemo(() => {
