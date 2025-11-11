@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.*;
 import swp391.code.swp391.dto.PaymentDetailDTO;
 import swp391.code.swp391.dto.PaymentRequestDTO;
 import swp391.code.swp391.dto.PaymentResponseDTO;
+import swp391.code.swp391.dto.SubscriptionPaymentRequestDTO;
 import swp391.code.swp391.service.PaymentService;
 import swp391.code.swp391.service.VNPayService;
 
@@ -242,10 +243,6 @@ public class PaymentController {
         }
     }
 
-    /**
-     * Lấy thông tin giao dịch
-     * GET /api/payment/transaction/{transactionId}
-     */
     @GetMapping("/transaction/{transactionId}")
     public ResponseEntity<?> getTransaction(@PathVariable Long transactionId) {
         try {
@@ -269,21 +266,16 @@ public class PaymentController {
         }
     }
 
-    /**
-     * Thanh toán cho subscription (CHỈ VNPAY)
-     * POST /api/payment/subscription
-     */
-    @PostMapping("/subscription")
-    public ResponseEntity<?> payForSubscription(
-            @RequestParam Long userId,
-            @RequestParam Long subscriptionId,
-            @RequestParam String returnUrl,
-            @RequestParam(required = false) String bankCode) {
-        try {
-            log.info("API: Thanh toán subscription VNPay - User: {}, Subscription: {}",
-                    userId, subscriptionId);
 
-            PaymentResponseDTO response = paymentService.payForSubscription(userId, subscriptionId, returnUrl, bankCode);
+    @PostMapping("/subscription")
+    public ResponseEntity<?> payForSubscription(@Valid @RequestBody SubscriptionPaymentRequestDTO request) {
+        try {
+            PaymentResponseDTO response = paymentService.payForSubscription(
+                    request.getUserId(),
+                    request.getSubscriptionId(),
+                    request.getReturnUrl(),
+                    request.getBankCode()
+            );
 
             Map<String, Object> result = new HashMap<>();
             result.put("success", true);

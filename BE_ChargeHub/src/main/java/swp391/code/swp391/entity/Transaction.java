@@ -18,8 +18,12 @@ public class Transaction {
     private Long transactionId;
 
     @ManyToOne
-    @JoinColumn(name = "session_id", nullable = false)
+    @JoinColumn(name = "session_id")
     private Session session;
+
+    @ManyToOne
+    @JoinColumn(name = "subscription_id")
+    private Subscription subscription;  // For subscription payments
 
     @ManyToOne
     @JoinColumn(name = "user_id", nullable = false)

@@ -286,14 +286,6 @@ export default function Login({ onSwitchToRegister, onLogin, onStaffLogin, onAdm
                     }
                 } catch {}
 
-                // Driver flow: Check if user needs to complete profile setup
-                // For social login users, always redirect to dashboard regardless of profile completion status
-                if (isSocialLogin) {
-                    console.log("Social login user - redirecting to dashboard");
-                    onLogin?.();
-                    return;
-                }
-
                 // Store user profile data in localStorage
                 if (userProfile.data) {
                     if (userProfile.data.fullName) {
@@ -324,12 +316,24 @@ export default function Login({ onSwitchToRegister, onLogin, onStaffLogin, onAdm
                         const stationId = userProfile.data.station?.stationId || userProfile.data.stationId;
                         if (stationId) localStorage.setItem("stationId", String(stationId));
                         onStaffLogin?.();
+                        // For social login users, change URL to dashboard to persist on refresh
+                        if (isSocialLogin) {
+                            window.history.replaceState({}, document.title, "/dashboard");
+                        }
                         return;
                     } else if (role === "admin") {
                         onAdminLogin?.();
+                        // For social login users, change URL to dashboard to persist on refresh
+                        if (isSocialLogin) {
+                            window.history.replaceState({}, document.title, "/dashboard");
+                        }
                         return;
                     } else {
                         onLogin?.();
+                        // For social login users, change URL to dashboard to persist on refresh
+                        if (isSocialLogin) {
+                            window.history.replaceState({}, document.title, "/dashboard");
+                        }
                         return;
                     }
                 }
