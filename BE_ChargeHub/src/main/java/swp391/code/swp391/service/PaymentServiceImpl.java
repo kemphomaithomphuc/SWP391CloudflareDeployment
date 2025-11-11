@@ -26,7 +26,7 @@ import java.util.stream.Collectors;
 public class PaymentServiceImpl implements PaymentService {
 
     // Thời gian sạc tối thiểu (phút) - có thể đổi thành @Value nếu cần config từ application.properties
-    private static final int MINIMUM_CHARGING_TIME_MINUTES = 30;
+    private static final int MINIMUM_CHARGING_TIME_MINUTES = 10;
 
     private final SessionRepository sessionRepository;
     private final UserRepository userRepository;

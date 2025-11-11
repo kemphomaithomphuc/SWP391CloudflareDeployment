@@ -1984,36 +1984,36 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <User className="w-5 h-5" />
-              {language === 'vi' ? 'Thông tin khách hàng' : 'Customer Information'}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3 text-sm">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div className="flex items-center gap-2">
-                <User className="w-4 h-4 text-primary" />
-                <span>{session.userName || (language === 'vi' ? 'Chưa xác định' : 'Unknown')}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Phone className="w-4 h-4 text-green-500" />
-                <span>{session.userPhone || (language === 'vi' ? 'Chưa có' : 'N/A')}</span>
-              </div>
-              <div className="flex items-center gap-2 break-all">
-                <Mail className="w-4 h-4 text-blue-500" />
-                <span>{session.userEmail || (language === 'vi' ? 'Chưa có' : 'N/A')}</span>
-              </div>
-              {session.vehiclePlate && (
-                <div className="flex items-center gap-2">
-                  <Car className="w-4 h-4 text-amber-500" />
-                  <span>{language === 'vi' ? 'Biển số' : 'Vehicle'}: {session.vehiclePlate}</span>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+        {/*<Card>*/}
+        {/*  <CardHeader>*/}
+        {/*    <CardTitle className="flex items-center gap-2">*/}
+        {/*      <User className="w-5 h-5" />*/}
+        {/*      {language === 'vi' ? 'Thông tin khách hàng' : 'Customer Information'}*/}
+        {/*    </CardTitle>*/}
+        {/*  </CardHeader>*/}
+        {/*  <CardContent className="space-y-3 text-sm">*/}
+        {/*    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">*/}
+        {/*      <div className="flex items-center gap-2">*/}
+        {/*        <User className="w-4 h-4 text-primary" />*/}
+        {/*        <span>{session.userName || (language === 'vi' ? 'Chưa xác định' : 'Unknown')}</span>*/}
+        {/*      </div>*/}
+        {/*      <div className="flex items-center gap-2">*/}
+        {/*        <Phone className="w-4 h-4 text-green-500" />*/}
+        {/*        <span>{session.userPhone || (language === 'vi' ? 'Chưa có' : 'N/A')}</span>*/}
+        {/*      </div>*/}
+        {/*      <div className="flex items-center gap-2 break-all">*/}
+        {/*        <Mail className="w-4 h-4 text-blue-500" />*/}
+        {/*        <span>{session.userEmail || (language === 'vi' ? 'Chưa có' : 'N/A')}</span>*/}
+        {/*      </div>*/}
+        {/*      {session.vehiclePlate && (*/}
+        {/*        <div className="flex items-center gap-2">*/}
+        {/*          <Car className="w-4 h-4 text-amber-500" />*/}
+        {/*          <span>{language === 'vi' ? 'Biển số' : 'Vehicle'}: {session.vehiclePlate}</span>*/}
+        {/*        </div>*/}
+        {/*      )}*/}
+        {/*    </div>*/}
+        {/*  </CardContent>*/}
+        {/*</Card>*/}
       </div>
 
       {/* Payment Dialog */}
