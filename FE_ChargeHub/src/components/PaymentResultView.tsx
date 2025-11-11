@@ -5,7 +5,7 @@ import { Button } from './ui/button';
 import { CheckCircle2, XCircle, Loader2, CreditCard } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { toast } from 'sonner';
-import { api } from '../services/api';
+import { api, upgradeUserSubscription } from '../services/api';
 import NearbyPlacesWidget from './NearbyPlacesWidget';
 
 interface LastChargedStationSnapshot {
@@ -28,6 +28,15 @@ export default function PaymentResultView() {
     message?: string;
   }>({});
   const [lastStationSnapshot, setLastStationSnapshot] = useState<LastChargedStationSnapshot | null>(null);
+
+  const storedOrigin = localStorage.getItem('paymentOrigin') || undefined;
+
+  const getRedirectPath = () => {
+    if (storedOrigin === 'premium-subscription') {
+      return '/premium-subscription';
+    }
+    return '/home';
+  };
 
   useEffect(() => {
     try {
@@ -69,9 +78,12 @@ export default function PaymentResultView() {
         });
 
         // Forward callback params to backend to ensure transaction status updates
-        const queryParams = Object.fromEntries(searchParams.entries());
         try {
-          await api.get('/api/payment/vnpay/callback', { params: queryParams });
+          const queryString = window.location.search.replace(/^\?/, '');
+          await api.get(`/api/payment/vnpay/callback?${queryString}`, {
+            params: {},
+            paramsSerializer: () => queryString
+          });
           console.log('Forwarded VNPay callback to backend');
         } catch (callbackError) {
           console.error('Error forwarding callback to backend:', callbackError);
@@ -96,9 +108,30 @@ export default function PaymentResultView() {
 
           toast.success(language === 'vi' ? 'Thanh toán thành công!' : 'Payment successful!');
 
+          const pendingType = localStorage.getItem('pendingSubscriptionType');
+          const pendingUserId = localStorage.getItem('pendingSubscriptionUserId');
+
+          if (pendingType && pendingUserId) {
+            try {
+              await upgradeUserSubscription(Number(pendingUserId), pendingType as 'BASIC' | 'PLUS' | 'PREMIUM');
+              console.log('Subscription upgraded after payment');
+            } catch (upgradeError) {
+              console.error('Error upgrading subscription after payment:', upgradeError);
+            } finally {
+              localStorage.removeItem('pendingSubscriptionType');
+              localStorage.removeItem('pendingSubscriptionUserId');
+            }
+          } else {
+            localStorage.removeItem('pendingSubscriptionType');
+            localStorage.removeItem('pendingSubscriptionUserId');
+          }
+
+          localStorage.setItem('subscriptionPaymentStatus', 'success');
+          localStorage.removeItem('paymentOrigin');
+
           // Auto redirect to dashboard after 3 seconds
           setTimeout(() => {
-            navigate('/home');
+            navigate(getRedirectPath(), { replace: true });
           }, 3000);
         } else {
           setPaymentStatus('failed');
@@ -129,6 +162,15 @@ export default function PaymentResultView() {
           });
 
           toast.error(language === 'vi' ? errorMsg.vi : errorMsg.en);
+
+          localStorage.setItem('subscriptionPaymentStatus', vnp_ResponseCode === '24' ? 'cancelled' : 'failed');
+          localStorage.removeItem('paymentOrigin');
+          localStorage.removeItem('pendingSubscriptionType');
+          localStorage.removeItem('pendingSubscriptionUserId');
+
+          setTimeout(() => {
+            navigate(getRedirectPath(), { replace: true });
+          }, 3000);
         }
       } catch (error) {
         console.error('Error processing payment result:', error);
@@ -137,16 +179,40 @@ export default function PaymentResultView() {
           message: language === 'vi' ? 'Lỗi xử lý kết quả thanh toán' : 'Error processing payment result'
         });
         toast.error(language === 'vi' ? 'Lỗi xử lý kết quả thanh toán' : 'Error processing payment result');
+        localStorage.setItem('subscriptionPaymentStatus', 'failed');
+        localStorage.removeItem('paymentOrigin');
+        localStorage.removeItem('pendingSubscriptionType');
+        localStorage.removeItem('pendingSubscriptionUserId');
+        setTimeout(() => {
+          navigate(getRedirectPath(), { replace: true });
+        }, 3000);
       } finally {
         setLoading(false);
       }
     };
 
-    processPaymentResult();
+    // Nếu không có tham số VNPay (ví dụ user tự mở trang), không xử lý
+    if (searchParams.get('vnp_TxnRef') || searchParams.get('vnp_ResponseCode')) {
+      processPaymentResult();
+    } else {
+      setLoading(false);
+      setPaymentStatus('failed');
+      setPaymentInfo({
+        message: language === 'vi' ? 'Không tìm thấy thông tin giao dịch' : 'Missing transaction information'
+      });
+      toast.error(language === 'vi' ? 'Không tìm thấy thông tin giao dịch' : 'Missing transaction information');
+      localStorage.setItem('subscriptionPaymentStatus', 'failed');
+      localStorage.removeItem('paymentOrigin');
+      localStorage.removeItem('pendingSubscriptionType');
+      localStorage.removeItem('pendingSubscriptionUserId');
+      setTimeout(() => {
+        navigate(getRedirectPath(), { replace: true });
+      }, 3000);
+    }
   }, [searchParams, language, navigate]);
 
   const handleBackToDashboard = () => {
-    navigate('/home');
+    navigate(getRedirectPath(), { replace: true });
   };
 
   if (loading) {
@@ -270,7 +336,7 @@ export default function PaymentResultView() {
       {paymentStatus === 'success' && lastStationSnapshot?.stationId !== undefined && (
         <NearbyPlacesWidget
           stationId={lastStationSnapshot.stationId}
-          stationName={lastStationSnapshot.stationName}
+          stationName={lastStationSnapshot.stationName ?? ''}
         />
       )}
     </>
