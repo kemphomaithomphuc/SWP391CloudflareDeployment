@@ -125,7 +125,7 @@ public class NotificationServiceImpl implements NotificationService {
 
 //=====================BOOKING NOTIFICATION==========================
     public enum NotificationEvent {
-        BOOKING_SUCCESS, CANCEL_ORDER, SESSION_START, SESSION_COMPLETE
+        BOOKING_SUCCESS, CANCEL_ORDER, SESSION_START, SESSION_COMPLETE, SESSION_WAITING_STAFF_DECISION, SESSION_STILL_PARKED
     }
 
     @Transactional
@@ -167,10 +167,29 @@ public class NotificationServiceImpl implements NotificationService {
                 ));
                 break;
             case SESSION_COMPLETE:
-                notification.setTitle("Phiên sạc hoàn tất");
+                notification.setTitle("Phiên sạc hoàn tất - Vui lòng rời trạm");
                 notification.setContent(String.format(
-                        "Phiên sạc tại trạm %s đã hoàn tất.\nOrder ID: %d\nThời gian kết thúc: %s",
-                        stationName, order.getOrderId(), LocalDateTime.now()
+                        "Phiên sạc tại trạm %s đã hoàn tất.\n" +
+                        "VUI LÒNG RỜI KHỎI TRẠM NGAY để tránh bị tính phí đỗ xe (500 VND/phút, tăng dần theo thời gian)\n" +
+                        "Order ID: %d\n" +
+                        "Thời gian kết thúc: %s\n" +
+                        "%s",
+                        stationName, order.getOrderId(), LocalDateTime.now(),
+                        additionalInfo != null ? additionalInfo : ""
+                ));
+                break;
+            case SESSION_WAITING_STAFF_DECISION:
+                notification.setTitle("Chờ xác nhận rời trạm");
+                notification.setContent(String.format(
+                        "Phiên sạc tại trạm %s đã kết thúc.\nVui lòng xác nhận đã rời trạm để tránh phí đỗ xe.\nOrder ID: %d",
+                        stationName, order.getOrderId()
+                ));
+                break;
+            case SESSION_STILL_PARKED:
+                notification.setTitle("Xe vẫn đậu tại trạm");
+                notification.setContent(String.format(
+                        "Xe của bạn vẫn đậu tại trạm %s sau khi sạc xong.\nPhí đỗ xe đang được tính.\nOrder ID: %d",
+                        stationName, order.getOrderId()
                 ));
                 break;
             default:
@@ -298,7 +317,7 @@ public class NotificationServiceImpl implements NotificationService {
 
     //=====================PENALTY NOTIFICATION==========================
     public enum PenaltyEvent {
-        NO_SHOW_PENALTY, CANCEL_PENALTY, OVERTIME_PENALTY
+        NO_SHOW_PENALTY, CANCEL_PENALTY, OVERTIME_PENALTY, PARKING_PENALTY
     }
 
     @Transactional
@@ -333,6 +352,13 @@ public class NotificationServiceImpl implements NotificationService {
                 notification.setTitle("Phạt sạc quá giờ");
                 notification.setContent(String.format(
                         "Bạn đã bị phạt %.0f VND vì sạc quá thời gian quy định\nOrder ID: %d\nLý do: %s",
+                        penaltyAmount, orderId, reason
+                ));
+                break;
+            case PARKING_PENALTY:
+                notification.setTitle("Phí đỗ xe sau khi sạc");
+                notification.setContent(String.format(
+                        "Bạn đã bị tính phí %.0f VND vì đỗ xe tại trạm sau khi sạc xong\nOrder ID: %d\nLý do: %s",
                         penaltyAmount, orderId, reason
                 ));
                 break;

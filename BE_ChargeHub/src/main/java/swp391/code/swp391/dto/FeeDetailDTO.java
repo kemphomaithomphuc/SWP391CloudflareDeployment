@@ -58,6 +58,7 @@ public class FeeDetailDTO {
             case CANCEL -> "Phí hủy lịch muộn";
             case NO_SHOW -> "Phí không đến theo lịch";
             case CHARGING, OVERTIME -> "Phí sạc quá giờ";
+            case PARKING -> "Phí đỗ xe";
         };
     }
 
