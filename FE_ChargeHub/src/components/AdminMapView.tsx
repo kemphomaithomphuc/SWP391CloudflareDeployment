@@ -197,6 +197,7 @@ interface ChargingStation {
 
     revenue: {
 
+
         daily: number;
 
         monthly: number;
@@ -2431,7 +2432,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
 
 
-                // Auto-geocode the address and update coordinates
+                // Convert from address to coordinates via api of maptiler for visibility
 
                 const coordinates = await geocodeAddress(value.trim());
 
