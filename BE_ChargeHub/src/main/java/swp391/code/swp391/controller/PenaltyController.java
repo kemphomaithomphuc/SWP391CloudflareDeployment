@@ -15,6 +15,7 @@ import swp391.code.swp391.repository.TransactionRepository;
 import swp391.code.swp391.repository.UserRepository;
 import swp391.code.swp391.service.PaymentService;
 import swp391.code.swp391.service.PenaltyService;
+import swp391.code.swp391.service.PenaltyServiceImpl;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -464,6 +465,35 @@ public class PenaltyController {
             log.error("Error checking unlock status: {}", e.getMessage(), e);
             return ResponseEntity.badRequest()
                     .body(APIResponse.error("Lỗi: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * Lấy tổng hợp tất cả transactions chưa thanh toán (FAILED/PENDING)
+     * Để FE hiển thị tổng số tiền trước khi thanh toán
+     * GET /api/penalties/user/{userId}/unpaid-summary
+     */
+    @GetMapping("/user/{userId}/unpaid-summary")
+    @PreAuthorize("hasRole('DRIVER') or hasRole('ADMIN')")
+    public ResponseEntity<APIResponse<PenaltyServiceImpl.UnpaidTransactionsSummary>> getUnpaidTransactionsSummary(
+            @PathVariable Long userId) {
+        try {
+            log.info("Getting unpaid transactions summary for user {}", userId);
+
+            PenaltyServiceImpl.UnpaidTransactionsSummary summary =
+                penaltyService.getUnpaidTransactionsSummary(userId);
+
+            String message = summary.transactionIds.isEmpty()
+                ? "Không có giao dịch nào cần thanh toán"
+                : String.format("Bạn có %d giao dịch chưa thanh toán, tổng: %,.0f VNĐ",
+                    summary.transactionIds.size(), summary.totalAmount);
+
+            return ResponseEntity.ok(APIResponse.success(message, summary));
+
+        } catch (Exception e) {
+            log.error("Error getting unpaid transactions summary: {}", e.getMessage(), e);
+            return ResponseEntity.badRequest()
+                    .body(APIResponse.error("Lỗi khi lấy thông tin giao dịch chưa thanh toán: " + e.getMessage()));
         }
     }
 }

@@ -108,6 +108,14 @@ public class FeeCalculationServiceImpl implements FeeCalculationService {
     }
 
     @Override
+    public List<Fee> getUnpaidSessionFees(Long sessionId) {
+        log.info("Lấy các khoản phí CHƯA THANH TOÁN cho session: {}", sessionId);
+        return feeRepository.findBySessionSessionId(sessionId).stream()
+                .filter(fee -> fee.getIsPaid() != null && !fee.getIsPaid())
+                .toList();
+    }
+
+    @Override
     public BigDecimal calculateTotalFees(List<Fee> fees) {
         if (fees == null || fees.isEmpty()) {
             return BigDecimal.ZERO;

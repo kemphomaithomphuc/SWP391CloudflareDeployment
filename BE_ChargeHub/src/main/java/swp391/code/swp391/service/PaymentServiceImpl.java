@@ -60,15 +60,16 @@ public class PaymentServiceImpl implements PaymentService {
         // Bước 1: Tính chi phí cơ bản (baseCost)
         BigDecimal baseCost = calculateBaseCost(session, user);
 
-        // Bước 2: Tính tổng các khoản phí
-        List<Fee> fees = feeCalculationService.getSessionFees(sessionId);
-        BigDecimal totalFees = feeCalculationService.calculateTotalFees(fees);
+        // Bước 2: Tính tổng các khoản phí CHƯA THANH TOÁN
+        // ✅ CHỈ lấy fees có isPaid = false để tránh tính trùng
+        List<Fee> unpaidFees = feeCalculationService.getUnpaidSessionFees(sessionId);
+        BigDecimal totalFees = feeCalculationService.calculateTotalFees(unpaidFees);
 
-        // Tổng số tiền = baseCost + totalFees
+        // Tổng số tiền = baseCost + totalFees (CHƯA thanh toán)
         BigDecimal totalAmount = baseCost.add(totalFees);
 
-        log.info("Tính toán hoàn tất - Base Cost: {}, Total Fees: {}, Total Amount: {}",
-                baseCost, totalFees, totalAmount);
+        log.info("Tính toán hoàn tất - Base Cost: {}, Unpaid Fees: {} (count: {}), Total Amount: {}",
+                baseCost, totalFees, unpaidFees.size(), totalAmount);
 
         return totalAmount.setScale(2, RoundingMode.HALF_UP);
     }
