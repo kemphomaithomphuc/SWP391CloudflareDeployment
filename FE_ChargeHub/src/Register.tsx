@@ -1,4 +1,9 @@
 import { Button } from "./components/ui/button";
+import { Input } from "./components/ui/input";
+import { Label } from "./components/ui/label";
+import { Separator } from "./components/ui/separator";
+import PasswordInput from "./components/ui/PasswordInput";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "./components/ui/dialog";
 import { ArrowLeft, Zap } from "lucide-react";
 import { useLanguage } from "./contexts/LanguageContext";
 import { useState } from "react";
@@ -19,6 +24,16 @@ export default function Register({
   const { t, language, setLanguage } = useLanguage();
   const [providerLoading, setProviderLoading] = useState<"google" | "facebook" | null>(null);
   const [errorKey, setErrorKey] = useState<string | null>(null);
+  const [fullName, setFullName] = useState<string>("");
+  const [email, setEmail] = useState<string>("");
+  const [password, setPassword] = useState<string>("");
+  const [confirmedPassword, setConfirmedPassword] = useState<string>("");
+  const [submitting, setSubmitting] = useState<boolean>(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [formSuccess, setFormSuccess] = useState<string | null>(null);
+  const [showOtpDialog, setShowOtpDialog] = useState<boolean>(false);
+  const [otpCode, setOtpCode] = useState<string>("");
+  const [otpError, setOtpError] = useState<string | null>(null);
 
   const startSocialRegister = async (provider: "google" | "facebook") => {
     setProviderLoading(provider);
@@ -48,6 +63,108 @@ export default function Register({
   };
 
   void onSwitchToRoleSelection; // navigation handled after social login callback in App.tsx
+
+  const handleEmailRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setFormError(null);
+    setFormSuccess(null);
+    setOtpError(null);
+
+    if (!fullName || !email || !password || !confirmedPassword) {
+      setFormError(language === "vi" ? "Vui lòng nhập đầy đủ thông tin." : "Please fill in all fields.");
+      return;
+    }
+    if (password !== confirmedPassword) {
+      setFormError(language === "vi" ? "Mật khẩu xác nhận không khớp." : "Confirmed password does not match.");
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+
+      // Gửi OTP đăng ký trước
+      try {
+        const otpRes = await axios.post("http://localhost:8080/api/otp/send/registration", { email });
+        if (!(otpRes.status >= 200 && otpRes.status < 300)) {
+          throw new Error("OTP send failed");
+        }
+        // Mở popup nhập OTP và dừng tại đây, chờ người dùng xác nhận OTP
+        setShowOtpDialog(true);
+        return;
+      } catch (otpErr: any) {
+        const message =
+          otpErr?.response?.data?.message ||
+          (language === "vi" ? "Gửi OTP thất bại. Vui lòng thử lại." : "Failed to send OTP. Please try again.");
+        setFormError(message);
+        return;
+      }
+    } catch (err: any) {
+      const message =
+        err?.response?.data?.message ||
+        (language === "vi" ? "Đăng ký thất bại. Vui lòng thử lại." : "Registration failed. Please try again.");
+      setFormError(message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleConfirmOtp = async () => {
+    setOtpError(null);
+    if (!/^\d{6}$/.test(otpCode)) {
+      setOtpError(language === "vi" ? "Mã OTP phải gồm 6 chữ số." : "OTP must be 6 digits.");
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+
+      // 1) Xác thực OTP
+      const verifyRes = await axios.post("http://localhost:8080/api/otp/verify/registration", {
+        email,
+        otpCode,
+      });
+
+      const isSuccess = verifyRes?.data?.success === true;
+      const verifiedEmail = verifyRes?.data?.email;
+      if (!isSuccess || !verifiedEmail) {
+        const msg =
+          verifyRes?.data?.message ||
+          (language === "vi" ? "Xác thực OTP thất bại. Vui lòng thử lại." : "OTP verification failed. Please try again.");
+        setOtpError(msg);
+        return;
+      }
+
+      // 2) Gọi đăng ký sau khi OTP OK
+      const res = await axios.post("http://localhost:8080/api/auth/register", {
+        fullName,
+        email: verifiedEmail || email,
+        password,
+        confirmedPassword,
+      });
+
+      if (res.status >= 200 && res.status < 300) {
+        setFormSuccess(language === "vi" ? "Đăng ký thành công! Vui lòng đăng nhập." : "Registration successful! Please log in.");
+        setShowOtpDialog(false);
+        setOtpCode("");
+        // Điều hướng sang chọn vai trò
+        onSwitchToRoleSelection();
+      } else {
+        setFormError(language === "vi" ? "Đăng ký thất bại. Vui lòng thử lại." : "Registration failed. Please try again.");
+      }
+    } catch (err: any) {
+      const message = err?.response?.data?.message;
+      if (message && message.toLowerCase().includes("otp")) {
+        setOtpError(message);
+      } else {
+        setFormError(
+          message ||
+            (language === "vi" ? "Đăng ký thất bại. Vui lòng thử lại." : "Registration failed. Please try again.")
+        );
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-secondary/20 to-accent/30 flex items-center justify-center p-4">
@@ -109,6 +226,75 @@ export default function Register({
               {t(errorKey)}
             </div>
           )}
+
+          <form className="space-y-4 pt-2" onSubmit={handleEmailRegister}>
+            <div className="space-y-2">
+              <Label htmlFor="fullName">{language === "vi" ? "Họ và tên" : "Full name"}</Label>
+              <Input
+                id="fullName"
+                placeholder={language === "vi" ? "Nhập họ và tên" : "Enter full name"}
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                disabled={submitting}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="email">{language === "vi" ? "Email" : "Email"}</Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="name@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                disabled={submitting}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="password">{language === "vi" ? "Mật khẩu" : "Password"}</Label>
+              <PasswordInput
+                id="password"
+                placeholder={language === "vi" ? "Nhập mật khẩu" : "Enter password"}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                disabled={submitting}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="confirmedPassword">{language === "vi" ? "Xác nhận mật khẩu" : "Confirm password"}</Label>
+              <PasswordInput
+                id="confirmedPassword"
+                placeholder={language === "vi" ? "Nhập lại mật khẩu" : "Re-enter password"}
+                value={confirmedPassword}
+                onChange={(e) => setConfirmedPassword(e.target.value)}
+                disabled={submitting}
+              />
+            </div>
+
+            {formError && (
+              <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-3 text-destructive text-sm">
+                {formError}
+              </div>
+            )}
+            {formSuccess && (
+              <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-3 text-emerald-600 text-sm">
+                {formSuccess}
+              </div>
+            )}
+
+            <Button type="submit" className="w-full h-11" disabled={submitting}>
+              {submitting
+                ? language === "vi"
+                  ? "Đang đăng ký..."
+                  : "Registering..."
+                : language === "vi"
+                ? "Đăng ký bằng email"
+                : "Register with Email"}
+            </Button>
+          </form>
+
+          <div className="mt-6">
+            <Separator />
+          </div>
 
           <div className="space-y-4">
             <Button
@@ -172,6 +358,52 @@ export default function Register({
             {t("secure_fast_reliable")}
           </p>
         </div>
+
+        <Dialog open={showOtpDialog} onOpenChange={setShowOtpDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{language === "vi" ? "Nhập mã OTP" : "Enter OTP code"}</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground">
+                {language === "vi"
+                  ? "Chúng tôi đã gửi mã OTP gồm 6 chữ số đến email của bạn."
+                  : "We sent a 6-digit OTP code to your email."}
+              </p>
+              <Input
+                inputMode="numeric"
+                pattern="\d{6}"
+                maxLength={6}
+                placeholder={language === "vi" ? "Nhập 6 số OTP" : "Enter 6-digit OTP"}
+                value={otpCode}
+                onChange={(e) => {
+                  const v = e.target.value.replace(/\D/g, "").slice(0, 6);
+                  setOtpCode(v);
+                }}
+                autoFocus
+              />
+              {otpError && <div className="text-destructive text-sm">{otpError}</div>}
+            </div>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setShowOtpDialog(false);
+                  setOtpCode("");
+                }}
+                disabled={submitting}
+              >
+                {language === "vi" ? "Hủy" : "Cancel"}
+              </Button>
+              <Button type="button" onClick={handleConfirmOtp} disabled={submitting || otpCode.length !== 6}>
+                {submitting
+                  ? language === "vi" ? "Đang xác nhận..." : "Confirming..."
+                  : language === "vi" ? "Xác nhận OTP" : "Confirm OTP"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );
