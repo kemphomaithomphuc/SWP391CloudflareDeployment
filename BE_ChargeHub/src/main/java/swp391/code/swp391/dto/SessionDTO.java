@@ -4,6 +4,7 @@ import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import swp391.code.swp391.entity.Session;
 
 import java.time.LocalDateTime;
 
@@ -22,4 +23,6 @@ public class SessionDTO {
     private double currentBattery;
     private double expectedBattery;
     private Long connectorTypeId;
+    private Session.SessionStatus status; // Status của session
+    private LocalDateTime parkingStartTime; // Thời gian bắt đầu tính phí đỗ xe
 }

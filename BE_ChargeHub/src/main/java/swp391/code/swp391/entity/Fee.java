@@ -45,6 +45,7 @@ public class Fee {
         CHARGING,  // Phí sạc quá giờ khi pin đầy (deprecated, use OVERTIME)
         OVERTIME,  // Phí sạc quá giờ khi pin đầy (AC3: 2,000 VNĐ/phút)
         NO_SHOW,   // Phí không đến theo lịch (AC2: 30% estimated cost)
-        CANCEL     // Phí hủy muộn (AC1: 10% estimated cost)
+        CANCEL,    // Phí hủy muộn (AC1: 10% estimated cost)
+        PARKING    // Phí đỗ xe sau khi sạc xong (tính theo thời gian thực tế)
     }
 }

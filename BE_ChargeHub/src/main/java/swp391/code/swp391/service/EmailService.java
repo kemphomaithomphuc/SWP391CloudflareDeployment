@@ -565,5 +565,82 @@ public class EmailService {
 """.formatted(userName, startTime, orderId, stationName, chargingPointName,
               startTime, minutesRemaining);
     }
-}
 
+    /**
+     * Gửi email nhắc nhở sau 1 giờ vẫn đậu xe sau khi sạc xong
+     */
+    public void sendStillParkedAfterOneHourEmail(String toEmail,
+                                                 String userName,
+                                                 String stationName,
+                                                 String chargingPointName,
+                                                 String endTime,
+                                                 long parkedMinutes) {
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+
+            helper.setFrom(fromEmail);
+            helper.setTo(toEmail);
+            helper.setSubject("⛔ Bạn đang đỗ xe sau khi sạc hoàn tất - Vui lòng di chuyển xe");
+
+            String html = buildStillParkedAfterOneHourEmail(userName, stationName, chargingPointName, endTime, parkedMinutes);
+            helper.setText(html, true);
+
+            mailSender.send(message);
+            log.info("Đã gửi email cảnh báo đỗ xe sau khi sạc xong đến: {}", toEmail);
+        } catch (MessagingException e) {
+            log.error("Lỗi gửi email cảnh báo đỗ xe sau khi sạc xong đến {}: {}", toEmail, e.getMessage());
+        }
+    }
+
+    private String buildStillParkedAfterOneHourEmail(String userName,
+                                                     String stationName,
+                                                     String chargingPointName,
+                                                     String endTime,
+                                                     long parkedMinutes) {
+        return """
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset=\"UTF-8\">
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f9f9f9; }
+        .header { background: linear-gradient(135deg, #ff6a00 0%%, #ee0979 100%%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+        .content { background: white; padding: 30px; border-radius: 0 0 10px 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .warning { background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin: 20px 0; border-radius: 5px; }
+        .highlight { color: #e74c3c; font-weight: bold; }
+        .footer { text-align: center; margin-top: 30px; color: #888; font-size: 12px; }
+    </style>
+</head>
+<body>
+    <div class=\"container\">
+        <div class=\"header\">
+            <h1>⛔ Bạn đang đỗ xe sau khi sạc hoàn tất</h1>
+        </div>
+        <div class=\"content\">
+            <p>Xin chào <strong>%s</strong>,</p>
+            <p>Chúng tôi ghi nhận rằng bạn vẫn đang đỗ xe tại trạm sạc <strong>%s</strong> (trụ <strong>%s</strong>)
+               dù phiên sạc của bạn đã kết thúc lúc <strong>%s</strong>.</p>
+
+            <div class=\"warning\">
+                <p><strong>Thời gian đỗ thêm hiện tại:</strong> %d phút</p>
+                <p><strong>Phí đỗ xe đang được tính</strong> theo chính sách:
+                500 VND/phút và <span class=\"highlight\">tăng dần theo mỗi giờ</span>.</p>
+            </div>
+
+            <p>Vui lòng quay lại trạm và di chuyển xe ra khỏi vị trí sạc <strong>ngay lập tức</strong>
+               để tránh phát sinh thêm phí và ảnh hưởng tới người dùng khác.</p>
+
+            <p>Cảm ơn bạn đã hợp tác!</p>
+            <div class=\"footer\"> 
+                <p>Email này được gửi tự động, vui lòng không trả lời.</p>
+                <p>© 2025 ChargeHub. All rights reserved.</p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+""".formatted(userName, stationName, chargingPointName, endTime, parkedMinutes);
+    }
+}

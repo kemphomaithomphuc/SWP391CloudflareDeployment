@@ -33,6 +33,8 @@ public class Session {
     @Column(nullable = false)
     private Double baseCost; //tiền phải trả cho phiên sạc (chưa tính phí phát sinh)
 
+    private LocalDateTime parkingStartTime; // Thời điểm bắt đầu tính phí đỗ xe
+
     @OneToMany(mappedBy = "session", cascade = CascadeType.ALL)
     @ToString.Exclude
     private List<Fee> fees; //Các phí phát sinh
@@ -42,7 +44,11 @@ public class Session {
     private SessionStatus status = SessionStatus.CHARGING;
 
     public enum SessionStatus {
-        CHARGING, COMPLETED, OVERTIME
+        CHARGING,
+        WAITING_STAFF_DECISION, // Chờ staff xác nhận xe đã rời hay chưa
+        STILL_PARKED,           // Staff xác nhận xe vẫn đậu (đang tính phí)
+        COMPLETED,
+        OVERTIME
     }
 
     // Kiểm tra xem session có overtime không

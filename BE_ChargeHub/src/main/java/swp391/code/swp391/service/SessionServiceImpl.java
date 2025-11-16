@@ -278,21 +278,19 @@ public class SessionServiceImpl implements SessionService {
         double discount = 0.0;
         double cost = powerConsumed * basePrice * priceFactor * (1 - discount);
 
-        // Update session
+        // Update session - KHÔNG hoàn tất ngay, chuyển sang chờ staff xác nhận
         session.setBaseCost(cost);
         session.setPowerConsumed(powerConsumed);
         session.setEndTime(now);
-        session.setStatus(Session.SessionStatus.COMPLETED);
+        session.setStatus(Session.SessionStatus.WAITING_STAFF_DECISION);
 
         // Update order status
         Order order = session.getOrder();
         order.setStatus(Order.Status.COMPLETED);
         orderRepository.save(order);
 
-        // Update charging point status
-        ChargingPoint chargingPoint = order.getChargingPoint();
-        chargingPoint.setStatus(ChargingPoint.ChargingPointStatus.AVAILABLE);
-        chargingPointRepository.save(chargingPoint);
+        // KHÔNG giải phóng charging point - chờ staff xác nhận
+        // ChargingPoint vẫn ở trạng thái OCCUPIED
 
         // Calculate final battery percentage
         double finalBattery = calculateBatteryPercentage(vehicle, powerConsumed) + session.getOrder().getStartedBattery();
@@ -308,9 +306,10 @@ public class SessionServiceImpl implements SessionService {
         // Save session
         session = sessionRepository.save(session);
 
-        // Send completion notification
+        // Gửi notification cho USER để nhắc rời trạm
         notificationService.createBookingOrderNotification(order.getOrderId(),
-            NotificationServiceImpl.NotificationEvent.SESSION_COMPLETE, null);
+            NotificationServiceImpl.NotificationEvent.SESSION_COMPLETE,
+            "Vui lòng rời khỏi trạm sạc để tránh phí đỗ xe");
 
         // Push final progress via WebSocket
         try {
@@ -383,6 +382,8 @@ public class SessionServiceImpl implements SessionService {
         return sessionRepository.findAll().stream().map(s -> {
             SessionDTO dto = new SessionDTO();
             dto.setSessionId(s.getSessionId());
+            dto.setStatus(s.getStatus());
+            dto.setParkingStartTime(s.getParkingStartTime());
             if (s.getOrder() != null) {
                 dto.setOrderId(s.getOrder().getOrderId());
                 var cp = s.getOrder().getChargingPoint();
@@ -405,6 +406,8 @@ public class SessionServiceImpl implements SessionService {
                 .orElseThrow(() -> new RuntimeException("Session not found"));
         SessionDTO dto = new SessionDTO();
         dto.setSessionId(s.getSessionId());
+        dto.setStatus(s.getStatus());
+        dto.setParkingStartTime(s.getParkingStartTime());
         if (s.getOrder() != null) {
             dto.setOrderId(s.getOrder().getOrderId());
             var cp = s.getOrder().getChargingPoint();
@@ -428,6 +431,8 @@ public class SessionServiceImpl implements SessionService {
         }
         SessionDTO dto = new SessionDTO();
         dto.setSessionId(s.getSessionId());
+        dto.setStatus(s.getStatus());
+        dto.setParkingStartTime(s.getParkingStartTime());
         if (s.getOrder() != null) {
             dto.setOrderId(s.getOrder().getOrderId());
             var cp = s.getOrder().getChargingPoint();
@@ -527,5 +532,119 @@ public class SessionServiceImpl implements SessionService {
         } catch (Exception ignored) {}
 
         return session.getSessionId();
+    }
+
+    /**
+     * Staff xác nhận xe vẫn đậu tại trạm (slot vẫn bị chiếm dụng, bắt đầu tính phí đỗ xe)
+     */
+    @Transactional
+    public Long staffMarkStillParked(Long sessionId, Long staffId) {
+        Session session = sessionRepository.findById(sessionId)
+                .orElseThrow(() -> new RuntimeException("Session not found"));
+
+        if (session.getStatus() != Session.SessionStatus.WAITING_STAFF_DECISION) {
+            throw new RuntimeException("Session not awaiting staff decision");
+        }
+
+        // Chuyển session sang trạng thái STILL_PARKED và ghi nhận thời điểm bắt đầu tính phí
+        session.setStatus(Session.SessionStatus.STILL_PARKED);
+        // Grace period 15 phút sau khi kết thúc phiên sạc: không tính phí trong khoảng này
+        LocalDateTime graceStart = (session.getEndTime() != null)
+                ? session.getEndTime().plusMinutes(15)
+                : LocalDateTime.now().plusMinutes(15);
+        session.setParkingStartTime(graceStart);
+        sessionRepository.save(session);
+
+        // Charging point vẫn giữ trạng thái OCCUPIED (không thay đổi)
+
+        // Gửi notification cho người dùng
+        notificationService.createBookingOrderNotification(session.getOrder().getOrderId(),
+                NotificationServiceImpl.NotificationEvent.SESSION_STILL_PARKED, null);
+
+        return session.getSessionId();
+    }
+
+    /**
+     * Staff xác nhận xe đã rời trạm
+     * Nếu trước đó đã mark STILL_PARKED thì tính phí đỗ xe
+     */
+    @Transactional
+    public Long staffMarkLeft(Long sessionId, Long staffId) {
+        Session session = sessionRepository.findById(sessionId)
+                .orElseThrow(() -> new RuntimeException("Session not found"));
+
+        if (session.getStatus() != Session.SessionStatus.WAITING_STAFF_DECISION
+                && session.getStatus() != Session.SessionStatus.STILL_PARKED) {
+            throw new RuntimeException("Session not awaiting staff decision or not in parked state");
+        }
+
+        // Nếu xe vẫn đậu, tính phí đỗ xe từ parkingStartTime đến hiện tại
+        if (session.getStatus() == Session.SessionStatus.STILL_PARKED) {
+            LocalDateTime now = LocalDateTime.now();
+            LocalDateTime start = session.getParkingStartTime() != null ?
+                    session.getParkingStartTime() : session.getEndTime();
+            long parkedMinutes = Math.max(0L, ChronoUnit.MINUTES.between(start, now));
+
+            if (parkedMinutes > 0) {
+                double parkingAmount = calculateParkingFee(session, parkedMinutes);
+
+                // Tạo fee cho phí đỗ xe
+                Fee fee = new Fee();
+                fee.setOrder(session.getOrder());
+                fee.setSession(session);
+                fee.setType(Fee.Type.PARKING);
+                fee.setAmount(parkingAmount);
+                fee.setIsPaid(false);
+                fee.setCreatedAt(LocalDateTime.now());
+                fee.setDescription(String.format("Phí đỗ xe %d phút sau khi sạc xong", parkedMinutes));
+                feeRepository.save(fee);
+
+                // Gửi notification về phí đỗ xe
+                notificationService.createPenaltyNotification(session.getOrder().getOrderId(),
+                        NotificationServiceImpl.PenaltyEvent.PARKING_PENALTY,
+                        fee.getAmount(),
+                        String.format("Đỗ xe %d phút sau khi sạc xong", parkedMinutes));
+            }
+        }
+
+        // Hoàn tất session và giải phóng charging point
+        session.setStatus(Session.SessionStatus.COMPLETED);
+        sessionRepository.save(session);
+
+        Order order = session.getOrder();
+        // Order đã được set COMPLETED trong endSession, giữ nguyên
+        order.setStatus(Order.Status.COMPLETED);
+        orderRepository.save(order);
+
+        ChargingPoint cp = order.getChargingPoint();
+        if (cp != null) {
+            cp.setStatus(ChargingPoint.ChargingPointStatus.AVAILABLE);
+            chargingPointRepository.save(cp);
+        }
+
+        // Gửi notification hoàn tất
+        notificationService.createBookingOrderNotification(order.getOrderId(),
+                NotificationServiceImpl.NotificationEvent.SESSION_COMPLETE, null);
+
+        return session.getSessionId();
+    }
+
+    /**
+     * Tính phí đỗ xe theo thời gian (tăng dần theo công thức)
+     * Công thức: baseRate * minutes * (1 + 0.5 * floor(hours))
+     * - baseRate: 500 VND/phút (có thể điều chỉnh)
+     * - Mỗi giờ tăng thêm 50% phí
+     * - Phí tối thiểu: 10,000 VND
+     */
+    private double calculateParkingFee(Session session, long parkedMinutes) {
+        if (parkedMinutes <= 0) return 0.0;
+
+        double baseRatePerMinute = 500.0; // 500 VND/phút
+        double hours = Math.floor(parkedMinutes / 60.0);
+        double multiplier = 1.0 + (0.5 * hours); // +50% mỗi giờ
+        double amount = baseRatePerMinute * parkedMinutes * multiplier;
+
+        double minimum = 10000.0; // Phí tối thiểu 10,000 VND
+        return Math.max(amount, minimum);
     }
 }

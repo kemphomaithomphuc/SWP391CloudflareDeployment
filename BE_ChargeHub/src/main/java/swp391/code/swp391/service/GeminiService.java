@@ -115,7 +115,8 @@ public class GeminiService {
             1. Mẫu xe điện mới hoặc phổ biến?
             2. Động thái của đối thủ cạnh tranh (VinFast, EBOOST)?
             3. Công nghệ sạc mới?
-            Trả lời ngắn gọn dưới dạng gạch đầu dòng. không trả về câu trả lời chứa ***
+            Trả lời ngắn gọn dưới dạng gạch đầu dòng. 
+            Không cần giới thiệu bản thân, Câu mở đầu là: Xu hướng thị trường trong hôm nay + ngày tháng năm
             """;
         // Gói prompt vào Request và gọi hàm API private
         GeminiRequest request = GeminiRequest.from(promptText);
