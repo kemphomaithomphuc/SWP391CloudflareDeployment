@@ -240,18 +240,21 @@ public class PenaltyServiceImpl implements PenaltyService {
         // Lấy base cost
         Double baseCost = session.getBaseCost();
 
-        // Lấy tất cả fees
-        List<Fee> fees = feeRepository.findBySessionSessionId(sessionId);
+        // Lấy TẤT CẢ fees CHƯA THANH TOÁN
+        // ✅ CHỈ lấy fees có isPaid = false
+        List<Fee> unpaidFees = feeRepository.findBySessionSessionId(sessionId).stream()
+                .filter(fee -> fee.getIsPaid() != null && !fee.getIsPaid())
+                .toList();
 
-        // Tính tổng fees
-        Double totalFees = fees.stream()
+        // Tính tổng unpaid fees
+        Double totalUnpaidFees = unpaidFees.stream()
                 .mapToDouble(Fee::getAmount)
                 .sum();
 
-        Double totalAmount = baseCost + totalFees;
+        Double totalAmount = baseCost + totalUnpaidFees;
 
-        log.info("Session {} - Base cost: {}, Total fees: {}, Total amount: {}",
-                sessionId, baseCost, totalFees, totalAmount);
+        log.info("Session {} - Base cost: {}, Unpaid fees: {} (count: {}), Total amount: {}",
+                sessionId, baseCost, totalUnpaidFees, unpaidFees.size(), totalAmount);
 
         return totalAmount;
     }
@@ -345,18 +348,101 @@ public class PenaltyServiceImpl implements PenaltyService {
     @Override
     @Transactional(readOnly = true)
     public boolean hasUnpaidFees(Long userId) {
-        // Đổi logic: CHỈ check transactions FAILED, KHÔNG check fees
+        // Đổi logic: CHỈ check transactions FAILED/PENDING, KHÔNG check fees
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ApiRequestException("User không tồn tại"));
 
-        List<Transaction> failedTransactions = transactionRepository
+        List<Transaction> unpaidTransactions = transactionRepository
                 .findByUserOrderByTransactionIdDesc(user)
                 .stream()
-                .filter(t -> t.getStatus() == Transaction.Status.FAILED)
+                .filter(t -> t.getStatus() == Transaction.Status.FAILED ||
+                             t.getStatus() == Transaction.Status.PENDING)
                 .filter(t -> t.getSession() != null)
                 .collect(Collectors.toList());
 
-        return !failedTransactions.isEmpty();
+        return !unpaidTransactions.isEmpty();
+    }
+
+    /**
+     * Lấy danh sách và tổng số tiền của tất cả transactions chưa thanh toán (FAILED/PENDING)
+     * Method này dùng cho FE để hiển thị tổng hợp trước khi thanh toán
+     */
+    @Transactional(readOnly = true)
+    public UnpaidTransactionsSummary getUnpaidTransactionsSummary(Long userId) {
+        log.info("Getting unpaid transactions summary for user {}", userId);
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ApiRequestException("User không tồn tại"));
+
+        // Lấy tất cả transactions FAILED và PENDING
+        List<Transaction> unpaidTransactions = transactionRepository
+                .findByUserOrderByTransactionIdDesc(user)
+                .stream()
+                .filter(t -> t.getStatus() == Transaction.Status.FAILED ||
+                             t.getStatus() == Transaction.Status.PENDING)
+                .filter(t -> t.getSession() != null)
+                .collect(Collectors.toList());
+
+        if (unpaidTransactions.isEmpty()) {
+            return new UnpaidTransactionsSummary(0.0, List.of(), List.of());
+        }
+
+        // Tính tổng số tiền
+        double totalAmount = unpaidTransactions.stream()
+                .mapToDouble(Transaction::getAmount)
+                .sum();
+
+        // Lấy danh sách transaction IDs
+        List<Long> transactionIds = unpaidTransactions.stream()
+                .map(Transaction::getTransactionId)
+                .collect(Collectors.toList());
+
+        // Tạo summary details
+        List<TransactionDetail> details = unpaidTransactions.stream()
+                .map(t -> new TransactionDetail(
+                    t.getTransactionId(),
+                    t.getAmount(),
+                    t.getStatus().toString(),
+                    t.getSession() != null ? t.getSession().getSessionId() : null,
+                    t.getCreatedAt()
+                ))
+                .collect(Collectors.toList());
+
+        log.info("User {} has {} unpaid transactions, total: {} VNĐ",
+                userId, unpaidTransactions.size(), totalAmount);
+
+        return new UnpaidTransactionsSummary(totalAmount, transactionIds, details);
+    }
+
+    // Inner classes for response
+    public static class UnpaidTransactionsSummary {
+        public final double totalAmount;
+        public final List<Long> transactionIds;
+        public final List<TransactionDetail> details;
+
+        public UnpaidTransactionsSummary(double totalAmount, List<Long> transactionIds,
+                                        List<TransactionDetail> details) {
+            this.totalAmount = totalAmount;
+            this.transactionIds = transactionIds;
+            this.details = details;
+        }
+    }
+
+    public static class TransactionDetail {
+        public final Long transactionId;
+        public final double amount;
+        public final String status;
+        public final Long sessionId;
+        public final LocalDateTime createdAt;
+
+        public TransactionDetail(Long transactionId, double amount, String status,
+                                Long sessionId, LocalDateTime createdAt) {
+            this.transactionId = transactionId;
+            this.amount = amount;
+            this.status = status;
+            this.sessionId = sessionId;
+            this.createdAt = createdAt;
+        }
     }
 
     @Override

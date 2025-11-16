@@ -84,11 +84,19 @@ public interface PenaltyService {
     void incrementViolationCount(Long userId, String reason);
 
     /**
-     * Kiểm tra user có transactions FAILED không
+     * Kiểm tra user có transactions FAILED/PENDING không
      * @param userId User ID
-     * @return true nếu có transactions FAILED
+     * @return true nếu có transactions FAILED hoặc PENDING
      */
     boolean hasUnpaidFees(Long userId);
+
+    /**
+     * Lấy tổng hợp tất cả transactions chưa thanh toán (FAILED/PENDING)
+     * Dùng cho FE hiển thị tổng số tiền trước khi thanh toán
+     * @param userId User ID
+     * @return UnpaidTransactionsSummary chứa totalAmount, transactionIds, và details
+     */
+    PenaltyServiceImpl.UnpaidTransactionsSummary getUnpaidTransactionsSummary(Long userId);
 
     /**
      * Mở khóa tài khoản user sau khi thanh toán hết transactions thất bại

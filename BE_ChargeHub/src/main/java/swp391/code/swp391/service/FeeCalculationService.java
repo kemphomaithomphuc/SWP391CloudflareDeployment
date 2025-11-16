@@ -33,6 +33,12 @@ public interface FeeCalculationService {
     List<Fee> getSessionFees(Long sessionId);
 
     /**
+     * Lấy TẤT CẢ các khoản phí CHƯA THANH TOÁN của một phiên sạc
+     * CHỈ lấy fees có isPaid = false
+     */
+    List<Fee> getUnpaidSessionFees(Long sessionId);
+
+    /**
      * Tính tổng số tiền phí
      */
     BigDecimal calculateTotalFees(List<Fee> fees);
