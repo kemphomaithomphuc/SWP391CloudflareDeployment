@@ -38,6 +38,18 @@ export default function ProfileSetup({ onNext, onBack }: ProfileSetupProps) {
   const [availableProvinces, setAvailableProvinces] = useState<Province[]>([]);
   const [profileImage, setProfileImage] = useState<string | null>(null);
   
+  const mapProfileApiError = (rawMessage: string | undefined | null, lang: "vi" | "en"): string | null => {
+    if (!rawMessage) return null;
+    const msg = String(rawMessage);
+    // Trường hợp trùng số điện thoại (thường backend trả Duplicate entry / unique key)
+    if (/duplicate entry/i.test(msg) || /unique constraint/i.test(msg) || /could not execute statement/i.test(msg)) {
+      return lang === "vi"
+        ? "Số điện thoại đã tồn tại. Vui lòng dùng số khác."
+        : "Phone number already exists. Please use a different one.";
+    }
+    return null;
+  };
+  
   // Validation functions
   const validatePhone = (phone: string): boolean => {
     // 10 số, số đầu phải là 0
@@ -97,8 +109,11 @@ export default function ProfileSetup({ onNext, onBack }: ProfileSetupProps) {
     } catch (err: any) {
       console.error('Profile submission error:', err);
       const apiError = err?.response?.data?.message;
-      if (apiError) {
-        setError(apiError); // Raw message từ API
+      const mapped = mapProfileApiError(apiError, language as "vi" | "en");
+      if (mapped) {
+        setError(mapped);
+      } else if (apiError) {
+        setError(apiError); // Giữ nguyên nếu không map được
       } else {
         setErrorKey('Error submitting profile');
       }
