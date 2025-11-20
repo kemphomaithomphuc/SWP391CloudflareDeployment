@@ -26,30 +26,15 @@ public class FeeCalculationServiceImpl implements FeeCalculationService {
     private static final BigDecimal NO_SHOW_RATE = new BigDecimal("0.30"); // 30%
     private static final BigDecimal CANCEL_RATE = new BigDecimal("0.10"); // 10%
 
+    /**
+     * @deprecated Replaced by parking fee calculation in SessionServiceImpl.endSession()
+     */
+    @Deprecated
     @Override
     @Transactional
     public Fee calculateChargingFee(Session session, int extraMinutes) {
-        log.info("Đang tính phí CHARGING cho session: {}, số phút thêm: {}",
-                session.getSessionId(), extraMinutes);
-
-        if (extraMinutes <= 0) {
-            return null;
-        }
-
-        BigDecimal amount = OVERCHARGE_RATE.multiply(new BigDecimal(extraMinutes));
-
-        Fee fee = new Fee();
-        fee.setSession(session);
-        fee.setType(Fee.Type.OVERTIME); // AC3: OVERTIME type
-        fee.setAmount(amount.doubleValue()); // Convert to Double for existing entity
-        fee.setDescription(String.format(
-                "Phí sạc quá giờ: %d phút × %s VNĐ/phút",
-                extraMinutes, OVERCHARGE_RATE.toString()
-        ));
-        fee.setIsPaid(false);
-        fee.setCreatedAt(LocalDateTime.now());
-
-        return feeRepository.save(fee);
+        log.warn("DEPRECATED: calculateChargingFee is replaced by parking fee calculation");
+        throw new UnsupportedOperationException("Charging fee calculation is deprecated. Use parking fee instead.");
     }
 
     @Override

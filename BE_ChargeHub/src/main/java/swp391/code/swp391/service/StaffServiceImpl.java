@@ -581,12 +581,6 @@ public class StaffServiceImpl implements StaffService {
                     ChargingPoint chargingPoint = order.getChargingPoint();
                     ConnectorType connectorType = chargingPoint.getConnectorType();
 
-                    // Tính overtime nếu có
-                    Long overtimeMinutes = null;
-                    if (session.isOvertime() && session.getEndTime() != null && order.getEndTime() != null) {
-                        overtimeMinutes = Duration.between(order.getEndTime(), session.getEndTime()).toMinutes();
-                    }
-
                     return SessionListDTO.builder()
                             .sessionId(session.getSessionId())
                             .orderId(order.getOrderId())
@@ -601,8 +595,8 @@ public class StaffServiceImpl implements StaffService {
                             .powerConsumed(session.getPowerConsumed())
                             .baseCost(session.getBaseCost())
                             .status(session.getStatus().name())
-                            .isOvertime(session.isOvertime())
-                            .overtimeMinutes(overtimeMinutes)
+                            .isOvertime(false) // Deprecated - no longer tracking overtime
+                            .overtimeMinutes(null) // Deprecated - replaced by parking fees
                             .build();
                 })
                 .sorted(Comparator.comparing(SessionListDTO::getStartTime).reversed()) // Mới nhất lên đầu
