@@ -8,9 +8,10 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Separator } from './ui/separator';
 import { toast } from 'sonner';
 import QRCodeGenerator from './QRCodeGenerator';
-import axios from 'axios';
+import { api } from '../services/api';
 import { ParkingSessionSummary } from '../types/parking';
 import fetchParkingMonitoring from '../api/parkingMonitor';
+import { buildFrontendUrl } from '../utils/url';
 
 // Bỏ hard code, sẽ dùng giá trị từ BE
 const PARKING_FEE_PER_MINUTE_FALLBACK = 5000; // Fallback nếu chưa có từ BE (giá trị mặc định từ BE)
@@ -57,6 +58,7 @@ const formatCurrency = (amount: number | undefined | null) => {
 export default function ParkingView({ data, onBack, onParkingSessionClear }: ParkingViewProps) {
   const { language } = useLanguage();
   const { bookings } = useBooking();
+  const paymentReturnUrl = useMemo(() => buildFrontendUrl('/payment/result'), []);
 
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
   const [showQRDialog, setShowQRDialog] = useState(false);
@@ -224,7 +226,12 @@ export default function ParkingView({ data, onBack, onParkingSessionClear }: Par
 
   const fetchPaymentDetail = async (sessionId: string, userId: string, options?: { silent?: boolean }) => {
     try {
-      const res = await axios.get(`http://localhost:8080/api/payment/detail?sessionId=${sessionId}&userId=${userId}`);
+      const res = await api.get('/api/payment/detail', {
+        params: {
+          sessionId,
+          userId,
+        },
+      });
       if (res.status === 200 && res.data?.success) {
         return parsePaymentDetail(res.data.data);
       }
@@ -306,13 +313,11 @@ export default function ParkingView({ data, onBack, onParkingSessionClear }: Par
         sessionId: sessionIdNum,
         userId: userIdNum,
         paymentMethod: "VNPAY",
-        returnUrl: "http://localhost:3000/payment/result",
+        returnUrl: paymentReturnUrl,
         bankCode: "NCB"
       };
 
-      const res = await axios.post('http://localhost:8080/api/payment/initiate', payload, {
-        headers: { 'Content-Type': 'application/json' }
-      });
+      const res = await api.post('/api/payment/initiate', payload);
 
       if (res.status === 200 && res.data.success) {
         setShowPaymentConfirmation(false);

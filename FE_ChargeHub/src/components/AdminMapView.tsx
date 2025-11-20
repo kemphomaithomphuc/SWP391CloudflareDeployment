@@ -54,7 +54,7 @@ import { Separator } from "./ui/separator";
 
 import { ScrollArea } from "./ui/scroll-area";
 
-import { AxiosError } from "axios";
+import axios, { AxiosError } from "axios";
 import { api } from "../services/api";
 
 import * as maptilersdk from "@maptiler/sdk";
@@ -587,28 +587,6 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
 
 
-    // Helper function to get auth headers
-    const getAuthHeaders = () => {
-        const token = localStorage.getItem("token");
-        return {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-        };
-    };
-
-    // Gắn token thủ công cho mọi request axios trong file này
-    useEffect(() => {
-        try {
-            const token = localStorage.getItem("token");
-            if (token) {
-                axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
-            }
-            axios.defaults.headers.post["Content-Type"] = "application/json";
-            axios.defaults.headers.put["Content-Type"] = "application/json";
-            axios.defaults.headers.patch["Content-Type"] = "application/json";
-        } catch {}
-    }, []);
-
 
     // Search state
 
@@ -705,13 +683,11 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
 
 
-            const res = await axios.post(
+            const res = await api.post(
 
-                `${apiBaseUrl}/api/charging-stations`,
+                `/api/charging-stations`,
 
-                payload,
-
-                { headers: getAuthHeaders() }
+                payload
 
             );
 
@@ -771,7 +747,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
         try {
 
-            const res = await axios.get(`${apiBaseUrl}/api/charging-stations`, { headers: getAuthHeaders() });
+            const res = await api.get(`/api/charging-stations`);
 
 
 
@@ -827,7 +803,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
         try {
 
-            const res = await axios.get(`${apiBaseUrl}/api/charging-points`, { headers: getAuthHeaders() });
+            const res = await api.get(`/api/charging-points`);
 
 
 
@@ -925,7 +901,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
         try {
 
-            const res = await axios.get(`${apiBaseUrl}/api/connector-types`, { headers: getAuthHeaders() });
+            const res = await api.get(`/api/connector-types`);
 
 
 
@@ -979,7 +955,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
         try {
 
-            const res = await axios.get(`${apiBaseUrl}/api/carModel`, { headers: getAuthHeaders() });
+            const res = await api.get(`/api/carModel`);
 
 
 
@@ -1043,7 +1019,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
         try {
 
-            const res = await axios.get(`${apiBaseUrl}/api/connector-types/${connectorTypeId}`, { headers: getAuthHeaders() });
+            const res = await api.get(`/api/connector-types/${connectorTypeId}`);
 
 
 
@@ -1090,7 +1066,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
     // Function to fetch specific charging point details by ID
     const fetchChargingPointById = async (chargingPointId: number): Promise<ChargingPoint | null> => {
         try {
-            const res = await axios.get(`${apiBaseUrl}/api/charging-points/${chargingPointId}`, { headers: getAuthHeaders() });
+            const res = await api.get(`/api/charging-points/${chargingPointId}`);
 
             if (res.status === 200) {
                 console.log("Charging Point Details API Response:", res.data);
@@ -1295,13 +1271,11 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
 
 
-            const res = await axios.put(
+            const res = await api.put(
 
-                `${apiBaseUrl}/api/charging-stations/${stationId}`,
+                `/api/charging-stations/${stationId}`,
 
-                payload,
-
-                { headers: getAuthHeaders() }
+                payload
 
             );
 
@@ -1363,11 +1337,9 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
         try {
 
-            const res = await axios.delete(
+            const res = await api.delete(
 
-                `${apiBaseUrl}/api/charging-stations/${stationId}`,
-
-                { headers: getAuthHeaders() }
+                `/api/charging-stations/${stationId}`
 
             );
 
@@ -1419,11 +1391,9 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
         try {
 
-            const res = await axios.delete(
+            const res = await api.delete(
 
-                `${apiBaseUrl}/api/charging-points/${chargingPointId}`,
-
-                { headers: getAuthHeaders() }
+                `/api/charging-points/${chargingPointId}`
 
             );
 
@@ -1491,13 +1461,11 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
             console.log("Adding charging point with payload:", payload);
 
-            const res = await axios.post(
+            const res = await api.post(
 
-                `${apiBaseUrl}/api/charging-points`,
+                `/api/charging-points`,
 
-                payload,
-
-                { headers: getAuthHeaders() }
+                payload
 
             );
 
@@ -1950,13 +1918,11 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
         try {
 
-            const res = await axios.patch(
+            const res = await api.patch(
 
-                `${apiBaseUrl}/api/charging-stations/${stationId}/status`,
+                `/api/charging-stations/${stationId}/status`,
 
-                status,
-
-                { headers: getAuthHeaders() }
+                status
 
             );
 
@@ -2056,7 +2022,7 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
         try {
 
-            const res = await axios.get(`${apiBaseUrl}/api/charging-points/station/${stationId}`, { headers: getAuthHeaders() });
+            const res = await api.get(`/api/charging-points/station/${stationId}`);
 
 
 
