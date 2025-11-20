@@ -412,32 +412,34 @@ export default function UsageAnalyticsView({ onBack }: Readonly<UsageAnalyticsVi
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-blue-950">
       {/* Header */}
-      <div className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border-b border-blue-200 dark:border-blue-800 p-4">
-        <div className="container mx-auto">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
+      <div className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border-b border-blue-200 dark:border-blue-800 p-3 sm:p-4">
+        <div className="container mx-auto px-3 sm:px-4">
+          <div className="flex items-center justify-between gap-2 sm:gap-4">
+            <div className="flex items-center gap-2 sm:gap-3 md:gap-4 min-w-0 flex-1">
               <Button
                 variant="ghost"
                 onClick={onBack}
-                className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:text-blue-400 dark:hover:text-blue-300 dark:hover:bg-blue-950/30"
+                className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:text-blue-400 dark:hover:text-blue-300 dark:hover:bg-blue-950/30 touch-manipulation min-h-[44px] px-2 sm:px-3"
               >
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                {translations.back}
+                <ArrowLeft className="mr-1 sm:mr-2 h-4 w-4 flex-shrink-0" />
+                <span className="hidden sm:inline text-xs sm:text-sm">{translations.back}</span>
+                <span className="sm:hidden text-xs">Back</span>
               </Button>
-              <div>
-                <h1 className="text-2xl font-bold text-blue-900 dark:text-blue-100">{translations.title}</h1>
-                <p className="text-blue-600 dark:text-blue-400 text-sm">{translations.subtitle}</p>
+              <div className="min-w-0">
+                <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-blue-900 dark:text-blue-100 truncate">{translations.title}</h1>
+                <p className="text-blue-600 dark:text-blue-400 text-xs sm:text-sm hidden sm:block">{translations.subtitle}</p>
               </div>
             </div>
 
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 sm:gap-3 md:gap-4 flex-shrink-0">
               <Button
                 onClick={handleRefresh}
                 disabled={isRefreshing}
-                className="bg-blue-600 hover:bg-blue-700 text-white"
+                className="bg-blue-600 hover:bg-blue-700 text-white touch-manipulation min-h-[44px] text-xs sm:text-sm px-3 sm:px-4"
               >
-                <RefreshCw className={`mr-2 h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-                {translations.refreshData}
+                <RefreshCw className={`mr-1 sm:mr-2 h-3.5 w-3.5 sm:h-4 sm:w-4 flex-shrink-0 ${isRefreshing ? 'animate-spin' : ''}`} />
+                <span className="hidden sm:inline">{translations.refreshData}</span>
+                <span className="sm:hidden">Refresh</span>
               </Button>
               <AdminLanguageThemeControls />
             </div>
@@ -446,7 +448,7 @@ export default function UsageAnalyticsView({ onBack }: Readonly<UsageAnalyticsVi
       </div>
 
       {/* Filter Controls */}
-      <div className="container mx-auto p-6">
+      <div className="container mx-auto p-3 sm:p-4 md:p-6">
         <Card className="mb-6 border-blue-200 dark:border-blue-800">
           <CardHeader className="pb-4">
             <CardTitle className="text-blue-900 dark:text-blue-100 flex items-center gap-2">
@@ -455,13 +457,13 @@ export default function UsageAnalyticsView({ onBack }: Readonly<UsageAnalyticsVi
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
               <div>
                 <label className="block text-sm font-medium mb-2 text-blue-900 dark:text-blue-100">
                   {translations.station}
                 </label>
                 <Select value={selectedLocation} onValueChange={setSelectedLocation}>
-                  <SelectTrigger className="border-blue-200 dark:border-blue-800" aria-label="Station Filter">
+                  <SelectTrigger className="border-blue-200 dark:border-blue-800 h-10 sm:h-11 text-sm sm:text-base touch-manipulation" aria-label="Station Filter">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -480,7 +482,7 @@ export default function UsageAnalyticsView({ onBack }: Readonly<UsageAnalyticsVi
                   Analytics Period
                 </label>
                 <Select value={trendFilter} onValueChange={(v: 'yesterday' | 'lastWeek' | 'lastMonth' | 'lastYear') => setTrendFilter(v)}>
-                  <SelectTrigger className="border-blue-200 dark:border-blue-800" aria-label="Analytics Period">
+                  <SelectTrigger className="border-blue-200 dark:border-blue-800 h-10 sm:h-11 text-sm sm:text-base touch-manipulation" aria-label="Analytics Period">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -509,9 +511,9 @@ export default function UsageAnalyticsView({ onBack }: Readonly<UsageAnalyticsVi
               </p>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4">
                 {sortedStations.map((station, index) => (
-                  <div key={station.stationId} className="p-4 bg-blue-50 dark:bg-blue-900/30 rounded-lg border border-blue-200 dark:border-blue-700">
+                  <div key={station.stationId} className="p-3 sm:p-4 bg-blue-50 dark:bg-blue-900/30 rounded-lg border border-blue-200 dark:border-blue-700">
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
@@ -581,7 +583,7 @@ export default function UsageAnalyticsView({ onBack }: Readonly<UsageAnalyticsVi
               </p>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
                 {/* Peak Hours Chart - Sessions by timeRange */}
                 <div>
                   <h4 className="font-medium text-blue-900 dark:text-blue-100 mb-4">{translations.chargingSessions}</h4>
@@ -644,7 +646,7 @@ export default function UsageAnalyticsView({ onBack }: Readonly<UsageAnalyticsVi
               </div>
 
               {/* Peak Hours Summary */}
-              <div className="mt-6 grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="mt-4 sm:mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
                 <div className="text-center p-3 bg-blue-50 dark:bg-blue-900/30 rounded-lg">
                   <p className="text-2xl font-bold text-blue-900 dark:text-blue-100">{topTimeRange || '-'}</p>
                   <p className="text-sm text-blue-600 dark:text-blue-400">Peak Range</p>
@@ -685,11 +687,11 @@ export default function UsageAnalyticsView({ onBack }: Readonly<UsageAnalyticsVi
               <p className="text-sm text-blue-600 dark:text-blue-400">{`Period: ${trendFilter}`}</p>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                 {/* Charts area */}
                 <div className="lg:col-span-2 space-y-6">
                   {/* Sessions over Date */}
-                  <div className="p-4 bg-blue-50/50 dark:bg-blue-900/20 rounded-lg">
+                  <div className="p-3 sm:p-4 bg-blue-50/50 dark:bg-blue-900/20 rounded-lg">
                     <h4 className="font-medium text-blue-900 dark:text-blue-100 mb-3">Total Sessions</h4>
                     <ResponsiveContainer width="100%" height={260}>
                       <LineChart data={trendFiltered}>
@@ -703,7 +705,7 @@ export default function UsageAnalyticsView({ onBack }: Readonly<UsageAnalyticsVi
                   </div>
 
                   {/* Energy over Date */}
-                  <div className="p-4 bg-blue-50/50 dark:bg-blue-900/20 rounded-lg">
+                  <div className="p-3 sm:p-4 bg-blue-50/50 dark:bg-blue-900/20 rounded-lg">
                     <h4 className="font-medium text-blue-900 dark:text-blue-100 mb-3">Total Energy</h4>
                     <ResponsiveContainer width="100%" height={260}>
                       <BarChart data={trendFiltered}>
@@ -717,7 +719,7 @@ export default function UsageAnalyticsView({ onBack }: Readonly<UsageAnalyticsVi
                   </div>
 
                   {/* Unique Users over Date */}
-                  <div className="p-4 bg-blue-50/50 dark:bg-blue-900/20 rounded-lg">
+                  <div className="p-3 sm:p-4 bg-blue-50/50 dark:bg-blue-900/20 rounded-lg">
                     <h4 className="font-medium text-blue-900 dark:text-blue-100 mb-3">Unique Users</h4>
                     <ResponsiveContainer width="100%" height={220}>
                       <LineChart data={trendFiltered}>

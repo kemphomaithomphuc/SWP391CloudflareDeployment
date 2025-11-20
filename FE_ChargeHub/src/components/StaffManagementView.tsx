@@ -568,7 +568,7 @@ export default function StaffManagementView({ onBack }: StaffManagementViewProps
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-red-50/30 dark:to-red-950/20">
       {/* Header */}
       <div className="sticky top-0 z-40 bg-card/80 backdrop-blur-sm border-b border-border shadow-sm">
-        <div className="container mx-auto px-4 py-4">
+        <div className="container mx-auto px-3 sm:px-4 py-3 sm:py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
               <Button
@@ -603,41 +603,41 @@ export default function StaffManagementView({ onBack }: StaffManagementViewProps
         </div>
       </div>
 
-      <div className="container mx-auto p-6 max-w-7xl">
+      <div className="container mx-auto p-3 sm:p-4 md:p-6 max-w-7xl">
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-6 sm:mb-8">
           <Card className="border-red-200 dark:border-red-800 bg-gradient-to-br from-red-50 to-red-100 dark:from-red-950/50 dark:to-red-900/30">
-            <CardContent className="p-6">
+            <CardContent className="p-4 sm:p-5 md:p-6">
               <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-red-700 dark:text-red-300">{translations.totalStaff}</p>
-                  <p className="text-2xl font-bold text-red-800 dark:text-red-200">{staffList.length}</p>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs sm:text-sm font-medium text-red-700 dark:text-red-300 truncate">{translations.totalStaff}</p>
+                  <p className="text-xl sm:text-2xl font-bold text-red-800 dark:text-red-200 truncate">{staffList.length}</p>
                 </div>
-                <Users2 className="h-8 w-8 text-red-600 dark:text-red-400" />
+                <Users2 className="h-6 w-6 sm:h-8 sm:w-8 text-red-600 dark:text-red-400 flex-shrink-0 ml-2" />
               </div>
             </CardContent>
           </Card>
 
           <Card className="border-red-200 dark:border-red-800 bg-gradient-to-br from-red-50 to-red-100 dark:from-red-950/50 dark:to-red-900/30">
-            <CardContent className="p-6">
+            <CardContent className="p-4 sm:p-5 md:p-6">
               <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-red-700 dark:text-red-300">{translations.activeStaff}</p>
-                  <p className="text-2xl font-bold text-red-800 dark:text-red-200">{activeStaffCount}</p>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs sm:text-sm font-medium text-red-700 dark:text-red-300 truncate">{translations.activeStaff}</p>
+                  <p className="text-xl sm:text-2xl font-bold text-red-800 dark:text-red-200 truncate">{activeStaffCount}</p>
                 </div>
-                <Users2 className="h-8 w-8 text-green-600 dark:text-green-400" />
+                <Users2 className="h-6 w-6 sm:h-8 sm:w-8 text-green-600 dark:text-green-400 flex-shrink-0 ml-2" />
               </div>
             </CardContent>
           </Card>
 
           <Card className="border-red-200 dark:border-red-800 bg-gradient-to-br from-red-50 to-red-100 dark:from-red-950/50 dark:to-red-900/30">
-            <CardContent className="p-6">
+            <CardContent className="p-4 sm:p-5 md:p-6">
               <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-red-700 dark:text-red-300">Stations</p>
-                  <p className="text-2xl font-bold text-red-800 dark:text-red-200">{stationsCount}</p>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs sm:text-sm font-medium text-red-700 dark:text-red-300 truncate">Stations</p>
+                  <p className="text-xl sm:text-2xl font-bold text-red-800 dark:text-red-200 truncate">{stationsCount}</p>
                 </div>
-                <MapPin className="h-8 w-8 text-blue-600 dark:text-blue-400" />
+                <MapPin className="h-6 w-6 sm:h-8 sm:w-8 text-blue-600 dark:text-blue-400 flex-shrink-0 ml-2" />
               </div>
             </CardContent>
           </Card>
@@ -645,8 +645,8 @@ export default function StaffManagementView({ onBack }: StaffManagementViewProps
 
         {/* Filters and Actions */}
         <Card className="mb-8 border-red-200 dark:border-red-800 shadow-lg">
-          <CardContent className="p-6">
-            <div className="flex flex-col lg:flex-row gap-4">
+          <CardContent className="p-4 sm:p-5 md:p-6">
+            <div className="flex flex-col lg:flex-row gap-3 sm:gap-4">
               {/* Search */}
               <div className="flex-1">
                 <div className="relative">
@@ -655,7 +655,7 @@ export default function StaffManagementView({ onBack }: StaffManagementViewProps
                     placeholder={translations.searchPlaceholder}
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10 border-red-200 dark:border-red-800 focus:ring-red-500"
+                    className="pl-8 sm:pl-10 h-10 sm:h-11 text-sm sm:text-base border-red-200 dark:border-red-800 focus:ring-red-500 touch-manipulation"
                   />
                 </div>
               </div>
@@ -663,7 +663,7 @@ export default function StaffManagementView({ onBack }: StaffManagementViewProps
               {/* Filters */}
               <div className="flex flex-col sm:flex-row gap-4">
                 <Select value={selectedStation} onValueChange={(value: string) => setSelectedStation(value)}>
-                  <SelectTrigger className="w-full sm:w-48 border-red-200 dark:border-red-800 focus:ring-red-500">
+                  <SelectTrigger className="w-full sm:w-48 h-10 sm:h-11 text-sm sm:text-base border-red-200 dark:border-red-800 focus:ring-red-500 touch-manipulation">
                     <SelectValue placeholder={translations.filterByStation} />
                   </SelectTrigger>
                   <SelectContent>
@@ -676,7 +676,7 @@ export default function StaffManagementView({ onBack }: StaffManagementViewProps
                 </Select>
 
                 <Select value={selectedPosition} onValueChange={(value: string) => setSelectedPosition(value)}>
-                  <SelectTrigger className="w-full sm:w-48 border-red-200 dark:border-red-800 focus:ring-red-500">
+                  <SelectTrigger className="w-full sm:w-48 h-10 sm:h-11 text-sm sm:text-base border-red-200 dark:border-red-800 focus:ring-red-500 touch-manipulation">
                     <SelectValue placeholder={translations.filterByPosition} />
                   </SelectTrigger>
                   <SelectContent>
@@ -689,7 +689,7 @@ export default function StaffManagementView({ onBack }: StaffManagementViewProps
                 </Select>
 
                 <Select value={selectedStatus} onValueChange={(value: string) => setSelectedStatus(value)}>
-                  <SelectTrigger className="w-full sm:w-48 border-red-200 dark:border-red-800 focus:ring-red-500">
+                  <SelectTrigger className="w-full sm:w-48 h-10 sm:h-11 text-sm sm:text-base border-red-200 dark:border-red-800 focus:ring-red-500 touch-manipulation">
                     <SelectValue placeholder={translations.filterByStatus} />
                   </SelectTrigger>
                   <SelectContent>
@@ -713,19 +713,19 @@ export default function StaffManagementView({ onBack }: StaffManagementViewProps
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto -mx-3 sm:mx-0">
               <Table>
                 <TableHeader>
                   <TableRow className="border-red-200 dark:border-red-800 hover:bg-red-50/50 dark:hover:bg-red-950/20">
-                    <TableHead className="text-red-700 dark:text-red-300 w-16">{translations.stt}</TableHead>
-                    <TableHead className="text-red-700 dark:text-red-300">{translations.staffId}</TableHead>
-                    <TableHead className="text-red-700 dark:text-red-300">{translations.name}</TableHead>
-                    <TableHead className="text-red-700 dark:text-red-300">{translations.birthDate}</TableHead>
-                    <TableHead className="text-red-700 dark:text-red-300">{translations.email}</TableHead>
-                    <TableHead className="text-red-700 dark:text-red-300">{translations.station}</TableHead>
-                    <TableHead className="text-red-700 dark:text-red-300">{translations.position}</TableHead>
-                    <TableHead className="text-red-700 dark:text-red-300">{translations.status}</TableHead>
-                    <TableHead className="text-red-700 dark:text-red-300 text-center">{translations.actions}</TableHead>
+                    <TableHead className="text-red-700 dark:text-red-300 w-12 sm:w-16 text-xs sm:text-sm">{translations.stt}</TableHead>
+                    <TableHead className="text-red-700 dark:text-red-300 text-xs sm:text-sm">{translations.staffId}</TableHead>
+                    <TableHead className="text-red-700 dark:text-red-300 text-xs sm:text-sm">{translations.name}</TableHead>
+                    <TableHead className="text-red-700 dark:text-red-300 text-xs sm:text-sm hidden md:table-cell">{translations.birthDate}</TableHead>
+                    <TableHead className="text-red-700 dark:text-red-300 text-xs sm:text-sm hidden lg:table-cell">{translations.email}</TableHead>
+                    <TableHead className="text-red-700 dark:text-red-300 text-xs sm:text-sm hidden sm:table-cell">{translations.station}</TableHead>
+                    <TableHead className="text-red-700 dark:text-red-300 text-xs sm:text-sm hidden md:table-cell">{translations.position}</TableHead>
+                    <TableHead className="text-red-700 dark:text-red-300 text-xs sm:text-sm">{translations.status}</TableHead>
+                    <TableHead className="text-red-700 dark:text-red-300 text-center text-xs sm:text-sm">{translations.actions}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -734,77 +734,77 @@ export default function StaffManagementView({ onBack }: StaffManagementViewProps
                       key={staff.id} 
                       className="border-red-100 dark:border-red-900 hover:bg-red-50/30 dark:hover:bg-red-950/10"
                     >
-                      <TableCell className="font-medium">{index + 1}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className="border-red-300 text-red-700 dark:border-red-700 dark:text-red-300">
+                      <TableCell className="font-medium text-xs sm:text-sm">{index + 1}</TableCell>
+                      <TableCell className="text-xs sm:text-sm">
+                        <Badge variant="outline" className="border-red-300 text-red-700 dark:border-red-700 dark:text-red-300 text-xs">
                           {staff.id}
                         </Badge>
                       </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-3">
-                          <Avatar className="h-8 w-8">
+                      <TableCell className="text-xs sm:text-sm">
+                        <div className="flex items-center gap-2 sm:gap-3">
+                          <Avatar className="h-6 w-6 sm:h-8 sm:w-8 flex-shrink-0">
                             <AvatarImage src={staff.avatar || undefined} />
-                            <AvatarFallback className="bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300">
+                            <AvatarFallback className="bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300 text-xs">
                               {staff.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
                             </AvatarFallback>
                           </Avatar>
-                          <span className="font-medium">{staff.name}</span>
+                          <span className="font-medium truncate">{staff.name}</span>
                         </div>
                       </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Calendar className="h-4 w-4 text-muted-foreground" />
+                      <TableCell className="text-xs sm:text-sm hidden md:table-cell">
+                        <div className="flex items-center gap-1.5 sm:gap-2">
+                          <Calendar className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground flex-shrink-0" />
                           {formatDate(staff.birthDate)}
                         </div>
                       </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Mail className="h-4 w-4 text-muted-foreground" />
-                          <span className="text-sm">{staff.email}</span>
+                      <TableCell className="text-xs sm:text-sm hidden lg:table-cell">
+                        <div className="flex items-center gap-1.5 sm:gap-2">
+                          <Mail className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground flex-shrink-0" />
+                          <span className="truncate">{staff.email}</span>
                         </div>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="text-xs sm:text-sm hidden sm:table-cell">
                         {staff.station ? (
-                          <div className="flex items-center gap-2">
-                            <MapPin className="h-4 w-4 text-muted-foreground" />
-                            {getStationTranslation(staff.station)}
+                          <div className="flex items-center gap-1.5 sm:gap-2">
+                            <MapPin className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground flex-shrink-0" />
+                            <span className="truncate">{getStationTranslation(staff.station)}</span>
                           </div>
                         ) : (
-                          <Badge variant="secondary" className="bg-gray-100 text-gray-700 dark:bg-gray-900 dark:text-gray-300">
+                          <Badge variant="secondary" className="bg-gray-100 text-gray-700 dark:bg-gray-900 dark:text-gray-300 text-xs">
                             {isVietnamese ? 'Chưa có trạm làm việc' : 'No assigned station'}
                           </Badge>
                         )}
                       </TableCell>
-                      <TableCell>
-                        <Badge variant="secondary" className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                      <TableCell className="hidden md:table-cell">
+                        <Badge variant="secondary" className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 text-xs">
                           {getPositionTranslation(staff.position)}
                         </Badge>
                       </TableCell>
                       <TableCell>
                         <Badge 
                           variant={staff.statusRaw === 'ACTIVE' ? 'default' : 'secondary'}
-                          className={
+                          className={`text-xs ${
                             staff.statusRaw === 'ACTIVE'
                               ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
                               : staff.statusRaw === 'BANNED'
                                 ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
                                 : 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200'
-                          }
+                          }`}
                         >
                           {staff.statusRaw === 'ACTIVE' ? translations.active : staff.statusRaw === 'BANNED' ? 'Banned' : translations.inactive}
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <div className="flex items-center justify-center gap-2">
+                        <div className="flex items-center justify-center gap-1 sm:gap-2">
                           <Dialog>
                             <DialogTrigger asChild>
                               <Button
                                 variant="ghost"
-                                size="sm"
+                                size="icon"
                                 onClick={() => setSelectedStaff(staff)}
-                                className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:text-blue-400 dark:hover:text-blue-300 dark:hover:bg-blue-950/30"
+                                className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:text-blue-400 dark:hover:text-blue-300 dark:hover:bg-blue-950/30 touch-manipulation h-8 w-8 sm:h-9 sm:w-9"
                               >
-                                <Eye className="h-4 w-4" />
+                                <Eye className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                               </Button>
                             </DialogTrigger>
                             <DialogContent className="max-w-md">
@@ -859,35 +859,35 @@ export default function StaffManagementView({ onBack }: StaffManagementViewProps
                           </Dialog>
                           <Button
                             variant="ghost"
-                            size="sm"
+                            size="icon"
                             disabled={Boolean(staff.station)}
                             onClick={() => {
                               setAssignTargetStaff(staff);
                               setAssignSelectedStationId('');
                               setIsAssignDialogOpen(true);
                             }}
-                            className={"hover:bg-green-50 dark:hover:bg-green-950/30 " + (staff.station ? "text-muted-foreground" : "text-green-600")}
+                            className={`hover:bg-green-50 dark:hover:bg-green-950/30 touch-manipulation h-8 w-8 sm:h-9 sm:w-9 ${staff.station ? "text-muted-foreground" : "text-green-600"}`}
                             title={staff.station ? (isVietnamese ? 'Đã có trạm' : 'Already assigned') : (isVietnamese ? 'Gán trạm làm việc' : 'Assign station')}
                           >
-                            <MapPin className="h-4 w-4" />
+                            <MapPin className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                           </Button>
                           <Button
                             variant="ghost"
-                            size="sm"
+                            size="icon"
                             onClick={() => openEditDialog(staff)}
-                            className="text-orange-600 hover:text-orange-700 hover:bg-orange-50 dark:text-orange-400 dark:hover:text-orange-300 dark:hover:bg-orange-950/30"
+                            className="text-orange-600 hover:text-orange-700 hover:bg-orange-50 dark:text-orange-400 dark:hover:text-orange-300 dark:hover:bg-orange-950/30 touch-manipulation h-8 w-8 sm:h-9 sm:w-9"
                           >
-                            <Edit className="h-4 w-4" />
+                            <Edit className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                           </Button>
                           <Button
                             variant="ghost"
-                            size="sm"
+                            size="icon"
                             disabled={!staff.station}
                             onClick={() => openDeleteDialog(staff)}
-                            className={"hover:bg-red-50 dark:hover:bg-red-950/30 " + (!staff.station ? "text-muted-foreground" : "text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300")}
+                            className={`hover:bg-red-50 dark:hover:bg-red-950/30 touch-manipulation h-8 w-8 sm:h-9 sm:w-9 ${!staff.station ? "text-muted-foreground" : "text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300"}`}
                             title={staff.station ? (isVietnamese ? 'Gỡ khỏi trạm' : 'Unassign from station') : (isVietnamese ? 'Chưa có trạm để gỡ' : 'No station to unassign')}
                           >
-                            <MinusCircle className="h-4 w-4" />
+                            <MinusCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                           </Button>
                         </div>
                       </TableCell>

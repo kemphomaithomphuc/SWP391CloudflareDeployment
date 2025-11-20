@@ -202,29 +202,30 @@ export default function StaffInvoiceView({ onBack }: StaffInvoiceViewProps) {
     <div className="min-h-screen bg-gradient-to-br from-background via-secondary/20 to-accent/30">
       {/* Header */}
       <div className="sticky top-0 z-40 bg-card/80 backdrop-blur-sm border-b border-border shadow-sm">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
+        <div className="container mx-auto px-3 sm:px-4 py-3 sm:py-4">
+          <div className="flex items-center justify-between gap-2 sm:gap-4">
+            <div className="flex items-center space-x-2 sm:space-x-3 md:space-x-4 min-w-0 flex-1">
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={onBack}
-                className="text-muted-foreground hover:text-foreground"
+                className="text-muted-foreground hover:text-foreground touch-manipulation min-h-[44px] px-2 sm:px-3"
               >
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Back to Dashboard
+                <ArrowLeft className="w-4 h-4 mr-1 sm:mr-2 flex-shrink-0" />
+                <span className="hidden sm:inline text-xs sm:text-sm">Back to Dashboard</span>
+                <span className="sm:hidden text-xs">Back</span>
               </Button>
             </div>
-            <div className="text-right">
-              <h1 className="text-lg font-semibold text-foreground">{t('invoice_management')}</h1>
-              <p className="text-sm text-muted-foreground">{t('create_manage_invoices')}</p>
+            <div className="text-right flex-shrink-0">
+              <h1 className="text-base sm:text-lg font-semibold text-foreground">{t('invoice_management')}</h1>
+              <p className="text-xs sm:text-sm text-muted-foreground hidden sm:block">{t('create_manage_invoices')}</p>
             </div>
           </div>
         </div>
       </div>
 
       {/* Staff & Station Info */}
-      <div className="container mx-auto px-4 pt-6">
+      <div className="container mx-auto px-3 sm:px-4 pt-4 sm:pt-6">
         <Card>
           <CardHeader className="pb-4">
             <CardTitle className="flex items-center gap-2">
@@ -246,12 +247,12 @@ export default function StaffInvoiceView({ onBack }: StaffInvoiceViewProps) {
             ) : staffError ? (
               <div className="flex flex-col items-center justify-center gap-4 py-6 text-sm text-muted-foreground">
                 <p className="text-center max-w-lg">{staffError}</p>
-                <Button variant="outline" onClick={() => setStaffRefreshKey((prev) => prev + 1)}>
+                <Button variant="outline" onClick={() => setStaffRefreshKey((prev) => prev + 1)} className="touch-manipulation min-h-[36px] text-xs sm:text-sm px-3 sm:px-4">
                   {language === "vi" ? "Thử lại" : "Retry"}
                 </Button>
               </div>
             ) : staffInfo ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
                 <div className="space-y-3">
                   <h4 className="text-sm font-semibold text-muted-foreground">
                     {language === "vi" ? "Nhân viên" : "Staff"}
@@ -319,7 +320,7 @@ export default function StaffInvoiceView({ onBack }: StaffInvoiceViewProps) {
       </div>
 
       {/* Charging Sessions Overview */}
-      <div className="container mx-auto px-4 pt-4">
+      <div className="container mx-auto px-3 sm:px-4 pt-3 sm:pt-4">
         <Card>
           <CardHeader className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div>
@@ -357,7 +358,7 @@ export default function StaffInvoiceView({ onBack }: StaffInvoiceViewProps) {
             ) : sessionsError ? (
               <div className="flex flex-col items-center justify-center gap-4 py-6 text-sm text-muted-foreground">
                 <p className="text-center max-w-lg">{sessionsError}</p>
-                <Button variant="outline" onClick={() => setSessionsRefreshKey((prev) => prev + 1)}>
+                <Button variant="outline" onClick={() => setSessionsRefreshKey((prev) => prev + 1)} className="touch-manipulation min-h-[36px] text-xs sm:text-sm px-3 sm:px-4">
                   {language === "vi" ? "Thử lại" : "Retry"}
                 </Button>
               </div>
@@ -426,29 +427,29 @@ export default function StaffInvoiceView({ onBack }: StaffInvoiceViewProps) {
                     )}
                   </div>
 
-                  <div className="overflow-x-auto rounded-lg border border-border/60">
-                    <table className="min-w-full divide-y divide-border text-sm">
-                      <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">
+                  <div className="overflow-x-auto -mx-3 sm:mx-0 rounded-lg border border-border/60">
+                    <table className="min-w-full divide-y divide-border text-xs sm:text-sm">
+                      <thead className="bg-muted/40 text-[10px] sm:text-xs uppercase text-muted-foreground">
                         <tr>
-                          <th scope="col" className="px-4 py-3 text-left font-medium">
+                          <th scope="col" className="px-2 sm:px-4 py-2 sm:py-3 text-left font-medium">
                             {language === "vi" ? "Phiên" : "Session"}
                           </th>
-                          <th scope="col" className="px-4 py-3 text-left font-medium">
+                          <th scope="col" className="px-2 sm:px-4 py-2 sm:py-3 text-left font-medium">
                             {language === "vi" ? "Khách hàng" : "Customer"}
                           </th>
-                          <th scope="col" className="px-4 py-3 text-left font-medium">
+                          <th scope="col" className="px-2 sm:px-4 py-2 sm:py-3 text-left font-medium hidden md:table-cell">
                             {language === "vi" ? "Bắt đầu" : "Start"}
                           </th>
-                          <th scope="col" className="px-4 py-3 text-left font-medium">
+                          <th scope="col" className="px-2 sm:px-4 py-2 sm:py-3 text-left font-medium hidden lg:table-cell">
                             {language === "vi" ? "Kết thúc" : "End"}
                           </th>
-                          <th scope="col" className="px-4 py-3 text-right font-medium">
-                            {language === "vi" ? "Điện năng" : "Energy (kWh)"}
+                          <th scope="col" className="px-2 sm:px-4 py-2 sm:py-3 text-right font-medium">
+                            {language === "vi" ? "Điện năng" : "Energy"}
                           </th>
-                          <th scope="col" className="px-4 py-3 text-right font-medium">
+                          <th scope="col" className="px-2 sm:px-4 py-2 sm:py-3 text-right font-medium">
                             {language === "vi" ? "Chi phí" : "Cost"}
                           </th>
-                          <th scope="col" className="px-4 py-3 text-right font-medium">
+                          <th scope="col" className="px-2 sm:px-4 py-2 sm:py-3 text-right font-medium">
                             {language === "vi" ? "Hành động" : "Action"}
                           </th>
                         </tr>
@@ -456,34 +457,38 @@ export default function StaffInvoiceView({ onBack }: StaffInvoiceViewProps) {
                       <tbody className="divide-y divide-border bg-card/40">
                         {visibleSessions.map((session) => (
                           <tr key={session.sessionId} className="hover:bg-muted/40">
-                            <td className="px-4 py-3">
-                              <div className="font-medium text-foreground">#{session.sessionId}</div>
-                              <div className="text-xs text-muted-foreground">
+                            <td className="px-2 sm:px-4 py-2 sm:py-3">
+                              <div className="font-medium text-foreground text-xs sm:text-sm">#{session.sessionId}</div>
+                              <div className="text-[10px] sm:text-xs text-muted-foreground">
                                 CP-{session.chargingPointId} • {session.connectorType}
                               </div>
                             </td>
-                            <td className="px-4 py-3">
-                              <div className="font-medium text-foreground">{session.userName}</div>
-                              <div className="text-xs text-muted-foreground">{session.userPhone}</div>
+                            <td className="px-2 sm:px-4 py-2 sm:py-3">
+                              <div className="font-medium text-foreground text-xs sm:text-sm truncate">{session.userName}</div>
+                              <div className="text-[10px] sm:text-xs text-muted-foreground truncate">{session.userPhone}</div>
                             </td>
-                            <td className="px-4 py-3 text-foreground">{formatDateTime(session.startTime)}</td>
-                            <td className="px-4 py-3 text-foreground">{formatDateTime(session.endTime)}</td>
-                            <td className="px-4 py-3 text-right font-medium text-foreground">
+                            <td className="px-2 sm:px-4 py-2 sm:py-3 text-foreground text-xs sm:text-sm hidden md:table-cell">{formatDateTime(session.startTime)}</td>
+                            <td className="px-2 sm:px-4 py-2 sm:py-3 text-foreground text-xs sm:text-sm hidden lg:table-cell">{formatDateTime(session.endTime)}</td>
+                            <td className="px-2 sm:px-4 py-2 sm:py-3 text-right font-medium text-foreground text-xs sm:text-sm">
                               {session.powerConsumed.toFixed(1)}
                             </td>
-                            <td className="px-4 py-3 text-right font-medium text-foreground">
+                            <td className="px-2 sm:px-4 py-2 sm:py-3 text-right font-medium text-foreground text-xs sm:text-sm">
                               {formatCurrency(session.baseCost)}
                             </td>
-                            <td className="px-4 py-3 text-right">
+                            <td className="px-2 sm:px-4 py-2 sm:py-3 text-right">
                               <Button
                                 size="sm"
                                 onClick={() => handleOnsitePayment(session.sessionId)}
                                 disabled={processingSessionId === session.sessionId}
+                                className="touch-manipulation min-h-[36px] text-xs sm:text-sm px-2 sm:px-3"
                               >
                                 {processingSessionId === session.sessionId ? (
-                                  <Loader2 className="w-4 h-4 animate-spin" />
+                                  <Loader2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 animate-spin" />
                                 ) : (
-                                  language === "vi" ? "Thanh toán tại chỗ" : "On-site payment"
+                                  <>
+                                    <span className="hidden sm:inline">{language === "vi" ? "Thanh toán tại chỗ" : "On-site payment"}</span>
+                                    <span className="sm:hidden">{language === "vi" ? "Thanh toán" : "Pay"}</span>
+                                  </>
                                 )}
                               </Button>
                             </td>

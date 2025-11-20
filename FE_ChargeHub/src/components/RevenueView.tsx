@@ -546,29 +546,30 @@ export default function RevenueView({ onBack }: RevenueViewProps): JSX.Element {
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-sky-50/40 dark:to-emerald-950/20">
       {/* Header */}
       <div className="sticky top-0 z-40 bg-card/80 backdrop-blur-sm border-b border-border shadow-sm">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
+        <div className="container mx-auto px-3 sm:px-4 py-3 sm:py-4">
+          <div className="flex items-center justify-between gap-2 sm:gap-4">
+            <div className="flex items-center space-x-2 sm:space-x-3 md:space-x-4 min-w-0 flex-1">
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={onBack}
-                className="text-muted-foreground hover:text-foreground"
+                className="text-muted-foreground hover:text-foreground touch-manipulation min-h-[44px] px-2 sm:px-3"
               >
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                {translations.back}
+                <ArrowLeft className="w-4 h-4 mr-1 sm:mr-2 flex-shrink-0" />
+                <span className="hidden sm:inline text-xs sm:text-sm">{translations.back}</span>
+                <span className="sm:hidden text-xs">Back</span>
               </Button>
-              <div className="flex items-center space-x-3">
-                <div className="relative group">
-                  <div className="w-10 h-10 bg-gradient-to-br from-sky-400 via-sky-400/90 to-emerald-400/70 rounded-2xl flex items-center justify-center shadow-lg shadow-sky-400/30 transform group-hover:scale-110 transition-transform duration-300">
-                    <TrendingUp className="w-6 h-6 text-emerald-50" />
+              <div className="flex items-center space-x-2 sm:space-x-3 min-w-0">
+                <div className="relative group flex-shrink-0">
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-sky-400 via-sky-400/90 to-emerald-400/70 rounded-xl sm:rounded-2xl flex items-center justify-center shadow-lg shadow-sky-400/30 transform group-hover:scale-110 transition-transform duration-300">
+                    <TrendingUp className="w-4 h-4 sm:w-6 sm:h-6 text-emerald-50" />
                   </div>
                 </div>
-                <div>
-                  <h1 className="font-semibold text-foreground">
+                <div className="min-w-0">
+                  <h1 className="font-semibold text-foreground text-sm sm:text-base md:text-lg truncate">
                     {translations.title}
                   </h1>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-xs sm:text-sm text-muted-foreground hidden sm:block">
                     {translations.subtitle}
                   </p>
                 </div>
@@ -581,11 +582,11 @@ export default function RevenueView({ onBack }: RevenueViewProps): JSX.Element {
         </div>
       </div>
 
-      <div className="container mx-auto p-6 max-w-7xl">
+      <div className="container mx-auto p-3 sm:p-4 md:p-6 max-w-7xl">
         {/* Filters */}
         <Card className="mb-8 border-sky-200 dark:border-emerald-800 shadow-lg">
           <CardContent className="p-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
               <div className="space-y-2">
                 <label className="text-sm font-medium text-sky-700 dark:text-emerald-300 flex items-center gap-2">
                   <Building2 className="h-4 w-4" />
@@ -611,7 +612,7 @@ export default function RevenueView({ onBack }: RevenueViewProps): JSX.Element {
                   {translations.chooseTimeRange}
                 </label>
                 <Select value={selectedTimeRange} onValueChange={setSelectedTimeRange}>
-                  <SelectTrigger className="border-sky-200 dark:border-emerald-800 focus:ring-sky-500">
+                  <SelectTrigger className="border-sky-200 dark:border-emerald-800 focus:ring-sky-500 h-10 sm:h-11 text-sm sm:text-base touch-manipulation">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -628,15 +629,15 @@ export default function RevenueView({ onBack }: RevenueViewProps): JSX.Element {
         </Card>
 
         {/* Summary Statistics */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-6 sm:mb-8">
           <Card className="border-red-200 dark:border-red-800 bg-gradient-to-br from-red-50 to-red-100 dark:from-red-950/50 dark:to-red-900/30">
-            <CardContent className="p-6">
+            <CardContent className="p-4 sm:p-5 md:p-6">
               <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-red-700 dark:text-red-300">{translations.totalRevenue}</p>
-                  <p className="text-2xl font-bold text-red-800 dark:text-red-200">${totalRevenue.toLocaleString()}</p>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs sm:text-sm font-medium text-red-700 dark:text-red-300 truncate">{translations.totalRevenue}</p>
+                  <p className="text-xl sm:text-2xl font-bold text-red-800 dark:text-red-200 truncate">${totalRevenue.toLocaleString()}</p>
                 </div>
-                <TrendingUp className="h-8 w-8 text-red-600 dark:text-red-400" />
+                <TrendingUp className="h-6 w-6 sm:h-8 sm:w-8 text-red-600 dark:text-red-400 flex-shrink-0 ml-2" />
               </div>
             </CardContent>
           </Card>
@@ -691,7 +692,7 @@ export default function RevenueView({ onBack }: RevenueViewProps): JSX.Element {
                   variant={chartType === 'bar' ? 'default' : 'outline'}
                   size="sm"
                   onClick={() => setChartType('bar')}
-                  className={chartType === 'bar' ? 'bg-red-600 hover:bg-red-700' : 'border-red-300 text-red-600 hover:bg-red-50 dark:border-red-700 dark:text-red-400 dark:hover:bg-red-950/30'}
+                  className={`touch-manipulation min-h-[36px] text-xs sm:text-sm px-2 sm:px-3 ${chartType === 'bar' ? 'bg-red-600 hover:bg-red-700' : 'border-red-300 text-red-600 hover:bg-red-50 dark:border-red-700 dark:text-red-400 dark:hover:bg-red-950/30'}`}
                 >
                   {translations.barChart}
                 </Button>
@@ -699,7 +700,7 @@ export default function RevenueView({ onBack }: RevenueViewProps): JSX.Element {
                   variant={chartType === 'line' ? 'default' : 'outline'}
                   size="sm"
                   onClick={() => setChartType('line')}
-                  className={chartType === 'line' ? 'bg-red-600 hover:bg-red-700' : 'border-red-300 text-red-600 hover:bg-red-50 dark:border-red-700 dark:text-red-400 dark:hover:bg-red-950/30'}
+                  className={`touch-manipulation min-h-[36px] text-xs sm:text-sm px-2 sm:px-3 ${chartType === 'line' ? 'bg-red-600 hover:bg-red-700' : 'border-red-300 text-red-600 hover:bg-red-50 dark:border-red-700 dark:text-red-400 dark:hover:bg-red-950/30'}`}
                 >
                   {translations.lineChart}
                 </Button>
@@ -707,15 +708,15 @@ export default function RevenueView({ onBack }: RevenueViewProps): JSX.Element {
                   variant={chartType === 'area' ? 'default' : 'outline'}
                   size="sm"
                   onClick={() => setChartType('area')}
-                  className={chartType === 'area' ? 'bg-red-600 hover:bg-red-700' : 'border-red-300 text-red-600 hover:bg-red-50 dark:border-red-700 dark:text-red-400 dark:hover:bg-red-950/30'}
+                  className={`touch-manipulation min-h-[36px] text-xs sm:text-sm px-2 sm:px-3 ${chartType === 'area' ? 'bg-red-600 hover:bg-red-700' : 'border-red-300 text-red-600 hover:bg-red-50 dark:border-red-700 dark:text-red-400 dark:hover:bg-red-950/30'}`}
                 >
                   {translations.areaChart}
                 </Button>
               </div>
             </div>
           </CardHeader>
-          <CardContent className="p-6">
-            <div className="h-[400px] w-full">
+          <CardContent className="p-4 sm:p-5 md:p-6">
+            <div className="h-[300px] sm:h-[350px] md:h-[400px] w-full">
               {isLoading ? (
                 <div className="flex items-center justify-center h-full">
                   <div className="text-center">
@@ -739,7 +740,7 @@ export default function RevenueView({ onBack }: RevenueViewProps): JSX.Element {
         </Card>
 
         {/* Export Section */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 md:gap-8">
           <Card className="border-red-200 dark:border-red-800 shadow-lg">
             <CardHeader className="border-b border-red-200 dark:border-red-800">
               <CardTitle className="text-red-800 dark:text-red-200 flex items-center gap-2">

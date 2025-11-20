@@ -314,126 +314,126 @@ export default function StaffDashboard({ onLogout, onNotifications, onReports, o
             {/* Stats Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
               <div 
-                className="bg-card rounded-xl p-6 shadow-sm border border-border cursor-pointer hover:shadow-md hover:border-yellow-600/30 transition-all duration-200"
+                className="bg-card rounded-lg sm:rounded-xl p-4 sm:p-5 md:p-6 shadow-sm border border-border cursor-pointer hover:shadow-md hover:border-yellow-600/30 active:scale-[0.98] transition-all duration-200 touch-manipulation"
                 onClick={() => setActiveSection("chargingManagement")}
               >
                 <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-muted-foreground">{language === 'vi' ? 'Quản Lý Charging' : 'Charging Management'}</p>
-                    <p className="text-2xl font-semibold text-card-foreground">{ordersCount}</p>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs sm:text-sm text-muted-foreground truncate">{language === 'vi' ? 'Quản Lý Charging' : 'Charging Management'}</p>
+                    <p className="text-xl sm:text-2xl font-semibold text-card-foreground">{ordersCount}</p>
                   </div>
-                  <div className="w-12 h-12 bg-yellow-100 dark:bg-yellow-900 rounded-lg flex items-center justify-center">
-                    <Zap className="w-6 h-6 text-yellow-600 dark:text-yellow-400" />
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 bg-yellow-100 dark:bg-yellow-900 rounded-lg flex items-center justify-center flex-shrink-0 ml-2">
+                    <Zap className="w-5 h-5 sm:w-6 sm:h-6 text-yellow-600 dark:text-yellow-400" />
                   </div>
                 </div>
               </div>
 
               <div 
-                className="bg-card rounded-xl p-6 shadow-sm border border-border cursor-pointer hover:shadow-md hover:border-green-600/30 transition-all duration-200"
+                className="bg-card rounded-lg sm:rounded-xl p-4 sm:p-5 md:p-6 shadow-sm border border-border cursor-pointer hover:shadow-md hover:border-green-600/30 active:scale-[0.98] transition-all duration-200 touch-manipulation"
                 onClick={() => setActiveSection("billing")}
               >
                 <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-muted-foreground">{t('pending_invoices')}</p>
-                    <p className="text-2xl font-semibold text-card-foreground">5</p>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs sm:text-sm text-muted-foreground truncate">{t('pending_invoices')}</p>
+                    <p className="text-xl sm:text-2xl font-semibold text-card-foreground">5</p>
                   </div>
-                  <div className="w-12 h-12 bg-green-100 dark:bg-green-900 rounded-lg flex items-center justify-center">
-                    <Receipt className="w-6 h-6 text-green-600 dark:text-green-400" />
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 bg-green-100 dark:bg-green-900 rounded-lg flex items-center justify-center flex-shrink-0 ml-2">
+                    <Receipt className="w-5 h-5 sm:w-6 sm:h-6 text-green-600 dark:text-green-400" />
                   </div>
                 </div>
               </div>
 
               <div 
-                className="bg-card rounded-xl p-6 shadow-sm border border-border cursor-pointer hover:shadow-md hover:border-orange-600/30 transition-all duration-200"
+                className="bg-card rounded-lg sm:rounded-xl p-4 sm:p-5 md:p-6 shadow-sm border border-border cursor-pointer hover:shadow-md hover:border-orange-600/30 active:scale-[0.98] transition-all duration-200 touch-manipulation"
                 onClick={() => setActiveSection("reports")}
               >
                 <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-muted-foreground">{t('open_reports')}</p>
-                    <p className="text-2xl font-semibold text-card-foreground">3</p>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs sm:text-sm text-muted-foreground truncate">{t('open_reports')}</p>
+                    <p className="text-xl sm:text-2xl font-semibold text-card-foreground">3</p>
                   </div>
-                  <div className="w-12 h-12 bg-orange-100 dark:bg-orange-900 rounded-lg flex items-center justify-center">
-                    <AlertTriangle className="w-6 h-6 text-orange-600 dark:text-orange-400" />
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 bg-orange-100 dark:bg-orange-900 rounded-lg flex items-center justify-center flex-shrink-0 ml-2">
+                    <AlertTriangle className="w-5 h-5 sm:w-6 sm:h-6 text-orange-600 dark:text-orange-400" />
                   </div>
                 </div>
               </div>
 
               <div 
-                className="bg-card rounded-xl p-6 shadow-sm border border-border cursor-pointer hover:shadow-md hover:border-purple-600/30 transition-all duration-200"
+                className="bg-card rounded-lg sm:rounded-xl p-4 sm:p-5 md:p-6 shadow-sm border border-border cursor-pointer hover:shadow-md hover:border-purple-600/30 active:scale-[0.98] transition-all duration-200 touch-manipulation"
                 onClick={() => setActiveSection("notifications")}
               >
                 <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-muted-foreground">{t('notifications')}</p>
-                    <p className="text-2xl font-semibold text-card-foreground">12</p>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs sm:text-sm text-muted-foreground truncate">{t('notifications')}</p>
+                    <p className="text-xl sm:text-2xl font-semibold text-card-foreground">12</p>
                   </div>
-                  <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900 rounded-lg flex items-center justify-center">
-                    <Bell className="w-6 h-6 text-purple-600 dark:text-purple-400" />
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 bg-purple-100 dark:bg-purple-900 rounded-lg flex items-center justify-center flex-shrink-0 ml-2">
+                    <Bell className="w-5 h-5 sm:w-6 sm:h-6 text-purple-600 dark:text-purple-400" />
                   </div>
                 </div>
               </div>
             </div>
 
             {/* Quick Actions */}
-            <div className="bg-card rounded-xl p-6 shadow-sm border border-border">
-              <h3 className="font-medium text-card-foreground mb-6">{t('quick_actions')}</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+            <div className="bg-card rounded-lg sm:rounded-xl p-4 sm:p-5 md:p-6 shadow-sm border border-border">
+              <h3 className="font-medium text-card-foreground mb-4 sm:mb-6 text-base sm:text-lg">{t('quick_actions')}</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
                 <div 
-                  className="group p-6 border border-border rounded-xl hover:shadow-md transition-all duration-200 cursor-pointer hover:border-primary/30 bg-gradient-to-br from-card to-card/80"
+                  className="group p-4 sm:p-5 md:p-6 border border-border rounded-lg sm:rounded-xl hover:shadow-md active:scale-[0.98] transition-all duration-200 cursor-pointer hover:border-primary/30 bg-gradient-to-br from-card to-card/80 touch-manipulation"
                   onClick={() => setActiveSection("chargingManagement")}
                 >
-                  <div className="flex flex-col items-center text-center space-y-3">
-                    <div className="w-12 h-12 bg-yellow-100 dark:bg-yellow-900 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform duration-200">
-                      <Zap className="w-6 h-6 text-yellow-600 dark:text-yellow-400" />
+                  <div className="flex flex-col items-center text-center space-y-2 sm:space-y-3">
+                    <div className="w-10 h-10 sm:w-12 sm:h-12 bg-yellow-100 dark:bg-yellow-900 rounded-lg sm:rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform duration-200">
+                      <Zap className="w-5 h-5 sm:w-6 sm:h-6 text-yellow-600 dark:text-yellow-400" />
                     </div>
                     <div>
-                      <h4 className="font-semibold text-card-foreground mb-1">{language === 'vi' ? "Quản Lý Charging" : "Charging Management"}</h4>
-                      <p className="text-sm text-muted-foreground">{language === 'vi' ? "Quản lý đặt chỗ và phiên sạc" : "Manage bookings and charging sessions"}</p>
+                      <h4 className="font-semibold text-card-foreground mb-1 text-sm sm:text-base">{language === 'vi' ? "Quản Lý Charging" : "Charging Management"}</h4>
+                      <p className="text-xs sm:text-sm text-muted-foreground">{language === 'vi' ? "Quản lý đặt chỗ và phiên sạc" : "Manage bookings and charging sessions"}</p>
                     </div>
                   </div>
                 </div>
 
                 <div 
-                  className="group p-6 border border-border rounded-xl hover:shadow-md transition-all duration-200 cursor-pointer hover:border-primary/30 bg-gradient-to-br from-card to-card/80"
+                  className="group p-4 sm:p-5 md:p-6 border border-border rounded-lg sm:rounded-xl hover:shadow-md active:scale-[0.98] transition-all duration-200 cursor-pointer hover:border-primary/30 bg-gradient-to-br from-card to-card/80 touch-manipulation"
                   onClick={() => setActiveSection("billing")}
                 >
-                  <div className="flex flex-col items-center text-center space-y-3">
-                    <div className="w-12 h-12 bg-green-100 dark:bg-green-900 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform duration-200">
-                      <Receipt className="w-6 h-6 text-green-600 dark:text-green-400" />
+                  <div className="flex flex-col items-center text-center space-y-2 sm:space-y-3">
+                    <div className="w-10 h-10 sm:w-12 sm:h-12 bg-green-100 dark:bg-green-900 rounded-lg sm:rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform duration-200">
+                      <Receipt className="w-5 h-5 sm:w-6 sm:h-6 text-green-600 dark:text-green-400" />
                     </div>
                     <div>
-                      <h4 className="font-semibold text-card-foreground mb-1">{t("create_invoice") || "Create Invoice"}</h4>
-                      <p className="text-sm text-muted-foreground">{t("generate_customer_invoices") || "Generate customer invoices"}</p>
+                      <h4 className="font-semibold text-card-foreground mb-1 text-sm sm:text-base">{t("create_invoice") || "Create Invoice"}</h4>
+                      <p className="text-xs sm:text-sm text-muted-foreground">{t("generate_customer_invoices") || "Generate customer invoices"}</p>
                     </div>
                   </div>
                 </div>
 
                 <div 
-                  className="group p-6 border border-border rounded-xl hover:shadow-md transition-all duration-200 cursor-pointer hover:border-primary/30 bg-gradient-to-br from-card to-card/80"
+                  className="group p-4 sm:p-5 md:p-6 border border-border rounded-lg sm:rounded-xl hover:shadow-md active:scale-[0.98] transition-all duration-200 cursor-pointer hover:border-primary/30 bg-gradient-to-br from-card to-card/80 touch-manipulation"
                   onClick={() => setActiveSection("reports")}
                 >
-                  <div className="flex flex-col items-center text-center space-y-3">
-                    <div className="w-12 h-12 bg-orange-100 dark:bg-orange-900 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform duration-200">
-                      <AlertTriangle className="w-6 h-6 text-orange-600 dark:text-orange-400" />
+                  <div className="flex flex-col items-center text-center space-y-2 sm:space-y-3">
+                    <div className="w-10 h-10 sm:w-12 sm:h-12 bg-orange-100 dark:bg-orange-900 rounded-lg sm:rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform duration-200">
+                      <AlertTriangle className="w-5 h-5 sm:w-6 sm:h-6 text-orange-600 dark:text-orange-400" />
                     </div>
                     <div>
-                      <h4 className="font-semibold text-card-foreground mb-1">{t("report_issues") || "Report Issues"}</h4>
-                      <p className="text-sm text-muted-foreground">{t("submit_equipment_reports") || "Submit equipment or other reports"}</p>
+                      <h4 className="font-semibold text-card-foreground mb-1 text-sm sm:text-base">{t("report_issues") || "Report Issues"}</h4>
+                      <p className="text-xs sm:text-sm text-muted-foreground">{t("submit_equipment_reports") || "Submit equipment or other reports"}</p>
                     </div>
                   </div>
                 </div>
 
                 <div 
-                  className="group p-6 border border-border rounded-xl hover:shadow-md transition-all duration-200 cursor-pointer hover:border-primary/30 bg-gradient-to-br from-card to-card/80"
+                  className="group p-4 sm:p-5 md:p-6 border border-border rounded-lg sm:rounded-xl hover:shadow-md active:scale-[0.98] transition-all duration-200 cursor-pointer hover:border-primary/30 bg-gradient-to-br from-card to-card/80 touch-manipulation"
                   onClick={() => setActiveSection("notifications")}
                 >
-                  <div className="flex flex-col items-center text-center space-y-3">
-                    <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform duration-200">
-                      <Bell className="w-6 h-6 text-purple-600 dark:text-purple-400" />
+                  <div className="flex flex-col items-center text-center space-y-2 sm:space-y-3">
+                    <div className="w-10 h-10 sm:w-12 sm:h-12 bg-purple-100 dark:bg-purple-900 rounded-lg sm:rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform duration-200">
+                      <Bell className="w-5 h-5 sm:w-6 sm:h-6 text-purple-600 dark:text-purple-400" />
                     </div>
                     <div>
-                      <h4 className="font-semibold text-card-foreground mb-1">{t("notification") || "Notifications"}</h4>
-                      <p className="text-sm text-muted-foreground">{t("view_system_alerts") || "View system alerts"}</p>
+                      <h4 className="font-semibold text-card-foreground mb-1 text-sm sm:text-base">{t("notification") || "Notifications"}</h4>
+                      <p className="text-xs sm:text-sm text-muted-foreground">{t("view_system_alerts") || "View system alerts"}</p>
                   </div>
                 </div>
               </div>
@@ -448,19 +448,26 @@ export default function StaffDashboard({ onLogout, onNotifications, onReports, o
     <div className="min-h-screen bg-background">
             <div className="flex">
                 {/* Sidebar */}
-                <div className={`fixed inset-y-0 left-0 z-30 w-64 bg-sidebar border-r border-sidebar-border transform ${
+                <div className={`fixed inset-y-0 left-0 z-30 w-64 sm:w-72 bg-sidebar border-r border-sidebar-border transform ${
                     sidebarOpen ? "translate-x-0" : "-translate-x-full"
-                } transition-transform duration-300 ease-in-out md:translate-x-0 md:static md:inset-0`}>
-                    <div className="flex flex-col h-full">
-                        <div className="flex items-center justify-between p-4 md:hidden">
-                            <span className="font-semibold text-sidebar-foreground">Menu</span>
-                            <Button variant="ghost" size="sm" onClick={() => setSidebarOpen(false)}>
+                } transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0`}>
+                    {/* Mobile overlay */}
+                    {sidebarOpen && (
+                        <div 
+                            className="fixed inset-0 bg-black/50 z-20 lg:hidden"
+                            onClick={() => setSidebarOpen(false)}
+                        />
+                    )}
+                    <div className="flex flex-col h-full relative z-30 bg-sidebar">
+                        <div className="flex items-center justify-between p-3 sm:p-4 lg:hidden">
+                            <span className="font-semibold text-sidebar-foreground text-sm sm:text-base">Menu</span>
+                            <Button variant="ghost" size="sm" onClick={() => setSidebarOpen(false)} className="touch-manipulation min-h-[44px]">
                                 <X className="w-5 h-5" />
                             </Button>
                         </div>
 
                         {/* Staff Info Header - Visible on desktop */}
-                        <div className="hidden md:block p-4 border-b border-sidebar-border">
+                        <div className="hidden lg:block p-3 sm:p-4 border-b border-sidebar-border">
                             <div className="flex items-center justify-between mb-3">
                                 <span className="text-sm font-medium text-sidebar-foreground">
                                     {language === 'vi' ? 'Thông Tin Nhân Viên' : 'Staff Info'}
@@ -573,7 +580,7 @@ export default function StaffDashboard({ onLogout, onNotifications, onReports, o
                             {/* Scrollable menu area */}
                             <div
                                 ref={scrollContainerRef}
-                                className="h-full overflow-y-auto px-4 py-4 space-y-2 scrollbar-thin scrollbar-track-sidebar scrollbar-thumb-sidebar-border hover:scrollbar-thumb-sidebar-accent-foreground"
+                                className="h-full overflow-y-auto px-2 sm:px-3 md:px-4 py-3 sm:py-4 space-y-1.5 sm:space-y-2 scrollbar-thin scrollbar-track-sidebar scrollbar-thumb-sidebar-border hover:scrollbar-thumb-sidebar-accent-foreground"
                             >
                                 {menuItems.map((item) => {
                                     const Icon = item.icon;
@@ -581,22 +588,22 @@ export default function StaffDashboard({ onLogout, onNotifications, onReports, o
                                         <Button
                                             key={item.id}
                                             variant={activeSection === item.id ? "default" : "ghost"}
-                                            className={`w-full justify-start ${
+                                            className={`w-full justify-start min-h-[44px] touch-manipulation px-2 sm:px-3 ${
                                                 activeSection === item.id
                                                     ? "bg-sidebar-primary text-sidebar-primary-foreground"
-                                                    : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                                                    : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground active:bg-sidebar-accent"
                                             }`}
                                             onClick={() => handleMenuClick(item.id)}
                                         >
-                                            <Icon className="w-4 h-4 mr-3" />
-                                            {item.label}
+                                            <Icon className="w-4 h-4 sm:w-5 sm:h-4 mr-2 sm:mr-3 flex-shrink-0" />
+                                            <span className="text-sm sm:text-base">{item.label}</span>
                                         </Button>
                                     );
                                 })}
                             </div>
                         </nav>
 
-                        <div className="p-4 border-t border-sidebar-border relative">
+                        <div className="p-2 sm:p-3 md:p-4 border-t border-sidebar-border relative">
                             {/* Logout indicator when scrolled */}
                             {scrollProgress < 90 && showScrollIndicator && (
                                 <div className="absolute -top-2 left-1/2 transform -translate-x-1/2">
@@ -610,12 +617,12 @@ export default function StaffDashboard({ onLogout, onNotifications, onReports, o
 
                             <Button
                                 variant="ghost"
-                                className="w-full justify-start text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                                className="w-full justify-start min-h-[44px] touch-manipulation text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground active:bg-sidebar-accent px-2 sm:px-3"
                                 onClick={handleLogout}
                                 disabled={isLoggingOut}
                             >
-                                <LogOut className="w-4 h-4 mr-3" />
-                                Logout
+                                <LogOut className="w-4 h-4 sm:w-5 sm:h-4 mr-2 sm:mr-3 flex-shrink-0" />
+                                <span className="text-sm sm:text-base">Logout</span>
                             </Button>
                         </div>
                     </div>
@@ -624,7 +631,7 @@ export default function StaffDashboard({ onLogout, onNotifications, onReports, o
                 {/* Overlay */}
                 {sidebarOpen && (
                     <div
-                        className="fixed inset-0 z-20 bg-black bg-opacity-50 md:hidden"
+                        className="fixed inset-0 z-20 bg-black bg-opacity-50 lg:hidden"
                         onClick={() => setSidebarOpen(false)}
                     />
                 )}
@@ -634,12 +641,12 @@ export default function StaffDashboard({ onLogout, onNotifications, onReports, o
                     <main className="min-h-screen bg-background">
                         <div className="container mx-auto px-4 sm:px-6 py-6 max-w-7xl">
                             {/* Mobile Menu Button */}
-                            <div className="md:hidden mb-6">
+                            <div className="lg:hidden mb-4 sm:mb-6">
                                 <Button
                                     variant="outline"
                                     size="sm"
                                     onClick={() => setSidebarOpen(!sidebarOpen)}
-                                    className="shadow-sm"
+                                    className="shadow-sm touch-manipulation min-h-[44px]"
                                 >
                                     <Menu className="w-5 h-5 mr-2" />
                                     Menu

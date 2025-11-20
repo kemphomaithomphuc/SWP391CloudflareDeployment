@@ -557,29 +557,30 @@ export default function SystemConfigView({ onBack }: SystemConfigViewProps) {
         <div className="min-h-screen bg-gradient-to-br from-background via-secondary/20 to-accent/30">
             {/* Header */}
             <div className="sticky top-0 z-40 bg-card/80 backdrop-blur-sm border-b border-border shadow-sm">
-                <div className="container mx-auto px-4 py-4">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-4">
+                <div className="container mx-auto px-3 sm:px-4 py-3 sm:py-4">
+                    <div className="flex items-center justify-between gap-2 sm:gap-4">
+                        <div className="flex items-center space-x-2 sm:space-x-3 md:space-x-4 min-w-0 flex-1">
                             <Button
                                 variant="ghost"
                                 size="sm"
                                 onClick={onBack}
-                                className="text-muted-foreground hover:text-foreground"
+                                className="text-muted-foreground hover:text-foreground touch-manipulation min-h-[44px] px-2 sm:px-3"
                             >
-                                <ArrowLeft className="w-4 h-4 mr-2" />
-                                {t('back_to_dashboard')}
+                                <ArrowLeft className="w-4 h-4 mr-1 sm:mr-2 flex-shrink-0" />
+                                <span className="hidden sm:inline text-xs sm:text-sm">{t('back_to_dashboard')}</span>
+                                <span className="sm:hidden text-xs">Back</span>
                             </Button>
-                            <div className="flex items-center space-x-3">
-                                <div className="relative group">
-                                    <div className="w-10 h-10 bg-gradient-to-br from-red-500 via-red-500/90 to-red-500/70 rounded-2xl flex items-center justify-center shadow-lg shadow-red-500/30 transform group-hover:scale-110 transition-transform duration-300">
-                                        <Settings className="w-6 h-6 text-white" />
+                            <div className="flex items-center space-x-2 sm:space-x-3 min-w-0">
+                                <div className="relative group flex-shrink-0">
+                                    <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-red-500 via-red-500/90 to-red-500/70 rounded-xl sm:rounded-2xl flex items-center justify-center shadow-lg shadow-red-500/30 transform group-hover:scale-110 transition-transform duration-300">
+                                        <Settings className="w-4 h-4 sm:w-6 sm:h-6 text-white" />
                                     </div>
                                 </div>
-                                <div>
-                                    <h1 className="font-semibold text-foreground">
+                                <div className="min-w-0">
+                                    <h1 className="font-semibold text-foreground text-sm sm:text-base md:text-lg truncate">
                                         {t('system_configuration')}
                                     </h1>
-                                    <p className="text-sm text-muted-foreground">
+                                    <p className="text-xs sm:text-sm text-muted-foreground hidden sm:block">
                                         {t('manage_pricing_settings')}
                                     </p>
                                 </div>
@@ -593,9 +594,9 @@ export default function SystemConfigView({ onBack }: SystemConfigViewProps) {
             </div>
 
             {/* Main Content */}
-            <div className="container mx-auto px-4 py-8 max-w-6xl">
+            <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-6 md:py-8 max-w-6xl">
                 <Tabs defaultValue="peak-hours" className="space-y-8">
-                <TabsList className="grid w-full grid-cols-2 bg-card/90 backdrop-blur-sm border border-border/50 rounded-2xl p-1">
+                <TabsList className="grid w-full grid-cols-2 bg-card/90 backdrop-blur-sm border border-border/50 rounded-xl sm:rounded-2xl p-0.5 sm:p-1">
                     <TabsTrigger
                         value="peak-hours"
                         className="flex items-center space-x-2 rounded-xl data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:border data-[state=active]:border-primary/40 transition-all duration-200"
@@ -634,7 +635,7 @@ export default function SystemConfigView({ onBack }: SystemConfigViewProps) {
                                         value={selectedStationId != null ? selectedStationId.toString() : undefined}
                                         onValueChange={(value: string) => setSelectedStationId(parseInt(value))}
                                     >
-                                        <SelectTrigger className="bg-input-background border-border/60">
+                                        <SelectTrigger className="bg-input-background border-border/60 h-10 sm:h-11 text-sm sm:text-base touch-manipulation">
                                             <SelectValue placeholder={language === 'vi' ? 'Chọn trạm...' : 'Select station...'} />
                                         </SelectTrigger>
                                         <SelectContent>
@@ -718,7 +719,7 @@ export default function SystemConfigView({ onBack }: SystemConfigViewProps) {
                                                                 type="date"
                                                                 value={newStartDate}
                                                                 onChange={(e) => setNewStartDate(e.target.value)}
-                                                                className="bg-input-background border-border/60"
+                                                                className="bg-input-background border-border/60 h-10 sm:h-11 text-sm sm:text-base touch-manipulation"
                                                             />
                                                         </div>
 
@@ -731,7 +732,7 @@ export default function SystemConfigView({ onBack }: SystemConfigViewProps) {
                                                                 type="time"
                                                                 value={newStartTime}
                                                                 onChange={(e) => setNewStartTime(e.target.value)}
-                                                                className="bg-input-background border-border/60"
+                                                                className="bg-input-background border-border/60 h-10 sm:h-11 text-sm sm:text-base touch-manipulation"
                                                             />
                                                         </div>
 
@@ -744,7 +745,7 @@ export default function SystemConfigView({ onBack }: SystemConfigViewProps) {
                                                                 type="date"
                                                                 value={newEndDate}
                                                                 onChange={(e) => setNewEndDate(e.target.value)}
-                                                                className="bg-input-background border-border/60"
+                                                                className="bg-input-background border-border/60 h-10 sm:h-11 text-sm sm:text-base touch-manipulation"
                                                             />
                                                         </div>
 
@@ -846,7 +847,7 @@ export default function SystemConfigView({ onBack }: SystemConfigViewProps) {
                                     <h4 className="font-medium">
                                         {t('current_subscription_plans')}
                                     </h4>
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
                                         {plans && plans.length > 0 ? (
                                             plans.map((plan: any) => {
                                                 console.log("Rendering plan:", plan);
@@ -917,7 +918,7 @@ export default function SystemConfigView({ onBack }: SystemConfigViewProps) {
                                     <h4 className="font-medium">
                                         {t('update_subscription_plan')}
                                     </h4>
-                                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
                                         <Select value={selectedPlan || undefined} onValueChange={setSelectedPlan}>
                                             <SelectTrigger className="bg-input-background border-border/60">
                                                 <SelectValue placeholder={t('select_plan')} />
@@ -1053,7 +1054,7 @@ export default function SystemConfigView({ onBack }: SystemConfigViewProps) {
                                                                 </DialogDescription>
                                                             </DialogHeader>
 
-                                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 py-4">
+                                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 py-3 sm:py-4">
                                                                 {/* Feature Key */}
                                                                 <div className="space-y-2">
                                                                     <label className="text-sm font-medium">
@@ -1150,7 +1151,7 @@ export default function SystemConfigView({ onBack }: SystemConfigViewProps) {
                                                         {language === 'vi' ? 'Chưa có tính năng nào cho gói này' : 'No features for this plan'}
                                                     </div>
                                                 ) : (
-                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
                                                         {features.map((feature) => (
                                                             <Card key={feature.featureId} className="bg-muted/30">
                                                                 <CardContent className="p-4">
