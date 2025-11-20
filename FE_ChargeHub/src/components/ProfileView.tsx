@@ -220,7 +220,7 @@ export default function ProfileView({ onBack }: ProfileViewProps) {
         
         try {
             setIsValidating(true);
-            const response = await api.get(`/api/user/check-email/${encodeURIComponent(email)}`);
+            const response = await api.get(`/api/otp/verify/email-change/${encodeURIComponent(email)}`);
             return response.data.exists || false;
         } catch (error) {
             console.error('Email duplicate check error:', error);
