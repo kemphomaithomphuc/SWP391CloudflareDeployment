@@ -104,8 +104,13 @@ const parseSimpleTextPlaces = (raw: string): NearbyPlaceInfo[] => {
     detailLines.forEach((line) => {
       const labelMatch = line.match(/^\*\*(.+?)\*\*[:：]?\s*(.*)$/);
       if (labelMatch) {
-        const label = labelMatch[1].trim().toLowerCase();
-        const value = labelMatch[2].trim();
+        const rawLabel = labelMatch[1]?.trim();
+        const label = rawLabel?.toLowerCase();
+        const value = (labelMatch[2] ?? "").trim();
+
+        if (!label || !rawLabel) {
+          return;
+        }
 
         if (label.includes("địa") || label.includes("dia") || label.includes("address")) {
           place.address = value;
@@ -123,7 +128,7 @@ const parseSimpleTextPlaces = (raw: string): NearbyPlaceInfo[] => {
         }
 
         if (value) {
-          place.highlights = [...(place.highlights ?? []), `${labelMatch[1].trim()}: ${value}`];
+          place.highlights = [...(place.highlights ?? []), `${rawLabel}: ${value}`];
         }
         return;
       }

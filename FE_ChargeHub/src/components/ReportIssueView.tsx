@@ -4,8 +4,7 @@ import { Button } from "./ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 import { Textarea } from "./ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
-import axios from 'axios';
-import { apiBaseUrl } from '../services/api';
+import { api } from '../services/api';
 
 import { 
   ArrowLeft,
@@ -51,13 +50,7 @@ export default function ReportIssueView({ onBack }: Readonly<ReportIssueViewProp
 
   const getChargingStations = async() :  Promise< ChargingStation[] | null> => {
     try {
-      const token = localStorage.getItem("token");
-      const res = await axios.get(`${apiBaseUrl}/api/charging-stations`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      })
+      const res = await api.get(`/api/charging-stations`)
       if (res.status === 200 || res.status === 203) {
         return (res.data as any[]).map(station => ({
           stationId: station.stationId,
@@ -81,15 +74,9 @@ export default function ReportIssueView({ onBack }: Readonly<ReportIssueViewProp
         urgencyLevel: report.urgencyLevel,
         status: report.status || "INBOX"
       };
-      const res = await axios.post(
-        `${apiBaseUrl}/api/issue-reports`,
-        payload,
-        {
-          headers: {
-            Authorization: token ? `Bearer ${token}` : "",
-            'Content-Type': 'application/json'
-          }
-        }
+      const res = await api.post(
+        `/api/issue-reports`,
+        payload
       );
       console.log("Mewmew: ", res)
       return res.status === 200 || res.status === 201;

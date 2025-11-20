@@ -107,7 +107,7 @@ export default function MarketTrendsWidget({ className, isExpanded: externalIsEx
       const trimmed = item.trim();
       // Tìm pattern: *** tiêu đề: nội dung
       const titleMatch = trimmed.match(/^\*\*\*\s*(.+?):\s*(.+)$/);
-      if (titleMatch) {
+      if (titleMatch?.[1] && titleMatch[2]) {
         // Loại bỏ tất cả *** khỏi tiêu đề
         const cleanTitle = titleMatch[1].trim().replace(/\*\*\*/g, '').trim();
         return {
@@ -118,7 +118,7 @@ export default function MarketTrendsWidget({ className, isExpanded: externalIsEx
       }
       // Tìm pattern: tiêu đề: nội dung (có thể có *** trong tiêu đề)
       const simpleMatch = trimmed.match(/^(.+?):\s*(.+)$/);
-      if (simpleMatch) {
+      if (simpleMatch?.[1] && simpleMatch[2]) {
         // Loại bỏ tất cả *** khỏi tiêu đề
         const cleanTitle = simpleMatch[1].trim().replace(/\*\*\*/g, '').trim();
         return {
