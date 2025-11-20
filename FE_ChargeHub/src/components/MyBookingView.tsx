@@ -14,6 +14,8 @@ import { toast } from 'sonner';
 import { Separator } from './ui/separator';
 import api, { cancelOrder, CancelOrderDTO } from "../services/api";
 import getChargingStationDetail, { ChargingStationDetail, NearbyPlace } from '../api/chargingStationDetails';
+import { ParkingSessionSummary } from '../types/parking';
+import fetchParkingMonitoring from '../api/parkingMonitor';
 import {
     Pagination,
     PaginationContent,
@@ -26,6 +28,7 @@ import {
 interface MyBookingViewProps {
   onBack: () => void;
   onStartCharging?: (bookingId: string) => void;
+  onParkingStart?: (summary: ParkingSessionSummary) => void;
 }
 
 // API Response interfaces
@@ -67,6 +70,11 @@ interface OrderResponseDTO {
   
   // Status
   status: string;
+  
+  // Session status (if session exists) - to know if session is CHARGING/PARKING/COMPLETED
+  sessionStatus?: string;
+  sessionId?: number; // ID of session (if exists)
+  
   createdAt: string; // ISO string format
 }
 
@@ -217,7 +225,7 @@ const deduplicateNearbyPlaces = (places: NearbyPlace[]): NearbyPlace[] => {
   });
 };
 
-export default function MyBookingView({ onBack, onStartCharging }: MyBookingViewProps) {
+export default function MyBookingView({ onBack, onStartCharging, onParkingStart }: MyBookingViewProps) {
   const { language } = useLanguage();
   const { theme } = useTheme();
   const { updateBookingStatus } = useBooking();
@@ -291,14 +299,17 @@ export default function MyBookingView({ onBack, onStartCharging }: MyBookingView
     }
   };
 
-  const ensureSessionForOrder = async (order: OrderResponseDTO, options?: { showToast?: boolean }) => {
+  const ensureSessionForOrder = async (order: OrderResponseDTO, options?: { showToast?: boolean }): Promise<{ sessionId: string; status?: string } | null> => {
     const showToast = options?.showToast ?? true;
     try {
       const response = await api.get(`/api/sessions/by-order/${order.orderId}`);
       const sessionData = response.data?.data;
       if (response.status === 200 && response.data?.success && sessionData?.sessionId) {
         localStorage.setItem("currentSessionId", sessionData.sessionId.toString());
-        return sessionData.sessionId.toString();
+        return {
+          sessionId: sessionData.sessionId.toString(),
+          status: sessionData.status // Session status: "CHARGING", "PARKING", "COMPLETED"
+        };
       }
 
       if (showToast) {
@@ -323,7 +334,67 @@ export default function MyBookingView({ onBack, onStartCharging }: MyBookingView
     localStorage.setItem("currentOrderId", String(order.orderId));
     chargingNavigationRef.current = String(order.orderId);
 
-    await ensureSessionForOrder(order, options);
+    const sessionInfo = await ensureSessionForOrder(order, options);
+    if (!sessionInfo) {
+      return; // Error already handled in ensureSessionForOrder
+    }
+
+    // Check session status: if PARKING, navigate to ParkingView instead of ChargingSessionView
+    // This handles the case where order status = COMPLETED but session status = PARKING
+    const sessionStatus = sessionInfo.status?.toUpperCase();
+    if (sessionStatus === 'PARKING' && onParkingStart) {
+      console.log('🚗 Session is in PARKING status (order may be COMPLETED), navigating to ParkingView...');
+      
+      try {
+        // Fetch parking monitoring data to build summary
+        const parkingMonitoringData = await fetchParkingMonitoring(sessionInfo.sessionId);
+        console.log('📊 Parking monitoring data retrieved:', parkingMonitoringData);
+        
+        // Build parking summary from order and parking monitoring data
+        const now = new Date().toISOString();
+        const parkingSummary: ParkingSessionSummary = {
+          sessionId: sessionInfo.sessionId,
+          bookingId: String(order.orderId),
+          stationName: order.stationName || 'Unknown Station',
+          stationAddress: order.stationAddress || '',
+          startTime: order.startTime || now,
+          endTime: order.endTime || now,
+          energyConsumed: 0, // Will be updated from parking monitoring if available
+          totalCost: 0, // Will be updated from parking monitoring if available
+          parkingStartTime: parkingMonitoringData.parkingStartTime || order.endTime || now,
+          ...(order.userName && { userName: order.userName }),
+          ...(order.connectorType && { chargerType: order.connectorType }),
+          ...(typeof order.chargingPower === 'number' && { power: order.chargingPower }),
+          ...(order.chargingPointName && { chargingPointName: order.chargingPointName }),
+        };
+        
+        // Update with parking monitoring data if available
+        if (typeof parkingMonitoringData.chargingCost === 'number') {
+          parkingSummary.totalCost = parkingMonitoringData.chargingCost;
+        }
+        if (typeof parkingMonitoringData.currentFee === 'number') {
+          parkingSummary.totalCost = (parkingSummary.totalCost || 0) + parkingMonitoringData.currentFee;
+        }
+        
+        console.log('🏁 Parking summary built:', parkingSummary);
+        
+        // Navigate to ParkingView
+        onParkingStart(parkingSummary);
+        return;
+      } catch (error: any) {
+        console.error('❌ Error fetching parking monitoring data:', error);
+        const errorMessage = error?.response?.data?.message || error?.message || 'Unknown error';
+        toast.error(language === 'vi' 
+          ? `Lỗi khi lấy thông tin đỗ xe: ${errorMessage}. Chuyển đến màn hình sạc...` 
+          : `Error fetching parking data: ${errorMessage}. Navigating to charging view...`
+        );
+        // Fall through to navigate to ChargingSessionView as fallback
+      }
+    }
+
+    // Normal flow: navigate to ChargingSessionView (for CHARGING status or if onParkingStart not available)
+    // Note: For COMPLETED orders with COMPLETED session, user might not need to navigate anywhere
+    // But we still allow navigation to ChargingSessionView for viewing history
     if (onStartCharging) {
       onStartCharging(String(order.orderId));
     }
@@ -1151,13 +1222,26 @@ export default function MyBookingView({ onBack, onStartCharging }: MyBookingView
   });
   
   const apiActiveOrders = apiOrders.filter(order => {
-    // Only show CHARGING orders
-    return order.status === 'CHARGING';
+    // Show CHARGING orders (but exclude if session is PARKING/COMPLETED)
+    const isCharging = order.status === 'CHARGING' && 
+                       order.sessionStatus !== 'PARKING' &&
+                       order.sessionStatus !== 'COMPLETED';
+    
+    // ALSO show COMPLETED orders if session is still PARKING (user needs to view parking)
+    // This handles case: order status = COMPLETED but session status = PARKING
+    const isCompletedButParking = order.status === 'COMPLETED' && 
+                                   order.sessionStatus === 'PARKING';
+    
+    return isCharging || isCompletedButParking;
   });
   
   const apiHistoryOrders = apiOrders.filter(order => {
     // Only include orders that are actually COMPLETED or CANCELED
+    // BUT: Exclude COMPLETED orders if session is still PARKING (they should be in Active tab)
     // BOOKED orders should stay in Upcoming even if their time has passed
+    if (order.status === 'COMPLETED' && order.sessionStatus === 'PARKING') {
+      return false; // Don't show in History, show in Active instead
+    }
     return ['COMPLETED', 'CANCELED'].includes(order.status);
   });
 
@@ -1671,16 +1755,25 @@ export default function MyBookingView({ onBack, onStartCharging }: MyBookingView
                 ID: #{order.orderId}
                   </div>
               {/* Show different buttons based on order status and active session */}
-              {order.status === 'CHARGING' ? (
-                // Active charging session - show "View Charging" button
-                          <Button
+              {order.status === 'CHARGING' || (order.status === 'COMPLETED' && order.sessionStatus === 'PARKING') ? (
+                // Active charging session OR completed order with parking session - show "View" button
+                <Button
                   onClick={handleViewCharging}
-                            size="sm"
+                  size="sm"
                   className="h-7 px-3 text-xs bg-blue-500 hover:bg-blue-600 text-white shadow-md"
-                          >
-                  <Zap className="w-3 h-3 mr-1" />
-                  {language === 'vi' ? 'Xem sạc' : 'View Charging'}
-                          </Button>
+                >
+                  {order.sessionStatus === 'PARKING' ? (
+                    <>
+                      <MapPin className="w-3 h-3 mr-1" />
+                      {language === 'vi' ? 'Xem đỗ xe' : 'View Parking'}
+                    </>
+                  ) : (
+                    <>
+                      <Zap className="w-3 h-3 mr-1" />
+                      {language === 'vi' ? 'Xem sạc' : 'View Charging'}
+                    </>
+                  )}
+                </Button>
               ) : order.status === 'BOOKED' ? (
                 // BOOKED orders - show "Start Charging" and "Cancel" buttons (regardless of time)
                 <div className="flex items-center gap-2">

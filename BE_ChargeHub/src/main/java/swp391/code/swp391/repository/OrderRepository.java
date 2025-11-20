@@ -127,9 +127,17 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
             @Param("endTime") LocalDateTime endTime
     );
 
-
-
-    int countActiveOrdersByUser(User user);
+    /**
+     * Đếm số lượng orders active/upcoming của user
+     * Chỉ đếm orders có status BOOKED hoặc CHARGING và endTime > currentTime (upcoming)
+     */
+    @Query("""
+        SELECT COUNT(o) FROM Order o 
+        WHERE o.user.userId = :userId
+        AND o.status IN ('BOOKED', 'CHARGING')
+        AND o.endTime > :currentTime
+        """)
+    int countActiveOrdersByUser(@Param("userId") Long userId, @Param("currentTime") LocalDateTime currentTime);
 
 
     @Query("""

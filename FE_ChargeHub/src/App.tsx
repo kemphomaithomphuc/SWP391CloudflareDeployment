@@ -49,6 +49,8 @@ import { ChatbotProvider } from "./contexts/ChatbotContext";
 import { checkAndRefreshToken, logoutUser } from "./services/api";
 import PenaltyPayment from "./PenaltyPayment";
 import PayUnpaid from "./payUnpaid";
+import ParkingView from "./components/ParkingView";
+import { ParkingSessionSummary } from "./types/parking";
 
 type ViewType =
   | "login"
@@ -83,7 +85,8 @@ type ViewType =
   | "issueResolvement"
   | "penaltyPayment"
   | "payUnpaid"
-  | "chargingManagement";
+  | "chargingManagement"
+  | "parking";
 
 function AppContent() {
   const navigate = useNavigate();
@@ -91,6 +94,15 @@ function AppContent() {
   const [currentView, setCurrentView] = useState<ViewType>("login");
   const [vehicleBatteryLevel, setVehicleBatteryLevel] = useState(75);
   const [currentBookingId, setCurrentBookingId] = useState<string>("");
+  const [parkingSummary, setParkingSummary] = useState<ParkingSessionSummary | null>(() => {
+    try {
+      const stored = localStorage.getItem("parkingSessionSummary");
+      return stored ? JSON.parse(stored) : null;
+    } catch (error) {
+      console.error("Failed to parse parking summary:", error);
+      return null;
+    }
+  });
 
   const switchToLogin = () => {
     setCurrentView("login");
@@ -218,6 +230,11 @@ function AppContent() {
     setCurrentView("chargingSession");
     navigate(`/charging-session/${bookingId}`);
   };
+  const switchToParking = () => {
+    setCurrentView("parking");
+    // Use replace: true to avoid creating new history entry and prevent page reload
+    navigate("/parking", { replace: true });
+  };
   const switchToPremiumSubscription = () => {
     setCurrentView("premiumSubscription");
     navigate("/premium-subscription");
@@ -252,6 +269,27 @@ function AppContent() {
       setCurrentView("login");
       navigate("/login");
     }
+  };
+
+  useEffect(() => {
+    if (parkingSummary) {
+      try {
+        localStorage.setItem("parkingSessionSummary", JSON.stringify(parkingSummary));
+      } catch (error) {
+        console.error("Failed to persist parking summary:", error);
+      }
+    } else {
+      localStorage.removeItem("parkingSessionSummary");
+    }
+  }, [parkingSummary]);
+
+  const handleParkingStart = (summary: ParkingSessionSummary) => {
+    setParkingSummary(summary);
+    switchToParking();
+  };
+
+  const handleParkingSessionClear = () => {
+    setParkingSummary(null);
   };
 
   // Check if user needs vehicle setup after profile completion
@@ -325,6 +363,7 @@ function AppContent() {
       "adminChargerPostActivating": "/admin/charger-post-activating",
       "issueResolvement": "/admin/issue-resolvement",
       "chargingSession": "/charging-session",
+    "parking": "/parking",
     };
     
     const path = viewToPath[view];
@@ -336,7 +375,7 @@ function AppContent() {
 
   // Determine user type and whether to show sidebar based on current view
   const getUserType = (): 'driver' | 'staff' | 'admin' | undefined => {
-    if (['dashboard', 'booking', 'history', 'analysis', 'reportIssue', 'notifications', 'myBookings', 'chargingSession', 'premiumSubscription'].includes(currentView)) {
+    if (['dashboard', 'booking', 'history', 'analysis', 'reportIssue', 'notifications', 'myBookings', 'chargingSession', 'premiumSubscription', 'parking'].includes(currentView)) {
       return 'driver';
     }
     if (['staffDashboard', 'staffNotifications', 'staffReports', 'postActivating', 'chargingManagement'].includes(currentView)) {
@@ -551,14 +590,29 @@ function AppContent() {
         return <PostActivatingView onBack={() => navigate("/staff/dashboard")} />;
 
       case "myBookings":
-        return <MyBookingView onBack={() => navigate("/dashboard")} onStartCharging={switchToChargingSession} />;
+        return <MyBookingView onBack={() => navigate("/dashboard")} onStartCharging={switchToChargingSession} onParkingStart={handleParkingStart} />;
 
       case "chargingSession": {
         // Get bookingId from URL params or state
         const urlBookingId = location.pathname.split("/charging-session/")[1];
         const finalBookingId = urlBookingId || currentBookingId;
-        return <ChargingSessionView onBack={() => navigate("/my-bookings")} bookingId={finalBookingId} />;
+        return (
+          <ChargingSessionView
+            onBack={() => navigate("/my-bookings")}
+            bookingId={finalBookingId}
+            onParkingStart={handleParkingStart}
+          />
+        );
       }
+
+      case "parking":
+        return (
+          <ParkingView
+            data={parkingSummary}
+            onBack={() => navigate("/my-bookings")}
+            onParkingSessionClear={handleParkingSessionClear}
+          />
+        );
 
       case "premiumSubscription":
         return <PremiumSubscriptionView onBack={() => navigate("/dashboard")} userType="driver" />;
@@ -674,6 +728,7 @@ function AppContent() {
       "/admin/usage-analytics": "usageAnalytics",
       "/admin/charger-post-activating": "adminChargerPostActivating",
       "/admin/issue-resolvement": "issueResolvement",
+    "/parking": "parking",
     };
 
     // Handle charging session with dynamic bookingId
@@ -937,6 +992,20 @@ function AppContent() {
             {renderContent()}
           </AppLayout>
         } 
+      />
+      <Route
+        path="/parking"
+        element={
+          <AppLayout
+            userType="driver"
+            currentView="parking"
+            onNavigate={handleNavigation}
+            onLogout={switchToLogin}
+            showSidebar={showSidebar}
+          >
+            {renderContent()}
+          </AppLayout>
+        }
       />
       <Route 
         path="/premium-subscription" 

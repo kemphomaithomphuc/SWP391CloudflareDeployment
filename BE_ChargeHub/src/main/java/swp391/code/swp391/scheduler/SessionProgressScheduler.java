@@ -106,7 +106,8 @@ public class SessionProgressScheduler {
             minutesElapsed,         // elapsedMinutes
             remainingMinutes,       // estimatedRemainingMinutes
             session.getStartTime(), // startTime
-            now                     // currentTime
+            now,                    // currentTime
+            session.getStatus().name() // status
         );
 
         // Push via WebSocket

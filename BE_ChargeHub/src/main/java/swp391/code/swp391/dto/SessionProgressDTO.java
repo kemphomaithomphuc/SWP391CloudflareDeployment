@@ -27,4 +27,7 @@ public class SessionProgressDTO {
     private Long estimatedRemainingMinutes; // Thời gian còn lại ước tính (phút)
     private LocalDateTime startTime; // Thời điểm bắt đầu
     private LocalDateTime currentTime; // Thời điểm hiện tại
+    
+    // Session status
+    private String status; // Session status: "CHARGING", "PARKING", "COMPLETED"
 }

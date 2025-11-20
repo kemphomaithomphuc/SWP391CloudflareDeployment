@@ -140,4 +140,45 @@ public class FeeCalculationServiceImpl implements FeeCalculationService {
                 .multiply(new BigDecimal("1.2"))
                 .setScale(2, RoundingMode.HALF_UP);
     }
+
+    @Override
+    public double calculateParkingFee(long parkedMinutes) {
+        if (parkedMinutes <= 0) {
+            return 0.0;
+        }
+
+        double baseRatePerMinute = 500.0; // 500 VND/phút
+        double hours = Math.floor(parkedMinutes / 60.0);
+        double multiplier = 1.0 + (0.5 * hours); // +50% mỗi giờ
+        double amount = baseRatePerMinute * parkedMinutes * multiplier;
+
+        double minimum = 10000.0; // Phí tối thiểu 10,000 VND
+        return Math.max(amount, minimum);
+    }
+
+    @Override
+    @Transactional
+    public Fee createParkingFee(Session session, long chargeableMinutes) {
+        if (chargeableMinutes <= 0) {
+            log.info("Không tạo parking fee - chargeableMinutes <= 0");
+            return null;
+        }
+
+        double amount = calculateParkingFee(chargeableMinutes);
+
+        Fee fee = new Fee();
+        fee.setOrder(session.getOrder());
+        fee.setSession(session);
+        fee.setType(Fee.Type.PARKING);
+        fee.setAmount(amount);
+        fee.setIsPaid(false);
+        fee.setCreatedAt(LocalDateTime.now());
+        fee.setDescription(String.format("Phí đỗ xe %d phút (sau grace period 15 phút)", chargeableMinutes));
+
+        Fee savedFee = feeRepository.save(fee);
+        log.info("Created parking fee: {} VND for session {} ({} minutes)",
+                 amount, session.getSessionId(), chargeableMinutes);
+
+        return savedFee;
+    }
 }

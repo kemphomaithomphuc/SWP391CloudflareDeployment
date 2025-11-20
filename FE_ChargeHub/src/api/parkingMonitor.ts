@@ -7,6 +7,7 @@ export interface ParkingMonitoringData {
   currentFee?: number;
   chargingCost?: number;
   totalCost?: number;
+  parkingRatePerMinute?: number; // Giá phí đỗ xe mỗi phút từ BE (VNĐ/phút)
   lastUpdated?: string;
 }
 
@@ -23,10 +24,11 @@ const normalizeParkingMonitoring = (raw: any, fallbackSessionId: string): Parkin
   return {
     sessionId: String(payload?.sessionId ?? fallbackSessionId),
     parkingStartTime: payload?.parkingStartTime ?? payload?.startTime,
-    durationSeconds: safeNumber(payload?.durationSeconds ?? payload?.parkingDurationSeconds),
-    currentFee: safeNumber(payload?.currentFee ?? payload?.parkingFee),
+    durationSeconds: safeNumber(payload?.durationSeconds ?? payload?.parkingDurationSeconds ?? payload?.totalParkingSeconds),
+    currentFee: safeNumber(payload?.currentFee ?? payload?.parkingFee ?? payload?.estimatedParkingFee),
     chargingCost: safeNumber(payload?.chargingCost ?? payload?.baseCost),
     totalCost: safeNumber(payload?.totalCost),
+    parkingRatePerMinute: safeNumber(payload?.parkingRatePerMinute),
     lastUpdated: payload?.lastUpdated ?? payload?.timestamp,
   };
 };

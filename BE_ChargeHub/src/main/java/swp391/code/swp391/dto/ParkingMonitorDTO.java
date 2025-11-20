@@ -37,6 +37,10 @@ public class ParkingMonitorDTO {
     private Long chargeableMinutes;         // Số phút sẽ tính phí (nếu confirm rời ngay)
     private Double estimatedParkingFee;     // Phí đỗ xe ước tính (VNĐ)
     private Double parkingRatePerMinute;    // Giá mỗi phút (VNĐ/phút)
+    
+    // Charging cost
+    private Double chargingCost;            // Chi phí phiên sạc (VNĐ) - từ session.baseCost
+    private Double powerConsumed;           // Năng lượng tiêu thụ (kWh) - từ session.powerConsumed
 
     // Warnings
     private String warningMessage;          // Cảnh báo cho user

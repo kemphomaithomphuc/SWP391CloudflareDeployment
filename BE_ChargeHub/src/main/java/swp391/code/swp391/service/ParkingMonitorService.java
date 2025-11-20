@@ -2,7 +2,6 @@ package swp391.code.swp391.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import swp391.code.swp391.dto.ParkingMonitorDTO;
 import swp391.code.swp391.entity.ChargingPoint;
@@ -30,13 +29,12 @@ public class ParkingMonitorService {
 
     /**
      * Get parking monitoring info for a session
-     * Cached for 30 seconds to handle frequent polling
+     * Mỗi lần poll sẽ query DB trực tiếp để đảm bảo giá trị chính xác
      *
      * @param sessionId Session ID
      * @param userId User ID (for authorization)
      * @return Parking monitor DTO with real-time info
      */
-    @Cacheable(value = "parking-monitor", key = "#sessionId", unless = "#result == null")
     public ParkingMonitorDTO getParkingStatus(Long sessionId, Long userId) {
         log.debug("Fetching parking status for session: {} (userId: {})", sessionId, userId);
 
@@ -92,6 +90,10 @@ public class ParkingMonitorService {
         String stationName = chargingPoint.getStation().getStationName();
         String chargingPointName = chargingPoint.getChargingPointName();
 
+        // Charging cost từ session (đã được tính khi chuyển sang PARKING)
+        Double chargingCost = session.getBaseCost() != null ? session.getBaseCost() : 0.0;
+        Double powerConsumed = session.getPowerConsumed() != null ? session.getPowerConsumed() : 0.0;
+
         return ParkingMonitorDTO.builder()
                 .sessionId(session.getSessionId())
                 .orderId(order.getOrderId())
@@ -113,6 +115,10 @@ public class ParkingMonitorService {
                 .chargeableMinutes(chargeableMinutes)
                 .estimatedParkingFee(estimatedFee)
                 .parkingRatePerMinute(PARKING_RATE_PER_MINUTE)
+
+                // Charging cost
+                .chargingCost(chargingCost)
+                .powerConsumed(powerConsumed)
 
                 // Warnings
                 .warningMessage(warningMessage)

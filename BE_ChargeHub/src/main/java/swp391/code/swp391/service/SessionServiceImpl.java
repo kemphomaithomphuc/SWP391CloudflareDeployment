@@ -2,6 +2,7 @@ package swp391.code.swp391.service;
 
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import swp391.code.swp391.dto.SessionProgressDTO;
 import swp391.code.swp391.dto.SessionDTO;
@@ -13,6 +14,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class SessionServiceImpl implements SessionService {
@@ -24,6 +26,7 @@ public class SessionServiceImpl implements SessionService {
     private final UserRepository userRepository;
     private final NotificationService notificationService;
     private final FeeRepository feeRepository;
+    private final FeeCalculationService feeCalculationService;
     // private final SessionWebSocketService sessionWebSocketService;
 
     // Khoảng cách tối đa cho phép (tính bằng mét)
@@ -171,7 +174,8 @@ public class SessionServiceImpl implements SessionService {
                 0L,                 // elapsedMinutes
                 estimatedTotalMinutes, // estimatedRemainingMinutes
                 startTime,          // startTime
-                startTime           // currentTime (just started)
+                startTime,          // currentTime (just started)
+                "CHARGING"          // status
             );
             // sessionWebSocketService.sendSessionProgressToUser(order.getUser(), dto);
         } catch (Exception ignored) {}
@@ -231,30 +235,61 @@ public class SessionServiceImpl implements SessionService {
 
             // Kiểm tra nếu đạt expectedBattery
             double currentBattery = calculateBatteryPercentage(vehicle, powerConsumed) + session.getOrder().getStartedBattery();
+
+            log.info("Session {} - Battery check: current={}%, target={}%, powerConsumed={} kWh",
+                     sessionId, String.format("%.2f", currentBattery),
+                     String.format("%.2f", session.getOrder().getExpectedBattery()),
+                     String.format("%.4f", powerConsumed));
+
             if (currentBattery >= session.getOrder().getExpectedBattery()) {
                 if (currentBattery > 100) currentBattery = 100.0; // Chỉnh lại nếu vượt
 
-                // TỰ ĐỘNG DỪNG SẠC VÀ CHUYỂN SANG PARKING KHI ĐẠT TARGET
-                session.setEndTime(now);
-                session.setStatus(Session.SessionStatus.PARKING);
-                session.setParkingStartTime(now); // Bắt đầu tính grace period 15 phút
-                session.setPowerConsumed(powerConsumed);
-                session.setBaseCost(cost);
+                log.info("TARGET REACHED - Session {} transitioning to PARKING (current={}%, target={}%)",
+                         sessionId, String.format("%.2f", currentBattery),
+                         String.format("%.2f", session.getOrder().getExpectedBattery()));
 
-                // Cập nhật order status
-                Order order = session.getOrder();
-                order.setStatus(Order.Status.COMPLETED);
-                orderRepository.save(order);
+                try {
+                    // TỰ ĐỘNG DỪNG SẠC VÀ CHUYỂN SANG PARKING KHI ĐẠT TARGET
+                    session.setEndTime(now);
+                    session.setStatus(Session.SessionStatus.PARKING);
+                    session.setParkingStartTime(now); // Bắt đầu tính grace period 15 phút
+                    session.setPowerConsumed(powerConsumed);
+                    session.setBaseCost(cost);
 
-                // Gửi thông báo lần đầu khi đạt target
-                if (!session.getTargetReachedNotificationSent()) {
-                    notificationService.createBookingOrderNotification(order.getOrderId(),
-                        NotificationServiceImpl.NotificationEvent.SESSION_COMPLETE,
-                        "Đã sạc đến mức mong muốn. Vui lòng xác nhận rời trạm trong vòng 15 phút để tránh phí đỗ xe");
-                    session.setTargetReachedNotificationSent(true);
+                    // Cập nhật order status
+                    Order order = session.getOrder();
+                    order.setStatus(Order.Status.COMPLETED);
+                    Order savedOrder = orderRepository.save(order);
+
+                    log.info("Order {} saved with status: {}", savedOrder.getOrderId(), savedOrder.getStatus());
+
+                    // Gửi thông báo lần đầu khi đạt target
+                    if (!session.getTargetReachedNotificationSent()) {
+                        notificationService.createBookingOrderNotification(order.getOrderId(),
+                            NotificationServiceImpl.NotificationEvent.SESSION_COMPLETE,
+                            "Đã sạc đến mức mong muốn. Vui lòng xác nhận rời trạm trong vòng 15 phút để tránh phí đỗ xe");
+                        session.setTargetReachedNotificationSent(true);
+                    }
+
+                    Session savedSession = sessionRepository.save(session);
+
+                    log.info("Session {} saved with status: {} (parking started at: {})",
+                             savedSession.getSessionId(),
+                             savedSession.getStatus(),
+                             savedSession.getParkingStartTime());
+
+                    // Verify thực sự đã save vào DB
+                    Order verifiedOrder = orderRepository.findById(order.getOrderId()).orElse(null);
+                    if (verifiedOrder != null && verifiedOrder.getStatus() != Order.Status.COMPLETED) {
+                        log.error("CRITICAL: Order {} NOT COMPLETED in DB! Status is: {}",
+                                  order.getOrderId(), verifiedOrder.getStatus());
+                    }
+
+                } catch (Exception e) {
+                    log.error("Failed to transition session {} to PARKING: {}",
+                              sessionId, e.getMessage(), e);
+                    throw e;
                 }
-
-                sessionRepository.save(session);
             } else {
                 sessionRepository.save(session); // Cập nhật progress
             }
@@ -287,7 +322,8 @@ public class SessionServiceImpl implements SessionService {
             minutesElapsed,      // elapsedMinutes (backward compatibility)
             remainingMinutes,    // estimatedRemainingMinutes
             session.getStartTime(), // startTime
-            effectiveEndTime     // currentTime
+            effectiveEndTime,    // currentTime
+            session.getStatus().name() // status (CHARGING or PARKING)
         );
     }
 
@@ -327,24 +363,17 @@ public class SessionServiceImpl implements SessionService {
             // Nếu quá 15 phút grace period → tính phí parking
             if (minutesSinceParkingStart > 15) {
                 long chargeableMinutes = minutesSinceParkingStart - 15; // Trừ đi 15 phút grace
-                double parkingAmount = calculateParkingFee(session, chargeableMinutes);
 
-                // Tạo fee cho phí đỗ xe
-                Fee fee = new Fee();
-                fee.setOrder(session.getOrder());
-                fee.setSession(session);
-                fee.setType(Fee.Type.PARKING);
-                fee.setAmount(parkingAmount);
-                fee.setIsPaid(false);
-                fee.setCreatedAt(LocalDateTime.now());
-                fee.setDescription(String.format("Phí đỗ xe %d phút (sau grace period 15 phút)", chargeableMinutes));
-                feeRepository.save(fee);
+                // Sử dụng FeeCalculationService để tạo parking fee
+                Fee fee = feeCalculationService.createParkingFee(session, chargeableMinutes);
 
-                // Gửi notification về phí đỗ xe
-                notificationService.createPenaltyNotification(session.getOrder().getOrderId(),
-                        NotificationServiceImpl.PenaltyEvent.PARKING_PENALTY,
-                        fee.getAmount(),
-                        String.format("Đỗ xe %d phút sau grace period", chargeableMinutes));
+                if (fee != null) {
+                    // Gửi notification về phí đỗ xe
+                    notificationService.createPenaltyNotification(session.getOrder().getOrderId(),
+                            NotificationServiceImpl.PenaltyEvent.PARKING_PENALTY,
+                            fee.getAmount(),
+                            String.format("Đỗ xe %d phút sau grace period", chargeableMinutes));
+                }
             }
             // Nếu <= 15 phút: không tính phí, user rời đi đúng thời gian
         }
@@ -522,24 +551,21 @@ public class SessionServiceImpl implements SessionService {
             // Nếu quá 15 phút grace period → tính phí parking
             if (minutesSinceParkingStart > 15) {
                 long chargeableMinutes = minutesSinceParkingStart - 15; // Trừ đi 15 phút grace
-                double parkingAmount = calculateParkingFee(session, chargeableMinutes);
 
-                // Tạo fee cho phí đỗ xe
-                Fee fee = new Fee();
-                fee.setOrder(session.getOrder());
-                fee.setSession(session);
-                fee.setType(Fee.Type.PARKING);
-                fee.setAmount(parkingAmount);
-                fee.setIsPaid(false);
-                fee.setCreatedAt(LocalDateTime.now());
-                fee.setDescription(String.format("Phí đỗ xe %d phút (staff force complete)", chargeableMinutes));
-                feeRepository.save(fee);
+                // Sử dụng FeeCalculationService để tạo parking fee
+                Fee fee = feeCalculationService.createParkingFee(session, chargeableMinutes);
 
-                // Gửi notification về phí đỗ xe
-                notificationService.createPenaltyNotification(session.getOrder().getOrderId(),
-                        NotificationServiceImpl.PenaltyEvent.PARKING_PENALTY,
-                        fee.getAmount(),
-                        String.format("Staff force complete - Đỗ xe %d phút sau grace period", chargeableMinutes));
+                if (fee != null) {
+                    // Override description cho staff force complete
+                    fee.setDescription(String.format("Phí đỗ xe %d phút (staff force complete)", chargeableMinutes));
+                    feeRepository.save(fee);
+
+                    // Gửi notification về phí đỗ xe
+                    notificationService.createPenaltyNotification(session.getOrder().getOrderId(),
+                            NotificationServiceImpl.PenaltyEvent.PARKING_PENALTY,
+                            fee.getAmount(),
+                            String.format("Staff force complete - Đỗ xe %d phút sau grace period", chargeableMinutes));
+                }
             }
         }
 
@@ -641,24 +667,5 @@ public class SessionServiceImpl implements SessionService {
             session.setTargetReachedNotificationSent(true);
             sessionRepository.save(session);
         }
-    }
-
-    /**
-     * Tính phí đỗ xe theo thời gian (tăng dần theo công thức)
-     * Công thức: baseRate * minutes * (1 + 0.5 * floor(hours))
-     * - baseRate: 500 VND/phút (có thể điều chỉnh)
-     * - Mỗi giờ tăng thêm 50% phí
-     * - Phí tối thiểu: 10,000 VND
-     */
-    private double calculateParkingFee(Session session, long parkedMinutes) {
-        if (parkedMinutes <= 0) return 0.0;
-
-        double baseRatePerMinute = 500.0; // 500 VND/phút
-        double hours = Math.floor(parkedMinutes / 60.0);
-        double multiplier = 1.0 + (0.5 * hours); // +50% mỗi giờ
-        double amount = baseRatePerMinute * parkedMinutes * multiplier;
-
-        double minimum = 10000.0; // Phí tối thiểu 10,000 VND
-        return Math.max(amount, minimum);
     }
 }

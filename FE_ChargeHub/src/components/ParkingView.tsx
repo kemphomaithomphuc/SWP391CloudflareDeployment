@@ -12,7 +12,8 @@ import axios from 'axios';
 import { ParkingSessionSummary } from '../types/parking';
 import fetchParkingMonitoring from '../api/parkingMonitor';
 
-const PARKING_FEE_PER_MINUTE = 1500;
+// Bỏ hard code, sẽ dùng giá trị từ BE
+const PARKING_FEE_PER_MINUTE_FALLBACK = 5000; // Fallback nếu chưa có từ BE (giá trị mặc định từ BE)
 
 interface PaymentDetail {
   userName: string;
@@ -70,10 +71,15 @@ export default function ParkingView({ data, onBack, onParkingSessionClear }: Par
   const [finalizedCost, setFinalizedCost] = useState(data?.totalCost ?? 0);
   const [finalizedEnergy, setFinalizedEnergy] = useState(data?.energyConsumed ?? 0);
   const [parkingFeeOverride, setParkingFeeOverride] = useState<number | null>(null);
+  const [parkingRatePerMinute, setParkingRatePerMinute] = useState<number | null>(null);
+  
+  // Lưu parkingStartTime từ API để FE tự tính elapsed time
+  const [parkingStartTime, setParkingStartTime] = useState<string | null>(data?.parkingStartTime || null);
 
+  // FE tự tính elapsed time dựa trên parkingStartTime từ BE
   useEffect(() => {
-    if (!data?.parkingStartTime) return;
-    const startTimestamp = new Date(data.parkingStartTime).getTime();
+    if (!parkingStartTime) return;
+    const startTimestamp = new Date(parkingStartTime).getTime();
     if (Number.isNaN(startTimestamp)) return;
     const updateTimer = () => {
       setElapsedSeconds(Math.max(0, Math.floor((Date.now() - startTimestamp) / 1000)));
@@ -81,7 +87,7 @@ export default function ParkingView({ data, onBack, onParkingSessionClear }: Par
     updateTimer();
     const interval = window.setInterval(updateTimer, 1000);
     return () => window.clearInterval(interval);
-  }, [data?.parkingStartTime]);
+  }, [parkingStartTime]);
 
   useEffect(() => {
     if (data) {
@@ -92,7 +98,9 @@ export default function ParkingView({ data, onBack, onParkingSessionClear }: Par
 
   useEffect(() => {
     setParkingFeeOverride(null);
-  }, [data?.sessionId]);
+    // Reset parkingStartTime khi sessionId thay đổi
+    setParkingStartTime(data?.parkingStartTime || null);
+  }, [data?.sessionId, data?.parkingStartTime]);
 
   useEffect(() => {
     if (!data?.sessionId) {
@@ -108,14 +116,31 @@ export default function ParkingView({ data, onBack, onParkingSessionClear }: Par
       try {
         const monitoring = await fetchParkingMonitoring(sessionId);
         if (cancelled || !monitoring) return;
-        if (typeof monitoring.durationSeconds === 'number') {
-          setElapsedSeconds(monitoring.durationSeconds);
+        
+        // ✅ CHỈ LẤY parkingStartTime TỪ BE, FE TỰ TÍNH elapsed time
+        // BE chỉ cần gửi parkingStartTime, FE sẽ tự tính elapsedSeconds = Date.now() - parkingStartTime
+        if (monitoring.parkingStartTime) {
+          // Cập nhật parkingStartTime nếu có (lần đầu hoặc khi thay đổi)
+          setParkingStartTime((current) => {
+            if (current !== monitoring.parkingStartTime) {
+              if (!options?.silent) {
+                console.log(`[Parking Timer] Cập nhật parkingStartTime từ BE: ${monitoring.parkingStartTime}`);
+              }
+              return monitoring.parkingStartTime!;
+            }
+            return current;
+          });
         }
+        
+        // Cập nhật các giá trị khác từ BE
         if (typeof monitoring.currentFee === 'number') {
           setParkingFeeOverride(monitoring.currentFee);
         }
         if (typeof monitoring.chargingCost === 'number') {
           setFinalizedCost(monitoring.chargingCost);
+        }
+        if (typeof monitoring.parkingRatePerMinute === 'number') {
+          setParkingRatePerMinute(monitoring.parkingRatePerMinute);
         }
       } catch (error) {
         if (!options?.silent) {
@@ -136,11 +161,14 @@ export default function ParkingView({ data, onBack, onParkingSessionClear }: Par
   }, [data?.sessionId]);
 
   const parkingFee = useMemo(() => {
+    // Ưu tiên dùng giá trị từ BE (estimatedParkingFee)
     if (parkingFeeOverride !== null) {
       return parkingFeeOverride;
     }
-    return Math.max(0, Math.ceil(elapsedSeconds / 60) * PARKING_FEE_PER_MINUTE);
-  }, [parkingFeeOverride, elapsedSeconds]);
+    // Tính tạm dựa trên rate từ BE (fallback nếu chưa có rate từ BE thì dùng 5000)
+    const rate = parkingRatePerMinute ?? PARKING_FEE_PER_MINUTE_FALLBACK;
+    return Math.max(0, Math.ceil(elapsedSeconds / 60) * rate);
+  }, [parkingFeeOverride, elapsedSeconds, parkingRatePerMinute]);
   const totalEstimatedCost = (finalizedCost ?? 0) + parkingFee;
 
   const translations = {
@@ -265,9 +293,18 @@ export default function ParkingView({ data, onBack, onParkingSessionClear }: Par
         applyPaymentDetail(detailForSync);
       }
 
+      // Convert to numbers as backend expects Long
+      const sessionIdNum = Number(sessionId);
+      const userIdNum = Number(userId);
+      
+      if (isNaN(sessionIdNum) || isNaN(userIdNum)) {
+        toast.error(language === 'vi' ? 'Thông tin phiên sạc không hợp lệ' : 'Invalid session information');
+        return;
+      }
+
       const payload = {
-        sessionId,
-        userId,
+        sessionId: sessionIdNum,
+        userId: userIdNum,
         paymentMethod: "VNPAY",
         returnUrl: "http://localhost:3000/payment/result",
         bankCode: "NCB"
@@ -292,9 +329,18 @@ export default function ParkingView({ data, onBack, onParkingSessionClear }: Par
       } else {
         throw new Error(res.data?.message || 'Payment initiation failed');
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error initiating payment:', err);
-      toast.error(language === 'vi' ? 'Lỗi khi khởi tạo thanh toán' : 'Error initiating payment');
+      const errorMessage = err?.response?.data?.message || err?.message || 'Unknown error';
+      console.error('Error details:', {
+        message: errorMessage,
+        status: err?.response?.status,
+        data: err?.response?.data
+      });
+      toast.error(language === 'vi' 
+        ? `Lỗi khi khởi tạo thanh toán: ${errorMessage}` 
+        : `Error initiating payment: ${errorMessage}`
+      );
       throw err;
     }
   };
@@ -378,6 +424,10 @@ export default function ParkingView({ data, onBack, onParkingSessionClear }: Par
                 <p className="text-sm text-muted-foreground">{language === 'vi' ? 'Kết thúc sạc' : 'Charging Ended'}</p>
                 <p className="font-medium">{formatDateTime(data.endTime, language === 'vi' ? 'vi' : 'en')}</p>
               </div>
+              <div className="p-4 rounded-lg border bg-white/70 dark:bg-gray-900/40 md:col-span-2">
+                <p className="text-sm text-muted-foreground">{language === 'vi' ? 'Chi phí phiên sạc' : 'Charging Cost'}</p>
+                <p className="text-2xl font-semibold text-green-600 dark:text-green-400">{formatCurrency(finalizedCost)}</p>
+              </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1">
@@ -420,7 +470,7 @@ export default function ParkingView({ data, onBack, onParkingSessionClear }: Par
               </div>
               <div className="p-4 rounded-lg border bg-white/70 dark:bg-gray-900/40">
                 <p className="text-sm text-muted-foreground">{translations.feePerMinute}</p>
-                <p className="text-xl font-semibold">{formatCurrency(PARKING_FEE_PER_MINUTE)}</p>
+                <p className="text-xl font-semibold">{formatCurrency(parkingRatePerMinute ?? PARKING_FEE_PER_MINUTE_FALLBACK)}</p>
               </div>
               <div className="p-4 rounded-lg border bg-white/70 dark:bg-gray-900/40">
                 <p className="text-sm text-muted-foreground">{translations.startLabel}</p>
