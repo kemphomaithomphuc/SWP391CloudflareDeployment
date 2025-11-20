@@ -11,6 +11,7 @@ import swp391.code.swp391.repository.*;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -97,9 +98,6 @@ public class StaffServiceImpl implements StaffService {
             );
         }
 
-        // KIỂM TRA OVERLAP THỜI GIAN SẠC VỚI CÁC ORDER KHÁC
-        validateNoTimeOverlap(order, newPoint);
-
         // 10. Kiểm tra trụ mới có bị trùng thời gian với booking khác không (chỉ check khi BOOKED)
         if (order.getStatus() == Order.Status.BOOKED) {
             List<Order> conflictingOrders = orderRepository.findConflictingOrders(
@@ -115,8 +113,12 @@ public class StaffServiceImpl implements StaffService {
                                 order.getStartTime(), order.getEndTime())
                 );
             }
+        } else if (order.getStatus() == Order.Status.CHARGING) {
+            // Kiểm tra dựa trên pin hiện tại và thời gian sạc còn lại
+            validateNoTimeOverlap(order, newPoint, request.getCurrentBatteryLevel());
+
+            log.info("No time overlap detected for CHARGING order.");
         }
-        // Nếu order đang CHARGING, không cần check conflict vì đang sạc tức thì
 
         // 11. Cập nhật Order với Charging Point mới
         ChargingPoint oldPoint = order.getChargingPoint();
@@ -166,7 +168,7 @@ public class StaffServiceImpl implements StaffService {
 
         // 14. Gửi thông báo cho Driver
         String notificationContent = String.format(
-                "🔄 Thông báo đổi trụ sạc\n\n" +
+                "Thông báo đổi trụ sạc\n\n" +
                         "Trụ sạc của bạn đã được thay đổi:\n" +
                         "• Từ: Trụ #%d\n" +
                         "• Sang: Trụ #%d\n" +
@@ -251,79 +253,59 @@ public class StaffServiceImpl implements StaffService {
     }
 
      // Kiểm tra overlap thời gian sạc với các order khác của trụ mới
-    private void validateNoTimeOverlap(Order currentOrder, ChargingPoint newPoint) {
-        log.info("🔍 Validating time overlap for order {} on new charging point {}",
-                currentOrder.getOrderId(), newPoint.getChargingPointId());
+     private void validateNoTimeOverlap(Order currentOrder, ChargingPoint newPoint, Double currentBatteryLevel) {
+         LocalDateTime estimatedStartTime = LocalDateTime.now();
+         LocalDateTime estimatedEndTime = calculateEstimatedEndTime(currentOrder, newPoint, currentBatteryLevel);
 
-        // Tính thời gian sạc dự kiến dựa trên battery level
-        LocalDateTime estimatedStartTime = currentOrder.getStartTime();
-        LocalDateTime estimatedEndTime = calculateEstimatedEndTime(currentOrder, newPoint);
+         List<Order> existingOrders = orderRepository.findByChargingPointAndStatusIn(
+                         newPoint,
+                         List.of(Order.Status.BOOKED, Order.Status.CHARGING)
+                 ).stream()
+                 .filter(o -> !o.getOrderId().equals(currentOrder.getOrderId()))
+                 .collect(Collectors.toList());
 
-        log.info("⏰ Estimated charging time: {} to {} (duration: {} minutes)",
-                estimatedStartTime,
-                estimatedEndTime,
-                java.time.Duration.between(estimatedStartTime, estimatedEndTime).toMinutes());
+         // Định dạng ngày giờ
+         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
 
-        // Lấy tất cả orders của trụ mới có trạng thái BOOKED hoặc CHARGING
-        List<Order> existingOrders = orderRepository.findByChargingPointAndStatusIn(
-                newPoint,
-                List.of(Order.Status.BOOKED, Order.Status.CHARGING)
-        );
+         // Pin hiện tại
+         Double actualCurrentBattery = (currentBatteryLevel != null && currentBatteryLevel > 0)
+                 ? currentBatteryLevel
+                 : currentOrder.getStartedBattery();
 
-        // Loại bỏ order hiện tại khỏi danh sách (vì đang đổi trụ)
-        existingOrders = existingOrders.stream()
-                .filter(o -> !o.getOrderId().equals(currentOrder.getOrderId()))
-                .collect(Collectors.toList());
+         long estimatedDurationMins = Duration.between(estimatedStartTime, estimatedEndTime).toMinutes();
 
-        log.info("📋 Found {} existing orders on new charging point {}",
-                existingOrders.size(), newPoint.getChargingPointId());
+         for (Order existingOrder : existingOrders) {
+             LocalDateTime existingStart = existingOrder.getStartTime();
+             LocalDateTime existingEnd = existingOrder.getEndTime();
 
-        // Kiểm tra overlap với từng order
-        for (Order existingOrder : existingOrders) {
-            LocalDateTime existingStart = existingOrder.getStartTime();
-            LocalDateTime existingEnd = existingOrder.getEndTime();
+             boolean isOverlap = estimatedStartTime.isBefore(existingEnd) && existingStart.isBefore(estimatedEndTime);
 
-            // Kiểm tra overlap: hai khoảng thời gian overlap khi:
-            // start1 < end2 && start2 < end1
-            boolean isOverlap = estimatedStartTime.isBefore(existingEnd) &&
-                    existingStart.isBefore(estimatedEndTime);
-
-            if (isOverlap) {
-                String errorMessage = String.format(
-                        "Không thể đổi sang trụ #%d vì thời gian sạc dự kiến bị trùng lặp!\n\n" +
-                                "Thời gian sạc dự kiến của order hiện tại:\n" +
-                                "   • Bắt đầu: %s\n" +
-                                "   • Kết thúc: %s\n" +
-                                "   • Pin: %.1f%% → %.1f%%\n\n" +
-                                "Bị trùng với Order #%d:\n" +
-                                "   • Bắt đầu: %s\n" +
-                                "   • Kết thúc: %s\n" +
-                                "   • Khách hàng: %s\n\n" +
-                                "Vui lòng chọn trụ sạc khác hoặc điều chỉnh thời gian!",
-                        newPoint.getChargingPointId(),
-                        estimatedStartTime,
-                        estimatedEndTime,
-                        currentOrder.getStartedBattery() != null ? currentOrder.getStartedBattery() : 0.0,
-                        currentOrder.getExpectedBattery() != null ? currentOrder.getExpectedBattery() : 0.0,
-                        existingOrder.getOrderId(),
-                        existingStart,
-                        existingEnd,
-                        existingOrder.getUser() != null ? existingOrder.getUser().getFullName() : "N/A"
-                );
-
-                log.error("Time overlap detected: Current order [{} - {}] overlaps with Order #{} [{} - {}]",
-                        estimatedStartTime, estimatedEndTime,
-                        existingOrder.getOrderId(), existingStart, existingEnd);
-
-                throw new RuntimeException(errorMessage);
-            }
-        }
-
-        log.info("No time overlap detected. Safe to change to new charging point.");
-    }
+             if (isOverlap) {
+                 throw new RuntimeException(
+                         String.format(
+                                 "Không thể đổi sang trụ #%d vì bị trùng với booking khác.\n" +
+                                         "Order trùng: #%d (%s → %s, trạng thái: %s, khách hàng: %s)\n" +
+                                         "• Pin hiện tại: %.1f%%\n" +
+                                         "• Thời gian còn lại dự kiến: %d phút\n" +
+                                         "• Thời gian hoàn thành phiên sạc dự kiến: %s",
+                                 newPoint.getChargingPointId(),
+                                 existingOrder.getOrderId(),
+                                 existingStart.format(formatter),
+                                 existingEnd.format(formatter),
+                                 existingOrder.getStatus(),
+                                 existingOrder.getUser() != null ? existingOrder.getUser().getFullName() : "N/A",
+                                 actualCurrentBattery != null ? actualCurrentBattery : 0.0,
+                                 estimatedDurationMins,
+                                 estimatedEndTime.format(formatter)
+                         )
+                 );
+             }
+         }
+     }
 
      //Tính thời gian kết thúc
-    private LocalDateTime calculateEstimatedEndTime(Order order, ChargingPoint chargingPoint) {
+    private LocalDateTime calculateEstimatedEndTime(Order order, ChargingPoint chargingPoint, Double currentBatteryLevel) {
+        // Lấy thông tin vehicle
         Vehicle vehicle = order.getVehicle();
         if (vehicle == null || vehicle.getCarModel() == null) {
             log.warn("Vehicle info not available for order {}, using order's endTime", order.getOrderId());
@@ -336,48 +318,54 @@ public class StaffServiceImpl implements StaffService {
             return order.getEndTime();
         }
 
-        // Lấy thông tin battery levels
-        Double startedBattery = order.getStartedBattery(); // % pin hiện tại
-        Double expectedBattery = order.getExpectedBattery(); // % pin mong đợi
+        Double expectedBattery = order.getExpectedBattery(); // % pin mong muốn
 
-        if (startedBattery == null || expectedBattery == null) {
-            log.warn("Battery levels not available (started: {}, expected: {}), using order's endTime",
-                    startedBattery, expectedBattery);
+        Double actualCurrentBattery = (currentBatteryLevel != null && currentBatteryLevel > 0)
+                ? currentBatteryLevel
+                : order.getStartedBattery();
+
+        if (actualCurrentBattery == null || expectedBattery == null) {
+            log.warn("Battery levels not available (current: {}, expected: {}), using order's endTime",
+                    actualCurrentBattery, expectedBattery);
             return order.getEndTime();
         }
 
-        // Validate battery levels
-        if (expectedBattery <= startedBattery) {
-            log.warn("Invalid battery levels (started: {}%, expected: {}%), using order's endTime",
-                    startedBattery, expectedBattery);
+        if (expectedBattery <= actualCurrentBattery) {
+            log.warn("Expected battery ({:.1f}%) must be > current battery ({:.1f}%). Using order's endTime",
+                    expectedBattery, actualCurrentBattery);
             return order.getEndTime();
         }
 
-        // Tính năng lượng cần sạc
-        double batteryToCharge = expectedBattery - startedBattery; // %
+        // Validate: Pin trong khoảng hợp lệ (0-100%)
+        if (actualCurrentBattery < 0 || actualCurrentBattery > 100 || expectedBattery < 0 || expectedBattery > 100) {
+            log.warn("Battery levels out of range (current: {:.1f}%, expected: {:.1f}%). Using order's endTime",
+                    actualCurrentBattery, expectedBattery);
+            return order.getEndTime();
+        }
+
+        // Tính pin cần sạc còn lại (từ pin hiện tại đến pin mong muốn)
+        double batteryToCharge = expectedBattery - actualCurrentBattery; // %
         double energyToChargeKwh = (batteryToCharge / 100.0) * batteryCapacity; // kWh
 
-        // Lấy công suất trụ sạc
         Double powerOutput = chargingPoint.getConnectorType().getPowerOutput(); // kW
         if (powerOutput == null || powerOutput == 0) {
             log.warn("Power output not available, using order's endTime");
             return order.getEndTime();
         }
 
-        // Tính thời gian sạc
         int chargingDurationMinutes = calculateChargingDuration(energyToChargeKwh, powerOutput);
 
-        // Thời gian bắt đầu + thời gian sạc = thời gian kết thúc dự kiến
-        LocalDateTime startTime = order.getStartTime();
-        LocalDateTime estimatedEndTime = startTime.plusMinutes(chargingDurationMinutes);
+        // Thời gian bắt đầu = HIỆN TẠI (thời điểm đổi trụ)
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime estimatedEndTime = now.plusMinutes(chargingDurationMinutes);
 
         log.info("Calculated charging details:");
         log.info("   • Battery: {:.1f}% → {:.1f}% (+{:.1f}%)",
-                startedBattery, expectedBattery, batteryToCharge);
+                actualCurrentBattery, expectedBattery, batteryToCharge);
         log.info("   • Energy needed: {:.2f} kWh", energyToChargeKwh);
         log.info("   • Charging power: {:.1f} kW", powerOutput);
         log.info("   • Duration: {} minutes", chargingDurationMinutes);
-        log.info("   • Start: {}", startTime);
+        log.info("   • Start time (NOW): {}", now);
         log.info("   • Estimated end: {}", estimatedEndTime);
 
         return estimatedEndTime;

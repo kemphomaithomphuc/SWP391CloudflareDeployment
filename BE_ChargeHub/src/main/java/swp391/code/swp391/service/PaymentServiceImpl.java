@@ -409,17 +409,14 @@ public class PaymentServiceImpl implements PaymentService {
                 .build();
     }
 
-    // ============================================================
-    // ========== RETRY PAYMENT - THANH TOÁN LẠI ================
-    // ============================================================
-
+    // RETRY PAYMENT
     @Override
     @Transactional
     public RetryPaymentResponseDTO retryPayment(RetryPaymentRequestDTO request) {
         log.info("Retry payment - TransactionId: {}, UserId: {}, PaymentMethod: {}",
                 request.getTransactionId(), request.getUserId(), request.getPaymentMethod());
 
-        // ===== 1. VALIDATE TRANSACTION =====
+        // VALIDATE TRANSACTION
         Transaction transaction = transactionRepository.findById(request.getTransactionId())
                 .orElseThrow(() -> new ApiRequestException("Không tìm thấy giao dịch #" + request.getTransactionId()));
 
@@ -429,7 +426,7 @@ public class PaymentServiceImpl implements PaymentService {
                     "Trạng thái hiện tại: " + transaction.getStatus());
         }
 
-        // ===== 2. VALIDATE USER =====
+        // VALIDATE USER
         User user = userRepository.findById(request.getUserId())
                 .orElseThrow(() -> new ApiRequestException("Không tìm thấy người dùng #" + request.getUserId()));
 
@@ -438,7 +435,7 @@ public class PaymentServiceImpl implements PaymentService {
             throw new ApiRequestException("Bạn không có quyền thanh toán giao dịch này");
         }
 
-        // ===== 3. LẤY THÔNG TIN SESSION =====
+        // LẤY THÔNG TIN SESSION
         Session session = transaction.getSession();
         if (session == null) {
             throw new ApiRequestException("Không tìm thấy phiên sạc cho giao dịch này");
@@ -449,7 +446,7 @@ public class PaymentServiceImpl implements PaymentService {
         log.info("Transaction #{} - Amount: {}, Session: {}",
                 transaction.getTransactionId(), amount, session.getSessionId());
 
-        // ===== 4. XỬ LÝ THEO PHƯƠNG THỨC THANH TOÁN =====
+        // XỬ LÝ THEO PHƯƠNG THỨC THANH TOÁN
         if (request.getPaymentMethod() == Transaction.PaymentMethod.CASH) {
             return retryPaymentWithCash(transaction, user, amount);
         } else if (request.getPaymentMethod() == Transaction.PaymentMethod.VNPAY) {

@@ -25,4 +25,6 @@ public class ChangeChargingPointRequestDTO {
     private String reason; // Lý do đổi trụ sạc
 
     private Long staffId; // ID của staff thực hiện
+
+    private Double currentBatteryLevel;
 }

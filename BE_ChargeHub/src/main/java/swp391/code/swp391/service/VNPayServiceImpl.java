@@ -23,7 +23,6 @@ public class VNPayServiceImpl implements VNPayService {
     private final TransactionRepository transactionRepository;
     private final PaymentService paymentService; // Đổi từ final
 
-    // THÊM CONSTRUCTOR VỚI @Lazy
     public VNPayServiceImpl(
             TransactionRepository transactionRepository,
             @Lazy PaymentService paymentService) {
@@ -49,8 +48,6 @@ public class VNPayServiceImpl implements VNPayService {
     @Value("${vnpay.command}")
     private String vnpCommand;
 
-    // ... rest of code giữ nguyên
-
     @Override
     public String createPaymentUrl(Long transactionId, BigDecimal amount, String orderInfo,
                                    String returnUrl, String bankCode) {
@@ -63,7 +60,7 @@ public class VNPayServiceImpl implements VNPayService {
             // Tạo mã đơn hàng duy nhất
             String vnpTxnRef = String.valueOf(transactionId);
 
-            // Lấy địa chỉ IP (có thể lấy từ request trong controller)
+            // Lấy địa chỉ IP
             String vnpIpAddr = "127.0.0.1";
 
             // Tạo thời gian tạo và hết hạn
