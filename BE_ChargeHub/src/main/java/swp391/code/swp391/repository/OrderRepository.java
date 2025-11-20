@@ -4,8 +4,10 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+import swp391.code.swp391.entity.ChargingPoint;
 import swp391.code.swp391.entity.Order;
 import swp391.code.swp391.entity.User;
+import swp391.code.swp391.entity.Order.Status;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -200,5 +202,7 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
             @Param("stationId") Long stationId,
             @Param("fromTime") LocalDateTime fromTime
     );
+
+    List<Order> findByChargingPointAndStatusIn(ChargingPoint chargingPoint, List<Status> statuses);
 }
 

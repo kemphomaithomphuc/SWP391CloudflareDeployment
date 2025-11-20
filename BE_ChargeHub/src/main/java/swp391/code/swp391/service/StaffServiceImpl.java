@@ -97,6 +97,9 @@ public class StaffServiceImpl implements StaffService {
             );
         }
 
+        // KIỂM TRA OVERLAP THỜI GIAN SẠC VỚI CÁC ORDER KHÁC
+        validateNoTimeOverlap(order, newPoint);
+
         // 10. Kiểm tra trụ mới có bị trùng thời gian với booking khác không (chỉ check khi BOOKED)
         if (order.getStatus() == Order.Status.BOOKED) {
             List<Order> conflictingOrders = orderRepository.findConflictingOrders(
@@ -245,6 +248,78 @@ public class StaffServiceImpl implements StaffService {
                 .notificationSent(notificationSent)
                 .message(buildSuccessMessage(notificationSent, emailSent))
                 .build();
+    }
+
+     // Kiểm tra overlap thời gian sạc với các order khác của trụ mới
+    private void validateNoTimeOverlap(Order currentOrder, ChargingPoint newPoint) {
+        log.info("🔍 Validating time overlap for order {} on new charging point {}",
+                currentOrder.getOrderId(), newPoint.getChargingPointId());
+
+        // Tính thời gian sạc dự kiến dựa trên battery level
+        LocalDateTime estimatedStartTime = currentOrder.getStartTime();
+        LocalDateTime estimatedEndTime = calculateEstimatedEndTime(currentOrder, newPoint);
+
+        log.info("⏰ Estimated charging time: {} to {} (duration: {} minutes)",
+                estimatedStartTime,
+                estimatedEndTime,
+                java.time.Duration.between(estimatedStartTime, estimatedEndTime).toMinutes());
+
+        // Lấy tất cả orders của trụ mới có trạng thái BOOKED hoặc CHARGING
+        List<Order> existingOrders = orderRepository.findByChargingPointAndStatusIn(
+                newPoint,
+                List.of(Order.Status.BOOKED, Order.Status.CHARGING)
+        );
+
+        // Loại bỏ order hiện tại khỏi danh sách (vì đang đổi trụ)
+        existingOrders = existingOrders.stream()
+                .filter(o -> !o.getOrderId().equals(currentOrder.getOrderId()))
+                .collect(Collectors.toList());
+
+        log.info("📋 Found {} existing orders on new charging point {}",
+                existingOrders.size(), newPoint.getChargingPointId());
+
+        // Kiểm tra overlap với từng order
+        for (Order existingOrder : existingOrders) {
+            LocalDateTime existingStart = existingOrder.getStartTime();
+            LocalDateTime existingEnd = existingOrder.getEndTime();
+
+            // Kiểm tra overlap: hai khoảng thời gian overlap khi:
+            // start1 < end2 && start2 < end1
+            boolean isOverlap = estimatedStartTime.isBefore(existingEnd) &&
+                    existingStart.isBefore(estimatedEndTime);
+
+            if (isOverlap) {
+                String errorMessage = String.format(
+                        "Không thể đổi sang trụ #%d vì thời gian sạc dự kiến bị trùng lặp!\n\n" +
+                                "Thời gian sạc dự kiến của order hiện tại:\n" +
+                                "   • Bắt đầu: %s\n" +
+                                "   • Kết thúc: %s\n" +
+                                "   • Pin: %.1f%% → %.1f%%\n\n" +
+                                "Bị trùng với Order #%d:\n" +
+                                "   • Bắt đầu: %s\n" +
+                                "   • Kết thúc: %s\n" +
+                                "   • Khách hàng: %s\n\n" +
+                                "Vui lòng chọn trụ sạc khác hoặc điều chỉnh thời gian!",
+                        newPoint.getChargingPointId(),
+                        estimatedStartTime,
+                        estimatedEndTime,
+                        currentOrder.getStartedBattery() != null ? currentOrder.getStartedBattery() : 0.0,
+                        currentOrder.getExpectedBattery() != null ? currentOrder.getExpectedBattery() : 0.0,
+                        existingOrder.getOrderId(),
+                        existingStart,
+                        existingEnd,
+                        existingOrder.getUser() != null ? existingOrder.getUser().getFullName() : "N/A"
+                );
+
+                log.error("Time overlap detected: Current order [{} - {}] overlaps with Order #{} [{} - {}]",
+                        estimatedStartTime, estimatedEndTime,
+                        existingOrder.getOrderId(), existingStart, existingEnd);
+
+                throw new RuntimeException(errorMessage);
+            }
+        }
+
+        log.info("No time overlap detected. Safe to change to new charging point.");
     }
 
     private String buildSuccessMessage(boolean notificationSent, boolean emailSent) {
