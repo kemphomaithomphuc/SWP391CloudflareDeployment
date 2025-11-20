@@ -582,25 +582,25 @@ export default function Login({ onSwitchToRegister, onLogin, onStaffLogin, onAdm
 
     return (
         <>
-            <div className="min-h-screen bg-gradient-to-br from-background via-secondary/20 to-accent/30 flex items-center justify-center p-4">
+            <div className="min-h-screen bg-gradient-to-br from-background via-secondary/20 to-accent/30 flex items-center justify-center p-3 sm:p-4 md:p-6">
                 <div className="w-full max-w-md">
-                    <div className="bg-card/80 backdrop-blur-sm border border-border/50 rounded-2xl shadow-2xl shadow-primary/5 p-8 space-y-8">
-                        <div className="text-center space-y-6">
+                    <div className="bg-card/80 backdrop-blur-sm border border-border/50 rounded-xl sm:rounded-2xl shadow-2xl shadow-primary/5 p-4 sm:p-6 md:p-8 space-y-6 sm:space-y-8">
+                        <div className="text-center space-y-4 sm:space-y-6">
                             <div className="flex items-center justify-center">
                                 <div className="relative group">
-                                    <div className="absolute -inset-8 rounded-full bg-gradient-to-r from-primary/10 via-primary/5 to-transparent animate-pulse"></div>
-                                    <div className="absolute -inset-6 rounded-full bg-gradient-to-r from-primary/15 via-primary/8 to-transparent animate-pulse" style={{ animationDelay: "0.5s" }}></div>
+                                    <div className="absolute -inset-6 sm:-inset-8 rounded-full bg-gradient-to-r from-primary/10 via-primary/5 to-transparent animate-pulse"></div>
+                                    <div className="absolute -inset-4 sm:-inset-6 rounded-full bg-gradient-to-r from-primary/15 via-primary/8 to-transparent animate-pulse" style={{ animationDelay: "0.5s" }}></div>
 
                                     <div className="relative">
-                                        <div className="absolute inset-0 bg-gradient-to-br from-primary via-primary to-primary/70 rounded-3xl transform rotate-6 scale-110 opacity-20"></div>
-                                        <div className="absolute inset-0 bg-gradient-to-tl from-secondary via-accent to-primary/30 rounded-3xl transform -rotate-3 scale-105 opacity-15"></div>
+                                        <div className="absolute inset-0 bg-gradient-to-br from-primary via-primary to-primary/70 rounded-2xl sm:rounded-3xl transform rotate-6 scale-110 opacity-20"></div>
+                                        <div className="absolute inset-0 bg-gradient-to-tl from-secondary via-accent to-primary/30 rounded-2xl sm:rounded-3xl transform -rotate-3 scale-105 opacity-15"></div>
 
-                                        <div className="relative w-20 h-20 bg-gradient-to-br from-primary via-primary/90 to-primary/70 rounded-3xl flex items-center justify-center shadow-2xl shadow-primary/30 transform rotate-12 group-hover:rotate-0 transition-all duration-500 border-2 border-primary/20">
-                                            <div className="absolute inset-2 bg-gradient-to-br from-primary-foreground/20 to-transparent rounded-2xl"></div>
+                                        <div className="relative w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-br from-primary via-primary/90 to-primary/70 rounded-2xl sm:rounded-3xl flex items-center justify-center shadow-2xl shadow-primary/30 transform rotate-12 group-hover:rotate-0 transition-all duration-500 border-2 border-primary/20">
+                                            <div className="absolute inset-2 bg-gradient-to-br from-primary-foreground/20 to-transparent rounded-xl sm:rounded-2xl"></div>
                                             <div className="relative">
-                                                <Zap className="w-10 h-10 text-primary-foreground filter drop-shadow-lg transform group-hover:scale-110 transition-transform duration-300" />
-                                                <div className="absolute inset-0 w-10 h-10">
-                                                    <Zap className="w-10 h-10 text-primary-foreground/30 blur-sm" />
+                                                <Zap className="w-8 h-8 sm:w-10 sm:h-10 text-primary-foreground filter drop-shadow-lg transform group-hover:scale-110 transition-transform duration-300" />
+                                                <div className="absolute inset-0 w-8 h-8 sm:w-10 sm:h-10">
+                                                    <Zap className="w-8 h-8 sm:w-10 sm:h-10 text-primary-foreground/30 blur-sm" />
                                                 </div>
                                             </div>
                                             <div className="absolute top-1 right-1 w-2 h-2 bg-primary-foreground/40 rounded-full"></div>
@@ -609,13 +609,13 @@ export default function Login({ onSwitchToRegister, onLogin, onStaffLogin, onAdm
                                     </div>
                                 </div>
                             </div>
-                            <div className="space-y-3">
-                                <h1 className="text-4xl font-bold text-foreground tracking-tight bg-gradient-to-r from-foreground via-primary/80 to-foreground bg-clip-text">
+                            <div className="space-y-2 sm:space-y-3">
+                                <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-foreground tracking-tight bg-gradient-to-r from-foreground via-primary/80 to-foreground bg-clip-text">
                                     {t("chargehub")}
                                 </h1>
                                 <div className="relative">
-                                    <p className="text-muted-foreground/90 font-medium">{t("power_journey")}</p>
-                                    <div className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-16 h-0.5 bg-gradient-to-r from-transparent via-primary/40 to-transparent"></div>
+                                    <p className="text-sm sm:text-base text-muted-foreground/90 font-medium">{t("power_journey")}</p>
+                                    <div className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-12 sm:w-16 h-0.5 bg-gradient-to-r from-transparent via-primary/40 to-transparent"></div>
                                 </div>
                             </div>
                         </div>
@@ -626,10 +626,10 @@ export default function Login({ onSwitchToRegister, onLogin, onStaffLogin, onAdm
                             </div>
                         )}
 
-                        <form onSubmit={handleLogin} className="space-y-6">
-                            <div className="space-y-4">
-                                <div className="space-y-2">
-                                    <Label htmlFor="email" className="text-foreground/90 font-medium">{t("username_email")}</Label>
+                        <form onSubmit={handleLogin} className="space-y-4 sm:space-y-6">
+                            <div className="space-y-3 sm:space-y-4">
+                                <div className="space-y-1.5 sm:space-y-2">
+                                    <Label htmlFor="email" className="text-sm sm:text-base text-foreground/90 font-medium">{t("username_email")}</Label>
                                     <Input
                                         id="email"
                                         type="text"
@@ -637,27 +637,27 @@ export default function Login({ onSwitchToRegister, onLogin, onStaffLogin, onAdm
                                         onChange={(e) => setEmail(e.target.value)}
                                         placeholder="Email or Phone"
                                         autoComplete="username"
-                                        className="h-12 bg-input-background/50 border-border/60 rounded-xl focus:border-primary/50 focus:ring-primary/20 transition-all duration-200 placeholder:text-muted-foreground/60"
+                                        className="h-11 sm:h-12 bg-input-background/50 border-border/60 rounded-lg sm:rounded-xl focus:border-primary/50 focus:ring-primary/20 transition-all duration-200 placeholder:text-muted-foreground/60 text-sm sm:text-base touch-manipulation"
                                         disabled={loading}
                                     />
                                 </div>
 
-                                <div className="space-y-2">
-                                    <Label htmlFor="password" className="text-foreground/90 font-medium">{t("Password")}</Label>
+                                <div className="space-y-1.5 sm:space-y-2">
+                                    <Label htmlFor="password" className="text-sm sm:text-base text-foreground/90 font-medium">{t("Password")}</Label>
                                     <PasswordInput
                                         id="password"
                                         value={password}
                                         onChange={(e) => setPassword(e.target.value)}
                                         placeholder={t("Password")}
                                         autoComplete="current-password"
-                                        className="h-12 bg-input-background/50 border-border/60 rounded-xl focus:border-primary/50 focus:ring-primary/20 transition-all duration-200 placeholder:text-muted-foreground/60"
+                                        className="h-11 sm:h-12 bg-input-background/50 border-border/60 rounded-lg sm:rounded-xl focus:border-primary/50 focus:ring-primary/20 transition-all duration-200 placeholder:text-muted-foreground/60 text-sm sm:text-base touch-manipulation"
                                         disabled={loading}
                                     />
                                 </div>
                             </div>
 
                             <Button
-                                className="w-full h-12 bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary shadow-lg shadow-primary/20 rounded-xl transition-all duration-200 hover:shadow-xl hover:shadow-primary/25 hover:-translate-y-0.5"
+                                className="w-full h-11 sm:h-12 bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary shadow-lg shadow-primary/20 rounded-lg sm:rounded-xl transition-all duration-200 hover:shadow-xl hover:shadow-primary/25 active:scale-[0.98] touch-manipulation text-sm sm:text-base font-medium"
                                 type="submit"
                                 disabled={loading}
                             >
@@ -672,11 +672,11 @@ export default function Login({ onSwitchToRegister, onLogin, onStaffLogin, onAdm
                         </div>
                     </div>
 
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-2 gap-3 sm:gap-4">
                             <Button
                                 variant="outline"
                                 onClick={handleGoogleLogin}
-                                className="h-12 bg-card/50 border-border/60 hover:bg-accent/50 hover:border-border rounded-xl transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 flex items-center justify-center space-x-2"
+                                className="h-11 sm:h-12 bg-card/50 border-border/60 hover:bg-accent/50 hover:border-border rounded-lg sm:rounded-xl transition-all duration-200 hover:shadow-md active:scale-[0.98] touch-manipulation flex items-center justify-center space-x-1.5 sm:space-x-2 text-xs sm:text-sm"
                             >
                                 <svg className="w-5 h-5" viewBox="0 0 24 24">
                                     <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
