@@ -10,7 +10,7 @@ import { Zap } from "lucide-react";
 import { useLanguage } from "./contexts/LanguageContext";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "./components/ui/dialog";
 import toast from "react-hot-toast";  // 🆕 Dùng react-hot-toast
-import { api } from "./services/api";
+import { api, apiBaseUrl } from "./services/api";
 
 interface LoginProps {
     onSwitchToRegister: () => void;
@@ -74,7 +74,7 @@ export default function Login({ onSwitchToRegister, onLogin, onStaffLogin, onAdm
             (async () => {
                 try {
                     const res = await axios.get(
-                        `http://localhost:8080/api/auth/social/callback?code=${encodeURIComponent(
+                        `${apiBaseUrl}/api/auth/social/callback?code=${encodeURIComponent(
                             code
                         )}&state=${encodeURIComponent(state)}`
                     );
@@ -89,7 +89,7 @@ export default function Login({ onSwitchToRegister, onLogin, onStaffLogin, onAdm
 
                         //userId
                         const meRes = await axios.post(
-                            "http://localhost:8080/api/auth/me",
+                            `${apiBaseUrl}/api/auth/me`,
                             null,
                             { headers: { Authorization: `Bearer ${accessToken}` } }
                         );
@@ -151,7 +151,7 @@ export default function Login({ onSwitchToRegister, onLogin, onStaffLogin, onAdm
         setError(null);
 
         try {
-            const res = await axios.post("http://localhost:8080/api/auth/login", {
+            const res = await axios.post(`${apiBaseUrl}/api/auth/login`, {
                 username: email.trim(),
                 password: password.trim(),
             });
@@ -165,7 +165,7 @@ export default function Login({ onSwitchToRegister, onLogin, onStaffLogin, onAdm
                 let userId = null;
 
                 const meRes = await axios.post(
-                    "http://localhost:8080/api/auth/me",
+                    `${apiBaseUrl}/api/auth/me`,
                     null,
                     { headers: { Authorization: `Bearer ${accessToken}` } }
                 );
@@ -382,7 +382,7 @@ export default function Login({ onSwitchToRegister, onLogin, onStaffLogin, onAdm
     // GOOGLE LOGIN (redirect)
     const handleGoogleLogin = async () => {
         try {
-            const res = await axios.get("http://localhost:8080/api/auth/social/login?loginType=google");
+            const res = await axios.get(`${apiBaseUrl}/api/auth/social/login?loginType=google`);
             if (res.data?.data) {
                 window.location.href = res.data.data; // Redirect sang Google OAuth
             } else {
@@ -399,7 +399,7 @@ export default function Login({ onSwitchToRegister, onLogin, onStaffLogin, onAdm
     // FACEBOOK LOGIN (redirect)
     const handleFacebookLogin = async () => {
         try {
-            const res = await axios.get("http://localhost:8080/api/auth/social/login?loginType=facebook");
+            const res = await axios.get(`${apiBaseUrl}/api/auth/social/login?loginType=facebook`);
             if (res.data?.data) {
                 window.location.href = res.data.data;
             } else {
@@ -427,7 +427,7 @@ export default function Login({ onSwitchToRegister, onLogin, onStaffLogin, onAdm
         }
         try {
             setResetMessage("Sending OTP...");
-            const res = await axios.post("http://localhost:8080/api/otp/send/forgot-password", { email: resetEmail });
+            const res = await axios.post(`${apiBaseUrl}/api/otp/send/forgot-password`, { email: resetEmail });
             if (res.data?.success) {
                 setOtpSent(true);
                 setResetMessage("OTP sent to your email");
@@ -466,7 +466,7 @@ export default function Login({ onSwitchToRegister, onLogin, onStaffLogin, onAdm
         }
         try {
             console.log("Verifying OTP for email:", resetEmail, "OTP:", trimmedOtp);
-            const res = await axios.post("http://localhost:8080/api/otp/verify/forgot-password", {
+            const res = await axios.post(`${apiBaseUrl}/api/otp/verify/forgot-password`, {
                 email: resetEmail.trim(),
                 otpCode: trimmedOtp,
             });
@@ -525,7 +525,7 @@ export default function Login({ onSwitchToRegister, onLogin, onStaffLogin, onAdm
 
             try {
                 setLoading(true);
-                const res = await axios.post("http://localhost:8080/api/otp/reset-password", {
+                const res = await axios.post(`${apiBaseUrl}/api/otp/reset-password`, {
                     resetToken,
                     newPassword,
                 });

@@ -198,33 +198,33 @@ export default function PenaltyPaymentView({
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-red-50 via-white to-red-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-900 p-4">
+    <div className="min-h-screen bg-[#050505] text-white p-4">
       <div className="max-w-2xl mx-auto pt-8">
         {/* Header */}
         <div className="mb-8 text-center">
           <div className="flex justify-center mb-4">
-            <div className="bg-red-100 dark:bg-red-900/30 p-4 rounded-full">
-              <Shield className="w-12 h-12 text-red-600 dark:text-red-400" />
+            <div className="bg-white/10 border border-white/10 p-4 rounded-full">
+              <Shield className="w-12 h-12 text-red-400" />
             </div>
           </div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
+          <h1 className="text-3xl font-bold text-white mb-2">
             {language === 'vi' ? statusContent.header.vi : statusContent.header.en}
           </h1>
-          <p className="text-gray-600 dark:text-gray-400">
+          <p className="text-gray-300">
             {language === 'vi' ? statusContent.description.vi : statusContent.description.en}
           </p>
         </div>
 
         {/* Main Content */}
-        <Card className="bg-card/80 backdrop-blur-sm border-border/60 mb-6">
+        <Card className="bg-[#111111] border border-white/10 text-white shadow-lg mb-6">
           <CardHeader>
-            <CardTitle className="flex items-center space-x-2">
-              <AlertTriangle className="w-5 h-5 text-red-600 dark:text-red-400" />
+            <CardTitle className="flex items-center space-x-2 text-white">
+              <AlertTriangle className="w-5 h-5 text-red-400" />
               <span>
                 {language === 'vi' ? 'Thông Tin Tài Khoản' : 'Account Details'}
               </span>
             </CardTitle>
-            <CardDescription>
+            <CardDescription className="text-gray-300">
               {language === 'vi' 
                 ? 'Trạng thái tài khoản và giao dịch cần thanh toán'
                 : 'Account status and pending transaction'}
@@ -233,7 +233,7 @@ export default function PenaltyPaymentView({
           <CardContent className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <p className="text-sm text-muted-foreground mb-1">
+                <p className="text-sm text-gray-400 mb-1">
                   {language === 'vi' ? 'Số lần vi phạm' : 'Violations'}
                 </p>
                 <Badge variant="destructive" className="text-lg px-3 py-1">
@@ -241,7 +241,7 @@ export default function PenaltyPaymentView({
                 </Badge>
               </div>
               <div>
-                <p className="text-sm text-muted-foreground mb-1">
+                <p className="text-sm text-gray-400 mb-1">
                   {language === 'vi' ? 'Trạng thái' : 'Status'}
                 </p>
                 <Badge variant={statusContent.badge.variant} className="text-lg px-3 py-1">
@@ -251,11 +251,11 @@ export default function PenaltyPaymentView({
             </div>
 
             {userData?.reasonReport && (
-              <div className="mt-4 p-4 bg-red-50 dark:bg-red-900/20 rounded-lg">
-                <p className="text-sm font-medium text-red-900 dark:text-red-100 mb-2">
+              <div className="mt-4 p-4 bg-red-500/10 border border-red-500/30 rounded-lg">
+                <p className="text-sm font-medium text-red-200 mb-2">
                   {language === 'vi' ? 'Lý do khóa tài khoản:' : 'Ban Reason:'}
                 </p>
-                <p className="text-sm text-red-700 dark:text-red-300">
+                <p className="text-sm text-red-200">
                   {userData.reasonReport}
                 </p>
               </div>
@@ -264,22 +264,22 @@ export default function PenaltyPaymentView({
         </Card>
 
         {/* Payment Card */}
-        <Card className="bg-card/80 backdrop-blur-sm border-border/60">
+        <Card className="bg-[#0f172a] border border-white/10 text-white shadow-lg">
           <CardHeader>
-            <CardTitle className="flex items-center space-x-2">
-              <CreditCard className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+            <CardTitle className="flex items-center space-x-2 text-white">
+              <CreditCard className="w-5 h-5 text-blue-400" />
               <span>
                 {language === 'vi' ? 'Thanh Toán Giao Dịch' : 'Transaction Payment'}
               </span>
             </CardTitle>
-            <CardDescription>
+            <CardDescription className="text-gray-300">
               {language === 'vi' 
                 ? 'Hoàn tất thanh toán giao dịch còn tồn đọng'
                 : 'Complete the pending transaction payment'}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm text-gray-300">
               {language === 'vi'
                 ? 'Thanh toán để mở khóa tài khoản và tiếp tục sử dụng dịch vụ.'
                 : 'Complete the payment to unlock your account and continue using the service.'}
@@ -288,8 +288,8 @@ export default function PenaltyPaymentView({
             {/* Payment Status */}
             {paymentStatus === 'pending' && (
               <div className="space-y-4">
-                <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border border-yellow-200 dark:border-yellow-800">
-                  <p className="text-sm text-yellow-800 dark:text-yellow-200">
+                <div className="p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
+                  <p className="text-sm text-yellow-200">
                     {language === 'vi'
                       ? '⚠️ Hoàn tất thanh toán để tiếp tục sử dụng đầy đủ dịch vụ.'
                       : '⚠️ Complete the payment to continue using all services.'}
@@ -297,7 +297,7 @@ export default function PenaltyPaymentView({
                 </div>
 
                 <div className="space-y-2">
-                  <p className="text-sm font-medium">
+                  <p className="text-sm font-medium text-white">
                     {language === 'vi' ? 'Chọn phương thức thanh toán' : 'Select payment method'}
                   </p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -327,19 +327,19 @@ export default function PenaltyPaymentView({
                           onClick={() => setSelectedMethod(method.key)}
                           className={`rounded-xl border p-4 text-left transition-all ${
                             isActive
-                              ? 'border-blue-600 bg-blue-50 dark:bg-blue-900/20 shadow-sm'
-                              : 'border-border hover:border-blue-400 hover:bg-blue-50/40 dark:hover:bg-blue-900/10'
+                              ? 'border-blue-400 bg-blue-500/10 shadow-sm text-white'
+                              : 'border-white/10 bg-white/5 hover:border-blue-400 hover:bg-blue-500/10 text-gray-200'
                           }`}
                         >
                           <div className="flex items-center justify-between">
                             <span className="font-semibold text-base">{method.title}</span>
                             <span
                               className={`h-4 w-4 rounded-full border-2 ${
-                                isActive ? 'border-blue-600 bg-blue-600' : 'border-muted bg-background'
+                                isActive ? 'border-blue-500 bg-blue-500' : 'border-white/30 bg-transparent'
                               }`}
                             />
                           </div>
-                          <p className="text-xs text-muted-foreground mt-2">{method.description}</p>
+                          <p className="text-xs text-gray-300 mt-2">{method.description}</p>
                         </button>
                       );
                     })}
@@ -360,11 +360,11 @@ export default function PenaltyPaymentView({
 
             {paymentStatus === 'processing' && (
               <div className="text-center space-y-4">
-                <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-blue-600 mx-auto"></div>
-                <p className="text-lg font-medium text-blue-600 dark:text-blue-400">
+                <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-blue-500 mx-auto"></div>
+                <p className="text-lg font-medium text-blue-300">
                   {language === 'vi' ? 'Đang xử lý thanh toán...' : 'Processing payment...'}
                 </p>
-                <p className="text-sm text-muted-foreground">
+                <p className="text-sm text-gray-300">
                   {language === 'vi' ? 'Vui lòng đợi' : 'Please wait'}
                 </p>
               </div>
@@ -373,14 +373,14 @@ export default function PenaltyPaymentView({
             {paymentStatus === 'success' && (
               <div className="text-center space-y-4 py-6">
                 <div className="flex justify-center">
-                  <div className="bg-green-100 dark:bg-green-900/30 p-4 rounded-full">
-                    <CheckCircle className="w-16 h-16 text-green-600 dark:text-green-400" />
+                  <div className="bg-green-500/10 border border-green-500/30 p-4 rounded-full">
+                    <CheckCircle className="w-16 h-16 text-green-400" />
                   </div>
                 </div>
-                <h3 className="text-2xl font-bold text-green-600 dark:text-green-400">
+                <h3 className="text-2xl font-bold text-green-400">
                   {language === 'vi' ? 'Thanh Toán Thành Công!' : 'Payment Successful!'}
                 </h3>
-                <p className="text-muted-foreground">
+                <p className="text-gray-300">
                   {language === 'vi' 
                     ? 'Tài khoản của bạn đã được kích hoạt lại. Đang chuyển hướng...'
                     : 'Your account has been reactivated. Redirecting...'}
@@ -391,14 +391,14 @@ export default function PenaltyPaymentView({
             {paymentStatus === 'failed' && (
               <div className="text-center space-y-4 py-6">
                 <div className="flex justify-center">
-                  <div className="bg-red-100 dark:bg-red-900/30 p-4 rounded-full">
-                    <XCircle className="w-16 h-16 text-red-600 dark:text-red-400" />
+                  <div className="bg-red-500/10 border border-red-500/30 p-4 rounded-full">
+                    <XCircle className="w-16 h-16 text-red-400" />
                   </div>
                 </div>
-                <h3 className="text-2xl font-bold text-red-600 dark:text-red-400">
+                <h3 className="text-2xl font-bold text-red-400">
                   {language === 'vi' ? 'Thanh Toán Thất Bại' : 'Payment Failed'}
                 </h3>
-                <p className="text-muted-foreground">
+                <p className="text-gray-300">
                   {language === 'vi' 
                     ? 'Đã có lỗi xảy ra trong quá trình thanh toán'
                     : 'An error occurred during payment'}
@@ -406,7 +406,7 @@ export default function PenaltyPaymentView({
                 <Button 
                   onClick={handleRetry}
                   variant="outline"
-                  className="mt-4"
+                  className="mt-4 border-white/20 text-white"
                 >
                   {language === 'vi' ? 'Thử Lại' : 'Retry'}
                 </Button>
@@ -416,7 +416,7 @@ export default function PenaltyPaymentView({
             {/* Cancel Button */}
             {paymentStatus === 'pending' && (
               <Button 
-                onClick={() => navigate("/dashboard")}
+                onClick={() => navigate("/login")}
                 variant="ghost"
                 className="w-full"
               >
@@ -427,11 +427,11 @@ export default function PenaltyPaymentView({
         </Card>
 
         {/* Help Section */}
-        <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-          <p className="text-sm text-blue-900 dark:text-blue-100 mb-2">
+        <div className="mt-6 p-4 bg-[#111111] border border-white/10 rounded-lg">
+          <p className="text-sm text-white mb-2">
             {language === 'vi' ? '💡 Cần trợ giúp?' : '💡 Need help?'}
           </p>
-          <p className="text-xs text-blue-700 dark:text-blue-300">
+          <p className="text-xs text-gray-300">
             {language === 'vi' 
               ? 'Nếu bạn cho rằng tài khoản bị khóa nhầm, vui lòng liên hệ hỗ trợ: support@chargehub.com'
               : 'If you believe your account was banned by mistake, please contact support: support@chargehub.com'}

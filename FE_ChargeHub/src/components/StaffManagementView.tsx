@@ -15,6 +15,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { useTheme } from '../contexts/ThemeContext';
 import AdminLanguageThemeControls from './AdminLanguageThemeControls';
 import axios from 'axios';
+import { apiBaseUrl } from '../services/api';
 
 type ChargingPoint = unknown;
 interface ConnectorType {
@@ -295,7 +296,7 @@ export default function StaffManagementView({ onBack }: StaffManagementViewProps
     const token = localStorage.getItem("token");
           try {
   
-              const res = await axios.get("http://localhost:8080/api/charging-stations",{
+              const res = await axios.get(`${apiBaseUrl}/api/charging-stations`,{
         headers: {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -344,7 +345,7 @@ export default function StaffManagementView({ onBack }: StaffManagementViewProps
   const getAvailableStaffs = async() : Promise<Staff[]|null> => {
     const token = localStorage.getItem("token");
     try {
-      const res = await axios.get("http://localhost:8080/api/staff-management/available",
+      const res = await axios.get(`${apiBaseUrl}/api/staff-management/available`,
         {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -380,7 +381,7 @@ export default function StaffManagementView({ onBack }: StaffManagementViewProps
     const token = localStorage.getItem("token");
     try {
       const payload = { userId, stationId: Number(stationId) };
-      const res = await axios.post("http://localhost:8080/api/staff-management/assign", payload, {
+      const res = await axios.post(`${apiBaseUrl}/api/staff-management/assign`, payload, {
         headers: {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -400,7 +401,7 @@ export default function StaffManagementView({ onBack }: StaffManagementViewProps
         fullName: fullName,
         status: status
       }
-      const res = await axios.put(`http://localhost:8080/api/staff-management/staff/${userId}`, payload,
+      const res = await axios.put(`${apiBaseUrl}/api/staff-management/staff/${userId}`, payload,
         {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -418,7 +419,7 @@ export default function StaffManagementView({ onBack }: StaffManagementViewProps
   const removeStaffFromStation = async(stationId: string, userId: string): Promise<boolean> => {
     const token = localStorage.getItem("token");
     try {
-      const res = await axios.delete(`http://localhost:8080/api/staff-management/stations/${stationId}/staff/${userId}`,{
+      const res = await axios.delete(`${apiBaseUrl}/api/staff-management/stations/${stationId}/staff/${userId}`,{
         headers: {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -944,9 +945,16 @@ export default function StaffManagementView({ onBack }: StaffManagementViewProps
                   disabled={!assignTargetStaff || !assignSelectedStationId}
                   onClick={async () => {
                     if (!assignTargetStaff || !assignSelectedStationId) return;
+                    
+                    // Check if selected station is inactive
+                    const chosen = stationsList.find(s => String(s.stationId ?? s.id) === assignSelectedStationId);
+                    if (chosen && chosen.status && chosen.status.toUpperCase() === 'INACTIVE') {
+                      toast.error(isVietnamese ? 'Không thể gán nhân viên cho trạm đang không hoạt động' : 'Cannot assign staff to inactive station');
+                      return;
+                    }
+                    
                     const ok = await assignStaffToStation(assignSelectedStationId, assignTargetStaff.id);
                     if (ok) {
-                      const chosen = stationsList.find(s => String(s.stationId ?? s.id) === assignSelectedStationId);
                       setStaffList(prev => prev.map(s => s.id === assignTargetStaff.id ? { ...s, station: String(chosen?.stationName || chosen?.name || '') } : s));
                       setIsAssignDialogOpen(false);
                       toast.success(isVietnamese ? 'Đã gán trạm làm việc' : 'Assigned successfully');

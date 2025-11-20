@@ -201,66 +201,74 @@ export default function DriverManagementView({ onBack }: DriverManagementViewPro
   const bannedDrivers = drivers.filter(d => d.status === 'BANNED').length;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-900 p-6">
-      <div className="max-w-7xl mx-auto space-y-6">
+    <div className="min-h-screen bg-background">
+      <div className="container mx-auto px-4 sm:px-6 py-6 max-w-7xl">
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <Button
-              variant="ghost"
-              onClick={onBack}
-              className="hover:bg-white/50 dark:hover:bg-gray-800/50"
-            >
-              <ArrowLeft className="w-5 h-5 mr-2" />
-              {isVietnamese ? 'Quay lại' : 'Back'}
-            </Button>
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-                {translations.title}
-              </h1>
-              <p className="text-muted-foreground">
-                {isVietnamese ? 'Quản lý thông tin và trạng thái tài xế' : 'Manage driver information and status'}
-              </p>
+        <div className="mb-8">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center space-x-4">
+              <Button
+                variant="ghost"
+                onClick={onBack}
+                className="hover:bg-accent"
+              >
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                {isVietnamese ? 'Quay lại' : 'Back'}
+              </Button>
+              <div>
+                <h1 className="text-2xl font-semibold text-foreground">
+                  {translations.title}
+                </h1>
+                <p className="text-sm text-muted-foreground mt-1">
+                  {isVietnamese ? 'Quản lý thông tin và trạng thái tài xế' : 'Manage driver information and status'}
+                </p>
+              </div>
             </div>
+            <AdminLanguageThemeControls />
           </div>
-          <AdminLanguageThemeControls />
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <Card className="bg-gradient-to-br from-blue-500 to-blue-600 text-white">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          <Card className="bg-card border-border">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
                 {translations.totalDrivers}
               </CardTitle>
-              <Users2 className="h-4 w-4" />
+              <div className="w-10 h-10 bg-muted rounded-lg flex items-center justify-center">
+                <Users2 className="h-5 w-5 text-muted-foreground" />
+              </div>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold">{totalDrivers}</div>
+              <div className="text-2xl font-semibold text-foreground">{totalDrivers}</div>
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-red-500 to-red-600 text-white">
+          <Card className="bg-card border-border">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
                 {translations.bannedDrivers}
               </CardTitle>
-              <Ban className="h-4 w-4" />
+              <div className="w-10 h-10 bg-muted rounded-lg flex items-center justify-center">
+                <Ban className="h-5 w-5 text-muted-foreground" />
+              </div>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold">{bannedDrivers}</div>
+              <div className="text-2xl font-semibold text-foreground">{bannedDrivers}</div>
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-green-500 to-green-600 text-white">
+          <Card className="bg-card border-border">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
                 {isVietnamese ? 'Hoạt động' : 'Active'}
               </CardTitle>
-              <UserCheck className="h-4 w-4" />
+              <div className="w-10 h-10 bg-muted rounded-lg flex items-center justify-center">
+                <UserCheck className="h-5 w-5 text-muted-foreground" />
+              </div>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold">
+              <div className="text-2xl font-semibold text-foreground">
                 {drivers.filter(d => d.status === 'ACTIVE').length}
               </div>
             </CardContent>
@@ -268,8 +276,8 @@ export default function DriverManagementView({ onBack }: DriverManagementViewPro
         </div>
 
         {/* Filters */}
-        <Card>
-          <CardContent className="pt-6">
+        <Card className="mb-6">
+          <CardContent className="p-4">
             <div className="flex flex-col md:flex-row gap-4">
               <div className="flex-1">
                 <div className="relative">
@@ -300,10 +308,19 @@ export default function DriverManagementView({ onBack }: DriverManagementViewPro
 
         {/* Table */}
         <Card>
-          <CardContent className="pt-6">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Users2 className="w-5 h-5" />
+              {isVietnamese ? 'Danh sách tài xế' : 'Drivers List'}
+              <Badge variant="secondary" className="ml-2">
+                {filteredDrivers.length}
+              </Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
             {loading ? (
               <div className="text-center py-12">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
                 <p className="text-muted-foreground">{translations.messages.loading}</p>
               </div>
             ) : filteredDrivers.length === 0 ? (
@@ -328,16 +345,16 @@ export default function DriverManagementView({ onBack }: DriverManagementViewPro
                   </TableHeader>
                   <TableBody>
                     {filteredDrivers.map((driver, index) => (
-                      <TableRow key={driver.userId}>
-                        <TableCell>{index + 1}</TableCell>
-                        <TableCell className="font-medium">{driver.userId}</TableCell>
+                      <TableRow key={driver.userId} className="hover:bg-muted/50">
+                        <TableCell className="font-medium">{index + 1}</TableCell>
+                        <TableCell className="font-mono text-sm">{driver.userId}</TableCell>
                         <TableCell>
                           <div className="flex items-center space-x-3">
-                            <Avatar>
+                            <Avatar className="w-8 h-8">
                               <AvatarImage 
                                 src={driver.avatarUrl?.startsWith('http') ? driver.avatarUrl : undefined} 
                               />
-                              <AvatarFallback>
+                              <AvatarFallback className="text-xs">
                                 {driver.fullName?.charAt(0) || 'U'}
                               </AvatarFallback>
                             </Avatar>
@@ -363,7 +380,7 @@ export default function DriverManagementView({ onBack }: DriverManagementViewPro
                         </TableCell>
                         <TableCell>{getStatusBadge(driver.status)}</TableCell>
                         <TableCell className="text-right">
-                          <div className="flex justify-end space-x-2">
+                          <div className="flex justify-end space-x-1">
                             <Button
                               variant="ghost"
                               size="sm"
@@ -371,6 +388,8 @@ export default function DriverManagementView({ onBack }: DriverManagementViewPro
                                 setSelectedDriver(driver);
                                 setIsViewDialogOpen(true);
                               }}
+                              className="h-8 w-8 p-0"
+                              title={translations.actions.view}
                             >
                               <Eye className="w-4 h-4" />
                             </Button>
@@ -383,6 +402,8 @@ export default function DriverManagementView({ onBack }: DriverManagementViewPro
                                 setNewRole(driver.role as any);
                                 setIsEditDialogOpen(true);
                               }}
+                              className="h-8 w-8 p-0"
+                              title={translations.actions.edit}
                             >
                               <Edit className="w-4 h-4" />
                             </Button>
@@ -393,6 +414,8 @@ export default function DriverManagementView({ onBack }: DriverManagementViewPro
                                 setSelectedDriver(driver);
                                 setViolationReason('');
                               }}
+                              className="h-8 w-8 p-0"
+                              title={translations.actions.reportViolation}
                             >
                               <ShieldAlert className="w-4 h-4 text-red-500" />
                             </Button>
