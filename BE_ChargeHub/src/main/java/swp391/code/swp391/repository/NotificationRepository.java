@@ -8,6 +8,7 @@ import org.springframework.stereotype.Repository;
 import swp391.code.swp391.entity.Notification;
 import swp391.code.swp391.entity.User;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Repository
@@ -28,4 +29,12 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
     @Modifying
     @Query("UPDATE Notification n SET n.isRead = true WHERE n.user = :user AND n.isRead = false")
     int markAllAsRead(@Param("user") User user);
+
+    // Kiểm tra tồn tại notification chưa đọc có cùng user/title/type trong khoảng thời gian từ `since` đến hiện tại
+    @Query("SELECT CASE WHEN COUNT(n) > 0 THEN true ELSE false END FROM Notification n " +
+            "WHERE n.user = :user AND n.title = :title AND n.type = :type AND n.isRead = false AND n.sentTime >= :since")
+    boolean existsUnreadByUserTitleTypeSince(@Param("user") User user,
+                                             @Param("title") String title,
+                                             @Param("type") Notification.Type type,
+                                             @Param("since") LocalDateTime since);
 }

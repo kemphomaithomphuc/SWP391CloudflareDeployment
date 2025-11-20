@@ -9,8 +9,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import AdminLanguageThemeControls from './AdminLanguageThemeControls';
-import axios from 'axios';
-import { apiBaseUrl } from '../services/api';
+import { api } from '../services/api';
 
 
 interface UsageAnalyticsViewProps {
@@ -161,7 +160,7 @@ export default function UsageAnalyticsView({ onBack }: Readonly<UsageAnalyticsVi
   const analyzePeakHour = async() : Promise<PeakHour[] | null> => {
     const token = localStorage.getItem("token");
     try {
-      const res = await axios.get(`${apiBaseUrl}/api/analytics/peak-hours`, {
+      const res = await api.get(`/api/analytics/peak-hours`, {
         headers: {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -249,7 +248,7 @@ export default function UsageAnalyticsView({ onBack }: Readonly<UsageAnalyticsVi
   const analyzeTrend = async() : Promise<Trend[] | null> => {
     const token = localStorage.getItem("token");
     try {
-      const res = await axios.get(`${apiBaseUrl}/api/analytics/trends`, {
+      const res = await api.get(`/api/analytics/trends`, {
         headers: {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -279,7 +278,7 @@ export default function UsageAnalyticsView({ onBack }: Readonly<UsageAnalyticsVi
   const analyzeDashboard = async() : Promise<DashBoard[] | null> => {
     const token = localStorage.getItem("token");
     try {
-      const res = await axios.get(`${apiBaseUrl}/api/analytics/dashboard`, {
+      const res = await api.get(`/api/analytics/dashboard`, {
         headers: {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json'

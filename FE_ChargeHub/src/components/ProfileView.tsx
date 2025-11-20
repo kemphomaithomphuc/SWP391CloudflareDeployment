@@ -1,6 +1,4 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
-import { apiBaseUrl } from "../services/api";
 import { User, Edit, Save, ArrowLeft, Key, RefreshCw } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -424,8 +422,8 @@ export default function ProfileView({ onBack }: ProfileViewProps) {
                 return;
             }
             
-            await axios.post(
-                `${apiBaseUrl}/api/otp/send/email-change`,
+            await api.post(
+                `/api/otp/send/email-change`,
                 { 
                     email: newEmailInput,
                     currentUserEmail: currentUserEmail  // Send current user email to help backend identify user
@@ -460,8 +458,8 @@ export default function ProfileView({ onBack }: ProfileViewProps) {
         try {
             setEmailChangeLoading(true);
             setEmailChangeError(null);
-            await axios.post(
-                `${apiBaseUrl}/api/otp/verify/email-change`,
+            await api.post(
+                `/api/otp/verify/email-change`,
                 { email: newEmailInput, otpCode: emailOtpCode },
                 { headers: { Authorization: `Bearer ${token}` } }
             );

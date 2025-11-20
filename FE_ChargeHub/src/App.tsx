@@ -7,7 +7,6 @@ import { NotificationProvider } from "./contexts/NotificationContext";
 import { Toaster } from "./components/ui/sonner";
 import AppLayout from "./components/AppLayout";
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom'
-import axios from "axios";
 
 
 // Import components individually to catch any import errors
@@ -45,7 +44,7 @@ import ChargingSessionView from "./components/ChargingSessionView";
 import PremiumSubscriptionView from "./components/PremiumSubscriptionView";
 import PaymentResultView from "./components/PaymentResultView";
 import { ChatbotProvider } from "./contexts/ChatbotContext";
-import { checkAndRefreshToken, logoutUser, apiBaseUrl } from "./services/api";
+import { checkAndRefreshToken, logoutUser, api } from "./services/api";
 import PenaltyPayment from "./PenaltyPayment";
 import PayUnpaid from "./payUnpaid";
 import ParkingView from "./components/ParkingView";
@@ -294,7 +293,7 @@ function AppContent() {
         // Check if user has vehicles
         const userId = localStorage.getItem("userId") || localStorage.getItem("registeredUserId");
         if (userId) {
-          const res = await axios.get(`${apiBaseUrl}/api/user/profile/${userId}`);
+          const res = await api.get(`/api/user/profile/${userId}`);
           if (res.data && res.data.vehicles && res.data.vehicles.length > 0) {
             // User has vehicles, go to dashboard
             setCurrentView("dashboard");
@@ -416,8 +415,8 @@ function AppContent() {
       (async () => {
         try {
 
-          const r = await axios.get(
-            `${apiBaseUrl}/api/auth/social/callback?code=${code}&state=${state}`
+          const r = await api.get(
+            `/api/auth/social/callback?code=${code}&state=${state}`
           );
 
           const at = r?.data?.data?.accessToken as string | undefined;
@@ -429,8 +428,8 @@ function AppContent() {
 
           // /me
           try {
-            const meRes = await axios.post(
-              `${apiBaseUrl}/api/auth/me`,
+            const meRes = await api.post(
+              `/api/auth/me`,
               null,
               { headers: { Authorization: `Bearer ${at}` } }
             );
@@ -440,7 +439,7 @@ function AppContent() {
               
               // Fetch and store user profile data
               try {
-                const profileRes = await axios.get(`${apiBaseUrl}/api/user/profile/${userId}`);
+                const profileRes = await api.get(`/api/user/profile/${userId}`);
                 if (profileRes.status === 200 && profileRes.data?.data) {
                   const userProfile = profileRes.data.data;
                   if (userProfile.fullName) {

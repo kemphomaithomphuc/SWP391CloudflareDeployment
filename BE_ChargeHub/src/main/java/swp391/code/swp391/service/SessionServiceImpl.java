@@ -328,6 +328,11 @@ public class SessionServiceImpl implements SessionService {
     }
 
     @Override
+    public Double calculatePenaltyAmount(String type, Order order) {
+        return 0.0;
+    }
+
+    @Override
     @Transactional
     public Long endSession(Long sessionId, Long userId) {
         Session session = sessionRepository.findById(sessionId)
@@ -355,28 +360,8 @@ public class SessionServiceImpl implements SessionService {
 
         LocalDateTime now = LocalDateTime.now();
 
-        // XỬ LÝ PHÍ PARKING (nếu đang ở trạng thái PARKING)
-        if (session.getStatus() == Session.SessionStatus.PARKING && session.getParkingStartTime() != null) {
-            // Tính thời gian từ khi bắt đầu parking đến khi user xác nhận rời đi
-            long minutesSinceParkingStart = ChronoUnit.MINUTES.between(session.getParkingStartTime(), now);
-
-            // Nếu quá 15 phút grace period → tính phí parking
-            if (minutesSinceParkingStart > 15) {
-                long chargeableMinutes = minutesSinceParkingStart - 15; // Trừ đi 15 phút grace
-
-                // Sử dụng FeeCalculationService để tạo parking fee
-                Fee fee = feeCalculationService.createParkingFee(session, chargeableMinutes);
-
-                if (fee != null) {
-                    // Gửi notification về phí đỗ xe
-                    notificationService.createPenaltyNotification(session.getOrder().getOrderId(),
-                            NotificationServiceImpl.PenaltyEvent.PARKING_PENALTY,
-                            fee.getAmount(),
-                            String.format("Đỗ xe %d phút sau grace period", chargeableMinutes));
-                }
-            }
-            // Nếu <= 15 phút: không tính phí, user rời đi đúng thời gian
-        }
+        // XỬ LÝ PHÍ PARKING (nếu đang ở trạng thái PARKING) - Sử dụng helper method
+        applyParkingFeeIfNeeded(session, now, null);
 
         // Hoàn thành session
         session.setStatus(Session.SessionStatus.COMPLETED);
@@ -406,15 +391,24 @@ public class SessionServiceImpl implements SessionService {
         return session.getSessionId();
     }
 
-    private void applyPenalty(Order order, Fee.Type type) { //Áp dụng phạt
-        Fee fee = new Fee();
-        fee.setOrder(order);
-        fee.setType(type);
-        fee.setAmount(calculatePenaltyAmount(type.toString(), order));
-        fee.setAmount(fee.getAmount());
-        fee.setIsPaid(false);
-        fee.setCreatedAt(LocalDateTime.now());
-        feeRepository.save(fee);
+    /**
+     * Áp dụng phạt - SỬ DỤNG FeeCalculationService thay vì tính trực tiếp
+     */
+    private void applyPenalty(Order order, Fee.Type type) {
+        Fee fee;
+
+        // Sử dụng FeeCalculationService để tính và tạo fee
+        switch (type) {
+            case NO_SHOW:
+                fee = feeCalculationService.calculateNoShowFee(order);
+                break;
+            case CANCEL:
+                fee = feeCalculationService.calculateCancelFee(order);
+                break;
+            default:
+                log.error("Invalid penalty type for applyPenalty: {}", type);
+                return;
+        }
 
         // Gửi penalty notification
         NotificationServiceImpl.PenaltyEvent penaltyEvent;
@@ -425,31 +419,38 @@ public class SessionServiceImpl implements SessionService {
             case CANCEL:
                 penaltyEvent = NotificationServiceImpl.PenaltyEvent.CANCEL_PENALTY;
                 break;
-            case PARKING:
-                penaltyEvent = NotificationServiceImpl.PenaltyEvent.PARKING_PENALTY;
-                break;
             default:
                 penaltyEvent = NotificationServiceImpl.PenaltyEvent.NO_SHOW_PENALTY;
         }
         notificationService.createPenaltyNotification(order.getOrderId(), penaltyEvent, fee.getAmount(), "Tự động áp dụng phạt");
     }
 
-    @Override //US12
-    public Double calculatePenaltyAmount(String type, Order order) {
-        // Implement based on BR12 examples
-        return 0.0; // Placeholder
-    }
-
     @Override //US11
     public Double calculateBatteryPercentage(Vehicle vehicle, Double kwh) {
-        return (kwh / vehicle.getCarModel().getCapacity()) * 100;
+        if (vehicle == null || vehicle.getCarModel() == null) {
+            log.error("Vehicle or CarModel is null in calculateBatteryPercentage");
+            throw new IllegalArgumentException("Vehicle or CarModel cannot be null");
+        }
+
+        Double capacity = vehicle.getCarModel().getCapacity();
+        if (capacity == null || capacity <= 0) {
+            log.error("Invalid battery capacity: {}", capacity);
+            throw new IllegalArgumentException("Battery capacity must be greater than 0");
+        }
+
+        if (kwh == null || kwh < 0) {
+            log.warn("Invalid kwh value: {}, returning 0", kwh);
+            return 0.0;
+        }
+
+        return (kwh / capacity) * 100;
     }
 
-    @Override //US11
+    @Override
     public long expectedMinutes(Vehicle vehicle, Double expectedBattery) {
-        // Calculate based on power and capacity
         return 0;
     }
+
 
     @Override
     public List<SessionDTO> getAllSessions() {
@@ -543,30 +544,14 @@ public class SessionServiceImpl implements SessionService {
         // ===== CASE 2: Nếu đang PARKING, force complete luôn =====
         LocalDateTime now = LocalDateTime.now();
 
-        // XỬ LÝ PHÍ PARKING (nếu đang ở trạng thái PARKING)
-        if (session.getStatus() == Session.SessionStatus.PARKING && session.getParkingStartTime() != null) {
-            // Tính thời gian từ khi bắt đầu parking đến khi staff force complete
-            long minutesSinceParkingStart = ChronoUnit.MINUTES.between(session.getParkingStartTime(), now);
+        // XỬ LÝ PHÍ PARKING - Sử dụng helper method với reason đặc biệt
+        Fee parkingFee = applyParkingFeeIfNeeded(session, now, "Staff force complete - Xác nhận rời trạm thay người dùng");
 
-            // Nếu quá 15 phút grace period → tính phí parking
-            if (minutesSinceParkingStart > 15) {
-                long chargeableMinutes = minutesSinceParkingStart - 15; // Trừ đi 15 phút grace
-
-                // Sử dụng FeeCalculationService để tạo parking fee
-                Fee fee = feeCalculationService.createParkingFee(session, chargeableMinutes);
-
-                if (fee != null) {
-                    // Override description cho staff force complete
-                    fee.setDescription(String.format("Phí đỗ xe %d phút (staff force complete)", chargeableMinutes));
-                    feeRepository.save(fee);
-
-                    // Gửi notification về phí đỗ xe
-                    notificationService.createPenaltyNotification(session.getOrder().getOrderId(),
-                            NotificationServiceImpl.PenaltyEvent.PARKING_PENALTY,
-                            fee.getAmount(),
-                            String.format("Staff force complete - Đỗ xe %d phút sau grace period", chargeableMinutes));
-                }
-            }
+        // Override description nếu có fee (cho staff force complete)
+        if (parkingFee != null) {
+            long chargeableMinutes = ChronoUnit.MINUTES.between(session.getParkingStartTime(), now) - 15;
+            parkingFee.setDescription(String.format("Phí đỗ xe %d phút (staff force complete)", chargeableMinutes));
+            feeRepository.save(parkingFee);
         }
 
         // Hoàn thành session
@@ -596,23 +581,41 @@ public class SessionServiceImpl implements SessionService {
     }
 
     /**
-     * DEPRECATED: Staff-related methods are no longer used in the new self-service flow
-     * User now confirms departure themselves via endSession()
+     * Helper method: Áp dụng phí parking nếu cần (sau grace period 15 phút)
+     * @param session Session cần kiểm tra parking fee
+     * @param now Thời điểm hiện tại
+     * @param additionalReason Lý do bổ sung (optional)
+     * @return Fee đã tạo, hoặc null nếu không có phí
      */
+    private Fee applyParkingFeeIfNeeded(Session session, LocalDateTime now, String additionalReason) {
+        if (session.getStatus() != Session.SessionStatus.PARKING || session.getParkingStartTime() == null) {
+            return null;
+        }
 
-    /*
-    @Transactional
-    public Long staffMarkStillParked(Long sessionId, Long staffId) {
-        // No longer used - parking status is managed automatically
-        throw new RuntimeException("This method is deprecated. Use self-service flow.");
-    }
+        long minutesSinceParkingStart = ChronoUnit.MINUTES.between(session.getParkingStartTime(), now);
 
-    @Transactional
-    public Long staffMarkLeft(Long sessionId, Long staffId) {
-        // No longer used - user confirms departure via endSession()
-        throw new RuntimeException("This method is deprecated. Use endSession() instead.");
+        if (minutesSinceParkingStart > 15) {
+            long chargeableMinutes = minutesSinceParkingStart - 15;
+            Fee fee = feeCalculationService.createParkingFee(session, chargeableMinutes);
+
+            if (fee != null) {
+                String reason = additionalReason != null ?
+                    additionalReason :
+                    String.format("Đỗ xe %d phút sau grace period", chargeableMinutes);
+
+                notificationService.createPenaltyNotification(
+                    session.getOrder().getOrderId(),
+                    NotificationServiceImpl.PenaltyEvent.PARKING_PENALTY,
+                    fee.getAmount(),
+                    reason
+                );
+            }
+
+            return fee;
+        }
+
+        return null;
     }
-    */
 
     /**
      * Helper method: Chuyển session sang trạng thái PARKING

@@ -54,8 +54,8 @@ import { Separator } from "./ui/separator";
 
 import { ScrollArea } from "./ui/scroll-area";
 
-import axios, { AxiosError } from "axios";
-import { apiBaseUrl } from "../services/api";
+import { AxiosError } from "axios";
+import { api } from "../services/api";
 
 import * as maptilersdk from "@maptiler/sdk";
 

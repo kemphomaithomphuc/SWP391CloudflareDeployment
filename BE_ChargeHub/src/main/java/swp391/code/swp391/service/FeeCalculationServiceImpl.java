@@ -112,18 +112,30 @@ public class FeeCalculationServiceImpl implements FeeCalculationService {
     }
 
     /**
-     * Ước tính chi phí đơn đặt dựa trên dung lượng pin xe và giá connector type
+     * Ước tính chi phí đơn đặt dựa trên battery level thực tế từ order
      */
     private BigDecimal estimateOrderCost(Order order) {
-        // Ước tính cơ bản: giả sử sạc 50% dung lượng pin
-        // Trong thực tế, sử dụng order.expectedPower hoặc dung lượng xe
+        // Sử dụng battery level thực tế từ order
+        Double startedBattery = order.getStartedBattery();
+        Double expectedBattery = order.getExpectedBattery();
 
-        BigDecimal estimatedPower = new BigDecimal("30.00"); // Mặc định 30 kWh
+        // Fallback nếu không có thông tin battery
+        if (startedBattery == null || expectedBattery == null) {
+            log.warn("Order {} missing battery info, using default 50% charging", order.getOrderId());
+            startedBattery = 0.0;
+            expectedBattery = 50.0;
+        }
 
+        double batteryToCharge = expectedBattery - startedBattery;
+
+        // Tính năng lượng cần sạc (kWh)
+        BigDecimal energyKwh = new BigDecimal("30.00"); // Mặc định 30 kWh
         if (order.getVehicle() != null && order.getVehicle().getCarModel() != null) {
-            // Giả sử sạc 50% dung lượng pin
-            estimatedPower = BigDecimal.valueOf(order.getVehicle().getCarModel().getCapacity())
-                    .multiply(new BigDecimal("0.5"));
+            Double capacity = order.getVehicle().getCarModel().getCapacity();
+            if (capacity != null && capacity > 0) {
+                // energyKwh = (batteryToCharge / 100) * capacity
+                energyKwh = BigDecimal.valueOf((batteryToCharge / 100.0) * capacity);
+            }
         }
 
         // Lấy giá cơ bản từ connector type
@@ -135,10 +147,14 @@ public class FeeCalculationServiceImpl implements FeeCalculationService {
             );
         }
 
-        // Ước tính đơn giản: power × basePrice × hệ số giá trung bình (1.2)
-        return estimatedPower.multiply(basePrice)
-                .multiply(new BigDecimal("1.2"))
+        // Ước tính: energyKwh × basePrice (không cần hệ số 1.2)
+        BigDecimal estimatedCost = energyKwh.multiply(basePrice)
                 .setScale(2, RoundingMode.HALF_UP);
+
+        log.debug("Estimated cost for order {}: {} kWh × {} VND = {} VND",
+                  order.getOrderId(), energyKwh, basePrice, estimatedCost);
+
+        return estimatedCost;
     }
 
     @Override

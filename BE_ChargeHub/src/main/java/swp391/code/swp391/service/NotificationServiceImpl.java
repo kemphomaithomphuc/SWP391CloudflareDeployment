@@ -5,7 +5,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import swp391.code.swp391.dto.NotificationDTO;
-import swp391.code.swp391.dto.NotificationSignalDTO;
 import swp391.code.swp391.dto.StaffDTO;
 import swp391.code.swp391.entity.*;
 import swp391.code.swp391.repository.NotificationRepository;
@@ -97,36 +96,10 @@ public class NotificationServiceImpl implements NotificationService {
         notificationRepository.markAllAsRead(user);
     }
 
-    public void pushNotificationToUser(Notification notification, Notification.Type type) {
-        // Lấy username (email hoặc phone) của user nhận notification
-        User recipientUser = notification.getUser();
-        String username = recipientUser.getEmail() != null ? recipientUser.getEmail() : recipientUser.getPhone();
-
-        if (username == null) {
-            throw new RuntimeException("User has no email or phone to send notification");
-        }
-
-        NotificationSignalDTO dto = new NotificationSignalDTO();
-        dto.setType(type);
-        dto.setNotificationCount(getUnreadCountForUser(recipientUser.getUserId()).intValue());
-
-        // Gửi notification đến user cụ thể qua WebSocket
-//        simpMessagingTemplate.convertAndSendToUser(
-//                username,
-//                "/queue/notifications",
-//                dto
-//        );
-    }
-
-    public void pushNotificationToAll(Notification notification) {
-        // Gửi broadcast notification đến tất cả users đang subscribe /topic/notifications
-//        simpMessagingTemplate.convertAndSend("/topic/notifications", convertToDTO(notification));
-    }
 
 //=====================BOOKING NOTIFICATION==========================
     public enum NotificationEvent {
         BOOKING_SUCCESS, CANCEL_ORDER, SESSION_START, SESSION_COMPLETE, SESSION_STILL_PARKED
-        // Removed: SESSION_WAITING_STAFF_DECISION - deprecated in self-service flow
     }
 
     @Transactional
@@ -196,9 +169,6 @@ public class NotificationServiceImpl implements NotificationService {
                 throw new IllegalArgumentException("Invalid notification event: " + event);
         }
         notificationRepository.save(notification);
-
-        // Push via WebSocket
-        pushNotificationToUser(notification,Notification.Type.BOOKING);
     }
 
     //=====================PAYMENT NOTIFICATION==========================
@@ -242,13 +212,6 @@ public class NotificationServiceImpl implements NotificationService {
                 throw new IllegalArgumentException("Invalid payment event: " + event);
         }
         notificationRepository.save(notification);
-
-//        // Push via WebSocket
-//        pushNotificationToUser(notification,Notification.Type.PAYMENT);
-//
-//        // Push updated unread count after creating notification
-//        Long updatedCount = getUnreadCountForUser(user.getUserId());
-//        pushUnreadCountToUser(user, updatedCount);
     }
 
     //=====================ISSUE NOTIFICATION==========================
@@ -275,9 +238,11 @@ public class NotificationServiceImpl implements NotificationService {
                         .collect(Collectors.toList());
                 break;
             case CHARGING_POINT_CHANGE_DRIVER:
-                // Thông báo cho driver về việc đổi charging point
-                // TODO: Implement logic to find affected drivers
-                break;
+                // CHÚ Ý: Việc đổi trụ cho driver được xử lý trực tiếp trong `StaffServiceImpl.changeChargingPointForDriver`
+                // nơi staff sẽ gọi `createGeneralNotification` cho driver cụ thể.
+                // Nếu giữ logic tìm tất cả orders tại station ở đây sẽ dễ dẫn đến gửi nhiều notification thừa do FE polling.
+                log.info("Skipping mass notifications for CHARGING_POINT_CHANGE_DRIVER - handled by staff flow for specific order");
+                return;
         }
 
         for (User user : targetUsers) {
@@ -286,6 +251,7 @@ public class NotificationServiceImpl implements NotificationService {
             notification.setType(Notification.Type.ISSUE);
             notification.setSentTime(LocalDateTime.now());
 
+            // Note: CHARGING_POINT_CHANGE_DRIVER được handle ở trên và return sớm
             switch (event) {
                 case STATION_ERROR_ADMIN:
                     notification.setTitle("Lỗi trạm sạc - Cần xử lý");
@@ -301,24 +267,17 @@ public class NotificationServiceImpl implements NotificationService {
                             stationId, additionalInfo
                     ));
                     break;
-                case CHARGING_POINT_CHANGE_DRIVER:
-                    notification.setTitle("Thay đổi điểm sạc");
-                    notification.setContent(String.format(
-                            "Điểm sạc của bạn đã được thay đổi\nChi tiết: %s",
-                            additionalInfo
-                    ));
-                    break;
+                default:
+                    log.warn("Unexpected IssueEvent type in notification loop: {}", event);
+                    continue;
             }
             notificationRepository.save(notification);
-            // Push via WebSocket
-            pushNotificationToUser(notification,Notification.Type.ISSUE);
         }
     }
 
     //=====================PENALTY NOTIFICATION==========================
     public enum PenaltyEvent {
         NO_SHOW_PENALTY, CANCEL_PENALTY, PARKING_PENALTY
-        // Removed: OVERTIME_PENALTY - replaced by PARKING_PENALTY in new flow
     }
 
     @Transactional
@@ -334,58 +293,71 @@ public class NotificationServiceImpl implements NotificationService {
         notification.setType(Notification.Type.PENALTY);
         notification.setSentTime(LocalDateTime.now());
 
+        String title = "";
+        String content = "";
+
         switch (event) {
             case NO_SHOW_PENALTY:
-                notification.setTitle("Phạt không đến đúng giờ");
-                notification.setContent(String.format(
+                title = "Phạt không đến đúng giờ";
+                content = String.format(
                         "Bạn đã bị phạt %.0f VND vì không đến đúng giờ đặt chỗ\nOrder ID: %d\nLý do: %s",
                         penaltyAmount, orderId, reason
-                ));
+                );
                 break;
             case CANCEL_PENALTY:
-                notification.setTitle("Phạt hủy đặt chỗ");
-                notification.setContent(String.format(
+                title = "Phạt hủy đặt chỗ";
+                content = String.format(
                         "Bạn đã bị phạt %.0f VND vì hủy đặt chỗ\nOrder ID: %d\nLý do: %s",
                         penaltyAmount, orderId, reason
-                ));
+                );
                 break;
             case PARKING_PENALTY:
-                notification.setTitle("Phí đỗ xe sau khi sạc");
-                notification.setContent(String.format(
+                title = "Phí đỗ xe sau khi sạc";
+                content = String.format(
                         "Bạn đã bị tính phí %.0f VND vì đỗ xe tại trạm sau khi sạc xong\nOrder ID: %d\nLý do: %s",
                         penaltyAmount, orderId, reason
-                ));
+                );
                 break;
             default:
                 throw new IllegalArgumentException("Invalid penalty event: " + event);
         }
-        notificationRepository.save(notification);
 
-//        // Push via WebSocket
-//        pushNotificationToUser(notification,Notification.Type.PENALTY);
-//
-//        // Push updated unread count after creating notification
-//        Long updatedCount = getUnreadCountForUser(user.getUserId());
-//        pushUnreadCountToUser(user, updatedCount);
+        // Avoid duplicate penalty notifications within 15 minutes window
+        LocalDateTime since = LocalDateTime.now().minusMinutes(15);
+        boolean exists = notificationRepository.existsUnreadByUserTitleTypeSince(user, title, Notification.Type.PENALTY, since);
+        if (exists) {
+            log.info("Skipping duplicate penalty notification for user {} title {}", user.getUserId(), title);
+            return;
+        }
+
+        notification.setTitle(title);
+        notification.setContent(content);
+        notificationRepository.save(notification);
     }
 
     //=====================GENERAL NOTIFICATION==========================
     @Transactional
     public void createGeneralNotification(List<Long> userIds, String title, String content) {
-//        for (Long userId : userIds) {
-//            User user = userRepository.findById(userId)
-//                    .orElseThrow(() -> new RuntimeException("User not found with ID: " + userId));
-//
-//            Notification notification = new Notification();
-//            notification.setUser(user);
-//            notification.setType(Notification.Type.GENERAL);
-//            notification.setTitle(title);
-//            notification.setContent(content);
-//            notification.setSentTime(LocalDateTime.now());
-//            notificationRepository.save(notification);
-//            // Push via WebSocket
-//            pushNotificationToUser(notification);
-//        }
+        // Deduplicate: avoid creating the same general notification within 5 minutes for the same user
+        LocalDateTime since = LocalDateTime.now().minusMinutes(5);
+        for (Long userId : userIds) {
+            User user = userRepository.findById(userId)
+                    .orElseThrow(() -> new RuntimeException("User not found with ID: " + userId));
+
+            boolean exists = notificationRepository.existsUnreadByUserTitleTypeSince(user, title, Notification.Type.GENERAL, since);
+            if (exists) {
+                log.info("Skipping duplicate general notification for user {} title {}", userId, title);
+                continue;
+            }
+
+            Notification notification = new Notification();
+            notification.setUser(user);
+            notification.setType(Notification.Type.GENERAL);
+            notification.setTitle(title);
+            notification.setContent(content);
+            notification.setSentTime(LocalDateTime.now());
+            notificationRepository.save(notification);
+        }
     }
 
     @Transactional
@@ -399,35 +371,6 @@ public class NotificationServiceImpl implements NotificationService {
             notification.setContent(content);
             notification.setSentTime(LocalDateTime.now());
             notificationRepository.save(notification);
-
-            // Push via WebSocket
-            pushNotificationToAll(notification);
         }
-    }
-
-//    // Push unread count to user via WebSocket
-//    public void pushUnreadCountToUser(User user, Long count) {
-//        String username = user.getEmail() != null ? user.getEmail() : user.getPhone();
-//        if (username == null) {
-//            log.warn("User {} has no email or phone to send notification count", user.getUserId());
-//            return;
-//        }
-//
-//        NotificationSignalDTO dto = new NotificationSignalDTO();
-//        dto.setType(Notification.Type.GENERAL); // Hoặc type phù hợp
-//        dto.setNotificationCount(count.intValue());
-//    }
-
-    // Helper method to convert Notification to NotificationDTO
-    private NotificationDTO convertToDTO(Notification notification) {
-        return new NotificationDTO(
-            notification.getNotificationId(),
-            notification.getUser().getUserId(),
-            notification.getTitle(),
-            notification.getContent(),
-            notification.getSentTime().toString(),
-            notification.getIsRead(),
-            notification.getType()
-        );
     }
 }
