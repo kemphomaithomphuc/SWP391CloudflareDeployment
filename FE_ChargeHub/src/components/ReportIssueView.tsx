@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/
 import { Textarea } from "./ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import axios from 'axios';
+import { apiBaseUrl } from '../services/api';
 
 import { 
   ArrowLeft,
@@ -51,7 +52,7 @@ export default function ReportIssueView({ onBack }: Readonly<ReportIssueViewProp
   const getChargingStations = async() :  Promise< ChargingStation[] | null> => {
     try {
       const token = localStorage.getItem("token");
-      const res = await axios.get("http://localhost:8080/api/charging-stations", {
+      const res = await axios.get(`${apiBaseUrl}/api/charging-stations`, {
         headers: {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -81,7 +82,7 @@ export default function ReportIssueView({ onBack }: Readonly<ReportIssueViewProp
         status: report.status || "INBOX"
       };
       const res = await axios.post(
-        "http://localhost:8080/api/issue-reports",
+        `${apiBaseUrl}/api/issue-reports`,
         payload,
         {
           headers: {

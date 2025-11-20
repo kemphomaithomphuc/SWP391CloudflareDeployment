@@ -40,13 +40,12 @@ import RoleSelection from "./components/RoleSelection";
 import StaffProfileSetup from "./components/StaffProfileSetup";
 import EducationSetup from "./components/EducationSetup";
 import ChargingInvoiceView from "./components/ChargingInvoiceView";
-import PostActivatingView from "./components/PostActivatingView";
 import MyBookingView from "./components/MyBookingView";
 import ChargingSessionView from "./components/ChargingSessionView";
 import PremiumSubscriptionView from "./components/PremiumSubscriptionView";
 import PaymentResultView from "./components/PaymentResultView";
 import { ChatbotProvider } from "./contexts/ChatbotContext";
-import { checkAndRefreshToken, logoutUser } from "./services/api";
+import { checkAndRefreshToken, logoutUser, apiBaseUrl } from "./services/api";
 import PenaltyPayment from "./PenaltyPayment";
 import PayUnpaid from "./payUnpaid";
 import ParkingView from "./components/ParkingView";
@@ -77,7 +76,6 @@ type ViewType =
   | "reportIssue"
   | "notifications"
   | "staffNotifications"
-  | "postActivating"
   | "adminChargerPostActivating"
   | "myBookings"
   | "chargingSession"
@@ -205,10 +203,6 @@ function AppContent() {
     setCurrentView("usageAnalytics");
     navigate("/admin/usage-analytics");
   };
-  const switchToPostActivating = () => {
-    setCurrentView("postActivating");
-    navigate("/staff/post-activating");
-  };
   const switchToChargingManagement = () => {
     setCurrentView("chargingManagement");
     navigate("/staff/charging-management");
@@ -300,7 +294,7 @@ function AppContent() {
         // Check if user has vehicles
         const userId = localStorage.getItem("userId") || localStorage.getItem("registeredUserId");
         if (userId) {
-          const res = await axios.get(`http://localhost:8080/api/user/profile/${userId}`);
+          const res = await axios.get(`${apiBaseUrl}/api/user/profile/${userId}`);
           if (res.data && res.data.vehicles && res.data.vehicles.length > 0) {
             // User has vehicles, go to dashboard
             setCurrentView("dashboard");
@@ -351,7 +345,6 @@ function AppContent() {
       "staffDashboard": "/staff/dashboard",
       "staffNotifications": "/staff/notifications",
       "staffReports": "/staff/reports",
-      "postActivating": "/staff/post-activating",
       "chargingManagement": "/staff/charging-management",
       "adminLogin": "/admin/login",
       "adminDashboard": "/admin/dashboard",
@@ -378,7 +371,7 @@ function AppContent() {
     if (['dashboard', 'booking', 'history', 'analysis', 'reportIssue', 'notifications', 'myBookings', 'chargingSession', 'premiumSubscription', 'parking'].includes(currentView)) {
       return 'driver';
     }
-    if (['staffDashboard', 'staffNotifications', 'staffReports', 'postActivating', 'chargingManagement'].includes(currentView)) {
+    if (['staffDashboard', 'staffNotifications', 'staffReports', 'chargingManagement'].includes(currentView)) {
       return 'staff';  
     }
     if (['adminDashboard', 'systemConfig', 'adminMap', 'revenue', 'staffManagement', 'usageAnalytics', 'adminChargerPostActivating'].includes(currentView)) {
@@ -424,7 +417,7 @@ function AppContent() {
         try {
 
           const r = await axios.get(
-            `http://localhost:8080/api/auth/social/callback?code=${code}&state=${state}`
+            `${apiBaseUrl}/api/auth/social/callback?code=${code}&state=${state}`
           );
 
           const at = r?.data?.data?.accessToken as string | undefined;
@@ -437,7 +430,7 @@ function AppContent() {
           // /me
           try {
             const meRes = await axios.post(
-              "http://localhost:8080/api/auth/me",
+              `${apiBaseUrl}/api/auth/me`,
               null,
               { headers: { Authorization: `Bearer ${at}` } }
             );
@@ -447,7 +440,7 @@ function AppContent() {
               
               // Fetch and store user profile data
               try {
-                const profileRes = await axios.get(`http://localhost:8080/api/user/profile/${userId}`);
+                const profileRes = await axios.get(`${apiBaseUrl}/api/user/profile/${userId}`);
                 if (profileRes.status === 200 && profileRes.data?.data) {
                   const userProfile = profileRes.data.data;
                   if (userProfile.fullName) {
@@ -530,7 +523,7 @@ function AppContent() {
         return <StaffNotificationView onBack={() => navigate("/staff/dashboard")} />;
 
       case "staffDashboard":
-        return <StaffDashboard onLogout={switchToLogin} onNotifications={switchToStaffNotifications} onPostActivating={switchToPostActivating} onReports={switchToStaffReports} onChargingManagement={switchToChargingManagement} />;
+        return <StaffDashboard onLogout={switchToLogin} onNotifications={switchToStaffNotifications} onReports={switchToStaffReports} onChargingManagement={switchToChargingManagement} />;
 
       case "staffReports":
         return <StaffReportView onBack={() => navigate("/staff/dashboard")} />;
@@ -585,9 +578,6 @@ function AppContent() {
 
       case "issueResolvement":
         return <IssueResolvementView onBack={() => navigate("/admin/dashboard")} />;
-
-      case "postActivating":
-        return <PostActivatingView onBack={() => navigate("/staff/dashboard")} />;
 
       case "myBookings":
         return <MyBookingView onBack={() => navigate("/dashboard")} onStartCharging={switchToChargingSession} onParkingStart={handleParkingStart} />;
@@ -718,7 +708,6 @@ function AppContent() {
       "/staff/dashboard": "staffDashboard",
       "/staff/notifications": "staffNotifications",
       "/staff/reports": "staffReports",
-      "/staff/post-activating": "postActivating",
       "/admin/login": "adminLogin",
       "/admin/dashboard": "adminDashboard",
       "/admin/system-config": "systemConfig",
@@ -1071,20 +1060,6 @@ function AppContent() {
           <AppLayout
             userType="staff"
             currentView="staffReports"
-            onNavigate={handleNavigation}
-            onLogout={switchToLogin}
-            showSidebar={showSidebar}
-          >
-            {renderContent()}
-          </AppLayout>
-        } 
-      />
-      <Route 
-        path="/staff/post-activating" 
-        element={
-          <AppLayout
-            userType="staff"
-            currentView="postActivating"
             onNavigate={handleNavigation}
             onLogout={switchToLogin}
             showSidebar={showSidebar}

@@ -7,10 +7,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "./components/ui/popover
 import { Separator } from "./components/ui/separator";
 import StaffInvoiceView from "./components/StaffInvoiceView";
 import StaffReportView from "./components/StaffReportView";
-import PostActivatingView from "./components/PostActivatingView";
 import ChargingManagementView from "./components/ChargingManagementView";
 import StaffNotificationView from "./components/StaffNotificationView";
-import OnsitePaymentView from "./components/OnsitePaymentView";
 import {
     Menu,
     X,
@@ -35,10 +33,9 @@ import {
     FileText,
     CreditCard,
     DollarSign,
-    CheckCircle,
-    Activity
+    CheckCircle
 } from "lucide-react";
-import { logoutUser, getOrdersByStation } from "./services/api";
+import { logoutUser, getOrdersByStation, getUserProfile, type UserDTO } from "./services/api";
 import { toast } from "sonner";
 
 interface StaffDashboardProps {
@@ -46,17 +43,18 @@ interface StaffDashboardProps {
   onNotifications?: () => void;
   onReports?: () => void;
   onChargingManagement?: () => void;
-  onPostActivating?: () => void;
   onStationManagement?: () => void;
 }
 
-export default function StaffDashboard({ onLogout, onNotifications, onReports, onChargingManagement, onPostActivating, onStationManagement }: StaffDashboardProps) {
+export default function StaffDashboard({ onLogout, onNotifications, onReports, onChargingManagement, onStationManagement }: StaffDashboardProps) {
     const [activeSection, setActiveSection] = useState("dashboard");
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [scrollProgress, setScrollProgress] = useState(0);
     const [showScrollIndicator, setShowScrollIndicator] = useState(false);
     const [isLoggingOut, setIsLoggingOut] = useState(false);
     const [ordersCount, setOrdersCount] = useState<number>(0);
+    const [staffProfile, setStaffProfile] = useState<UserDTO | null>(null);
+    const [loadingProfile, setLoadingProfile] = useState(true);
     const { theme, toggleTheme } = useTheme();
     const { language, setLanguage, t } = useLanguage();
     const { currentStation } = useStation();
@@ -90,10 +88,8 @@ export default function StaffDashboard({ onLogout, onNotifications, onReports, o
     const menuItems = useMemo(() => [
         { id: "dashboard", label: t("dashboard") || "Dashboard", icon: Home },
         { id: "chargingManagement", label: language === 'vi' ? "Quản Lý Charging" : "Charging Management", icon: Zap },
-        { id: "onsitePayment", label: language === 'vi' ? "Thanh Toán Tại Chỗ" : "Onsite Payment", icon: CreditCard },
         { id: "billing", label: t("billing_invoice") || "Billing & Invoice", icon: Receipt },
         { id: "reports", label: t("report_issues") || "Report Issues", icon: AlertTriangle },
-        { id: "postActivating", label: language === 'vi' ? "Kích Hoạt Trạm" : "Post Activating", icon: Activity },
         { id: "notifications", label: t("notification") || "Notifications", icon: Bell },
         { id: "settings", label: "Settings", icon: Settings },
     ], [t, language]);
@@ -103,6 +99,38 @@ export default function StaffDashboard({ onLogout, onNotifications, onReports, o
         setActiveSection(itemId);
         setSidebarOpen(false);
     };
+
+  // Fetch staff profile on mount
+  useEffect(() => {
+    const fetchStaffProfile = async () => {
+      try {
+        const userId = localStorage.getItem('userId');
+        if (userId) {
+          setLoadingProfile(true);
+          const response = await getUserProfile(Number(userId));
+          if (response.success && response.data) {
+            setStaffProfile(response.data);
+            // Update localStorage with latest info
+            if (response.data.fullName) {
+              localStorage.setItem("fullName", response.data.fullName);
+            }
+            if (response.data.email) {
+              localStorage.setItem("email", response.data.email);
+            }
+            if (response.data.stationId) {
+              localStorage.setItem("stationId", String(response.data.stationId));
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching staff profile:', error);
+      } finally {
+        setLoadingProfile(false);
+      }
+    };
+    
+    fetchStaffProfile();
+  }, []);
 
   // Fetch orders count on mount
   useEffect(() => {
@@ -172,19 +200,9 @@ export default function StaffDashboard({ onLogout, onNotifications, onReports, o
           <StaffReportView onBack={() => setActiveSection("dashboard")} />
         );
 
-      case "postActivating":
-        return (
-          <PostActivatingView onBack={() => setActiveSection("dashboard")} />
-        );
-
       case "chargingManagement":
         return (
           <ChargingManagementView onBack={() => setActiveSection("dashboard")} />
-        );
-
-      case "onsitePayment":
-        return (
-          <OnsitePaymentView onBack={() => setActiveSection("dashboard")} />
         );
 
       case "notifications":
@@ -451,41 +469,79 @@ export default function StaffDashboard({ onLogout, onNotifications, onReports, o
                                     <X className="w-4 h-4" />
                                 </Button>
                             </div>
-                            <div className="flex items-center space-x-3 mb-3">
-                                <div className="w-12 h-12 bg-sidebar-primary rounded-lg flex items-center justify-center">
-                                    <span className="font-bold text-sidebar-primary-foreground text-lg">
-                                        {localStorage.getItem("fullName")?.charAt(0)?.toUpperCase() || "S"}
-                                    </span>
+                            {loadingProfile ? (
+                                <div className="flex items-center justify-center py-4">
+                                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-sidebar-primary"></div>
                                 </div>
-                                <div className="flex-1 min-w-0">
-                                    <h3 className="font-semibold text-sidebar-foreground truncate">
-                                        {localStorage.getItem("fullName") || "Staff"}
-                                    </h3>
-                                    <p className="text-xs text-sidebar-foreground/60 truncate">
-                                        {localStorage.getItem("email") || ""}
-                                    </p>
-                                </div>
-                            </div>
-                            <div className="space-y-1.5">
-                                <div className="flex items-center justify-between">
-                                    <span className="text-xs text-sidebar-foreground/60">{language === 'vi' ? 'Vai trò' : 'Role'}:</span>
-                                    <span className="text-xs font-medium text-sidebar-foreground capitalize">
-                                        {localStorage.getItem("role") || "staff"}
-                                    </span>
-                                </div>
-                                <div className="flex items-center justify-between">
-                                    <span className="text-xs text-sidebar-foreground/60">{language === 'vi' ? 'Trạm' : 'Station'}:</span>
-                                    <span className="text-xs font-medium text-sidebar-foreground truncate ml-2">
-                                        {currentStation.name}
-                                    </span>
-                                </div>
-                                <div className="flex items-center justify-between">
-                                    <span className="text-xs text-sidebar-foreground/60">ID:</span>
-                                    <span className="text-xs font-medium text-sidebar-foreground">
-                                        {currentStation.id}
-                                    </span>
-                                </div>
-                            </div>
+                            ) : (
+                                <>
+                                    <div className="flex items-center space-x-3 mb-3">
+                                        <div className="w-12 h-12 bg-sidebar-primary rounded-lg flex items-center justify-center">
+                                            {staffProfile?.avatarUrl ? (
+                                                <img 
+                                                    src={staffProfile.avatarUrl} 
+                                                    alt={staffProfile.fullName || "Staff"}
+                                                    className="w-12 h-12 rounded-lg object-cover"
+                                                />
+                                            ) : (
+                                                <span className="font-bold text-sidebar-primary-foreground text-lg">
+                                                    {(staffProfile?.fullName || localStorage.getItem("fullName") || "S")?.charAt(0)?.toUpperCase()}
+                                                </span>
+                                            )}
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <h3 className="font-semibold text-sidebar-foreground truncate">
+                                                {staffProfile?.fullName || localStorage.getItem("fullName") || "Staff"}
+                                            </h3>
+                                            <p className="text-xs text-sidebar-foreground/60 truncate">
+                                                {staffProfile?.email || localStorage.getItem("email") || ""}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-xs text-sidebar-foreground/60">{language === 'vi' ? 'Vai trò' : 'Role'}:</span>
+                                            <span className="text-xs font-medium text-sidebar-foreground capitalize">
+                                                {staffProfile?.role?.toLowerCase() || localStorage.getItem("role")?.toLowerCase() || "staff"}
+                                            </span>
+                                        </div>
+                                        {staffProfile?.phoneNumber && (
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-xs text-sidebar-foreground/60">{language === 'vi' ? 'SĐT' : 'Phone'}:</span>
+                                                <span className="text-xs font-medium text-sidebar-foreground truncate ml-2">
+                                                    {staffProfile.phoneNumber}
+                                                </span>
+                                            </div>
+                                        )}
+                                        {(staffProfile as any)?.address && (
+                                            <div className="flex items-start justify-between">
+                                                <span className="text-xs text-sidebar-foreground/60">{language === 'vi' ? 'Địa chỉ' : 'Address'}:</span>
+                                                <span className="text-xs font-medium text-sidebar-foreground truncate ml-2 text-right max-w-[60%]">
+                                                    {(staffProfile as any).address}
+                                                </span>
+                                            </div>
+                                        )}
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-xs text-sidebar-foreground/60">{language === 'vi' ? 'Trạng thái' : 'Status'}:</span>
+                                            <span className={`text-xs font-medium ${
+                                                staffProfile?.status === 'ACTIVE' ? 'text-green-600 dark:text-green-400' :
+                                                staffProfile?.status === 'BANNED' ? 'text-red-600 dark:text-red-400' :
+                                                'text-yellow-600 dark:text-yellow-400'
+                                            }`}>
+                                                {staffProfile?.status || 'ACTIVE'}
+                                            </span>
+                                        </div>
+                                        {staffProfile?.violations !== undefined && staffProfile.violations > 0 && (
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-xs text-sidebar-foreground/60">{language === 'vi' ? 'Vi phạm' : 'Violations'}:</span>
+                                                <span className="text-xs font-medium text-red-600 dark:text-red-400">
+                                                    {staffProfile.violations}
+                                                </span>
+                                            </div>
+                                        )}
+                                    </div>
+                                </>
+                            )}
                         </div>
 
                         <nav className="flex-1 overflow-hidden relative">

@@ -21,12 +21,10 @@ import { useLanguage } from "./contexts/LanguageContext";
 import DriverManagementView from "./components/DriverManagementView";
 import MarketTrendsWidget from "./components/MarketTrendsWidget";
 import ConnectorSuggestionsWidget from "./components/ConnectorSuggestionsWidget";
-import AdminMapView from "./components/AdminMapView";
 
 interface AdminDashboardProps {
     onLogout: () => void;
     onSystemConfig: () => void;
-    onAdminMap: () => void;
     onRevenue: () => void;
     onStaffManagement: () => void;
     onUsageAnalytics: () => void;
@@ -34,11 +32,11 @@ interface AdminDashboardProps {
     onIssueResolvement: () => void;
 }
 
-export default function AdminDashboard({ onLogout, onSystemConfig, onAdminMap, onRevenue, onStaffManagement, onUsageAnalytics, onAdminChargerPostActivating, onIssueResolvement }: AdminDashboardProps) {
+export default function AdminDashboard({ onLogout, onSystemConfig, onRevenue, onStaffManagement, onUsageAnalytics, onAdminChargerPostActivating, onIssueResolvement }: AdminDashboardProps) {
 
     const { language, setLanguage } = useLanguage();
     const [isLoggingOut, setIsLoggingOut] = useState(false);
-    const [currentView, setCurrentView] = useState<'dashboard' | 'driverManagement' | 'adminMapView'>('dashboard');
+    const [currentView, setCurrentView] = useState<'dashboard' | 'driverManagement'>('dashboard');
     const [marketTrendsExpanded, setMarketTrendsExpanded] = useState(false);
     const [connectorSuggestionsExpanded, setConnectorSuggestionsExpanded] = useState(false);
 
@@ -67,8 +65,6 @@ export default function AdminDashboard({ onLogout, onSystemConfig, onAdminMap, o
         console.log(`${buttonName} button clicked`);
         if (buttonName === 'SystemConfig') {
             onSystemConfig();
-        } else if (buttonName === 'Map') {
-            onAdminMap();
         } else if (buttonName === 'Revenue') {
             onRevenue();
         } else if (buttonName === 'StaffManagement') {
@@ -106,11 +102,6 @@ export default function AdminDashboard({ onLogout, onSystemConfig, onAdminMap, o
     // Show Driver Management View if selected
     if (currentView === 'driverManagement') {
         return <DriverManagementView onBack={() => setCurrentView('dashboard')} />;
-    }
-
-    // Show Admin Map View if selected
-    if (currentView === 'adminMapView') {
-        return <AdminMapView onBack={() => setCurrentView('dashboard')} />;
     }
 
     return (
@@ -449,35 +440,6 @@ export default function AdminDashboard({ onLogout, onSystemConfig, onAdminMap, o
                                     className="font-medium text-foreground group-hover:text-indigo-600 transition-colors duration-300 text-center"
                                 >
                                     {language === 'en' ? 'Driver Management' : 'Quản lý Tài xế'}
-                                </motion.span>
-                            </Button>
-                        </motion.div>
-
-                        {/* Admin Map View Button */}
-                        <motion.div
-                            initial={{ opacity: 0, scale: 0.95 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            transition={{ duration: 0.5, delay: 0.7 }}
-                            whileHover={{ scale: 1.02 }}
-                            whileTap={{ scale: 0.98 }}
-                        >
-                            <Button
-                                variant="outline"
-                                onClick={() => setCurrentView('adminMapView')}
-                                className="w-full h-32 flex flex-col items-center justify-center space-y-3 bg-card hover:bg-accent/50 border-border shadow-lg hover:shadow-xl transition-all duration-300 rounded-2xl group"
-                            >
-                                <div className="w-12 h-12 bg-teal-500/10 rounded-xl flex items-center justify-center group-hover:bg-teal-500/20 transition-colors duration-300">
-                                    <Globe className="w-6 h-6 text-teal-600" />
-                                </div>
-                                <motion.span
-                                    key={language + 'adminmapview'}
-                                    initial={{ opacity: 0, y: 10 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    exit={{ opacity: 0, y: -10 }}
-                                    transition={{ duration: 0.2 }}
-                                    className="font-medium text-foreground group-hover:text-teal-600 transition-colors duration-300 text-center"
-                                >
-                                    {language === 'en' ? 'Admin Map View' : 'Xem bản đồ Admin'}
                                 </motion.span>
                             </Button>
                         </motion.div>

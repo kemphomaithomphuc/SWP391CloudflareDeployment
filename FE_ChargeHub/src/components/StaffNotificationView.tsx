@@ -6,11 +6,13 @@ import { useNotifications } from "../contexts/NotificationContext";
 import { Button } from "./ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import { Separator } from "./ui/separator";
-import { ArrowLeft, Bell, Clock, Mail, Zap, AlertTriangle, CheckCircle, XCircle, Car, CreditCard, User, FileText, Menu, X, Sun, Moon, Globe, Home, Users, Settings, HelpCircle, LogOut, MapPin, BarChart3, Calendar, ChevronDown, ArrowDown, Receipt, Activity, RefreshCw } from "lucide-react";
+import { ArrowLeft, Bell, Clock, Mail, Zap, AlertTriangle, CheckCircle, XCircle, Car, CreditCard, User, FileText, Menu, X, Sun, Moon, Globe, Home, Users, Settings, HelpCircle, LogOut, MapPin, BarChart3, Calendar, ChevronDown, ArrowDown, Receipt, RefreshCw } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { toast } from "sonner";
 import { Toaster } from "./ui/sonner";
+import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious, PaginationEllipsis } from "./ui/pagination";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 
 interface StaffNotification {
     id: string;
@@ -54,6 +56,8 @@ export default function StaffNotificationView({ onBack }: StaffNotificationViewP
     const [showScrollIndicator, setShowScrollIndicator] = useState(false);
     const [isLoggingOut, setIsLoggingOut] = useState(false);
     const [isRefreshing, setIsRefreshing] = useState(false);
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage, setItemsPerPage] = useState(5);
     const { theme, toggleTheme } = useTheme();
     const { language, setLanguage, t } = useLanguage();
     const { currentStation } = useStation();
@@ -111,7 +115,6 @@ export default function StaffNotificationView({ onBack }: StaffNotificationViewP
         { id: "chargingManagement", label: language === 'vi' ? "Quản Lý Charging" : "Charging Management", icon: Zap },
         { id: "billing", label: t("billing_invoice") || "Billing & Invoice", icon: Receipt },
         { id: "reports", label: t("report_issues") || "Report Issues", icon: AlertTriangle },
-        { id: "postActivating", label: language === 'vi' ? "Kích Hoạt Trạm" : "Post Activating", icon: Activity },
         { id: "notifications", label: t("notification") || "Notifications", icon: Bell },
         { id: "settings", label: "Settings", icon: Settings },
     ], [t, language]);
@@ -355,6 +358,30 @@ export default function StaffNotificationView({ onBack }: StaffNotificationViewP
     const urgentCount = staffNotifications.filter(n => n.priority === "urgent" && !n.isRead).length;
     const actionRequiredCount = staffNotifications.filter(n => n.requiresAction && !n.isRead).length;
 
+    // Pagination calculations
+    const totalPages = Math.ceil(staffNotifications.length / itemsPerPage);
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    const paginatedNotifications = staffNotifications.slice(startIndex, endIndex);
+
+    // Reset to page 1 when itemsPerPage changes
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [itemsPerPage]);
+
+    // Reset to page 1 when notifications change significantly
+    useEffect(() => {
+        if (currentPage > totalPages && totalPages > 0) {
+            setCurrentPage(1);
+        }
+    }, [staffNotifications.length, totalPages]);
+
+    const handlePageChange = (page: number) => {
+        setCurrentPage(page);
+        // Scroll to top of notifications list
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
     const renderContent = () => {
         return (
             <div className="space-y-6">
@@ -368,13 +395,29 @@ export default function StaffNotificationView({ onBack }: StaffNotificationViewP
                             {language === 'vi' ? 'Xem và quản lý thông báo hệ thống' : 'View and manage system notifications'}
                         </p>
                     </div>
-                    <div className="flex items-center space-x-4">
+                    <div className="flex items-center space-x-4 flex-wrap gap-2">
                         <Bell className="w-6 h-6 text-primary" />
                         {unreadCount > 0 && (
                             <Badge variant="destructive" className="rounded-full px-2 py-1">
                                 {unreadCount}
                             </Badge>
                         )}
+                        <div className="flex items-center space-x-2">
+                            <span className="text-sm text-muted-foreground whitespace-nowrap">
+                                {language === 'vi' ? 'Hiển thị:' : 'Show:'}
+                            </span>
+                            <Select value={itemsPerPage.toString()} onValueChange={(value: string) => setItemsPerPage(Number(value))}>
+                                <SelectTrigger className="w-20 h-9">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="5">5</SelectItem>
+                                    <SelectItem value="10">10</SelectItem>
+                                    <SelectItem value="20">20</SelectItem>
+                                    <SelectItem value="50">50</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
                         <Button
                             variant="outline"
                             size="sm"
@@ -422,7 +465,21 @@ export default function StaffNotificationView({ onBack }: StaffNotificationViewP
                         </Card>
                     )}
 
-                    {!loading && !error && staffNotifications.map((notification) => (
+                    {!loading && !error && paginatedNotifications.length === 0 && (
+                        <Card className="bg-card/80 backdrop-blur-xl border border-border/50">
+                            <CardContent className="p-12 text-center">
+                                <Bell className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                                <h3 className="font-medium text-foreground mb-2">
+                                    {language === 'vi' ? 'Không có thông báo' : 'No notifications'}
+                                </h3>
+                                <p className="text-muted-foreground">
+                                    {language === 'vi' ? 'Hiện tại không có thông báo nào' : 'There are no notifications at the moment'}
+                                </p>
+                            </CardContent>
+                        </Card>
+                    )}
+
+                    {!loading && !error && paginatedNotifications.map((notification) => (
                         <Card
                             key={notification.id}
                             className={`transition-all hover:shadow-lg ${
@@ -615,6 +672,146 @@ export default function StaffNotificationView({ onBack }: StaffNotificationViewP
                             </CardContent>
                         </Card>
                     ))}
+
+                    {/* Pagination */}
+                    {!loading && !error && staffNotifications.length > 0 && totalPages > 1 && (
+                        <div className="flex flex-col items-center gap-4 mt-6">
+                            <Pagination>
+                                <PaginationContent>
+                                    <PaginationItem>
+                                        <PaginationPrevious 
+                                            href="#"
+                                            size="default"
+                                            onClick={(e) => {
+                                                e.preventDefault();
+                                                if (currentPage > 1) {
+                                                    handlePageChange(currentPage - 1);
+                                                }
+                                            }}
+                                            className={currentPage === 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                                        />
+                                    </PaginationItem>
+                                    
+                                    {/* First page */}
+                                    {currentPage > 2 && (
+                                        <>
+                                            <PaginationItem>
+                                                <PaginationLink
+                                                    href="#"
+                                                    size="default"
+                                                    onClick={(e) => {
+                                                        e.preventDefault();
+                                                        handlePageChange(1);
+                                                    }}
+                                                    className="cursor-pointer"
+                                                >
+                                                    1
+                                                </PaginationLink>
+                                            </PaginationItem>
+                                            {currentPage > 3 && (
+                                                <PaginationItem>
+                                                    <PaginationEllipsis />
+                                                </PaginationItem>
+                                            )}
+                                        </>
+                                    )}
+
+                                    {/* Previous page */}
+                                    {currentPage > 1 && (
+                                        <PaginationItem>
+                                            <PaginationLink
+                                                href="#"
+                                                size="default"
+                                                onClick={(e) => {
+                                                    e.preventDefault();
+                                                    handlePageChange(currentPage - 1);
+                                                }}
+                                                className="cursor-pointer"
+                                            >
+                                                {currentPage - 1}
+                                            </PaginationLink>
+                                        </PaginationItem>
+                                    )}
+
+                                    {/* Current page */}
+                                    <PaginationItem>
+                                        <PaginationLink
+                                            href="#"
+                                            size="default"
+                                            isActive
+                                            onClick={(e) => e.preventDefault()}
+                                            className="cursor-default"
+                                        >
+                                            {currentPage}
+                                        </PaginationLink>
+                                    </PaginationItem>
+
+                                    {/* Next page */}
+                                    {currentPage < totalPages && (
+                                        <PaginationItem>
+                                            <PaginationLink
+                                                href="#"
+                                                size="default"
+                                                onClick={(e) => {
+                                                    e.preventDefault();
+                                                    handlePageChange(currentPage + 1);
+                                                }}
+                                                className="cursor-pointer"
+                                            >
+                                                {currentPage + 1}
+                                            </PaginationLink>
+                                        </PaginationItem>
+                                    )}
+
+                                    {/* Last page */}
+                                    {currentPage < totalPages - 1 && (
+                                        <>
+                                            {currentPage < totalPages - 2 && (
+                                                <PaginationItem>
+                                                    <PaginationEllipsis />
+                                                </PaginationItem>
+                                            )}
+                                            <PaginationItem>
+                                                <PaginationLink
+                                                    href="#"
+                                                    size="default"
+                                                    onClick={(e) => {
+                                                        e.preventDefault();
+                                                        handlePageChange(totalPages);
+                                                    }}
+                                                    className="cursor-pointer"
+                                                >
+                                                    {totalPages}
+                                                </PaginationLink>
+                                            </PaginationItem>
+                                        </>
+                                    )}
+
+                                    <PaginationItem>
+                                        <PaginationNext 
+                                            href="#"
+                                            size="default"
+                                            onClick={(e) => {
+                                                e.preventDefault();
+                                                if (currentPage < totalPages) {
+                                                    handlePageChange(currentPage + 1);
+                                                }
+                                            }}
+                                            className={currentPage === totalPages ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                                        />
+                                    </PaginationItem>
+                                </PaginationContent>
+                            </Pagination>
+                            
+                            {/* Pagination Info */}
+                            <div className="text-sm text-muted-foreground">
+                                {language === 'vi' 
+                                    ? `Hiển thị ${startIndex + 1}-${Math.min(endIndex, staffNotifications.length)} trong tổng số ${staffNotifications.length} thông báo`
+                                    : `Showing ${startIndex + 1}-${Math.min(endIndex, staffNotifications.length)} of ${staffNotifications.length} notifications`
+                                }
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
         );
