@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
-import axios from "axios";
-import { apiBaseUrl } from "../services/api";
+import { api } from "../services/api";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
@@ -31,7 +30,7 @@ export default function IssueResolvementView({ onBack }: Readonly<IssueResolveme
   const fetchReports = async (): Promise<void> => {
     const token = localStorage.getItem("token");
     try {
-      const res = await axios.get(`${apiBaseUrl}/api/issue-reports`, {
+      const res = await api.get(`/api/issue-reports`, {
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
       });
       const list = Array.isArray(res.data?.data) ? res.data.data : Array.isArray(res.data) ? res.data : [];
@@ -53,8 +52,8 @@ export default function IssueResolvementView({ onBack }: Readonly<IssueResolveme
   const resolveIssueReport = async(reportIssueId: string) : Promise<boolean> => {
     const token = localStorage.getItem("token");
     try {
-      const res = await axios.put(
-        `${apiBaseUrl}/api/issue-reports/${reportIssueId}/${"RESOLVED"}`,
+      const res = await api.put(
+        `/api/issue-reports/${reportIssueId}/${"RESOLVED"}`,
         {},
         {
           headers: {

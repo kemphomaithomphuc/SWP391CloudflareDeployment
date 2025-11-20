@@ -316,7 +316,7 @@ export default function MainDashboard({ onLogout, onBooking, onReportIssue, onNo
               console.log("Logout button clicked");
               console.log("isLoggingOut:", isLoggingOut);
               console.log("Calling handleLogout...");
-              handleLogout();
+              onLogout();
               console.log("Closing sidebar...");
               setSidebarOpen(false);
             }}

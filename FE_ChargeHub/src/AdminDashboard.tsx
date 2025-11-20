@@ -22,7 +22,7 @@ import DriverManagementView from "./components/DriverManagementView";
 import MarketTrendsWidget from "./components/MarketTrendsWidget";
 import ConnectorSuggestionsWidget from "./components/ConnectorSuggestionsWidget";
 
-interface AdminDashboardProps {
+export interface AdminDashboardProps {
     onLogout: () => void;
     onSystemConfig: () => void;
     onAdminMap: () => void;
@@ -68,6 +68,8 @@ export default function AdminDashboard({ onLogout, onSystemConfig, onAdminMap, o
             onAdminMap();
         } else if (buttonName === 'SystemConfig') {
             onSystemConfig();
+        } else if (buttonName === 'Map') {
+            onAdminMap();
         } else if (buttonName === 'Revenue') {
             onRevenue();
         } else if (buttonName === 'StaffManagement') {

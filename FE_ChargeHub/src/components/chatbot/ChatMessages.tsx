@@ -7,7 +7,7 @@ import TypingIndicator from "./TypingIndicator";
 interface ChatMessagesProps {
   messages: Message[];
   isLoading: boolean;
-  messagesEndRef: React.RefObject<HTMLDivElement>;
+  messagesEndRef: React.RefObject<HTMLDivElement | null>;
 }
 
 export default function ChatMessages({ messages, isLoading, messagesEndRef }: ChatMessagesProps) {

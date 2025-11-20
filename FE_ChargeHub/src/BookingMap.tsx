@@ -430,6 +430,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
         totalPendingTransactions: number;
         totalFailedAmount: number;
         totalPendingAmount: number;
+        penalties: Array<Record<string, unknown>>;
     }
 
     const normalizeUnpaidPenaltySummary = (raw: any): NormalizedPenaltySummary => {
@@ -454,6 +455,7 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
             totalPendingTransactions: 0,
             totalFailedAmount: 0,
             totalPendingAmount: 0,
+            penalties: [],
         };
 
         if (!raw) {
@@ -469,6 +471,10 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
             Array.isArray(root?.unpaidPenalties) ? root.unpaidPenalties : null,
             Array.isArray(root?.records) ? root.records : null,
         ].filter((collection): collection is unknown[] => Array.isArray(collection));
+
+        summary.penalties = penaltyCollections
+            .flat()
+            .filter((item): item is Record<string, unknown> => !!item && typeof item === "object");
 
         const summaryNode = (root as any)?.summary ?? root;
         summary.failedTransactionIds = toNumericArray(summaryNode?.failedTransactionIds);
@@ -507,11 +513,11 @@ export default function BookingMap({ onBack, currentBatteryLevel = 75, setCurren
             console.log("[BookingMap] Unpaid penalty summary:", summary);
             const totalOutstandingTransactions = summary.totalFailedTransactions + summary.totalPendingTransactions;
             const totalOutstandingAmount = summary.totalFailedAmount + summary.totalPendingAmount;
-            const hasPenalties =
-                totalOutstandingTransactions > 0 ||
-                summary.penalties.length > 0 ||
-                summary.failedTransactionIds.length > 0 ||
-                summary.pendingTransactionIds.length > 0;
+        const hasPenalties =
+          totalOutstandingTransactions > 0 ||
+          summary.penalties.length > 0 ||
+          summary.failedTransactionIds.length > 0 ||
+          summary.pendingTransactionIds.length > 0;
 
             if (hasPenalties) {
                 try {

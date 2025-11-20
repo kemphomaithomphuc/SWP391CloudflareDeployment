@@ -150,9 +150,8 @@ export default function ChargingManagementView({ onBack, stationId }: ChargingMa
     };
 
     const formatCurrency = (amount: number) => {
-        return language === 'vi'
-            ? `${amount.toLocaleString('vi-VN')}đ`
-            : `$${amount.toFixed(2)}`;
+        // Luôn hiển thị VND bất kể ngôn ngữ
+        return `${Math.round(amount).toLocaleString('vi-VN')}đ`;
     };
 
     // Load staff's station ID from profile on mount
@@ -664,7 +663,12 @@ export default function ChargingManagementView({ onBack, stationId }: ChargingMa
                                                                                 <div className="space-y-4">
                                                                                     <div className="space-y-2">
                                                                                         <p className="text-sm text-muted-foreground">{language === 'vi' ? 'Chọn trụ mới' : 'Alternative point'}</p>
-                                                                                        <Select value={selectedAltPointId ? String(selectedAltPointId) : undefined} onValueChange={(v: string) => setSelectedAltPointId(Number(v))}>
+                                                                                        <Select
+                                                                                            {...(selectedAltPointId != null
+                                                                                                ? { value: String(selectedAltPointId) }
+                                                                                                : {})}
+                                                                                            onValueChange={(v: string) => setSelectedAltPointId(Number(v))}
+                                                                                        >
                                                                                             <SelectTrigger>
                                                                                                 <SelectValue placeholder={isLoadingAlternatives ? (language === 'vi' ? 'Đang tải...' : 'Loading...') : (language === 'vi' ? 'Chọn trụ' : 'Select point')} />
                                                                                             </SelectTrigger>
