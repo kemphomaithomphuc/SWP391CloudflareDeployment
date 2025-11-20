@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { ArrowLeft, Bell, Clock, Mail, Zap, AlertTriangle, CheckCircle, XCircle, Car, CreditCard, Calendar, Gift, DollarSign, Wrench, Eye, RefreshCw } from "lucide-react";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
@@ -83,6 +83,45 @@ export default function NotificationView({ onBack }: NotificationViewProps) {
       return bTime - aTime;
     });
   };
+
+  const formatNotificationTimestamp = useCallback(
+    (value?: string) => {
+      if (!value) {
+        return language === 'vi' ? 'Không rõ thời gian' : 'Unknown time';
+      }
+
+      const parsed = new Date(value);
+      if (Number.isNaN(parsed.getTime())) {
+        return value;
+      }
+
+      const formatter = new Intl.DateTimeFormat(language === 'vi' ? 'vi-VN' : 'en-US', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+        timeZone: 'UTC'
+      });
+
+      return formatter.format(parsed);
+    },
+    [language]
+  );
+
+  const formatMessageWithDates = useCallback(
+    (message?: string) => {
+      if (typeof message !== 'string' || message.trim().length === 0) {
+        return message ?? '';
+      }
+
+      const ISO_DATE_REGEX = /\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z?/g;
+
+      return message.replace(ISO_DATE_REGEX, match => formatNotificationTimestamp(match));
+    },
+    [formatNotificationTimestamp]
+  );
 
   // Update counts when notifications change
   useEffect(() => {
@@ -652,12 +691,12 @@ export default function NotificationView({ onBack }: NotificationViewProps) {
                           )}
                         </div>
                         <span className="text-sm text-muted-foreground">
-                          {notification.timestamp}
+                          {formatNotificationTimestamp(notification.timestamp)}
                         </span>
                       </div>
 
                       <p className="text-muted-foreground mb-4">
-                        {notification.message}
+                        {formatMessageWithDates(notification.message)}
                       </p>
 
                       {/* Action Buttons for different notification types */}

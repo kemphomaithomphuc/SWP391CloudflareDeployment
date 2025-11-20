@@ -11,6 +11,7 @@ import QRCodeGenerator from './QRCodeGenerator';
 import { api } from '../services/api';
 import { ParkingSessionSummary } from '../types/parking';
 import fetchParkingMonitoring from '../api/parkingMonitor';
+import { buildFrontendUrl } from '../utils/url';
 
 // Bỏ hard code, sẽ dùng giá trị từ BE
 const PARKING_FEE_PER_MINUTE_FALLBACK = 5000; // Fallback nếu chưa có từ BE (giá trị mặc định từ BE)
@@ -24,6 +25,8 @@ interface PaymentDetail {
   powerConsumed: number;
   baseCost: number;
   totalFee: number;
+  subscriptionDiscount?: number; // Phần trăm giảm giá từ subscription
+  originalCost?: number; // Chi phí gốc trước khi giảm giá
 }
 
 interface ParkingViewProps {
@@ -57,6 +60,7 @@ const formatCurrency = (amount: number | undefined | null) => {
 export default function ParkingView({ data, onBack, onParkingSessionClear }: ParkingViewProps) {
   const { language } = useLanguage();
   const { bookings } = useBooking();
+  const paymentReturnUrl = useMemo(() => buildFrontendUrl('/payment/result'), []);
 
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
   const [showQRDialog, setShowQRDialog] = useState(false);
@@ -208,9 +212,46 @@ export default function ParkingView({ data, onBack, onParkingSessionClear }: Par
       return Number.isFinite(parsed) ? parsed : 0;
     };
     const baseCostValue = parseNumeric(rawData?.baseCost);
-    const totalFeeValueRaw = parseNumeric(rawData?.totalFee);
+    const totalFeeValueRaw = parseNumeric(rawData?.totalFee || rawData?.totalAmount);
     const totalFeeValue = totalFeeValueRaw > 0 ? totalFeeValueRaw : baseCostValue;
-    return {
+    
+    // Lấy subscription discount từ response
+    // Backend trả về subscriptionDiscount dưới dạng số thập phân (0.20 = 20%, 0.15 = 15%)
+    let subscriptionDiscountValue = parseNumeric(rawData?.subscriptionDiscount);
+    
+    // Chuyển đổi từ số thập phân sang phần trăm nếu cần
+    // Nếu giá trị < 1, nghĩa là số thập phân (0.20 = 20%), cần nhân 100
+    // Nếu giá trị >= 1, nghĩa là đã là phần trăm (20 = 20%)
+    if (subscriptionDiscountValue > 0 && subscriptionDiscountValue < 1) {
+      subscriptionDiscountValue = subscriptionDiscountValue * 100;
+    }
+    
+    // Logic: Backend trả về:
+    // - baseCost: có thể là chi phí gốc TRƯỚC discount hoặc SAU discount
+    // - totalFee/totalAmount: chi phí SAU discount (nếu có discount)
+    // - subscriptionDiscount: số thập phân giảm giá (0.20 = 20%)
+    let originalCostValue = baseCostValue;
+    
+    if (subscriptionDiscountValue > 0) {
+      // Nếu có discount, cần xác định giá gốc
+      if (totalFeeValue < baseCostValue) {
+        // Nếu totalFee < baseCost, nghĩa là totalFee đã được giảm giá
+        // Tính ngược lại: totalFee = originalCost * (1 - discount/100)
+        // => originalCost = totalFee / (1 - discount/100)
+        originalCostValue = totalFeeValue / (1 - subscriptionDiscountValue / 100);
+      } else if (totalFeeValue === baseCostValue) {
+        // Nếu totalFee = baseCost, có thể:
+        // 1. Backend chưa áp dụng discount vào totalFee
+        // 2. Hoặc baseCost đã là giá sau discount
+        // Tính ngược lại từ totalFee: originalCost = totalFee / (1 - discount/100)
+        originalCostValue = totalFeeValue / (1 - subscriptionDiscountValue / 100);
+      } else {
+        // Nếu totalFee > baseCost, baseCost là giá gốc
+        originalCostValue = baseCostValue;
+      }
+    }
+    
+    const result: PaymentDetail = {
       userName: rawData?.userName || 'N/A',
       stationName: rawData?.stationName || 'N/A',
       stationAddress: rawData?.stationAddress || 'N/A',
@@ -220,11 +261,26 @@ export default function ParkingView({ data, onBack, onParkingSessionClear }: Par
       baseCost: baseCostValue,
       totalFee: totalFeeValue
     };
+    
+    if (subscriptionDiscountValue > 0) {
+      result.subscriptionDiscount = subscriptionDiscountValue;
+      // Luôn set originalCost khi có discount để hiển thị đúng
+      if (originalCostValue > 0) {
+        result.originalCost = originalCostValue;
+      }
+    }
+    
+    return result;
   };
 
   const fetchPaymentDetail = async (sessionId: string, userId: string, options?: { silent?: boolean }) => {
     try {
-      const res = await api.get(`/api/payment/detail?sessionId=${sessionId}&userId=${userId}`);
+      const res = await api.get('/api/payment/detail', {
+        params: {
+          sessionId,
+          userId,
+        },
+      });
       if (res.status === 200 && res.data?.success) {
         return parsePaymentDetail(res.data.data);
       }
@@ -306,7 +362,7 @@ export default function ParkingView({ data, onBack, onParkingSessionClear }: Par
         sessionId: sessionIdNum,
         userId: userIdNum,
         paymentMethod: "VNPAY",
-        returnUrl: "http://localhost:3000/payment/result",
+        returnUrl: paymentReturnUrl,
         bankCode: "NCB"
       };
 
@@ -602,13 +658,13 @@ export default function ParkingView({ data, onBack, onParkingSessionClear }: Par
 
       {/* Payment Confirmation */}
       <Dialog open={showPaymentConfirmation} onOpenChange={setShowPaymentConfirmation}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
+        <DialogContent className="max-w-[90vw] sm:max-w-md max-h-[85vh] overflow-hidden flex flex-col p-4 sm:p-5">
+          <DialogHeader className="flex-shrink-0 pb-3">
+            <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
               <CreditCard className="w-5 h-5 text-blue-500" />
               {language === 'vi' ? 'Xác nhận thanh toán' : 'Payment Confirmation'}
             </DialogTitle>
-            <DialogDescription>
+            <DialogDescription className="text-sm hidden sm:block">
               {language === 'vi'
                 ? 'Vui lòng xem lại thông tin thanh toán trước khi xác nhận'
                 : 'Please review the payment information before confirming'}
@@ -616,92 +672,121 @@ export default function ParkingView({ data, onBack, onParkingSessionClear }: Par
           </DialogHeader>
 
           {paymentData && (
-            <div className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">{language === 'vi' ? 'Thông tin phiên sạc' : 'Session Information'}</CardTitle>
+            <div className="space-y-3 sm:space-y-4 overflow-y-auto flex-1 pr-1 min-h-0">
+              <Card className="shadow-sm">
+                <CardHeader className="pb-2 pt-3 px-4">
+                  <CardTitle className="text-sm sm:text-base">{language === 'vi' ? 'Thông tin phiên sạc' : 'Session Information'}</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-sm font-medium text-muted-foreground">{language === 'vi' ? 'Tên người dùng' : 'User Name'}</label>
-                      <p className="text-sm font-medium">{paymentData.userName}</p>
+                <CardContent className="space-y-2 px-4 pb-4">
+                  <div className="space-y-2">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-2">
+                      <label className="text-sm text-muted-foreground">{language === 'vi' ? 'Người dùng' : 'User'}</label>
+                      <p className="text-sm font-medium break-words">{paymentData.userName}</p>
                     </div>
-                    <div>
-                      <label className="text-sm font-medium text-muted-foreground">{language === 'vi' ? 'Trạm sạc' : 'Charging Station'}</label>
-                      <p className="text-sm font-medium">{paymentData.stationName}</p>
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-2">
+                      <label className="text-sm text-muted-foreground">{language === 'vi' ? 'Trạm sạc' : 'Station'}</label>
+                      <p className="text-sm font-medium break-words">{paymentData.stationName}</p>
                     </div>
-                    <div className="md:col-span-2">
-                      <label className="text-sm font-medium text-muted-foreground">{language === 'vi' ? 'Địa chỉ trạm' : 'Station Address'}</label>
-                      <p className="text-sm font-medium">{paymentData.stationAddress}</p>
+                    <div className="flex flex-col gap-1">
+                      <label className="text-sm text-muted-foreground">{language === 'vi' ? 'Địa chỉ' : 'Address'}</label>
+                      <p className="text-sm font-medium break-words">{paymentData.stationAddress}</p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3 pt-1">
+                      <div>
+                        <label className="text-sm text-muted-foreground">{language === 'vi' ? 'Bắt đầu' : 'Start'}</label>
+                        <p className="text-sm font-medium break-words">{new Date(paymentData.sesionStartTime).toLocaleString('vi-VN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
+                      </div>
+                      <div>
+                        <label className="text-sm text-muted-foreground">{language === 'vi' ? 'Kết thúc' : 'End'}</label>
+                        <p className="text-sm font-medium break-words">{new Date(paymentData.sessionEndTime).toLocaleString('vi-VN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-sm text-muted-foreground">{language === 'vi' ? 'Năng lượng' : 'Energy'}</label>
+                        <p className="text-sm font-medium">{paymentData.powerConsumed} kWh</p>
+                      </div>
+                      <div>
+                        <label className="text-sm text-muted-foreground">{language === 'vi' ? 'Chi phí cơ bản' : 'Base Cost'}</label>
+                        <p className="text-sm font-medium">{formatCurrency(paymentData.baseCost)}</p>
+                      </div>
                     </div>
                   </div>
                 </CardContent>
               </Card>
 
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">{language === 'vi' ? 'Chi tiết phiên sạc' : 'Session Details'}</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-sm font-medium text-muted-foreground">{language === 'vi' ? 'Thời gian bắt đầu' : 'Start Time'}</label>
-                      <p className="text-sm font-medium">{new Date(paymentData.sesionStartTime).toLocaleString()}</p>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium text-muted-foreground">{language === 'vi' ? 'Thời gian kết thúc' : 'End Time'}</label>
-                      <p className="text-sm font-medium">{new Date(paymentData.sessionEndTime).toLocaleString()}</p>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium text-muted-foreground">{language === 'vi' ? 'Năng lượng tiêu thụ' : 'Energy Consumed'}</label>
-                      <p className="text-sm font-medium">{paymentData.powerConsumed} kWh</p>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium text-muted-foreground">{language === 'vi' ? 'Chi phí cơ bản' : 'Base Cost'}</label>
-                      <p className="text-sm font-medium">{formatCurrency(paymentData.baseCost)}</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="border-green-200 bg-green-50 dark:bg-green-950/20 dark:border-green-800">
-                <CardHeader>
-                  <CardTitle className="text-lg text-green-800 dark:text-green-200">
+              <Card className="border-green-200 bg-green-50 dark:bg-green-950/20 dark:border-green-800 shadow-sm">
+                <CardHeader className="pb-2 pt-3 px-4">
+                  <CardTitle className="text-sm sm:text-base text-green-800 dark:text-green-200">
                     {translations.paymentSummary}
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">{language === 'vi' ? 'Chi phí sạc' : 'Charging Cost'}</span>
-                    <span className="font-medium">{formatCurrency(paymentData.totalFee)}</span>
+                <CardContent className="space-y-2 px-4 pb-4">
+                  {/* Chi phí sạc gốc (trước discount) */}
+                  {paymentData.subscriptionDiscount && paymentData.subscriptionDiscount > 0 && paymentData.originalCost ? (
+                    <div className="flex items-center justify-between gap-2 text-sm text-muted-foreground">
+                      <span className="break-words flex-1 min-w-0">{language === 'vi' ? 'Chi phí sạc (trước giảm)' : 'Charging (before)'}</span>
+                      <span className="font-medium whitespace-nowrap">{formatCurrency(paymentData.originalCost)}</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-between gap-2 text-sm text-muted-foreground">
+                      <span className="break-words flex-1 min-w-0">{language === 'vi' ? 'Chi phí sạc' : 'Charging Cost'}</span>
+                      <span className="font-medium whitespace-nowrap">{formatCurrency(paymentData.baseCost)}</span>
+                    </div>
+                  )}
+
+                  {/* Discount percentage ngay dưới Charging Cost */}
+                  {paymentData.subscriptionDiscount && paymentData.subscriptionDiscount > 0 && paymentData.originalCost ? (
+                    <div className="flex items-center justify-between gap-2 text-sm text-green-600 dark:text-green-400">
+                      <span className="font-medium break-words flex-1 min-w-0">
+                        {language === 'vi' 
+                          ? `Giảm giá (${paymentData.subscriptionDiscount.toFixed(1)}%)` 
+                          : `Discount (${paymentData.subscriptionDiscount.toFixed(1)}%)`}
+                      </span>
+                      <span className="font-medium whitespace-nowrap">
+                        -{formatCurrency(Math.round(paymentData.originalCost * (paymentData.subscriptionDiscount / 100)))}
+                      </span>
+                    </div>
+                  ) : null}
+
+                  {/* Chi phí sạc sau discount (nếu có discount) */}
+                  {paymentData.subscriptionDiscount && paymentData.subscriptionDiscount > 0 ? (
+                    <div className="flex items-center justify-between gap-2 text-sm text-muted-foreground">
+                      <span className="break-words flex-1 min-w-0">{language === 'vi' ? 'Chi phí sạc (sau giảm)' : 'Charging (after)'}</span>
+                      <span className="font-medium whitespace-nowrap">{formatCurrency(paymentData.totalFee)}</span>
+                    </div>
+                  ) : null}
+
+                  {/* Phí đỗ xe */}
+                  <div className="flex items-center justify-between gap-2 text-sm text-muted-foreground">
+                    <span className="break-words flex-1 min-w-0">{translations.parkingFeeLabel}</span>
+                    <span className="font-medium whitespace-nowrap">{formatCurrency(parkingFee)}</span>
                   </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">{translations.parkingFeeLabel}</span>
-                    <span className="font-medium">{formatCurrency(parkingFee)}</span>
-                  </div>
-                  <Separator />
-                  <div className="flex items-center justify-between">
-                    <span className="text-lg font-medium">{translations.totalAmount}</span>
-                    <span className="text-2xl font-bold text-green-600 dark:text-green-400">
+
+                  <Separator className="my-2" />
+
+                  {/* Tổng sau discount */}
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-base font-medium break-words flex-1 min-w-0">{translations.totalAmount}</span>
+                    <span className="text-lg sm:text-xl font-bold text-green-600 dark:text-green-400 whitespace-nowrap">
                       {formatCurrency(paymentData.totalFee + parkingFee)}
                     </span>
                   </div>
                 </CardContent>
               </Card>
 
-              <div className="flex gap-3">
+              <div className="flex flex-col sm:flex-row gap-3 pt-3 border-t flex-shrink-0">
                 <Button
                   variant="outline"
                   onClick={() => setShowPaymentConfirmation(false)}
-                  className="flex-1"
+                  className="flex-1 text-sm h-10"
                   disabled={paymentLoading}
                 >
                   {language === 'vi' ? 'Hủy' : 'Cancel'}
                 </Button>
                 <Button
                   onClick={handleConfirmPayment}
-                  className="flex-1 bg-green-600 hover:bg-green-700"
+                  className="flex-1 bg-green-600 hover:bg-green-700 text-sm h-10"
                   disabled={paymentLoading}
                 >
                   {paymentLoading ? (
@@ -709,7 +794,7 @@ export default function ParkingView({ data, onBack, onParkingSessionClear }: Par
                   ) : (
                     <CreditCard className="w-4 h-4 mr-2" />
                   )}
-                  {language === 'vi' ? 'Xác nhận thanh toán' : 'Confirm Payment'}
+                  {language === 'vi' ? 'Xác nhận' : 'Confirm'}
                 </Button>
               </div>
             </div>

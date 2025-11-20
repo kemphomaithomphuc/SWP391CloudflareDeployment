@@ -587,28 +587,6 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
 
 
-    // Helper function to get auth headers
-    const getAuthHeaders = () => {
-        const token = localStorage.getItem("token");
-        return {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-        };
-    };
-
-    // Gắn token thủ công cho mọi request axios trong file này
-    useEffect(() => {
-        try {
-            const token = localStorage.getItem("token");
-            if (token) {
-                axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
-            }
-            axios.defaults.headers.post["Content-Type"] = "application/json";
-            axios.defaults.headers.put["Content-Type"] = "application/json";
-            axios.defaults.headers.patch["Content-Type"] = "application/json";
-        } catch {}
-    }, []);
-
 
     // Search state
 
