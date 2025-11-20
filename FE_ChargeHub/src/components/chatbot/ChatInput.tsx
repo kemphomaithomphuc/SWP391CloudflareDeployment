@@ -7,7 +7,7 @@ interface ChatInputProps {
   inputMessage: string;
   setInputMessage: (value: string) => void;
   isLoading: boolean;
-  inputRef: React.RefObject<HTMLInputElement>;
+  inputRef: React.RefObject<HTMLInputElement | null>;
   onSendMessage: () => void;
   onKeyPress: (e: React.KeyboardEvent<HTMLInputElement>) => void;
 }

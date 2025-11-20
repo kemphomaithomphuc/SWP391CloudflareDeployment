@@ -631,7 +631,9 @@ export default function SystemConfigView({ onBack }: SystemConfigViewProps) {
                                         {language === 'vi' ? 'Chọn trạm sạc' : 'Select Charging Station'}
                                     </h4>
                                     <Select
-                                        value={selectedStationId != null ? selectedStationId.toString() : undefined}
+                                        {...(selectedStationId != null
+                                            ? { value: selectedStationId.toString() }
+                                            : {})}
                                         onValueChange={(value: string) => setSelectedStationId(parseInt(value))}
                                     >
                                         <SelectTrigger className="bg-input-background border-border/60">
@@ -918,7 +920,10 @@ export default function SystemConfigView({ onBack }: SystemConfigViewProps) {
                                         {t('update_subscription_plan')}
                                     </h4>
                                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                                        <Select value={selectedPlan || undefined} onValueChange={setSelectedPlan}>
+                                        <Select
+                                            {...(selectedPlan ? { value: selectedPlan } : {})}
+                                            onValueChange={setSelectedPlan}
+                                        >
                                             <SelectTrigger className="bg-input-background border-border/60">
                                                 <SelectValue placeholder={t('select_plan')} />
                                             </SelectTrigger>

@@ -22,9 +22,10 @@ import DriverManagementView from "./components/DriverManagementView";
 import MarketTrendsWidget from "./components/MarketTrendsWidget";
 import ConnectorSuggestionsWidget from "./components/ConnectorSuggestionsWidget";
 
-interface AdminDashboardProps {
+export interface AdminDashboardProps {
     onLogout: () => void;
     onSystemConfig: () => void;
+    onAdminMap: () => void;
     onRevenue: () => void;
     onStaffManagement: () => void;
     onUsageAnalytics: () => void;
@@ -32,7 +33,7 @@ interface AdminDashboardProps {
     onIssueResolvement: () => void;
 }
 
-export default function AdminDashboard({ onLogout, onSystemConfig, onRevenue, onStaffManagement, onUsageAnalytics, onAdminChargerPostActivating, onIssueResolvement }: AdminDashboardProps) {
+export default function AdminDashboard({ onLogout, onSystemConfig, onAdminMap, onRevenue, onStaffManagement, onUsageAnalytics, onAdminChargerPostActivating, onIssueResolvement }: AdminDashboardProps) {
 
     const { language, setLanguage } = useLanguage();
     const [isLoggingOut, setIsLoggingOut] = useState(false);
@@ -65,6 +66,8 @@ export default function AdminDashboard({ onLogout, onSystemConfig, onRevenue, on
         console.log(`${buttonName} button clicked`);
         if (buttonName === 'SystemConfig') {
             onSystemConfig();
+        } else if (buttonName === 'Map') {
+            onAdminMap();
         } else if (buttonName === 'Revenue') {
             onRevenue();
         } else if (buttonName === 'StaffManagement') {

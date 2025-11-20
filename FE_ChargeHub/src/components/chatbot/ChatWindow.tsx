@@ -11,8 +11,8 @@ interface ChatWindowProps {
   isLoading: boolean;
   inputMessage: string;
   setInputMessage: (value: string) => void;
-  messagesEndRef: React.RefObject<HTMLDivElement>;
-  inputRef: React.RefObject<HTMLInputElement>;
+  messagesEndRef: React.RefObject<HTMLDivElement | null>;
+  inputRef: React.RefObject<HTMLInputElement | null>;
   onSendMessage: () => void;
   onSendMessageWithLocation: (message: string, location?: LocationData) => void;
   onKeyPress: (e: React.KeyboardEvent<HTMLInputElement>) => void;
@@ -35,7 +35,10 @@ export default function ChatWindow({
 }: ChatWindowProps) {
   return (
     <Card className="shadow-2xl border border-gray-200 bg-white h-full w-full flex flex-col rounded-t-lg overflow-hidden" style={{ height: '100%', maxHeight: '100%', width: '100%', minWidth: '100%', maxWidth: '100%' }}>
-      <ChatHeader onClose={onClose} onMouseDown={onHeaderMouseDown} />
+      <ChatHeader
+        onClose={onClose}
+        {...(onHeaderMouseDown ? { onMouseDown: onHeaderMouseDown } : {})}
+      />
       <CardContent className="p-3 flex-1 flex flex-col overflow-hidden min-h-0 bg-gray-50" style={{ minHeight: 0, maxHeight: '100%', height: 0, width: '100%', minWidth: '100%', maxWidth: '100%' }}>
         <ChatMessages 
           messages={messages} 
