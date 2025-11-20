@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { ArrowLeft, Zap, Pause, Play, Square, Clock, Battery, MapPin, CreditCard, QrCode, RefreshCw, AlertTriangle, User, Phone, Mail, Car, Hash } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useTheme } from '../contexts/ThemeContext';
@@ -13,11 +13,11 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import QRCodeGenerator from './QRCodeGenerator';
-import axios from 'axios';
 import { api } from '../services/api';
 import { checkAndRefreshToken } from '../services/api';
 import { ParkingSessionSummary } from '../types/parking';
 import fetchParkingMonitoring from '../api/parkingMonitor';
+import { buildFrontendUrl } from '../utils/url';
 
 
 interface ChargingSessionViewProps {
@@ -147,6 +147,7 @@ export default function ChargingSessionView({ onBack, bookingId, onParkingStart 
   const defaultUserName = localStorage.getItem("fullName") || undefined;
   const defaultUserPhone = localStorage.getItem("phone") || localStorage.getItem("phoneNumber") || undefined;
   const defaultUserEmail = localStorage.getItem("email") || undefined;
+  const paymentReturnUrl = useMemo(() => buildFrontendUrl('/payment/result'), []);
 
   const initialStationInfo = getStoredStationInfo();
   const initialChargerType = initialStationInfo?.connectorType && typeof initialStationInfo.connectorType === 'string'
@@ -1828,7 +1829,7 @@ export default function ChargingSessionView({ onBack, bookingId, onParkingStart 
         sessionId: sessionId,
         userId: userId,
         paymentMethod: "VNPAY",
-        returnUrl: "http://localhost:3000/payment/result",
+        returnUrl: paymentReturnUrl,
         bankCode: "NCB"
       }
       
