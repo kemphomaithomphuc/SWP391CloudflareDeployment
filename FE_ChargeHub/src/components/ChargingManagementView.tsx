@@ -150,9 +150,8 @@ export default function ChargingManagementView({ onBack, stationId }: ChargingMa
     };
 
     const formatCurrency = (amount: number) => {
-        return language === 'vi'
-            ? `${amount.toLocaleString('vi-VN')}đ`
-            : `$${amount.toFixed(2)}`;
+        // Luôn hiển thị VND bất kể ngôn ngữ
+        return `${Math.round(amount).toLocaleString('vi-VN')}đ`;
     };
 
     // Load staff's station ID from profile on mount

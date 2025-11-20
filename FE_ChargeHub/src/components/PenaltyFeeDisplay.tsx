@@ -18,9 +18,8 @@ export default function PenaltyFeeDisplay({ penaltyFees, compact = false }: Pena
   const { language } = useLanguage();
 
   const formatCurrency = (amount: number) => {
-    return language === 'vi' 
-      ? `${Math.round(amount).toLocaleString('vi-VN')}đ`
-      : `$${(amount / 23000).toFixed(2)}`;
+    // Luôn hiển thị VND bất kể ngôn ngữ
+    return `${Math.round(amount).toLocaleString('vi-VN')}đ`;
   };
 
   if (penaltyFees.total === 0) {

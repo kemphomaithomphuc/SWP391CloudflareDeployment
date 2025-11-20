@@ -71,7 +71,7 @@ export default function VehicleView({ onBack }: VehicleViewProps) {
     const userId = localStorage.getItem("userId");
     const token = localStorage.getItem("token");
 
-    const plateRegex = /^[A-Za-z0-9\s\-]{3,12}$/; // regex kiểm tra plate number
+    const plateRegex = /^[A-Za-z0-9\s\-]{3,12}$/;// regex kiểm tra plate number
 
     // ------------------------- FETCH FUNCTIONS -------------------------
     const fetchVehicles = async () => {

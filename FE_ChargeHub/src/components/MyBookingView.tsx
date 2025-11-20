@@ -818,9 +818,8 @@ export default function MyBookingView({ onBack, onStartCharging }: MyBookingView
   };
 
   const formatCurrency = (amount: number) => {
-    return language === 'vi' 
-      ? `${amount.toLocaleString('vi-VN')}đ`
-      : `$${amount.toFixed(2)}`;
+    // Luôn hiển thị VND bất kể ngôn ngữ
+    return `${Math.round(amount).toLocaleString('vi-VN')}đ`;
   };
 
   const handleCancelBooking = async (orderId: number) => {
