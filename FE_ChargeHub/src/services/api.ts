@@ -1032,6 +1032,23 @@ export const unassignStaffFromStation = async (userId: number): Promise<APIRespo
   return response.data;
 };
 
+// Add new staff (admin only)
+export interface AddStaffRequestDTO {
+  emailOrPhone?: string;
+  fullName: string;
+  email: string;
+  phone: string;
+  password: string;
+  address: string;
+  dateOfBirth: string;
+  stationId: number;
+}
+
+export const addStaff = async (request: AddStaffRequestDTO): Promise<APIResponse<StaffDTO>> => {
+  const response = await api.post<APIResponse<StaffDTO>>('/api/admin/add-staff', request);
+  return response.data;
+};
+
 // ===== ADMIN REVENUE API FUNCTIONS =====
 export interface RevenueData {
   month: string;

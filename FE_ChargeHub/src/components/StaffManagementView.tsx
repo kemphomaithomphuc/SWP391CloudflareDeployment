@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ArrowLeft, Search, Users2, Mail, Calendar, MapPin, Eye, Edit, MinusCircle } from 'lucide-react';
+import { ArrowLeft, Search, Users2, Mail, Calendar, MapPin, Eye, Edit, MinusCircle, Plus } from 'lucide-react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Input } from './ui/input';
@@ -14,7 +14,7 @@ import { Toaster } from './ui/sonner';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useTheme } from '../contexts/ThemeContext';
 import AdminLanguageThemeControls from './AdminLanguageThemeControls';
-import { api } from '../services/api';
+import { api, addStaff, type AddStaffRequestDTO } from '../services/api';
 
 type ChargingPoint = unknown;
 interface ConnectorType {
@@ -182,8 +182,12 @@ export default function StaffManagementView({ onBack }: StaffManagementViewProps
   const [formData, setFormData] = useState({
     name: '',
     email: '',
+    phone: '',
+    password: '',
+    address: '',
     birthDate: '',
     station: '',
+    stationId: '',
     position: '',
     status: 'ACTIVE' as 'ACTIVE' | 'INACTIVE' | 'BANNED'
   });
@@ -284,8 +288,12 @@ export default function StaffManagementView({ onBack }: StaffManagementViewProps
     setFormData({
       name: '',
       email: '',
+      phone: '',
+      password: '',
+      address: '',
       birthDate: '',
       station: '',
+      stationId: '',
       position: '',
       status: 'ACTIVE'
     });
@@ -467,28 +475,57 @@ export default function StaffManagementView({ onBack }: StaffManagementViewProps
     return `STF${String(maxId + 1).padStart(3, '0')}`;
   };
 
-  const handleAddStaff = () => {
-    if (!formData.name || !formData.email || !formData.birthDate || !formData.station || !formData.position) {
+  const handleAddStaff = async () => {
+    if (!formData.name || !formData.email || !formData.phone || !formData.password || 
+        !formData.address || !formData.birthDate || !formData.stationId) {
       toast.error(isVietnamese ? "Vui lòng điền đầy đủ thông tin" : "Please fill in all required fields");
       return;
     }
 
-    const newStaff: StaffUI = {
-      id: generateStaffId(),
-      name: formData.name,
-      email: formData.email,
-      birthDate: formData.birthDate,
-      station: formData.station,
-      position: formData.position,
-      statusRaw: formData.status,
-      joinDate: new Date().toISOString().slice(0, 10),
-      avatar: null,
-    };
+    try {
+      const payload: AddStaffRequestDTO = {
+        emailOrPhone: formData.email || formData.phone,
+        fullName: formData.name,
+        email: formData.email,
+        phone: formData.phone,
+        password: formData.password,
+        address: formData.address,
+        dateOfBirth: formData.birthDate,
+        stationId: Number(formData.stationId)
+      };
 
-    setStaffList(prev => [...prev, newStaff]);
-    resetForm();
-    setIsAddDialogOpen(false);
-    toast.success(isVietnamese ? "Đã thêm nhân viên thành công" : "Staff member added successfully");
+      const response = await addStaff(payload);
+      
+      if (response.success && response.data) {
+        // Refresh staff list
+        const staffs = await getAvailableStaffs();
+        if (staffs) {
+          const mapped: StaffUI[] = staffs.map(s => ({
+            id: String(s.userId ?? ''),
+            name: s.fullName ?? '',
+            email: s.email ?? '',
+            birthDate: s.dateOfBirth ?? '',
+            station: s.stationName ?? '',
+            position: String(s.role ?? '').toUpperCase(),
+            statusRaw: (String(s.status ?? 'ACTIVE').toUpperCase() as 'ACTIVE'|'INACTIVE'|'BANNED'),
+            joinDate: '',
+            avatar: null,
+          }));
+          setStaffList(mapped);
+        }
+        
+        resetForm();
+        setIsAddDialogOpen(false);
+        toast.success(isVietnamese ? "Đã thêm nhân viên thành công" : "Staff member added successfully");
+      } else {
+        throw new Error(response.message || 'Failed to add staff');
+      }
+    } catch (error: any) {
+      console.error('Error adding staff:', error);
+      const errorMsg = error?.response?.data?.message || error?.message || 
+        (isVietnamese ? "Thêm nhân viên thất bại" : "Failed to add staff");
+      toast.error(errorMsg);
+    }
   };
 
   const handleEditStaff = async () => {
@@ -542,8 +579,12 @@ export default function StaffManagementView({ onBack }: StaffManagementViewProps
     setFormData({
       name: staff.name,
       email: staff.email,
+      phone: '',
+      password: '',
+      address: '',
       birthDate: staff.birthDate,
       station: staff.station,
+      stationId: '',
       position: staff.position,
       status: staff.statusRaw
     });
@@ -699,6 +740,24 @@ export default function StaffManagementView({ onBack }: StaffManagementViewProps
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-2">
+                <Button
+                  onClick={openAddDialog}
+                  className="bg-red-600 hover:bg-red-700 text-white"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  {translations.addStaff}
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={handleExport}
+                  className="border-red-200 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-950/30"
+                >
+                  {translations.exportData}
+                </Button>
               </div>
             </div>
           </CardContent>
@@ -990,60 +1049,84 @@ export default function StaffManagementView({ onBack }: StaffManagementViewProps
                 />
               </div>
               <div>
-                <Label htmlFor="add-email">{translations.email}</Label>
+                <Label htmlFor="add-email">{translations.email} *</Label>
                 <Input
                   id="add-email"
                   type="email"
                   value={formData.email}
                   onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
                   placeholder={isVietnamese ? "Nhập email" : "Enter email"}
+                  required
                 />
               </div>
               <div>
-                <Label htmlFor="add-birthDate">{translations.birthDate}</Label>
+                <Label htmlFor="add-phone">{isVietnamese ? "Số điện thoại" : "Phone"} *</Label>
+                <Input
+                  id="add-phone"
+                  type="tel"
+                  value={formData.phone}
+                  onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
+                  placeholder={isVietnamese ? "Nhập số điện thoại" : "Enter phone number"}
+                  required
+                />
+              </div>
+              <div>
+                <Label htmlFor="add-password">{isVietnamese ? "Mật khẩu" : "Password"} *</Label>
+                <Input
+                  id="add-password"
+                  type="password"
+                  value={formData.password}
+                  onChange={(e) => setFormData(prev => ({ ...prev, password: e.target.value }))}
+                  placeholder={isVietnamese ? "Nhập mật khẩu" : "Enter password"}
+                  required
+                />
+              </div>
+              <div>
+                <Label htmlFor="add-address">{isVietnamese ? "Địa chỉ" : "Address"} *</Label>
+                <Input
+                  id="add-address"
+                  type="text"
+                  value={formData.address}
+                  onChange={(e) => setFormData(prev => ({ ...prev, address: e.target.value }))}
+                  placeholder={isVietnamese ? "Nhập địa chỉ" : "Enter address"}
+                  required
+                />
+              </div>
+              <div>
+                <Label htmlFor="add-birthDate">{translations.birthDate} *</Label>
                 <Input
                   id="add-birthDate"
                   type="date"
                   value={formData.birthDate}
                   onChange={(e) => setFormData(prev => ({ ...prev, birthDate: e.target.value }))}
+                  required
                 />
               </div>
               <div>
-                <Label htmlFor="add-station">{translations.station}</Label>
-                <Select value={formData.station} onValueChange={(value: string) => setFormData(prev => ({ ...prev, station: value }))}>
+                <Label htmlFor="add-station">{translations.station} *</Label>
+                <Select 
+                  value={formData.stationId} 
+                  onValueChange={(value: string) => {
+                    const station = stationsList.find(s => String(s.stationId ?? s.id) === value);
+                    setFormData(prev => ({ 
+                      ...prev, 
+                      stationId: value,
+                      station: station?.stationName || station?.name || ''
+                    }));
+                  }}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder={isVietnamese ? "Chọn trạm" : "Select station"} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="ChargeHub Center">ChargeHub Center</SelectItem>
-                    <SelectItem value="ChargeHub Mall">ChargeHub Mall</SelectItem>
-                    <SelectItem value="ChargeHub Airport">ChargeHub Airport</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label htmlFor="add-position">{translations.position}</Label>
-                <Select value={formData.position} onValueChange={(value: string) => setFormData(prev => ({ ...prev, position: value }))}>
-                  <SelectTrigger>
-                    <SelectValue placeholder={isVietnamese ? "Chọn vị trí" : "Select position"} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Manager">Manager</SelectItem>
-                    <SelectItem value="Supervisor">Supervisor</SelectItem>
-                    <SelectItem value="Technician">Technician</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label htmlFor="add-status">{translations.status}</Label>
-                <Select value={formData.status} onValueChange={(value: any) => setFormData(prev => ({ ...prev, status: value as 'ACTIVE' | 'INACTIVE' | 'BANNED' }))}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="ACTIVE">{translations.active}</SelectItem>
-                    <SelectItem value="INACTIVE">{translations.inactive}</SelectItem>
-                    <SelectItem value="BANNED">Banned</SelectItem>
+                    {stationsList.map((s) => (
+                      <SelectItem key={String(s.id ?? s.stationId)} value={String(s.stationId ?? s.id)}>
+                        <div className="flex flex-col">
+                          <span className="font-medium text-sm">{s.stationName || s.name}</span>
+                          <span className="text-xs text-muted-foreground">{s.address}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
