@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { 
   User, 
   Car, 
@@ -43,24 +44,29 @@ import Chatbot from "./components/Chatbot";
 interface MainDashboardProps {
   onLogout: () => void;
   onBooking?: () => void;
-  onHistory?: () => void;
-  onAnalysis?: () => void;
   onReportIssue?: () => void;
   onNotifications?: () => void;
   onMyBookings?: () => void;
   onPremiumSubscription?: () => void;
   vehicleBatteryLevel?: number;
   setVehicleBatteryLevel?: (level: number) => void;
+  initialSection?: string;
 }
 
-export default function MainDashboard({ onLogout, onBooking, onHistory, onAnalysis, onReportIssue, onNotifications, onMyBookings, onPremiumSubscription, vehicleBatteryLevel = 75, setVehicleBatteryLevel }: MainDashboardProps) {
-  const [activeSection, setActiveSection] = useState("dashboard");
+export default function MainDashboard({ onLogout, onBooking, onReportIssue, onNotifications, onMyBookings, onPremiumSubscription, vehicleBatteryLevel = 75, setVehicleBatteryLevel, initialSection = "dashboard" }: MainDashboardProps) {
+  const [activeSection, setActiveSection] = useState(initialSection);
+  const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const { theme, toggleTheme } = useTheme();
   const { language, setLanguage, t } = useLanguage();
   const { sendAutoMessage } = useChatbot();
+
+  // Sync activeSection with initialSection prop when it changes
+  useEffect(() => {
+    setActiveSection(initialSection);
+  }, [initialSection]);
 
   // Load notification count on component mount
   useEffect(() => {
@@ -220,6 +226,7 @@ export default function MainDashboard({ onLogout, onBooking, onHistory, onAnalys
           <button
             onClick={() => {
               setActiveSection("profile");
+              navigate("/profile");
               setSidebarOpen(false);
             }}
             className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-left transition-colors ${
@@ -233,6 +240,7 @@ export default function MainDashboard({ onLogout, onBooking, onHistory, onAnalys
           <button
             onClick={() => {
               setActiveSection("vehicle");
+              navigate("/vehicle");
               setSidebarOpen(false);
             }}
             className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-left transition-colors ${
@@ -259,6 +267,7 @@ export default function MainDashboard({ onLogout, onBooking, onHistory, onAnalys
           <button
             onClick={() => {
               setActiveSection("transaction-history");
+              navigate("/transaction-history");
               setSidebarOpen(false);
             }}
             className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-left transition-colors ${
@@ -476,7 +485,7 @@ export default function MainDashboard({ onLogout, onBooking, onHistory, onAnalys
                   {language === 'vi' ? 'Dịch vụ của chúng tôi' : 'Our Services'}
                 </h2>
                 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div 
                     className="bg-card rounded-2xl p-6 border border-border hover:shadow-lg hover:border-primary/50 transition-all cursor-pointer w-full"
                     onClick={onMyBookings}
@@ -492,7 +501,10 @@ export default function MainDashboard({ onLogout, onBooking, onHistory, onAnalys
 
                   <div 
                     className="bg-card rounded-2xl p-6 border border-border hover:shadow-lg hover:border-primary/50 transition-all cursor-pointer w-full"
-                    onClick={() => setActiveSection("transaction-history")}
+                    onClick={() => {
+                      setActiveSection("transaction-history");
+                      navigate("/transaction-history");
+                    }}
                   >
                     <Receipt className="w-8 h-8 text-primary mb-4" />
                     <h3 className="font-semibold text-foreground mb-2">
@@ -500,19 +512,6 @@ export default function MainDashboard({ onLogout, onBooking, onHistory, onAnalys
                     </h3>
                     <p className="text-sm text-muted-foreground">
                       {language === 'vi' ? 'Xem chi tiết thanh toán' : 'View payment details'}
-                    </p>
-                  </div>
-
-                  <div 
-                    className="bg-card rounded-2xl p-6 border border-border hover:shadow-lg hover:border-primary/50 transition-all cursor-pointer w-full"
-                    onClick={onHistory}
-                  >
-                    <Calendar className="w-8 h-8 text-primary mb-4" />
-                    <h3 className="font-semibold text-foreground mb-2">
-                      {language === 'vi' ? 'Lịch sử sạc' : 'Charging History'}
-                    </h3>
-                    <p className="text-sm text-muted-foreground">
-                      {language === 'vi' ? 'Theo dõi các phiên sạc' : 'Track charging sessions'}
                     </p>
                   </div>
 
@@ -526,19 +525,6 @@ export default function MainDashboard({ onLogout, onBooking, onHistory, onAnalys
                     </h3>
                     <p className="text-sm text-muted-foreground">
                       {language === 'vi' ? 'Nâng cấp dịch vụ' : 'Upgrade service'}
-                    </p>
-                  </div>
-
-                  <div 
-                    className="bg-card rounded-2xl p-6 border border-border hover:shadow-lg hover:border-primary/50 transition-all cursor-pointer w-full"
-                    onClick={onAnalysis}
-                  >
-                    <FileText className="w-8 h-8 text-primary mb-4" />
-                    <h3 className="font-semibold text-foreground mb-2">
-                      {language === 'vi' ? 'Phân tích cá nhân' : 'Personal Analysis'}
-                    </h3>
-                    <p className="text-sm text-muted-foreground">
-                      {language === 'vi' ? 'Thống kê sử dụng' : 'Usage statistics'}
                     </p>
                   </div>
 
@@ -558,11 +544,11 @@ export default function MainDashboard({ onLogout, onBooking, onHistory, onAnalys
             </div>
             </div>
           )}
-          {activeSection === "profile" && <ProfileView onBack={() => setActiveSection("dashboard")} />}
-          {activeSection === "vehicle" && <VehicleView onBack={() => setActiveSection("dashboard")} />}
-          {activeSection === "transaction-history" && <TransactionHistoryView onBack={() => setActiveSection("dashboard")} />}
-          {activeSection === "subscription" && <SubscriptionView onBack={() => setActiveSection("dashboard")} mode="explore" />}
-          {activeSection === "check-subscription" && <SubscriptionView onBack={() => setActiveSection("dashboard")} mode="current" />}
+          {activeSection === "profile" && <ProfileView onBack={() => { setActiveSection("dashboard"); navigate("/dashboard"); }} />}
+          {activeSection === "vehicle" && <VehicleView onBack={() => { setActiveSection("dashboard"); navigate("/dashboard"); }} />}
+          {activeSection === "transaction-history" && <TransactionHistoryView onBack={() => { setActiveSection("dashboard"); navigate("/dashboard"); }} />}
+          {activeSection === "subscription" && <SubscriptionView onBack={() => { setActiveSection("dashboard"); navigate("/dashboard"); }} mode="explore" />}
+          {activeSection === "check-subscription" && <SubscriptionView onBack={() => { setActiveSection("dashboard"); navigate("/dashboard"); }} mode="current" />}
         </div>
 
 

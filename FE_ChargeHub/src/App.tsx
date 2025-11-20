@@ -24,8 +24,6 @@ import ChargingManagementView from "./components/ChargingManagementView";
 import AdminLogin from "./AdminLogin";
 import AdminDashboard from "./AdminDashboard";
 import BookingMap from "./BookingMap";
-import HistoryView from "./components/HistoryView";
-import PersonalAnalysisView from "./components/PersonalAnalysisView";
 import ReportIssueView from "./components/ReportIssueView";
 import NotificationView from "./components/NotificationView";
 import SystemConfigView from "./components/SystemConfigView";
@@ -58,6 +56,11 @@ type ViewType =
   | "staffProfileSetup"
   | "educationSetup"
   | "dashboard"
+  | "profile"
+  | "vehicle"
+  | "transactionHistory"
+  | "subscription"
+  | "checkSubscription"
   | "staffLogin"
   | "staffDashboard"
   | "staffReports"
@@ -69,8 +72,6 @@ type ViewType =
   | "staffManagement"
   | "usageAnalytics"
   | "booking"
-  | "history"
-  | "analysis"
   | "reportIssue"
   | "notifications"
   | "staffNotifications"
@@ -150,14 +151,6 @@ function AppContent() {
   const switchToBooking = () => {
     setCurrentView("booking");
     navigate("/booking");
-  };
-  const switchToHistory = () => {
-    setCurrentView("history");
-    navigate("/history");
-  };
-  const switchToAnalysis = () => {
-    setCurrentView("analysis");
-    navigate("/analysis");
   };
   const switchToReportIssue = () => {
     setCurrentView("reportIssue");
@@ -294,9 +287,12 @@ function AppContent() {
       "staffProfileSetup": "/staff-profile-setup",
       "educationSetup": "/education-setup",
       "dashboard": "/dashboard",
+      "profile": "/profile",
+      "vehicle": "/vehicle",
+      "transactionHistory": "/transaction-history",
+      "subscription": "/subscription",
+      "checkSubscription": "/check-subscription",
       "booking": "/booking",
-      "history": "/history",
-      "analysis": "/analysis",
       "reportIssue": "/report-issue",
       "notifications": "/notifications",
       "myBookings": "/my-bookings",
@@ -329,7 +325,7 @@ function AppContent() {
 
   // Determine user type and whether to show sidebar based on current view
   const getUserType = (): 'driver' | 'staff' | 'admin' | undefined => {
-    if (['dashboard', 'booking', 'history', 'analysis', 'reportIssue', 'notifications', 'myBookings', 'chargingSession', 'premiumSubscription'].includes(currentView)) {
+    if (['dashboard', 'profile', 'vehicle', 'transactionHistory', 'subscription', 'checkSubscription', 'booking', 'reportIssue', 'notifications', 'myBookings', 'chargingSession', 'premiumSubscription'].includes(currentView)) {
       return 'driver';
     }
     if (['staffDashboard', 'staffNotifications', 'staffReports', 'chargingManagement'].includes(currentView)) {
@@ -463,16 +459,25 @@ function AppContent() {
   const renderContent = () => {
     switch (currentView) {
       case "dashboard":
-        return <MainDashboard onLogout={switchToLogin} onBooking={switchToBooking} onHistory={switchToHistory} onAnalysis={switchToAnalysis} onReportIssue={switchToReportIssue} onNotifications={switchToNotifications} onMyBookings={switchToMyBookings} onPremiumSubscription={switchToPremiumSubscription} vehicleBatteryLevel={vehicleBatteryLevel} setVehicleBatteryLevel={setVehicleBatteryLevel} />;
+        return <MainDashboard onLogout={switchToLogin} onBooking={switchToBooking} onReportIssue={switchToReportIssue} onNotifications={switchToNotifications} onMyBookings={switchToMyBookings} onPremiumSubscription={switchToPremiumSubscription} vehicleBatteryLevel={vehicleBatteryLevel} setVehicleBatteryLevel={setVehicleBatteryLevel} />;
+
+      case "profile":
+        return <MainDashboard onLogout={switchToLogin} onBooking={switchToBooking} onReportIssue={switchToReportIssue} onNotifications={switchToNotifications} onMyBookings={switchToMyBookings} onPremiumSubscription={switchToPremiumSubscription} vehicleBatteryLevel={vehicleBatteryLevel} setVehicleBatteryLevel={setVehicleBatteryLevel} initialSection="profile" />;
+
+      case "vehicle":
+        return <MainDashboard onLogout={switchToLogin} onBooking={switchToBooking} onReportIssue={switchToReportIssue} onNotifications={switchToNotifications} onMyBookings={switchToMyBookings} onPremiumSubscription={switchToPremiumSubscription} vehicleBatteryLevel={vehicleBatteryLevel} setVehicleBatteryLevel={setVehicleBatteryLevel} initialSection="vehicle" />;
+
+      case "transactionHistory":
+        return <MainDashboard onLogout={switchToLogin} onBooking={switchToBooking} onReportIssue={switchToReportIssue} onNotifications={switchToNotifications} onMyBookings={switchToMyBookings} onPremiumSubscription={switchToPremiumSubscription} vehicleBatteryLevel={vehicleBatteryLevel} setVehicleBatteryLevel={setVehicleBatteryLevel} initialSection="transaction-history" />;
+
+      case "subscription":
+        return <MainDashboard onLogout={switchToLogin} onBooking={switchToBooking} onReportIssue={switchToReportIssue} onNotifications={switchToNotifications} onMyBookings={switchToMyBookings} onPremiumSubscription={switchToPremiumSubscription} vehicleBatteryLevel={vehicleBatteryLevel} setVehicleBatteryLevel={setVehicleBatteryLevel} initialSection="subscription" />;
+
+      case "checkSubscription":
+        return <MainDashboard onLogout={switchToLogin} onBooking={switchToBooking} onReportIssue={switchToReportIssue} onNotifications={switchToNotifications} onMyBookings={switchToMyBookings} onPremiumSubscription={switchToPremiumSubscription} vehicleBatteryLevel={vehicleBatteryLevel} setVehicleBatteryLevel={setVehicleBatteryLevel} initialSection="check-subscription" />;
 
       case "booking":
         return <BookingMap onBack={() => navigate("/dashboard")} currentBatteryLevel={vehicleBatteryLevel} setCurrentBatteryLevel={setVehicleBatteryLevel} onStartCharging={switchToChargingSession} />;
-
-      case "history":
-        return <HistoryView onBack={() => navigate("/dashboard")} />;
-
-      case "analysis":
-        return <PersonalAnalysisView onBack={() => navigate("/dashboard")} />;
 
       case "reportIssue":
         return <ReportIssueView onBack={() => navigate("/dashboard")} />;
@@ -641,9 +646,12 @@ function AppContent() {
       "/education-setup": "educationSetup",
       "/home": "dashboard",
       "/dashboard": "dashboard",
+      "/profile": "profile",
+      "/vehicle": "vehicle",
+      "/transaction-history": "transactionHistory",
+      "/subscription": "subscription",
+      "/check-subscription": "checkSubscription",
       "/booking": "booking",
-      "/history": "history",
-      "/analysis": "analysis",
       "/report-issue": "reportIssue",
       "/notifications": "notifications",
       "/my-bookings": "myBookings",
@@ -830,39 +838,81 @@ function AppContent() {
         } 
       />
       <Route 
+        path="/profile" 
+        element={
+          <AppLayout
+            userType={userType || "driver"}
+            currentView="profile"
+            onNavigate={handleNavigation}
+            onLogout={switchToLogin}
+            showSidebar={showSidebar}
+          >
+            {renderContent()}
+          </AppLayout>
+        } 
+      />
+      <Route 
+        path="/vehicle" 
+        element={
+          <AppLayout
+            userType={userType || "driver"}
+            currentView="vehicle"
+            onNavigate={handleNavigation}
+            onLogout={switchToLogin}
+            showSidebar={showSidebar}
+          >
+            {renderContent()}
+          </AppLayout>
+        } 
+      />
+      <Route 
+        path="/transaction-history" 
+        element={
+          <AppLayout
+            userType={userType || "driver"}
+            currentView="transactionHistory"
+            onNavigate={handleNavigation}
+            onLogout={switchToLogin}
+            showSidebar={showSidebar}
+          >
+            {renderContent()}
+          </AppLayout>
+        } 
+      />
+      <Route 
+        path="/subscription" 
+        element={
+          <AppLayout
+            userType={userType || "driver"}
+            currentView="subscription"
+            onNavigate={handleNavigation}
+            onLogout={switchToLogin}
+            showSidebar={showSidebar}
+          >
+            {renderContent()}
+          </AppLayout>
+        } 
+      />
+      <Route 
+        path="/check-subscription" 
+        element={
+          <AppLayout
+            userType={userType || "driver"}
+            currentView="checkSubscription"
+            onNavigate={handleNavigation}
+            onLogout={switchToLogin}
+            showSidebar={showSidebar}
+          >
+            {renderContent()}
+          </AppLayout>
+        } 
+      />
+      <Route 
         path="/booking" 
         element={
           <AppLayout
             userType="driver"
             currentView="booking"
-            onNavigate={handleNavigation}
-            onLogout={switchToLogin}
-            showSidebar={showSidebar}
-          >
-            {renderContent()}
-          </AppLayout>
-        } 
-      />
-      <Route 
-        path="/history" 
-        element={
-          <AppLayout
-            userType="driver"
-            currentView="history"
-            onNavigate={handleNavigation}
-            onLogout={switchToLogin}
-            showSidebar={showSidebar}
-          >
-            {renderContent()}
-          </AppLayout>
-        } 
-      />
-      <Route 
-        path="/analysis" 
-        element={
-          <AppLayout
-            userType="driver"
-            currentView="analysis"
             onNavigate={handleNavigation}
             onLogout={switchToLogin}
             showSidebar={showSidebar}

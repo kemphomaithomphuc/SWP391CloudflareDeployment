@@ -25,6 +25,7 @@ import ConnectorSuggestionsWidget from "./components/ConnectorSuggestionsWidget"
 interface AdminDashboardProps {
     onLogout: () => void;
     onSystemConfig: () => void;
+    onAdminMap: () => void;
     onRevenue: () => void;
     onStaffManagement: () => void;
     onUsageAnalytics: () => void;
@@ -32,7 +33,7 @@ interface AdminDashboardProps {
     onIssueResolvement: () => void;
 }
 
-export default function AdminDashboard({ onLogout, onSystemConfig, onRevenue, onStaffManagement, onUsageAnalytics, onAdminChargerPostActivating, onIssueResolvement }: AdminDashboardProps) {
+export default function AdminDashboard({ onLogout, onSystemConfig, onAdminMap, onRevenue, onStaffManagement, onUsageAnalytics, onAdminChargerPostActivating, onIssueResolvement }: AdminDashboardProps) {
 
     const { language, setLanguage } = useLanguage();
     const [isLoggingOut, setIsLoggingOut] = useState(false);
@@ -63,7 +64,9 @@ export default function AdminDashboard({ onLogout, onSystemConfig, onRevenue, on
 
     const handleGridButtonClick = (buttonName: string) => {
         console.log(`${buttonName} button clicked`);
-        if (buttonName === 'SystemConfig') {
+        if (buttonName === 'Map') {
+            onAdminMap();
+        } else if (buttonName === 'SystemConfig') {
             onSystemConfig();
         } else if (buttonName === 'Revenue') {
             onRevenue();

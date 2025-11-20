@@ -400,103 +400,103 @@ export default function PostActivatingView({ onBack }: PostActivatingViewProps) 
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <div className="sticky top-0 z-40 bg-card/80 backdrop-blur-sm border-b border-border shadow-sm">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
+    <div className="min-h-screen bg-black dark:bg-black">
+      <div className="container mx-auto px-4 sm:px-6 py-6 max-w-7xl">
+        {/* Header */}
+        <div className="mb-8">
+          <div className="flex items-center justify-between mb-4">
             <div className="flex items-center space-x-4">
               <Button
                 variant="ghost"
-                size="sm"
                 onClick={onBack}
-                className="text-muted-foreground hover:text-foreground"
+                className="hover:bg-gray-800 text-gray-300 hover:text-white"
               >
                 <ArrowLeft className="w-4 h-4 mr-2" />
-                Back to Dashboard
+                {t.back}
               </Button>
-            </div>
-            <div className="text-right">
-              <h1 className="text-lg font-semibold text-foreground">{t.title}</h1>
-              <p className="text-sm text-muted-foreground">{t.subtitle}</p>
+              <div>
+                <h1 className="text-2xl font-semibold text-white">
+                  {t.title}
+                </h1>
+                <p className="text-sm text-gray-400 mt-1">
+                  {t.subtitle}
+                </p>
+              </div>
             </div>
           </div>
         </div>
-      </div>
-
-      <div className="container mx-auto px-4 py-6 space-y-8">
 
         {/* Quick Stats */}
-        <div className="space-y-6">
+        <div className="space-y-6 mb-6">
           <div>
-            <h2 className="text-foreground font-semibold mb-4">{t.quickStats}</h2>
+            <h2 className="text-white font-semibold mb-4">{t.quickStats}</h2>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
-            <Card className="border-border bg-gradient-to-br from-green-50 to-green-100 dark:from-green-950/20 dark:to-green-900/20 border-green-200 dark:border-green-800 shadow-sm hover:shadow-md transition-shadow">
+            <Card className="bg-gray-900 border-gray-800">
               <CardContent className="p-5">
                 <div className="flex items-start justify-between">
                   <div className="space-y-1">
-                    <p className="text-xs font-medium text-green-700 dark:text-green-300 uppercase tracking-wide">{t.activeStations}</p>
-                    <p className="text-3xl font-bold text-green-900 dark:text-green-100">{stats.active}</p>
+                    <p className="text-xs font-medium text-gray-400 uppercase tracking-wide">{t.activeStations}</p>
+                    <p className="text-2xl font-semibold text-white">{stats.active}</p>
                   </div>
-                  <div className="w-10 h-10 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center">
-                    <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400" />
+                  <div className="w-10 h-10 bg-gray-800 rounded-lg flex items-center justify-center">
+                    <CheckCircle className="w-5 h-5 text-gray-400" />
                   </div>
                 </div>
               </CardContent>
             </Card>
 
-            <Card className="border-border bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950/20 dark:to-blue-900/20 border-blue-200 dark:border-blue-800 shadow-sm hover:shadow-md transition-shadow">
+            <Card className="bg-gray-900 border-gray-800">
               <CardContent className="p-5">
                 <div className="flex items-start justify-between">
                   <div className="space-y-1">
-                    <p className="text-xs font-medium text-blue-700 dark:text-blue-300 uppercase tracking-wide">{t.occupiedStations}</p>
-                    <p className="text-3xl font-bold text-blue-900 dark:text-blue-100">{stats.occupied}</p>
+                    <p className="text-xs font-medium text-gray-400 uppercase tracking-wide">{t.occupiedStations}</p>
+                    <p className="text-2xl font-semibold text-white">{stats.occupied}</p>
                   </div>
-                  <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
-                    <Power className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                  <div className="w-10 h-10 bg-gray-800 rounded-lg flex items-center justify-center">
+                    <Power className="w-5 h-5 text-gray-400" />
                   </div>
                 </div>
               </CardContent>
             </Card>
 
-            <Card className="border-border bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-950/20 dark:to-orange-900/20 border-orange-200 dark:border-orange-800 shadow-sm hover:shadow-md transition-shadow">
+            <Card className="bg-gray-900 border-gray-800">
               <CardContent className="p-5">
                 <div className="flex items-start justify-between">
                   <div className="space-y-1">
-                    <p className="text-xs font-medium text-orange-700 dark:text-orange-300 uppercase tracking-wide">{t.maintenanceStations}</p>
-                    <p className="text-3xl font-bold text-orange-900 dark:text-orange-100">{stats.maintenance}</p>
+                    <p className="text-xs font-medium text-gray-400 uppercase tracking-wide">{t.maintenanceStations}</p>
+                    <p className="text-2xl font-semibold text-white">{stats.maintenance}</p>
                   </div>
-                  <div className="w-10 h-10 bg-orange-100 dark:bg-orange-900/30 rounded-lg flex items-center justify-center">
-                    <Wrench className="w-5 h-5 text-orange-600 dark:text-orange-400" />
+                  <div className="w-10 h-10 bg-gray-800 rounded-lg flex items-center justify-center">
+                    <Wrench className="w-5 h-5 text-gray-400" />
                   </div>
                 </div>
               </CardContent>
             </Card>
 
-            <Card className="border-border bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-700 border-gray-200 dark:border-gray-600 shadow-sm hover:shadow-md transition-shadow">
+            <Card className="bg-gray-900 border-gray-800">
               <CardContent className="p-5">
                 <div className="flex items-start justify-between">
                   <div className="space-y-1">
-                    <p className="text-xs font-medium text-gray-700 dark:text-gray-300 uppercase tracking-wide">{t.inactiveStations}</p>
-                    <p className="text-3xl font-bold text-gray-900 dark:text-gray-100">{stats.inactive}</p>
+                    <p className="text-xs font-medium text-gray-400 uppercase tracking-wide">{t.inactiveStations}</p>
+                    <p className="text-2xl font-semibold text-white">{stats.inactive}</p>
                   </div>
-                  <div className="w-10 h-10 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center">
-                    <XCircle className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                  <div className="w-10 h-10 bg-gray-800 rounded-lg flex items-center justify-center">
+                    <XCircle className="w-5 h-5 text-gray-400" />
                   </div>
                 </div>
               </CardContent>
             </Card>
 
-            <Card className="border-border bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-950/20 dark:to-purple-900/20 border-purple-200 dark:border-purple-800 shadow-sm hover:shadow-md transition-shadow">
+            <Card className="bg-gray-900 border-gray-800">
               <CardContent className="p-5">
                 <div className="flex items-start justify-between">
                   <div className="space-y-1">
-                    <p className="text-xs font-medium text-purple-700 dark:text-purple-300 uppercase tracking-wide">{t.totalRevenue}</p>
-                    <p className="text-2xl font-bold text-purple-900 dark:text-purple-100">{formatCurrency(stats.totalRevenue).slice(0, -1)}M</p>
+                    <p className="text-xs font-medium text-gray-400 uppercase tracking-wide">{t.totalRevenue}</p>
+                    <p className="text-2xl font-semibold text-white">{formatCurrency(stats.totalRevenue).slice(0, -1)}M</p>
                   </div>
-                  <div className="w-10 h-10 bg-purple-100 dark:bg-purple-900/30 rounded-lg flex items-center justify-center">
-                    <Settings className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                  <div className="w-10 h-10 bg-gray-800 rounded-lg flex items-center justify-center">
+                    <Settings className="w-5 h-5 text-gray-400" />
                   </div>
                 </div>
               </CardContent>
@@ -505,30 +505,30 @@ export default function PostActivatingView({ onBack }: PostActivatingViewProps) 
         </div>
 
         {/* Search and Filter */}
-        <Card className="border-border shadow-sm">
-          <CardContent className="p-6">
+        <Card className="mb-6 bg-gray-900 border-gray-800">
+          <CardContent className="p-4">
             <div className="flex flex-col sm:flex-row gap-4">
               <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input
                   placeholder={t.search}
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 bg-input-background border-border h-10"
+                  className="pl-10 bg-gray-800 border-gray-700 text-white placeholder:text-gray-500"
                 />
               </div>
               <div className="flex items-center gap-3 sm:w-auto">
-                <Filter className="h-4 w-4 text-muted-foreground" />
+                <Filter className="h-4 w-4 text-gray-400" />
                 <Select value={filterStatus} onValueChange={setFilterStatus}>
-                  <SelectTrigger className="w-48 bg-input-background h-10">
+                  <SelectTrigger className="w-full sm:w-[200px] bg-gray-800 border-gray-700 text-white">
                     <SelectValue placeholder={t.filter} />
                   </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">{t.all}</SelectItem>
-                    <SelectItem value="active">{t.active}</SelectItem>
-                    <SelectItem value="inactive">{t.inactive}</SelectItem>
-                    <SelectItem value="maintenance">{t.maintenance}</SelectItem>
-                    <SelectItem value="occupied">{t.occupied}</SelectItem>
+                  <SelectContent className="bg-gray-900 border-gray-800">
+                    <SelectItem value="all" className="text-white hover:bg-gray-800">{t.all}</SelectItem>
+                    <SelectItem value="active" className="text-white hover:bg-gray-800">{t.active}</SelectItem>
+                    <SelectItem value="inactive" className="text-white hover:bg-gray-800">{t.inactive}</SelectItem>
+                    <SelectItem value="maintenance" className="text-white hover:bg-gray-800">{t.maintenance}</SelectItem>
+                    <SelectItem value="occupied" className="text-white hover:bg-gray-800">{t.occupied}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -537,16 +537,16 @@ export default function PostActivatingView({ onBack }: PostActivatingViewProps) 
         </Card>
 
         {/* Tabs */}
-        <Card className="border-border shadow-sm">
+        <Card className="bg-gray-900 border-gray-800">
           <CardContent className="p-6">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-              <div className="border-b border-border pb-4">
-                <TabsList className="grid w-full grid-cols-2 max-w-md bg-muted/50">
-                  <TabsTrigger value="stations" className="flex items-center gap-2">
+              <div className="border-b border-gray-800 pb-4">
+                <TabsList className="grid w-full grid-cols-2 max-w-md bg-gray-800">
+                  <TabsTrigger value="stations" className="flex items-center gap-2 text-gray-400 data-[state=active]:text-white data-[state=active]:bg-gray-700">
                     <Zap className="w-4 h-4" />
                     {t.stations}
                   </TabsTrigger>
-                  <TabsTrigger value="customers" className="flex items-center gap-2">
+                  <TabsTrigger value="customers" className="flex items-center gap-2 text-gray-400 data-[state=active]:text-white data-[state=active]:bg-gray-700">
                     <Users className="w-4 h-4" />
                     {t.customers}
                   </TabsTrigger>
@@ -557,16 +557,16 @@ export default function PostActivatingView({ onBack }: PostActivatingViewProps) 
               <TabsContent value="stations" className="space-y-4 mt-6">
                 <div className="space-y-4">
                   {filteredStations.map((station) => (
-                    <Card key={station.id} className="border-border hover:shadow-md transition-all duration-200 bg-gradient-to-r from-card to-card/50">
+                    <Card key={station.id} className="bg-gray-900 border-gray-800 hover:border-gray-700 transition-all duration-200">
                       <CardContent className="p-6">
                         <div className="flex items-start justify-between gap-6">
                           <div className="flex-1 min-w-0">
                             <div className="flex items-start gap-4 mb-5">
-                              <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-blue-600 rounded-xl flex items-center justify-center shadow-sm flex-shrink-0">
+                              <div className="w-12 h-12 bg-gray-800 rounded-xl flex items-center justify-center shadow-sm flex-shrink-0">
                                 <Zap className="w-6 h-6 text-white" />
                               </div>
                               <div className="flex-1 min-w-0">
-                                <h3 className="font-semibold text-card-foreground mb-2 truncate">{station.name}</h3>
+                                <h3 className="font-semibold text-white mb-2 truncate">{station.name}</h3>
                                 <div className="flex items-center gap-2">
                                   {getStatusIcon(station.status)}
                                   <Badge className={getStatusColor(station.status)}>
@@ -578,50 +578,50 @@ export default function PostActivatingView({ onBack }: PostActivatingViewProps) 
                             
                             <div className="space-y-3 mb-5">
                               <div className="flex items-start gap-2">
-                                <MapPin className="w-4 h-4 text-muted-foreground mt-1 flex-shrink-0" />
-                                <span className="text-muted-foreground text-sm leading-relaxed">{station.location}</span>
+                                <MapPin className="w-4 h-4 text-gray-400 mt-1 flex-shrink-0" />
+                                <span className="text-gray-400 text-sm leading-relaxed">{station.location}</span>
                               </div>
                               
                               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                                 <div className="flex items-center gap-2">
-                                  <Settings className="w-4 h-4 text-muted-foreground" />
-                                  <span className="text-muted-foreground text-sm">{t.type}:</span>
-                                  <span className="font-medium text-card-foreground text-sm">{getTypeText(station.type)}</span>
+                                  <Settings className="w-4 h-4 text-gray-400" />
+                                  <span className="text-gray-400 text-sm">{t.type}:</span>
+                                  <span className="font-medium text-white text-sm">{getTypeText(station.type)}</span>
                                 </div>
                                 <div className="flex items-center gap-2">
-                                  <Zap className="w-4 h-4 text-muted-foreground" />
-                                  <span className="text-muted-foreground text-sm">{t.power}:</span>
-                                  <span className="font-medium text-card-foreground text-sm">{station.power} {t.kw}</span>
+                                  <Zap className="w-4 h-4 text-gray-400" />
+                                  <span className="text-gray-400 text-sm">{t.power}:</span>
+                                  <span className="font-medium text-white text-sm">{station.power} {t.kw}</span>
                                 </div>
                                 <div className="flex items-center gap-2">
-                                  <span className="text-muted-foreground text-sm">{t.price}:</span>
-                                  <span className="font-medium text-card-foreground text-sm">{formatCurrency(station.price)}/{t.kw}h</span>
+                                  <span className="text-gray-400 text-sm">{t.price}:</span>
+                                  <span className="font-medium text-white text-sm">{formatCurrency(station.price)}/{t.kw}h</span>
                                 </div>
                               </div>
                             </div>
 
                             {station.currentUser && (
-                              <div className="mt-4 p-4 bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-950/20 dark:to-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-800">
+                              <div className="mt-4 p-4 bg-gray-800 rounded-xl border border-gray-700">
                                 <div className="flex items-center gap-2 mb-4">
-                                  <UserCheck className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                                  <span className="font-medium text-blue-800 dark:text-blue-200">{t.currentUser}</span>
+                                  <UserCheck className="w-4 h-4 text-gray-400" />
+                                  <span className="font-medium text-white">{t.currentUser}</span>
                                 </div>
                                 <div className="space-y-3">
                                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-sm">
                                     <div>
-                                      <span className="text-blue-700 dark:text-blue-300 font-medium">{station.currentUser.name}</span>
+                                      <span className="text-white font-medium">{station.currentUser.name}</span>
                                     </div>
                                     <div>
-                                      <span className="text-blue-600 dark:text-blue-400">{station.currentUser.phone}</span>
+                                      <span className="text-gray-400">{station.currentUser.phone}</span>
                                     </div>
                                     <div>
-                                      <span className="text-blue-600 dark:text-blue-400">{t.since}: {station.currentUser.startTime}</span>
+                                      <span className="text-gray-400">{t.since}: {station.currentUser.startTime}</span>
                                     </div>
                                   </div>
                                   <div className="space-y-2">
                                     <div className="flex items-center justify-between text-sm">
-                                      <span className="text-blue-600 dark:text-blue-400">{t.chargingProgress}</span>
-                                      <span className="text-blue-700 dark:text-blue-300 font-medium">
+                                      <span className="text-gray-400">{t.chargingProgress}</span>
+                                      <span className="text-white font-medium">
                                         {station.currentUser.currentBattery}%/{station.currentUser.targetBattery}%
                                       </span>
                                     </div>
@@ -644,14 +644,14 @@ export default function PostActivatingView({ onBack }: PostActivatingViewProps) 
                                   {t.activate}
                                 </Button>
                               </AlertDialogTrigger>
-                              <AlertDialogContent>
+                              <AlertDialogContent className="bg-gray-900 border-gray-800 text-white">
                                 <AlertDialogHeader>
-                                  <AlertDialogTitle>{t.confirm_activate}</AlertDialogTitle>
-                                  <AlertDialogDescription>{t.confirm_activate_desc}</AlertDialogDescription>
+                                  <AlertDialogTitle className="text-white">{t.confirm_activate}</AlertDialogTitle>
+                                  <AlertDialogDescription className="text-gray-400">{t.confirm_activate_desc}</AlertDialogDescription>
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
-                                  <AlertDialogCancel>{t.cancel}</AlertDialogCancel>
-                                  <AlertDialogAction onClick={() => handleActivateStation(station)}>
+                                  <AlertDialogCancel className="bg-gray-800 border-gray-700 text-gray-300 hover:bg-gray-700">{t.cancel}</AlertDialogCancel>
+                                  <AlertDialogAction onClick={() => handleActivateStation(station)} className="bg-green-600 hover:bg-green-700">
                                     {t.confirm}
                                   </AlertDialogAction>
                                 </AlertDialogFooter>
@@ -666,21 +666,21 @@ export default function PostActivatingView({ onBack }: PostActivatingViewProps) 
                                   {t.deactivate}
                                 </Button>
                               </AlertDialogTrigger>
-                              <AlertDialogContent>
+                              <AlertDialogContent className="bg-gray-900 border-gray-800 text-white">
                                 <AlertDialogHeader>
-                                  <AlertDialogTitle>{t.confirm_deactivate}</AlertDialogTitle>
-                                  <AlertDialogDescription>{t.confirm_deactivate_desc}</AlertDialogDescription>
+                                  <AlertDialogTitle className="text-white">{t.confirm_deactivate}</AlertDialogTitle>
+                                  <AlertDialogDescription className="text-gray-400">{t.confirm_deactivate_desc}</AlertDialogDescription>
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
-                                  <AlertDialogCancel>{t.cancel}</AlertDialogCancel>
-                                  <AlertDialogAction onClick={() => handleDeactivateStation(station)}>
+                                  <AlertDialogCancel className="bg-gray-800 border-gray-700 text-gray-300 hover:bg-gray-700">{t.cancel}</AlertDialogCancel>
+                                  <AlertDialogAction onClick={() => handleDeactivateStation(station)} className="bg-red-600 hover:bg-red-700">
                                     {t.confirm}
                                   </AlertDialogAction>
                                 </AlertDialogFooter>
                               </AlertDialogContent>
                             </AlertDialog>
                           )}
-                          <Button size="sm" variant="outline" className="shadow-sm">
+                          <Button size="sm" variant="outline" className="shadow-sm bg-gray-800 border-gray-700 text-gray-300 hover:bg-gray-700 hover:text-white">
                             <Settings className="w-4 h-4 mr-2" />
                             {t.editStation}
                           </Button>
@@ -698,17 +698,17 @@ export default function PostActivatingView({ onBack }: PostActivatingViewProps) 
                 {filteredCustomers.map((customer) => {
                   const currentStation = stations.find(s => s.id === customer.currentStation);
                   return (
-                    <Card key={customer.id} className="border-border hover:shadow-md transition-all duration-200 bg-gradient-to-r from-card to-card/50">
+                    <Card key={customer.id} className="bg-gray-900 border-gray-800 hover:border-gray-700 transition-all duration-200">
                       <CardContent className="p-6">
                         <div className="flex items-start justify-between gap-6">
                           <div className="flex-1 min-w-0">
                             <div className="flex items-start gap-4 mb-5">
-                              <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center shadow-sm flex-shrink-0">
+                              <div className="w-12 h-12 bg-gray-800 rounded-xl flex items-center justify-center shadow-sm flex-shrink-0">
                                 <UserCheck className="w-6 h-6 text-white" />
                               </div>
                               <div className="flex-1 min-w-0">
-                                <h3 className="font-semibold text-card-foreground mb-2 truncate">{customer.name}</h3>
-                                <Badge className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
+                                <h3 className="font-semibold text-white mb-2 truncate">{customer.name}</h3>
+                                <Badge className="bg-green-900/30 text-green-400 border-green-800">
                                   {t.active}
                                 </Badge>
                               </div>
@@ -717,41 +717,41 @@ export default function PostActivatingView({ onBack }: PostActivatingViewProps) 
                             <div className="space-y-3 mb-5">
                               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
                                 <div className="flex items-center gap-2">
-                                  <span className="text-muted-foreground">{t.phone}:</span>
-                                  <span className="font-medium text-card-foreground">{customer.phone}</span>
+                                  <span className="text-gray-400">{t.phone}:</span>
+                                  <span className="font-medium text-white">{customer.phone}</span>
                                 </div>
                                 <div className="flex items-center gap-2">
-                                  <span className="text-muted-foreground">{t.vehiclePlate}:</span>
-                                  <span className="font-medium text-card-foreground">{customer.vehiclePlate}</span>
+                                  <span className="text-gray-400">{t.vehiclePlate}:</span>
+                                  <span className="font-medium text-white">{customer.vehiclePlate}</span>
                                 </div>
                                 <div className="flex items-center gap-2">
-                                  <span className="text-muted-foreground">{t.sessionTime}:</span>
-                                  <span className="font-medium text-card-foreground">{customer.sessionStartTime}</span>
+                                  <span className="text-gray-400">{t.sessionTime}:</span>
+                                  <span className="font-medium text-white">{customer.sessionStartTime}</span>
                                 </div>
                               </div>
                               
                               <div className="space-y-2">
                                 <div className="flex items-center justify-between text-sm">
-                                  <span className="text-muted-foreground">{t.chargingProgress}</span>
-                                  <span className="font-medium text-card-foreground">
+                                  <span className="text-gray-400">{t.chargingProgress}</span>
+                                  <span className="font-medium text-white">
                                     {customer.currentBattery}%/{customer.targetBattery}%
                                   </span>
                                 </div>
                                 <Progress 
                                   value={customer.currentBattery ? (customer.currentBattery / (customer.targetBattery || 100)) * 100 : 0} 
-                                  className="h-2"
+                                  className="h-2 bg-gray-800"
                                 />
                               </div>
                             </div>
 
                             {currentStation && (
-                              <div className="mt-4 p-4 bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-700 rounded-xl border border-gray-200 dark:border-gray-600">
+                              <div className="mt-4 p-4 bg-gray-800 rounded-xl border border-gray-700">
                                 <div className="flex items-center gap-2 mb-3">
-                                  <Zap className="w-4 h-4 text-green-600 dark:text-green-400" />
-                                  <span className="font-medium text-card-foreground">{t.currentStation}</span>
+                                  <Zap className="w-4 h-4 text-gray-400" />
+                                  <span className="font-medium text-white">{t.currentStation}</span>
                                 </div>
                                 <div className="text-sm">
-                                  <span className="text-muted-foreground">
+                                  <span className="text-gray-400">
                                     {currentStation.name} - {currentStation.location}
                                   </span>
                                 </div>
@@ -762,25 +762,25 @@ export default function PostActivatingView({ onBack }: PostActivatingViewProps) 
                           <div className="flex flex-col gap-3 flex-shrink-0">
                             <Dialog>
                               <DialogTrigger asChild>
-                                <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white shadow-sm">
+                                <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white shadow-sm border-0">
                                   <RefreshCw className="w-4 h-4 mr-2" />
                                   {t.transferStation}
                                 </Button>
                               </DialogTrigger>
-                              <DialogContent>
+                              <DialogContent className="bg-gray-900 border-gray-800 text-white">
                                 <DialogHeader>
-                                  <DialogTitle>{t.transferStation}</DialogTitle>
+                                  <DialogTitle className="text-white">{t.transferStation}</DialogTitle>
                                 </DialogHeader>
                                 <div className="space-y-4">
                                   <div>
-                                    <Label>{t.selectStation}</Label>
+                                    <Label className="text-gray-300">{t.selectStation}</Label>
                                     <Select>
-                                      <SelectTrigger>
+                                      <SelectTrigger className="bg-gray-800 border-gray-700 text-white">
                                         <SelectValue placeholder={t.selectStation} />
                                       </SelectTrigger>
-                                      <SelectContent>
+                                      <SelectContent className="bg-gray-900 border-gray-800">
                                         {stations.filter(s => s.status === 'active' && s.id !== customer.currentStation).map(station => (
-                                          <SelectItem key={station.id} value={station.id}>
+                                          <SelectItem key={station.id} value={station.id} className="text-white hover:bg-gray-800">
                                             {station.name} - {getTypeText(station.type)}
                                           </SelectItem>
                                         ))}
@@ -788,12 +788,15 @@ export default function PostActivatingView({ onBack }: PostActivatingViewProps) 
                                     </Select>
                                   </div>
                                   <div>
-                                    <Label>{t.reason}</Label>
-                                    <Textarea placeholder={language === 'en' ? 'Enter reason for transfer...' : 'Nhập lý do chuyển trạm...'} />
+                                    <Label className="text-gray-300">{t.reason}</Label>
+                                    <Textarea 
+                                      placeholder={language === 'en' ? 'Enter reason for transfer...' : 'Nhập lý do chuyển trạm...'} 
+                                      className="bg-gray-800 border-gray-700 text-white placeholder:text-gray-500"
+                                    />
                                   </div>
                                   <div className="flex justify-end gap-2">
-                                    <Button variant="outline">{t.cancel}</Button>
-                                    <Button onClick={() => handleTransferCustomer(customer, 'CS001')}>
+                                    <Button variant="outline" className="bg-gray-800 border-gray-700 text-gray-300 hover:bg-gray-700">{t.cancel}</Button>
+                                    <Button onClick={() => handleTransferCustomer(customer, 'CS001')} className="bg-blue-600 hover:bg-blue-700">
                                       {t.confirm}
                                     </Button>
                                   </div>
@@ -802,19 +805,19 @@ export default function PostActivatingView({ onBack }: PostActivatingViewProps) 
                             </Dialog>
                             <AlertDialog>
                               <AlertDialogTrigger asChild>
-                                <Button size="sm" variant="destructive" className="shadow-sm">
+                                <Button size="sm" variant="destructive" className="shadow-sm bg-red-600 hover:bg-red-700 border-0">
                                   <XCircle className="w-4 h-4 mr-2" />
                                   {t.forceStop}
                                 </Button>
                               </AlertDialogTrigger>
-                              <AlertDialogContent>
+                              <AlertDialogContent className="bg-gray-900 border-gray-800 text-white">
                                 <AlertDialogHeader>
-                                  <AlertDialogTitle>{t.confirm_force_stop}</AlertDialogTitle>
-                                  <AlertDialogDescription>{t.confirm_force_stop_desc}</AlertDialogDescription>
+                                  <AlertDialogTitle className="text-white">{t.confirm_force_stop}</AlertDialogTitle>
+                                  <AlertDialogDescription className="text-gray-400">{t.confirm_force_stop_desc}</AlertDialogDescription>
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
-                                  <AlertDialogCancel>{t.cancel}</AlertDialogCancel>
-                                  <AlertDialogAction onClick={() => handleForceStop(customer)}>
+                                  <AlertDialogCancel className="bg-gray-800 border-gray-700 text-gray-300 hover:bg-gray-700">{t.cancel}</AlertDialogCancel>
+                                  <AlertDialogAction onClick={() => handleForceStop(customer)} className="bg-red-600 hover:bg-red-700">
                                     {t.confirm}
                                   </AlertDialogAction>
                                 </AlertDialogFooter>
