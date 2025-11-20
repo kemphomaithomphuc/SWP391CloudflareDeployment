@@ -14,8 +14,7 @@ import { Toaster } from './ui/sonner';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useTheme } from '../contexts/ThemeContext';
 import AdminLanguageThemeControls from './AdminLanguageThemeControls';
-import axios from 'axios';
-import { apiBaseUrl } from '../services/api';
+import { api } from '../services/api';
 
 type ChargingPoint = unknown;
 interface ConnectorType {
@@ -293,15 +292,8 @@ export default function StaffManagementView({ onBack }: StaffManagementViewProps
   };
 
   const fetchChargingStations = async (): Promise<ChargingStation[] | null> => {
-    const token = localStorage.getItem("token");
           try {
-  
-              const res = await axios.get(`${apiBaseUrl}/api/charging-stations`,{
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
+              const res = await api.get(`/api/charging-stations`);
   
   
   
@@ -343,16 +335,8 @@ export default function StaffManagementView({ onBack }: StaffManagementViewProps
       };
   
   const getAvailableStaffs = async() : Promise<Staff[]|null> => {
-    const token = localStorage.getItem("token");
     try {
-      const res = await axios.get(`${apiBaseUrl}/api/staff-management/available`,
-        {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      }
-    );
+      const res = await api.get(`/api/staff-management/available`);
     console.log(res.data);
     if (res.status === 200) {
       const list = Array.isArray(res.data?.data) ? res.data.data : Array.isArray(res.data) ? res.data : [];
@@ -378,15 +362,9 @@ export default function StaffManagementView({ onBack }: StaffManagementViewProps
   }
 
   const assignStaffToStation = async (stationId: string, userId: string): Promise<boolean> => {
-    const token = localStorage.getItem("token");
     try {
       const payload = { userId, stationId: Number(stationId) };
-      const res = await axios.post(`${apiBaseUrl}/api/staff-management/assign`, payload, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
+      const res = await api.post(`/api/staff-management/assign`, payload);
       return res.status === 200 || res.status === 204;
     } catch (err: any) {
       toast.error(isVietnamese ? 'Gán trạm thất bại' : 'Assign failed');
@@ -395,20 +373,12 @@ export default function StaffManagementView({ onBack }: StaffManagementViewProps
   }
 
   const updateStaffStatus = async (fullName: string ,status: string, userId: string): Promise<boolean> => {
-    const token = localStorage.getItem("token");
     try {
       const payload = {
         fullName: fullName,
         status: status
       }
-      const res = await axios.put(`${apiBaseUrl}/api/staff-management/staff/${userId}`, payload,
-        {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      }
-      );
+      const res = await api.put(`/api/staff-management/staff/${userId}`, payload);
       return res.status === 200 || res.status === 204;
 
     } catch {
@@ -417,14 +387,8 @@ export default function StaffManagementView({ onBack }: StaffManagementViewProps
   }
 
   const removeStaffFromStation = async(stationId: string, userId: string): Promise<boolean> => {
-    const token = localStorage.getItem("token");
     try {
-      const res = await axios.delete(`${apiBaseUrl}/api/staff-management/stations/${stationId}/staff/${userId}`,{
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
+      const res = await api.delete(`/api/staff-management/stations/${stationId}/staff/${userId}`);
       return res.status === 200 || res.status === 204;
     } catch (err: any) {
       return false;

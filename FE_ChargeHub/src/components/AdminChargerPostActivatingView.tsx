@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
-import axios from "axios";
-import { apiBaseUrl } from "../services/api";
+import { api } from "../services/api";
 import { ArrowLeft, Search, Filter, Zap, Power, XCircle, CheckCircle, Settings, AlertTriangle, Activity, Clock, Users, Gauge } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -59,24 +58,13 @@ export default function AdminChargerPostActivatingView({ onBack }: AdminChargerP
   const [error, setError] = useState<string | null>(null);
   const [connectorDialogStation, setConnectorDialogStation] = useState<ChargingStation | null>(null);
 
-  // API functions
-  const getAuthHeaders = () => {
-    const token = localStorage.getItem("token");
-    return {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    };
-  };
-
   const fetchStations = async () => {
     setLoading(true);
     setError(null);
 
     try {
       console.log("📥 Fetching stations from API...");
-      const response = await axios.get(`${apiBaseUrl}/api/charging-stations`, {
-        headers: getAuthHeaders()
-      });
+      const response = await api.get(`/api/charging-stations`);
 
       console.log("✅ Stations API response:", response.data);
 
@@ -131,12 +119,9 @@ export default function AdminChargerPostActivatingView({ onBack }: AdminChargerP
   const updateStationStatus = async (stationId: string, status: "ACTIVE" | "INACTIVE") => {
     try {
       console.log(`🔄 Updating station ${stationId} status to ${status}...`);
-      const response = await axios.patch(
-        `${apiBaseUrl}/api/charging-stations/${stationId}/status`,
-        status,
-        {
-          headers: getAuthHeaders()
-        }
+      const response = await api.patch(
+        `/api/charging-stations/${stationId}/status`,
+        status
       );
 
       console.log("✅ Station status update response:", response.data);

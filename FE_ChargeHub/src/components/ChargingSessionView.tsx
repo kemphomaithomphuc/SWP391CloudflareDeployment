@@ -14,7 +14,8 @@ import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import QRCodeGenerator from './QRCodeGenerator';
 import axios from 'axios';
-import { api, checkAndRefreshToken } from '../services/api';
+import { api } from '../services/api';
+import { checkAndRefreshToken } from '../services/api';
 import { ParkingSessionSummary } from '../types/parking';
 import fetchParkingMonitoring from '../api/parkingMonitor';
 
@@ -114,7 +115,7 @@ const buildParkingSummary = (
   parkingStartTime?: string
 ): ParkingSessionSummary => {
   const now = new Date().toISOString();
-  
+
   const summary: ParkingSessionSummary = {
     sessionId: session.id,
     bookingId: session.bookingId,
@@ -132,7 +133,7 @@ const buildParkingSummary = (
     ...(session.initialBattery !== undefined && { initialBattery: session.initialBattery }),
     ...(session.targetBattery !== undefined && { targetBattery: session.targetBattery })
   };
-  
+
   return summary;
 };
 export default function ChargingSessionView({ onBack, bookingId, onParkingStart }: ChargingSessionViewProps) {
@@ -613,17 +614,15 @@ export default function ChargingSessionView({ onBack, bookingId, onParkingStart 
 
       if (savedOrderId) {
         try {
-          const sessionRes = await axios.get(
-            `${apiBaseUrl}/api/sessions/by-order/${savedOrderId}`,
-            { headers }
+          const sessionRes = await api.get(
+            `/api/sessions/by-order/${savedOrderId}`
           );
           if (sessionRes.data?.success && sessionRes.data?.data) {
             let relatedOrder: any = null;
             try {
               if (userId) {
-                const ordersRes = await axios.get(
-                  `${apiBaseUrl}/api/orders/my-orders?userId=${userId}`,
-                  { headers }
+                const ordersRes = await api.get(
+                  `/api/orders/my-orders?userId=${userId}`
                 );
                 if (ordersRes.data?.success && Array.isArray(ordersRes.data.data)) {
                   relatedOrder = ordersRes.data.data.find(
@@ -649,18 +648,16 @@ export default function ChargingSessionView({ onBack, bookingId, onParkingStart 
       }
 
       try {
-        const ordersRes = await axios.get(
-          `${apiBaseUrl}/api/orders/my-orders?userId=${userId}`,
-          { headers }
+        const ordersRes = await api.get(
+          `/api/orders/my-orders?userId=${userId}`
         );
 
         if (ordersRes.data?.success && Array.isArray(ordersRes.data.data)) {
           const chargingOrder = ordersRes.data.data.find((order: any) => order.status === 'CHARGING');
           if (chargingOrder) {
             try {
-              const sessionRes = await axios.get(
-                `${apiBaseUrl}/api/sessions/by-order/${chargingOrder.orderId}`,
-                { headers }
+              const sessionRes = await api.get(
+                `/api/sessions/by-order/${chargingOrder.orderId}`
               );
               if (sessionRes.data?.success && sessionRes.data?.data) {
                 if (processSession(sessionRes.data.data, chargingOrder)) {
@@ -800,7 +797,7 @@ export default function ChargingSessionView({ onBack, bookingId, onParkingStart 
         // Map API response to ChargingSession format based on actual API structure
         // Note: If status is PARKING, we handle it below and return early
         // Here we coerce status for ChargingSession interface (PARKING is mapped to 'stopped')
-        const derivedStatus = isParkingStatus 
+        const derivedStatus = isParkingStatus
           ? 'stopped' // Treat PARKING as stopped in ChargingSession interface
           : coerceSessionStatus(monitoringData.status, session.status);
         const updatedSession: ChargingSession = {
@@ -846,7 +843,7 @@ export default function ChargingSessionView({ onBack, bookingId, onParkingStart 
         if (isParkingStatus && onParkingStart && session.status !== 'stopped') {
           console.log('🚗 Detected PARKING status from monitoring API, transitioning to ParkingView...');
           console.log('📊 Monitoring data:', { status: rawStatus, ...monitoringData });
-          
+
           // Stop monitoring and simulation immediately
           setIsMonitoring(false);
           setIsSimulating(false);
@@ -854,34 +851,34 @@ export default function ChargingSessionView({ onBack, bookingId, onParkingStart 
             clearInterval(monitoringIntervalRef.current);
             monitoringIntervalRef.current = null;
           }
-          
+
           // Set status to stopped immediately to prevent monitoring useEffect from running again
           setSession(prev => {
             const next = {
               ...prev,
               status: 'stopped' as ChargingSession['status'],
-              endTime: monitoringData.currentTime ? 
-                (typeof monitoringData.currentTime === 'string' 
-                  ? monitoringData.currentTime 
+              endTime: monitoringData.currentTime ?
+                (typeof monitoringData.currentTime === 'string'
+                  ? monitoringData.currentTime
                   : new Date(monitoringData.currentTime).toISOString())
                 : new Date().toISOString()
             };
             persistSessionState(next);
             return next;
           });
-          
+
           // Fetch parking monitoring data to build summary
           try {
             const parkingMonitoringData = await fetchParkingMonitoring(sessionId);
             console.log('📊 Parking monitoring data retrieved:', parkingMonitoringData);
-            
+
             // Convert monitoringData.currentTime to ISO string if it's a LocalDateTime
-            const endTimeStr = monitoringData.currentTime 
-              ? (typeof monitoringData.currentTime === 'string' 
-                  ? monitoringData.currentTime 
+            const endTimeStr = monitoringData.currentTime
+              ? (typeof monitoringData.currentTime === 'string'
+                  ? monitoringData.currentTime
                   : new Date(monitoringData.currentTime).toISOString())
               : new Date().toISOString();
-            
+
             // Build parking summary with latest data
             const parkingSummary = buildParkingSummary(
               {
@@ -893,17 +890,17 @@ export default function ChargingSessionView({ onBack, bookingId, onParkingStart 
               parkingMonitoringData,
               parkingMonitoringData.parkingStartTime || endTimeStr
             );
-            
+
             console.log('🏁 Parking summary built successfully:', parkingSummary);
-            
+
             // Transition to ParkingView
             onParkingStart(parkingSummary);
             return updatedSession;
           } catch (error: any) {
             console.error('❌ Error fetching parking monitoring data:', error);
             const errorMessage = error?.response?.data?.message || error?.message || 'Unknown error';
-            toast.error(language === 'vi' 
-              ? `Lỗi khi lấy thông tin đỗ xe: ${errorMessage}. Vui lòng thử lại.` 
+            toast.error(language === 'vi'
+              ? `Lỗi khi lấy thông tin đỗ xe: ${errorMessage}. Vui lòng thử lại.`
               : `Error fetching parking data: ${errorMessage}. Please try again.`
             );
             // Don't return here - let it continue to update session normally
@@ -1104,10 +1101,10 @@ export default function ChargingSessionView({ onBack, bookingId, onParkingStart 
     
     // Reset unauthorized count to prevent false redirect from monitoring
     setUnauthorizedCount(0);
-    
+
     // Set flag to prevent redirect during critical operation
     localStorage.setItem('preventRedirect', 'true');
-    
+
     try {
       setLoading(true);
       setError(null);
@@ -1170,7 +1167,7 @@ export default function ChargingSessionView({ onBack, bookingId, onParkingStart 
         try {
           // Wait a moment for backend to process the transition
           await new Promise(resolve => setTimeout(resolve, 500));
-          
+
           // Check session status via monitoring API
           // If this fails, don't propagate error - just continue with payment dialog
           const monitoringResponse = await api.get(`/api/sessions/${currentSessionId}/monitor`, {
@@ -1183,12 +1180,12 @@ export default function ChargingSessionView({ onBack, bookingId, onParkingStart 
           if (monitoringResponse.data?.success) {
             const monitoringData = monitoringResponse.data.data;
             const rawStatus = monitoringData?.status?.toUpperCase() || monitoringData?.status;
-            
+
             // If status is PARKING, transition to ParkingView
             if (rawStatus === 'PARKING' && onParkingStart) {
               console.log('🚗 Backend transitioned to PARKING after stop, moving to ParkingView...');
               console.log('📊 Monitoring data after stop:', { status: rawStatus, ...monitoringData });
-              
+
               // Stop monitoring immediately (already stopped in handleChargingTerminating, but double-check)
               setIsMonitoring(false);
               setIsSimulating(false);
@@ -1196,34 +1193,34 @@ export default function ChargingSessionView({ onBack, bookingId, onParkingStart 
                 clearInterval(monitoringIntervalRef.current);
                 monitoringIntervalRef.current = null;
               }
-              
+
               // Set status to stopped immediately to prevent monitoring useEffect from running again
               setSession(prev => {
                 const next = {
                   ...prev,
                   status: 'stopped' as ChargingSession['status'],
-                  endTime: monitoringData.currentTime ? 
-                    (typeof monitoringData.currentTime === 'string' 
-                      ? monitoringData.currentTime 
+                  endTime: monitoringData.currentTime ?
+                    (typeof monitoringData.currentTime === 'string'
+                      ? monitoringData.currentTime
                       : new Date(monitoringData.currentTime).toISOString())
                     : new Date().toISOString()
                 };
                 persistSessionState(next);
                 return next;
               });
-              
+
               // Fetch parking monitoring data to build summary
               try {
                 const parkingMonitoringData = await fetchParkingMonitoring(currentSessionId);
                 console.log('📊 Parking monitoring data retrieved after stop:', parkingMonitoringData);
-                
+
                 // Convert monitoringData.currentTime to ISO string if needed
-                const endTimeStr = monitoringData.currentTime 
-                  ? (typeof monitoringData.currentTime === 'string' 
-                      ? monitoringData.currentTime 
+                const endTimeStr = monitoringData.currentTime
+                  ? (typeof monitoringData.currentTime === 'string'
+                      ? monitoringData.currentTime
                       : new Date(monitoringData.currentTime).toISOString())
                   : new Date().toISOString();
-                
+
                 // Get updated session data with latest values
                 const updatedSessionData = {
                   ...session,
@@ -1231,24 +1228,24 @@ export default function ChargingSessionView({ onBack, bookingId, onParkingStart 
                   energyConsumed: monitoringData.powerConsumed || session.energyConsumed || 0,
                   totalCost: monitoringData.cost || session.totalCost || 0
                 };
-                
+
                 // Build parking summary
                 const parkingSummary = buildParkingSummary(
                   updatedSessionData,
                   parkingMonitoringData,
                   parkingMonitoringData.parkingStartTime || endTimeStr
                 );
-                
+
                 console.log('🏁 Parking summary built from stop:', parkingSummary);
-                
+
                 // Transition to ParkingView
                 onParkingStart(parkingSummary);
                 return response.data;
               } catch (error: any) {
                 console.error('❌ Error fetching parking monitoring after stop:', error);
                 const errorMessage = error?.response?.data?.message || error?.message || 'Unknown error';
-                toast.error(language === 'vi' 
-                  ? `Lỗi khi lấy thông tin đỗ xe: ${errorMessage}. Vui lòng thử lại.` 
+                toast.error(language === 'vi'
+                  ? `Lỗi khi lấy thông tin đỗ xe: ${errorMessage}. Vui lòng thử lại.`
                   : `Error fetching parking data: ${errorMessage}. Please try again.`
                 );
                 // Fall through to show payment dialog
@@ -1262,9 +1259,8 @@ export default function ChargingSessionView({ onBack, bookingId, onParkingStart 
           // Continue with payment dialog flow
           // Fall through to show payment dialog
         }
-        
+
         // Update session status to stopped ONLY after successful API call
-        // (Only if not transitioning to PARKING)
         setSession(prev => {
           const next = {
             ...prev,
@@ -1314,8 +1310,8 @@ export default function ChargingSessionView({ onBack, bookingId, onParkingStart 
           case 401:
             // 401 error - token expired or invalid
             // Don't redirect (flag prevents it), just show error message
-            errorMessage = language === 'vi' 
-              ? 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.' 
+            errorMessage = language === 'vi'
+              ? 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.'
               : 'Authentication failed. Please login again.';
             // User can manually navigate or retry after re-login
             shouldShowRetry = false;
@@ -1350,8 +1346,8 @@ export default function ChargingSessionView({ onBack, bookingId, onParkingStart 
       // Show error toast with retry option (except for 401)
       const isAuthError = err.response?.status === 401;
       toast.error(
-        language === 'vi' 
-          ? `Lỗi: ${errorMessage}` 
+        language === 'vi'
+          ? `Lỗi: ${errorMessage}`
           : `Error: ${errorMessage}`,
         {
           duration: isAuthError ? 7000 : 5000,
@@ -1384,7 +1380,7 @@ export default function ChargingSessionView({ onBack, bookingId, onParkingStart 
     } finally {
       // ✅ Always clear preventRedirect flag in finally block
       localStorage.removeItem('preventRedirect');
-      
+
       setLoading(false);
       setIsChargingFinishing(false);
     }
@@ -1694,7 +1690,7 @@ export default function ChargingSessionView({ onBack, bookingId, onParkingStart 
     options?: { silent?: boolean }
   ): Promise<PaymentDetail | null> => {
     try {
-      const res = await axios.get(`${apiBaseUrl}/api/payment/detail?sessionId=${sessionId}&userId=${userId}`);
+      const res = await api.get(`/api/payment/detail?sessionId=${sessionId}&userId=${userId}`);
 
       if (res.status === 200 && res.data?.success) {
         return parsePaymentDetail(res.data.data);
@@ -1836,11 +1832,7 @@ export default function ChargingSessionView({ onBack, bookingId, onParkingStart 
         bankCode: "NCB"
       }
       
-      const res = await axios.post('${apiBaseUrl}/api/payment/initiate', payload, {
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
+      const res = await api.post(`/api/payment/initiate`, payload);
       
       if (res.status === 200 && res.data.success) {
         console.log('Payment initiated successfully:', res.data);

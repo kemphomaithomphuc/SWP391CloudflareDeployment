@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
-import axios from "axios";
-import { apiBaseUrl } from "../services/api";
+import { api } from "../services/api";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
@@ -29,11 +28,8 @@ export default function IssueResolvementView({ onBack }: Readonly<IssueResolveme
   const [resolvingIds, setResolvingIds] = useState<Set<string>>(new Set());
 
   const fetchReports = async (): Promise<void> => {
-    const token = localStorage.getItem("token");
     try {
-      const res = await axios.get(`${apiBaseUrl}/api/issue-reports`, {
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-      });
+      const res = await api.get(`/api/issue-reports`);
       const list = Array.isArray(res.data?.data) ? res.data.data : Array.isArray(res.data) ? res.data : [];
       const mapped: ReceivedIssueReport[] = list.map((r: any) => ({
         issueReportId: String(r.issueReportId ?? r.id ?? ""),
@@ -51,17 +47,10 @@ export default function IssueResolvementView({ onBack }: Readonly<IssueResolveme
   };
 
   const resolveIssueReport = async(reportIssueId: string) : Promise<boolean> => {
-    const token = localStorage.getItem("token");
     try {
-      const res = await axios.put(
-        `${apiBaseUrl}/api/issue-reports/${reportIssueId}/${"RESOLVED"}`,
-        {},
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        }
+      const res = await api.put(
+        `/api/issue-reports/${reportIssueId}/${"RESOLVED"}`,
+        {}
       );
       return res.status === 200 || res.status === 204;
     } catch (err: any) {

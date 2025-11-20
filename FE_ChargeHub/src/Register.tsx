@@ -7,8 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { ArrowLeft, Zap } from "lucide-react";
 import { useLanguage } from "./contexts/LanguageContext";
 import { useState } from "react";
-import axios from "axios";
-import { apiBaseUrl } from "./services/api";
+import { api } from "./services/api";
 
 interface RegisterProps {
   onSwitchToLogin: () => void;
@@ -40,8 +39,8 @@ export default function Register({
     setProviderLoading(provider);
     setErrorKey(null);
     try {
-      const res = await axios.get(
-        `${apiBaseUrl}/api/auth/social/login?loginType=${provider}`
+      const res = await api.get(
+        `/api/auth/social/login?loginType=${provider}`
       );
       const oauthUrl = res?.data?.data as string | undefined;
       if (res.status === 200 && oauthUrl) {
@@ -85,7 +84,7 @@ export default function Register({
 
       // Gửi OTP đăng ký trước
       try {
-        const otpRes = await axios.post(`${apiBaseUrl}/api/otp/send/registration`, { email });
+        const otpRes = await api.post(`/api/otp/send/registration`, { email });
         if (!(otpRes.status >= 200 && otpRes.status < 300)) {
           throw new Error("OTP send failed");
         }
@@ -120,7 +119,7 @@ export default function Register({
       setSubmitting(true);
 
       // 1) Xác thực OTP
-      const verifyRes = await axios.post(`${apiBaseUrl}/api/otp/verify/registration`, {
+      const verifyRes = await api.post(`/api/otp/verify/registration`, {
         email,
         otpCode,
       });
@@ -136,7 +135,7 @@ export default function Register({
       }
 
       // 2) Gọi đăng ký sau khi OTP OK
-      const res = await axios.post(`${apiBaseUrl}/api/auth/register`, {
+      const res = await api.post(`/api/auth/register`, {
         fullName,
         email: verifiedEmail || email,
         password,

@@ -110,7 +110,7 @@ export default function ParkingView({ data, onBack, onParkingSessionClear }: Par
     const sessionId = data.sessionId;
 
     let cancelled = false;
-    let interval: ReturnType<typeof setInterval> | undefined;
+    let interval: number | undefined;
 
     const poll = async (options?: { silent?: boolean }) => {
       try {
