@@ -329,21 +329,21 @@ export default function AppLayout({
                     setMobileMenuOpen(false);
                   }}
                   className={`
-                    w-full justify-start min-h-[44px] touch-manipulation
+                    w-full justify-start h-10
                     ${isActive 
                       ? 'bg-sidebar-primary text-sidebar-primary-foreground' 
-                      : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground active:bg-sidebar-accent'
+                      : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
                     }
-                    ${sidebarCollapsed ? 'px-2' : 'px-2 sm:px-3'}
+                    ${sidebarCollapsed ? 'px-2' : 'px-3'}
                   `}
                 >
                   {item.id === 'notifications' ? (
-                    <NotificationBadge className={`${sidebarCollapsed ? '' : 'mr-2 sm:mr-3'} flex-shrink-0`} />
+                    <NotificationBadge className={`${sidebarCollapsed ? '' : 'mr-3'} flex-shrink-0`} />
                   ) : (
-                    <Icon className={`w-4 h-4 sm:w-5 sm:h-4 ${sidebarCollapsed ? '' : 'mr-2 sm:mr-3'} flex-shrink-0`} />
+                    <Icon className={`w-4 h-4 ${sidebarCollapsed ? '' : 'mr-3'} flex-shrink-0`} />
                   )}
                   {!sidebarCollapsed && (
-                    <span className="truncate text-sm sm:text-base">
+                    <span className="truncate">
                       {language === 'vi' ? item.labelVi : item.label}
                     </span>
                   )}

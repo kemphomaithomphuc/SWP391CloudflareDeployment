@@ -168,9 +168,9 @@ export default function Register({
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-secondary/20 to-accent/30 flex items-center justify-center p-3 sm:p-4 md:p-6">
+    <div className="min-h-screen bg-gradient-to-br from-background via-secondary/20 to-accent/30 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        <div className="bg-card/80 backdrop-blur-sm border border-border/50 rounded-xl sm:rounded-2xl shadow-2xl shadow-primary/5 p-4 sm:p-6 md:p-8 space-y-6 sm:space-y-8">
+        <div className="bg-card/80 backdrop-blur-sm border border-border/50 rounded-2xl shadow-2xl shadow-primary/5 p-8 space-y-8">
           <div className="flex justify-between items-center">
             <button
               onClick={() => {
@@ -206,15 +206,15 @@ export default function Register({
             </div>
           </div>
 
-          <div className="text-center space-y-3 sm:space-y-4">
-            <div className="mx-auto flex h-12 w-12 sm:h-16 sm:w-16 items-center justify-center rounded-xl sm:rounded-2xl bg-primary/10">
-              <Zap className="h-6 w-6 sm:h-10 sm:w-10 text-primary" />
+          <div className="text-center space-y-4">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10">
+              <Zap className="h-10 w-10 text-primary" />
             </div>
-            <div className="space-y-1.5 sm:space-y-2">
-              <h1 className="text-2xl sm:text-3xl font-semibold text-foreground">
+            <div className="space-y-2">
+              <h1 className="text-3xl font-semibold text-foreground">
                 {t("chargehub")}
               </h1>
-              <p className="text-sm sm:text-base text-muted-foreground px-2">
+              <p className="text-muted-foreground">
                 {language === "vi"
                   ? "Đăng ký nhanh chóng bằng tài khoản Google hoặc Facebook."
                   : "Register instantly with your Google or Facebook account."}
@@ -228,20 +228,19 @@ export default function Register({
             </div>
           )}
 
-          <form className="space-y-3 sm:space-y-4 pt-2" onSubmit={handleEmailRegister}>
-            <div className="space-y-1.5 sm:space-y-2">
-              <Label htmlFor="fullName" className="text-sm sm:text-base">{language === "vi" ? "Họ và tên" : "Full name"}</Label>
+          <form className="space-y-4 pt-2" onSubmit={handleEmailRegister}>
+            <div className="space-y-2">
+              <Label htmlFor="fullName">{language === "vi" ? "Họ và tên" : "Full name"}</Label>
               <Input
                 id="fullName"
                 placeholder={language === "vi" ? "Nhập họ và tên" : "Enter full name"}
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
                 disabled={submitting}
-                className="h-11 sm:h-12 text-sm sm:text-base touch-manipulation"
               />
             </div>
-            <div className="space-y-1.5 sm:space-y-2">
-              <Label htmlFor="email" className="text-sm sm:text-base">{language === "vi" ? "Email" : "Email"}</Label>
+            <div className="space-y-2">
+              <Label htmlFor="email">{language === "vi" ? "Email" : "Email"}</Label>
               <Input
                 id="email"
                 type="email"
@@ -249,29 +248,26 @@ export default function Register({
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 disabled={submitting}
-                className="h-11 sm:h-12 text-sm sm:text-base touch-manipulation"
               />
             </div>
-            <div className="space-y-1.5 sm:space-y-2">
-              <Label htmlFor="password" className="text-sm sm:text-base">{language === "vi" ? "Mật khẩu" : "Password"}</Label>
+            <div className="space-y-2">
+              <Label htmlFor="password">{language === "vi" ? "Mật khẩu" : "Password"}</Label>
               <PasswordInput
                 id="password"
                 placeholder={language === "vi" ? "Nhập mật khẩu" : "Enter password"}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 disabled={submitting}
-                className="h-11 sm:h-12 text-sm sm:text-base touch-manipulation"
               />
             </div>
-            <div className="space-y-1.5 sm:space-y-2">
-              <Label htmlFor="confirmedPassword" className="text-sm sm:text-base">{language === "vi" ? "Xác nhận mật khẩu" : "Confirm password"}</Label>
+            <div className="space-y-2">
+              <Label htmlFor="confirmedPassword">{language === "vi" ? "Xác nhận mật khẩu" : "Confirm password"}</Label>
               <PasswordInput
                 id="confirmedPassword"
                 placeholder={language === "vi" ? "Nhập lại mật khẩu" : "Re-enter password"}
                 value={confirmedPassword}
                 onChange={(e) => setConfirmedPassword(e.target.value)}
                 disabled={submitting}
-                className="h-11 sm:h-12 text-sm sm:text-base touch-manipulation"
               />
             </div>
 
@@ -286,7 +282,7 @@ export default function Register({
               </div>
             )}
 
-            <Button type="submit" className="w-full h-11 sm:h-12 text-sm sm:text-base touch-manipulation active:scale-[0.98]" disabled={submitting}>
+            <Button type="submit" className="w-full h-11" disabled={submitting}>
               {submitting
                 ? language === "vi"
                   ? "Đang đăng ký..."
@@ -306,7 +302,7 @@ export default function Register({
               variant="outline"
               onClick={() => startSocialRegister("google")}
               disabled={providerLoading !== null}
-              className="w-full h-11 sm:h-12 flex items-center justify-center gap-2 sm:gap-3 bg-white text-gray-700 border border-border hover:bg-gray-50 active:scale-[0.98] touch-manipulation text-sm sm:text-base"
+              className="w-full h-12 flex items-center justify-center gap-3 bg-white text-gray-700 border border-border hover:bg-gray-50"
             >
               <svg className="w-5 h-5" viewBox="0 0 24 24">
                 <path
@@ -335,9 +331,9 @@ export default function Register({
               variant="outline"
               onClick={() => startSocialRegister("facebook")}
               disabled={providerLoading !== null}
-              className="w-full h-11 sm:h-12 flex items-center justify-center gap-2 sm:gap-3 bg-white text-gray-700 border border-border hover:bg-gray-50 active:scale-[0.98] touch-manipulation text-sm sm:text-base"
+              className="w-full h-12 flex items-center justify-center gap-3 bg-white text-gray-700 border border-border hover:bg-gray-50"
             >
-              <svg className="w-4 h-4 sm:w-5 sm:h-5" viewBox="0 0 24 24">
+              <svg className="w-5 h-5" viewBox="0 0 24 24">
                 <path
                   fill="#1877F2"
                   d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"

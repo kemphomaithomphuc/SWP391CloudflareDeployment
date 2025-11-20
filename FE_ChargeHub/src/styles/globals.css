@@ -207,30 +207,6 @@
       height: 100dvh;
     }
   }
-
-  /* Touch-friendly buttons for mobile */
-  .touch-manipulation {
-    touch-action: manipulation;
-    -webkit-tap-highlight-color: transparent;
-  }
-
-  /* Improve text rendering on mobile */
-  * {
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-  }
-
-  /* Prevent text size adjustment on iOS */
-  html {
-    -webkit-text-size-adjust: 100%;
-    text-size-adjust: 100%;
-  }
-
-  /* Better scrolling on mobile */
-  body {
-    -webkit-overflow-scrolling: touch;
-    overscroll-behavior-y: contain;
-  }
 }
 
 /**

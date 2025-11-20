@@ -111,24 +111,24 @@ export default function AdminDashboard({ onLogout, onSystemConfig, onAdminMap, o
         <div className="min-h-screen bg-background">
             {/* Top Navigation Bar */}
             <div className="bg-card border-b border-border shadow-sm">
-                <div className="container mx-auto px-3 sm:px-4 md:px-6 py-3 sm:py-4">
-                    <div className="flex items-center justify-between gap-2 sm:gap-4">
+                <div className="container mx-auto px-6 py-4">
+                    <div className="flex items-center justify-between">
                         {/* Left Side */}
-                        <div className="flex items-center space-x-2 sm:space-x-3 md:space-x-6 min-w-0 flex-1">
-                            <div className="flex items-center space-x-2 sm:space-x-3 min-w-0">
-                                <div className="w-7 h-7 sm:w-8 sm:h-8 bg-gradient-to-br from-red-500 to-red-600 rounded-lg flex items-center justify-center flex-shrink-0">
-                                    <span className="text-white font-bold text-xs sm:text-sm">A</span>
+                        <div className="flex items-center space-x-6">
+                            <div className="flex items-center space-x-3">
+                                <div className="w-8 h-8 bg-gradient-to-br from-red-500 to-red-600 rounded-lg flex items-center justify-center">
+                                    <span className="text-white font-bold text-sm">A</span>
                                 </div>
-                                <div className="space-y-0.5 sm:space-y-1 min-w-0">
-                                    <p className="font-medium text-foreground text-xs sm:text-sm md:text-base truncate">
-                                        <span className="hidden sm:inline">{roleLabel}: </span>{adminName}
+                                <div className="space-y-1">
+                                    <p className="font-medium text-foreground">
+                                        {roleLabel}: {adminName}
                                     </p>
                                 </div>
                             </div>
                         </div>
 
                         {/* Right Side */}
-                        <div className="flex items-center space-x-2 sm:space-x-3 md:space-x-4 flex-shrink-0">
+                        <div className="flex items-center space-x-4">
 
 
                             {/* Language Switcher */}
@@ -136,25 +136,25 @@ export default function AdminDashboard({ onLogout, onSystemConfig, onAdminMap, o
                                 initial={{ opacity: 0, scale: 0.95 }}
                                 animate={{ opacity: 1, scale: 1 }}
                                 transition={{ duration: 0.3, delay: 0.1 }}
-                                className="hidden sm:flex items-center space-x-2 sm:space-x-3"
+                                className="flex items-center space-x-3"
                             >
-                                <Globe className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                                <div className="relative flex bg-card border border-border/50 rounded-lg p-0.5 sm:p-1 shadow-sm">
+                                <Globe className="w-4 h-4 text-muted-foreground" />
+                                <div className="relative flex bg-card border border-border/50 rounded-lg p-1 shadow-sm">
                                     <AnimatePresence mode="wait">
                                         <motion.div
                                             key={language}
-                                            className="absolute inset-0.5 sm:inset-1 bg-primary rounded-md shadow-sm"
-                                            initial={{ x: language === 'vi' ? 0 : 40 }}
-                                            animate={{ x: language === 'vi' ? 0 : 40 }}
+                                            className="absolute inset-1 bg-primary rounded-md shadow-sm"
+                                            initial={{ x: language === 'vi' ? 0 : 48 }}
+                                            animate={{ x: language === 'vi' ? 0 : 48 }}
                                             transition={{ type: "spring", stiffness: 400, damping: 30 }}
-                                            style={{ width: '40px' }}
+                                            style={{ width: '48px' }}
                                         />
                                     </AnimatePresence>
                                     <Button
                                         variant="ghost"
                                         size="sm"
                                         onClick={() => language !== 'vi' && toggleLanguage()}
-                                        className={`relative z-10 h-7 sm:h-8 w-10 sm:w-12 px-1 sm:px-2 text-[10px] sm:text-xs font-medium transition-all duration-200 active:scale-95 touch-manipulation ${
+                                        className={`relative z-10 h-8 w-12 px-2 text-xs font-medium transition-all duration-200 hover:scale-105 ${
                                             language === 'vi' ? 'text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
                                         }`}
                                     >
@@ -164,7 +164,7 @@ export default function AdminDashboard({ onLogout, onSystemConfig, onAdminMap, o
                                         variant="ghost"
                                         size="sm"
                                         onClick={() => language !== 'en' && toggleLanguage()}
-                                        className={`relative z-10 h-7 sm:h-8 w-10 sm:w-12 px-1 sm:px-2 text-[10px] sm:text-xs font-medium transition-all duration-200 active:scale-95 touch-manipulation ${
+                                        className={`relative z-10 h-8 w-12 px-2 text-xs font-medium transition-all duration-200 hover:scale-105 ${
                                             language === 'en' ? 'text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
                                         }`}
                                     >
@@ -184,19 +184,17 @@ export default function AdminDashboard({ onLogout, onSystemConfig, onAdminMap, o
                                     size="sm"
                                     onClick={handleLogout}
                                     disabled={isLoggingOut}
-                                    className="text-destructive border-destructive hover:bg-destructive hover:text-destructive-foreground transition-all duration-200 active:scale-95 touch-manipulation min-h-[36px] sm:min-h-[40px] px-2 sm:px-3"
+                                    className="text-destructive border-destructive hover:bg-destructive hover:text-destructive-foreground transition-all duration-200 hover:scale-105"
                                 >
-                                    <LogOut className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-2 flex-shrink-0" />
+                                    <LogOut className="w-4 h-4 mr-2" />
                                     <motion.span
                                         key={language + 'logout'}
                                         initial={{ opacity: 0, x: 10 }}
                                         animate={{ opacity: 1, x: 0 }}
                                         exit={{ opacity: 0, x: -10 }}
                                         transition={{ duration: 0.2 }}
-                                        className="text-xs sm:text-sm"
                                     >
-                                        <span className="hidden sm:inline">{language === 'en' ? 'Logout' : 'Đăng xuất'}</span>
-                                        <span className="sm:hidden">{language === 'en' ? 'Out' : 'Thoát'}</span>
+                                        {language === 'en' ? 'Logout' : 'Đăng xuất'}
                                     </motion.span>
                                 </Button>
                             </motion.div>
@@ -206,10 +204,10 @@ export default function AdminDashboard({ onLogout, onSystemConfig, onAdminMap, o
             </div>
 
             {/* Main Content */}
-            <div className="container mx-auto px-3 sm:px-4 md:px-6 py-6 sm:py-8 md:py-12 max-w-4xl">
-                <div className="space-y-6 sm:space-y-8 md:space-y-12">
+            <div className="container mx-auto px-6 py-12 max-w-4xl">
+                <div className="space-y-12">
                     {/* Widgets Row - Market Trends & Connector Suggestions */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className={`transition-all duration-300 ${
                             marketTrendsExpanded ? 'md:col-span-2' : ''
                         } ${connectorSuggestionsExpanded && !marketTrendsExpanded ? 'hidden md:block' : ''}`}>
@@ -245,7 +243,7 @@ export default function AdminDashboard({ onLogout, onSystemConfig, onAdminMap, o
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.5 }}
-                        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 md:gap-8 max-w-4xl mx-auto"
+                        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 max-w-4xl mx-auto"
                     >
                         {/* Map Button */}
                         <motion.div
@@ -258,10 +256,10 @@ export default function AdminDashboard({ onLogout, onSystemConfig, onAdminMap, o
                             <Button
                                 variant="outline"
                                 onClick={() => handleGridButtonClick('Map')}
-                                className="w-full h-24 sm:h-28 md:h-32 flex flex-col items-center justify-center space-y-2 sm:space-y-3 bg-card hover:bg-accent/50 active:bg-accent/70 border-border shadow-lg hover:shadow-xl active:scale-[0.98] transition-all duration-300 rounded-xl sm:rounded-2xl group touch-manipulation"
+                                className="w-full h-32 flex flex-col items-center justify-center space-y-3 bg-card hover:bg-accent/50 border-border shadow-lg hover:shadow-xl transition-all duration-300 rounded-2xl group"
                             >
-                                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-blue-500/10 rounded-lg sm:rounded-xl flex items-center justify-center group-hover:bg-blue-500/20 transition-colors duration-300">
-                                    <Map className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" />
+                                <div className="w-12 h-12 bg-blue-500/10 rounded-xl flex items-center justify-center group-hover:bg-blue-500/20 transition-colors duration-300">
+                                    <Map className="w-6 h-6 text-blue-600" />
                                 </div>
                                 <motion.span
                                     key={language + 'map'}
@@ -269,7 +267,7 @@ export default function AdminDashboard({ onLogout, onSystemConfig, onAdminMap, o
                                     animate={{ opacity: 1, y: 0 }}
                                     exit={{ opacity: 0, y: -10 }}
                                     transition={{ duration: 0.2 }}
-                                    className="font-medium text-foreground group-hover:text-blue-600 transition-colors duration-300 text-sm sm:text-base"
+                                    className="font-medium text-foreground group-hover:text-blue-600 transition-colors duration-300"
                                 >
                                     {language === 'en' ? 'Map' : 'Bản đồ'}
                                 </motion.span>
@@ -287,10 +285,10 @@ export default function AdminDashboard({ onLogout, onSystemConfig, onAdminMap, o
                             <Button
                                 variant="outline"
                                 onClick={() => handleGridButtonClick('StaffManagement')}
-                                className="w-full h-24 sm:h-28 md:h-32 flex flex-col items-center justify-center space-y-2 sm:space-y-3 bg-card hover:bg-accent/50 active:bg-accent/70 border-border shadow-lg hover:shadow-xl active:scale-[0.98] transition-all duration-300 rounded-xl sm:rounded-2xl group touch-manipulation"
+                                className="w-full h-32 flex flex-col items-center justify-center space-y-3 bg-card hover:bg-accent/50 border-border shadow-lg hover:shadow-xl transition-all duration-300 rounded-2xl group"
                             >
-                                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-green-500/10 rounded-lg sm:rounded-xl flex items-center justify-center group-hover:bg-green-500/20 transition-colors duration-300">
-                                    <Users className="w-5 h-5 sm:w-6 sm:h-6 text-green-600" />
+                                <div className="w-12 h-12 bg-green-500/10 rounded-xl flex items-center justify-center group-hover:bg-green-500/20 transition-colors duration-300">
+                                    <Users className="w-6 h-6 text-green-600" />
                                 </div>
                                 <motion.span
                                     key={language + 'staffmanagement'}
@@ -298,7 +296,7 @@ export default function AdminDashboard({ onLogout, onSystemConfig, onAdminMap, o
                                     animate={{ opacity: 1, y: 0 }}
                                     exit={{ opacity: 0, y: -10 }}
                                     transition={{ duration: 0.2 }}
-                                    className="font-medium text-foreground group-hover:text-green-600 transition-colors duration-300 text-sm sm:text-base text-center px-2"
+                                    className="font-medium text-foreground group-hover:text-green-600 transition-colors duration-300"
                                 >
                                     {language === 'en' ? 'Staff Management' : 'Quản lý nhân viên'}
                                 </motion.span>
@@ -345,10 +343,10 @@ export default function AdminDashboard({ onLogout, onSystemConfig, onAdminMap, o
                             <Button
                                 variant="outline"
                                 onClick={() => handleGridButtonClick('SystemConfig')}
-                                className="w-full h-24 sm:h-28 md:h-32 flex flex-col items-center justify-center space-y-2 sm:space-y-3 bg-card hover:bg-accent/50 active:bg-accent/70 border-border shadow-lg hover:shadow-xl active:scale-[0.98] transition-all duration-300 rounded-xl sm:rounded-2xl group touch-manipulation"
+                                className="w-full h-32 flex flex-col items-center justify-center space-y-3 bg-card hover:bg-accent/50 border-border shadow-lg hover:shadow-xl transition-all duration-300 rounded-2xl group"
                             >
-                                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-purple-500/10 rounded-lg sm:rounded-xl flex items-center justify-center group-hover:bg-purple-500/20 transition-colors duration-300">
-                                    <Settings className="w-5 h-5 sm:w-6 sm:h-6 text-purple-600" />
+                                <div className="w-12 h-12 bg-purple-500/10 rounded-xl flex items-center justify-center group-hover:bg-purple-500/20 transition-colors duration-300">
+                                    <Settings className="w-6 h-6 text-purple-600" />
                                 </div>
                                 <motion.span
                                     key={language + 'systemconfig'}
@@ -356,7 +354,7 @@ export default function AdminDashboard({ onLogout, onSystemConfig, onAdminMap, o
                                     animate={{ opacity: 1, y: 0 }}
                                     exit={{ opacity: 0, y: -10 }}
                                     transition={{ duration: 0.2 }}
-                                    className="font-medium text-foreground group-hover:text-purple-600 transition-colors duration-300 text-sm sm:text-base text-center px-2"
+                                    className="font-medium text-foreground group-hover:text-purple-600 transition-colors duration-300"
                                 >
                                     {language === 'en' ? 'System Config' : 'Cấu Hình Hệ Thống'}
                                 </motion.span>
@@ -374,10 +372,10 @@ export default function AdminDashboard({ onLogout, onSystemConfig, onAdminMap, o
                             <Button
                                 variant="outline"
                                 onClick={() => handleGridButtonClick('Revenue')}
-                                className="w-full h-24 sm:h-28 md:h-32 flex flex-col items-center justify-center space-y-2 sm:space-y-3 bg-card hover:bg-accent/50 active:bg-accent/70 border-border shadow-lg hover:shadow-xl active:scale-[0.98] transition-all duration-300 rounded-xl sm:rounded-2xl group touch-manipulation"
+                                className="w-full h-32 flex flex-col items-center justify-center space-y-3 bg-card hover:bg-accent/50 border-border shadow-lg hover:shadow-xl transition-all duration-300 rounded-2xl group"
                             >
-                                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-orange-500/10 rounded-lg sm:rounded-xl flex items-center justify-center group-hover:bg-orange-500/20 transition-colors duration-300">
-                                    <TrendingUp className="w-5 h-5 sm:w-6 sm:h-6 text-orange-600" />
+                                <div className="w-12 h-12 bg-orange-500/10 rounded-xl flex items-center justify-center group-hover:bg-orange-500/20 transition-colors duration-300">
+                                    <TrendingUp className="w-6 h-6 text-orange-600" />
                                 </div>
                                 <motion.span
                                     key={language + 'revenue'}
@@ -385,7 +383,7 @@ export default function AdminDashboard({ onLogout, onSystemConfig, onAdminMap, o
                                     animate={{ opacity: 1, y: 0 }}
                                     exit={{ opacity: 0, y: -10 }}
                                     transition={{ duration: 0.2 }}
-                                    className="font-medium text-foreground group-hover:text-orange-600 transition-colors duration-300 text-sm sm:text-base"
+                                    className="font-medium text-foreground group-hover:text-orange-600 transition-colors duration-300"
                                 >
                                     {language === 'en' ? 'Revenue' : 'Doanh thu'}
                                 </motion.span>
@@ -402,10 +400,10 @@ export default function AdminDashboard({ onLogout, onSystemConfig, onAdminMap, o
                             <Button
                                 variant="outline"
                                 onClick={() => onAdminChargerPostActivating()}
-                                className="w-full h-24 sm:h-28 md:h-32 flex flex-col items-center justify-center space-y-2 sm:space-y-3 bg-card hover:bg-accent/50 active:bg-accent/70 border-border shadow-lg hover:shadow-xl active:scale-[0.98] transition-all duration-300 rounded-xl sm:rounded-2xl group touch-manipulation"
+                                className="w-full h-32 flex flex-col items-center justify-center space-y-3 bg-card hover:bg-accent/50 border-border shadow-lg hover:shadow-xl transition-all duration-300 rounded-2xl group"
                             >
-                                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-cyan-500/10 rounded-lg sm:rounded-xl flex items-center justify-center group-hover:bg-cyan-500/20 transition-colors duration-300">
-                                    <Activity className="w-5 h-5 sm:w-6 sm:h-6 text-cyan-600" />
+                                <div className="w-12 h-12 bg-cyan-500/10 rounded-xl flex items-center justify-center group-hover:bg-cyan-500/20 transition-colors duration-300">
+                                    <Activity className="w-6 h-6 text-cyan-600" />
                                 </div>
                                 <motion.span
                                     key={language + 'chargeractivating'}
@@ -413,7 +411,7 @@ export default function AdminDashboard({ onLogout, onSystemConfig, onAdminMap, o
                                     animate={{ opacity: 1, y: 0 }}
                                     exit={{ opacity: 0, y: -10 }}
                                     transition={{ duration: 0.2 }}
-                                    className="font-medium text-foreground group-hover:text-cyan-600 transition-colors duration-300 text-center text-sm sm:text-base px-2"
+                                    className="font-medium text-foreground group-hover:text-cyan-600 transition-colors duration-300 text-center"
                                 >
                                     {language === 'en' ? 'Charger Post Activating' : 'Kích hoạt Trạm sạc'}
                                 </motion.span>
@@ -433,8 +431,8 @@ export default function AdminDashboard({ onLogout, onSystemConfig, onAdminMap, o
                                 onClick={() => setCurrentView('driverManagement')}
                                 className="w-full h-32 flex flex-col items-center justify-center space-y-3 bg-card hover:bg-accent/50 border-border shadow-lg hover:shadow-xl transition-all duration-300 rounded-2xl group"
                             >
-                                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-indigo-500/10 rounded-lg sm:rounded-xl flex items-center justify-center group-hover:bg-indigo-500/20 transition-colors duration-300">
-                                    <Users2 className="w-5 h-5 sm:w-6 sm:h-6 text-indigo-600" />
+                                <div className="w-12 h-12 bg-indigo-500/10 rounded-xl flex items-center justify-center group-hover:bg-indigo-500/20 transition-colors duration-300">
+                                    <Users2 className="w-6 h-6 text-indigo-600" />
                                 </div>
                                 <motion.span
                                     key={language + 'drivermanagement'}
@@ -442,7 +440,7 @@ export default function AdminDashboard({ onLogout, onSystemConfig, onAdminMap, o
                                     animate={{ opacity: 1, y: 0 }}
                                     exit={{ opacity: 0, y: -10 }}
                                     transition={{ duration: 0.2 }}
-                                    className="font-medium text-foreground group-hover:text-indigo-600 transition-colors duration-300 text-center text-sm sm:text-base px-2"
+                                    className="font-medium text-foreground group-hover:text-indigo-600 transition-colors duration-300 text-center"
                                 >
                                     {language === 'en' ? 'Driver Management' : 'Quản lý Tài xế'}
                                 </motion.span>
@@ -465,11 +463,11 @@ export default function AdminDashboard({ onLogout, onSystemConfig, onAdminMap, o
                             <Button
                                 variant="default"
                                 onClick={handleUsageAnalyticsClick}
-                                className="w-full h-14 sm:h-16 bg-primary hover:bg-primary/90 active:bg-primary/80 shadow-lg hover:shadow-xl active:scale-[0.98] transition-all duration-300 rounded-xl sm:rounded-2xl group touch-manipulation"
+                                className="w-full h-16 bg-primary hover:bg-primary/90 shadow-lg hover:shadow-xl transition-all duration-300 rounded-2xl group"
                             >
-                                <div className="flex items-center justify-center space-x-2 sm:space-x-3">
-                                    <div className="w-7 h-7 sm:w-8 sm:h-8 bg-primary-foreground/20 rounded-lg flex items-center justify-center group-hover:bg-primary-foreground/30 transition-colors duration-300">
-                                        <BarChart3 className="w-4 h-4 sm:w-5 sm:h-5 text-primary-foreground" />
+                                <div className="flex items-center justify-center space-x-3">
+                                    <div className="w-8 h-8 bg-primary-foreground/20 rounded-lg flex items-center justify-center group-hover:bg-primary-foreground/30 transition-colors duration-300">
+                                        <BarChart3 className="w-5 h-5 text-primary-foreground" />
                                     </div>
                                     <motion.span
                                         key={language + 'analytics'}
@@ -477,7 +475,7 @@ export default function AdminDashboard({ onLogout, onSystemConfig, onAdminMap, o
                                         animate={{ opacity: 1, y: 0 }}
                                         exit={{ opacity: 0, y: -10 }}
                                         transition={{ duration: 0.2 }}
-                                        className="font-medium text-primary-foreground text-sm sm:text-base"
+                                        className="font-medium text-primary-foreground"
                                     >
                                         {language === 'en' ? 'Usage Analytics' : 'Phân tích sử dụng'}
                                     </motion.span>

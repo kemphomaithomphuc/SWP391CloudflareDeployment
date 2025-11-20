@@ -100,13 +100,12 @@ export default function IssueResolvementView({ onBack }: Readonly<IssueResolveme
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-secondary/10 to-accent/20">
       <div className="sticky top-0 z-40 bg-card/70 backdrop-blur-md border-b border-border/60 shadow-sm">
-        <div className="container mx-auto px-3 sm:px-4 py-3 sm:py-4">
-          <div className="flex items-center justify-between gap-2 sm:gap-4">
-            <div className="flex items-center space-x-2 sm:space-x-3 md:space-x-4 min-w-0 flex-1">
-              <Button variant="ghost" size="sm" onClick={onBack} className="text-muted-foreground hover:text-foreground touch-manipulation min-h-[44px] px-2 sm:px-3">
-                <ArrowLeft className="w-4 h-4 mr-1 sm:mr-2 flex-shrink-0" />
-                <span className="hidden sm:inline text-xs sm:text-sm">{language === "en" ? "Back to Dashboard" : "Về Dashboard"}</span>
-                <span className="sm:hidden text-xs">Back</span>
+        <div className="container mx-auto px-4 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-4">
+              <Button variant="ghost" size="sm" onClick={onBack} className="text-muted-foreground hover:text-foreground">
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                {language === "en" ? "Back to Dashboard" : "Về Dashboard"}
               </Button>
               <div className="flex items-center space-x-3">
                 <div className="relative group">
@@ -130,7 +129,7 @@ export default function IssueResolvementView({ onBack }: Readonly<IssueResolveme
         </div>
       </div>
 
-      <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-6 md:py-8 max-w-6xl space-y-4 sm:space-y-6 md:space-y-8">
+      <div className="container mx-auto px-4 py-8 max-w-6xl space-y-8">
         {/* In Progress Issues */}
         <Card className="bg-gradient-to-br from-card to-card/80 border-border/60">
           <CardHeader>

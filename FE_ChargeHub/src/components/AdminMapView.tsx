@@ -4956,11 +4956,11 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
                 <div className="sticky top-0 z-40 bg-card/80 backdrop-blur-sm border-b border-border shadow-sm">
 
-                    <div className="container mx-auto px-3 sm:px-4 py-3 sm:py-4">
+                    <div className="container mx-auto px-4 py-4">
 
-                        <div className="flex items-center justify-between gap-2 sm:gap-4">
+                        <div className="flex items-center justify-between">
 
-                            <div className="flex items-center space-x-2 sm:space-x-4 min-w-0 flex-1">
+                            <div className="flex items-center space-x-4">
 
                                 <Button
 
@@ -4968,26 +4968,25 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
                                     onClick={onBack}
 
-                                    className="flex items-center space-x-1.5 sm:space-x-2 text-muted-foreground hover:text-foreground touch-manipulation min-h-[44px] px-2 sm:px-3 text-xs sm:text-sm"
+                                    className="flex items-center space-x-2 text-muted-foreground hover:text-foreground"
 
                                 >
 
                                     <ArrowLeft className="w-4 h-4" />
 
-                                    <span className="hidden sm:inline">{backToDashboardLabel}</span>
-                                    <span className="sm:hidden">{t('back')}</span>
+                                    <span>{backToDashboardLabel}</span>
 
                                 </Button>
 
-                                <div className="min-w-0">
+                                <div>
 
-                                    <h1 className="text-xl sm:text-2xl md:text-3xl font-semibold bg-gradient-to-r from-primary to-secondary-foreground bg-clip-text text-transparent truncate">
+                                    <h1 className="text-3xl font-semibold bg-gradient-to-r from-primary to-secondary-foreground bg-clip-text text-transparent">
 
                                         {t('charging_station_map_management')}
 
                                     </h1>
 
-                                    <p className="text-muted-foreground mt-1 text-xs sm:text-sm line-clamp-2">
+                                    <p className="text-muted-foreground mt-2">
 
                                         {t('monitor_manage_stations')}
 
@@ -5001,12 +5000,11 @@ export default function AdminMapView({ onBack }: AdminMapViewProps) {
 
                             <div className="flex items-center space-x-2">
 
-                                <Button variant="outline" onClick={refreshStations} className="flex items-center space-x-2 touch-manipulation min-h-[40px] text-xs sm:text-sm px-3 sm:px-4">
+                                <Button variant="outline" onClick={refreshStations} className="flex items-center space-x-2">
 
                                     <RefreshCw className="w-4 h-4" />
 
                                     <span className="hidden sm:inline">{t('refresh')}</span>
-                                    <span className="sm:hidden">{t('refresh_short') ?? 'Refresh'}</span>
 
                                 </Button>
 

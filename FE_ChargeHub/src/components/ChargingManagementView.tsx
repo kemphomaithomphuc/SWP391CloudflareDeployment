@@ -347,32 +347,31 @@ export default function ChargingManagementView({ onBack, stationId }: ChargingMa
         <div className="min-h-screen bg-gradient-to-br from-green-50 via-blue-50 to-purple-50 dark:from-gray-950 dark:via-blue-950 dark:to-green-950">
             {/* Header */}
             <div className="sticky top-0 z-40 bg-card/80 backdrop-blur-sm border-b border-border shadow-sm">
-                <div className="container mx-auto px-3 sm:px-4 py-3 sm:py-4">
-                    <div className="flex items-center justify-between gap-2 sm:gap-4">
-                        <div className="flex items-center space-x-2 sm:space-x-3 md:space-x-4 min-w-0 flex-1">
+                <div className="container mx-auto px-4 py-4">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-4">
                             <Button
                                 variant="ghost"
                                 size="sm"
                                 onClick={onBack}
-                                className="text-muted-foreground hover:text-foreground touch-manipulation min-h-[44px] px-2 sm:px-3"
+                                className="text-muted-foreground hover:text-foreground"
                             >
-                                <ArrowLeft className="w-4 h-4 mr-1 sm:mr-2 flex-shrink-0" />
-                                <span className="hidden sm:inline text-xs sm:text-sm">Back to Dashboard</span>
-                                <span className="sm:hidden text-xs">Back</span>
+                                <ArrowLeft className="w-4 h-4 mr-2" />
+                                Back to Dashboard
                             </Button>
                         </div>
-                        <div className="text-right flex-shrink-0">
-                            <h1 className="text-base sm:text-lg font-semibold text-foreground">{translations.title}</h1>
-                            <p className="text-xs sm:text-sm text-muted-foreground hidden sm:block">{translations.subtitle}</p>
+                        <div className="text-right">
+                            <h1 className="text-lg font-semibold text-foreground">{translations.title}</h1>
+                            <p className="text-sm text-muted-foreground">{translations.subtitle}</p>
                         </div>
                     </div>
                 </div>
             </div>
 
             {/* Content */}
-            <div className="max-w-7xl mx-auto p-3 sm:p-4 md:p-6 space-y-4 sm:space-y-6">
+            <div className="max-w-7xl mx-auto p-4 space-y-6">
                 {/* Stats Cards */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <Card>
                         <CardContent className="p-4">
                             <div className="flex items-center justify-between">
@@ -433,21 +432,21 @@ export default function ChargingManagementView({ onBack, stationId }: ChargingMa
                 {/* Filters */}
                 <Card>
                     <CardContent className="p-4">
-                        <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+                        <div className="flex flex-col md:flex-row gap-4">
                             <div className="flex-1">
                                 <div className="relative">
-                                    <Search className="absolute left-2 sm:left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                                     <Input
                                         placeholder={translations.search}
                                         value={searchTerm}
                                         onChange={(e) => setSearchTerm(e.target.value)}
-                                        className="pl-8 sm:pl-10 h-10 sm:h-11 text-sm sm:text-base touch-manipulation"
+                                        className="pl-10"
                                     />
                                 </div>
                             </div>
-                            <div className="w-full sm:w-48">
+                            <div className="w-full md:w-48">
                                 <Select value={statusFilter} onValueChange={setStatusFilter}>
-                                    <SelectTrigger className="h-10 sm:h-11 text-sm sm:text-base touch-manipulation">
+                                    <SelectTrigger>
                                         <SelectValue placeholder={translations.filter} />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -475,50 +474,50 @@ export default function ChargingManagementView({ onBack, stationId }: ChargingMa
                         </CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <div className="overflow-x-auto -mx-3 sm:mx-0">
+                        <div className="overflow-x-auto">
                             <Table>
                                 <TableHeader>
                                     <TableRow>
-                                        <TableHead className="text-xs sm:text-sm">{translations.bookingId}</TableHead>
-                                        <TableHead className="text-xs sm:text-sm">{translations.driverName}</TableHead>
-                                        <TableHead className="text-xs sm:text-sm hidden sm:table-cell">{translations.vehicleId}</TableHead>
-                                        <TableHead className="text-xs sm:text-sm hidden md:table-cell">{translations.connectorType}</TableHead>
-                                        <TableHead className="text-xs sm:text-sm hidden lg:table-cell">{translations.chargingPoint}</TableHead>
-                                        <TableHead className="text-xs sm:text-sm hidden md:table-cell">{translations.startTime}</TableHead>
-                                        <TableHead className="text-xs sm:text-sm">{translations.status}</TableHead>
-                                        <TableHead className="text-xs sm:text-sm">{translations.actions}</TableHead>
+                                        <TableHead>{translations.bookingId}</TableHead>
+                                        <TableHead>{translations.driverName}</TableHead>
+                                        <TableHead>{translations.vehicleId}</TableHead>
+                                        <TableHead>{translations.connectorType}</TableHead>
+                                        <TableHead>{translations.chargingPoint}</TableHead>
+                                        <TableHead>{translations.startTime}</TableHead>
+                                        <TableHead>{translations.status}</TableHead>
+                                        <TableHead>{translations.actions}</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
                                     {stationOrdersFiltered.map((booking: any) => {
                                         return (
                                             <TableRow key={booking.id || booking.orderId} className="hover:bg-muted/50">
-                                                <TableCell className="font-mono text-xs sm:text-sm">
+                                                <TableCell className="font-mono text-sm">
                                                     {(booking.orderId || booking.id)?.toString().slice(-8)}
                                                 </TableCell>
-                                                <TableCell className="text-xs sm:text-sm">
-                                                    <div className="flex items-center gap-1.5 sm:gap-2">
-                                                        <User className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-muted-foreground flex-shrink-0" />
-                                                        <span className="truncate">{booking.userName || '-'}</span>
+                                                <TableCell>
+                                                    <div className="flex items-center gap-2">
+                                                        <User className="w-4 h-4 text-muted-foreground" />
+                                                        {booking.userName || '-'}
                                                     </div>
                                                 </TableCell>
-                                                <TableCell className="text-xs sm:text-sm hidden sm:table-cell">
-                                                    <div className="flex items-center gap-1.5 sm:gap-2">
-                                                        <Car className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-muted-foreground flex-shrink-0" />
-                                                        <span className="truncate">{booking.vehiclePlate || '-'}</span>
+                                                <TableCell>
+                                                    <div className="flex items-center gap-2">
+                                                        <Car className="w-4 h-4 text-muted-foreground" />
+                                                        {booking.vehiclePlate || '-'}
                                                     </div>
                                                 </TableCell>
-                                                <TableCell className="hidden md:table-cell">
-                                                    <Badge variant="outline" className="text-xs">
+                                                <TableCell>
+                                                    <Badge variant="outline">
                                                         {booking.connectorType || '-'}
                                                     </Badge>
                                                 </TableCell>
-                                                <TableCell className="font-mono text-xs sm:text-sm hidden lg:table-cell">
+                                                <TableCell className="font-mono text-sm">
                                                     {booking.chargingPointName 
                                                         ? `${booking.chargingPointName}` 
                                                         : booking.chargingPointId || '-'}
                                                 </TableCell>
-                                                <TableCell className="text-xs sm:text-sm hidden md:table-cell">
+                                                <TableCell>
                                                     {booking.startTime ? new Date(booking.startTime).toLocaleString() : '-'}
                                                 </TableCell>
                                                 <TableCell>
@@ -531,11 +530,9 @@ export default function ChargingManagementView({ onBack, stationId }: ChargingMa
                                                                 variant="outline"
                                                                 size="sm"
                                                                 onClick={() => setSelectedBooking(booking)}
-                                                                className="touch-manipulation min-h-[36px] text-xs sm:text-sm px-2 sm:px-3"
                                                             >
-                                                                <Eye className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 flex-shrink-0" />
-                                                                <span className="hidden sm:inline">{translations.viewDetails}</span>
-                                                                <span className="sm:hidden">View</span>
+                                                                <Eye className="w-4 h-4 mr-1" />
+                                                                {translations.viewDetails}
                                                             </Button>
                                                         </DialogTrigger>
                                                         <DialogContent className="max-w-2xl">
@@ -652,7 +649,7 @@ export default function ChargingManagementView({ onBack, stationId }: ChargingMa
 
                                                                         <Dialog open={isChangeDialogOpen} onOpenChange={setIsChangeDialogOpen}>
                                                                             <DialogTrigger asChild>
-                                                                                <Button variant="outline" onClick={openChangeDialog} className="touch-manipulation min-h-[36px] text-xs sm:text-sm px-3 sm:px-4">
+                                                                                <Button variant="outline" onClick={openChangeDialog}>
                                                                                     {language === 'vi' ? 'Đổi trụ sạc' : 'Change charger'}
                                                                                 </Button>
                                                                             </DialogTrigger>
@@ -668,7 +665,7 @@ export default function ChargingManagementView({ onBack, stationId }: ChargingMa
                                                                                     <div className="space-y-2">
                                                                                         <p className="text-sm text-muted-foreground">{language === 'vi' ? 'Chọn trụ mới' : 'Alternative point'}</p>
                                                                                         <Select value={selectedAltPointId ? String(selectedAltPointId) : undefined} onValueChange={(v: string) => setSelectedAltPointId(Number(v))}>
-                                                                                            <SelectTrigger className="h-10 sm:h-11 text-sm sm:text-base touch-manipulation">
+                                                                                            <SelectTrigger>
                                                                                                 <SelectValue placeholder={isLoadingAlternatives ? (language === 'vi' ? 'Đang tải...' : 'Loading...') : (language === 'vi' ? 'Chọn trụ' : 'Select point')} />
                                                                                             </SelectTrigger>
                                                                                             <SelectContent>
@@ -686,14 +683,14 @@ export default function ChargingManagementView({ onBack, stationId }: ChargingMa
 
                                                                                     <div className="space-y-2">
                                                                                         <p className="text-sm text-muted-foreground">{language === 'vi' ? 'Lý do đổi trụ' : 'Reason'}</p>
-                                                                                        <UITextInput value={changeReason} onChange={(e) => setChangeReason(e.target.value)} className="h-10 sm:h-11 text-sm sm:text-base touch-manipulation" />
+                                                                                        <UITextInput value={changeReason} onChange={(e) => setChangeReason(e.target.value)} />
                                                                                     </div>
 
                                                                                     <div className="flex justify-end gap-2">
-                                                                                        <Button variant="outline" onClick={() => setIsChangeDialogOpen(false)} className="touch-manipulation min-h-[36px] text-xs sm:text-sm px-3 sm:px-4">
+                                                                                        <Button variant="outline" onClick={() => setIsChangeDialogOpen(false)}>
                                                                                             {language === 'vi' ? 'Hủy' : 'Cancel'}
                                                                                         </Button>
-                                                                                        <Button disabled={isSubmittingChange || !selectedAltPointId} onClick={submitChangeChargingPoint} className="touch-manipulation min-h-[36px] text-xs sm:text-sm px-3 sm:px-4">
+                                                                                        <Button disabled={isSubmittingChange || !selectedAltPointId} onClick={submitChangeChargingPoint}>
                                                                                             {isSubmittingChange ? (language === 'vi' ? 'Đang đổi...' : 'Changing...') : (language === 'vi' ? 'Xác nhận đổi' : 'Confirm change')}
                                                                                         </Button>
                                                                                     </div>

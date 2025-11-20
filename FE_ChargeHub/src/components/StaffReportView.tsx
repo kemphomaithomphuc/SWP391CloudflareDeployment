@@ -183,21 +183,20 @@ export default function StaffReportView({ onBack }: Readonly<StaffReportViewProp
     <div className="min-h-screen bg-gradient-to-br from-background via-secondary/20 to-accent/30">
       {/* Header */}
       <div className="sticky top-0 z-40 bg-card/80 backdrop-blur-sm border-b border-border shadow-sm">
-        <div className="container mx-auto px-3 sm:px-4 py-3 sm:py-4">
-          <div className="flex items-center justify-between gap-2 sm:gap-4">
-            <div className="flex items-center space-x-2 sm:space-x-3 md:space-x-4 min-w-0 flex-1">
+        <div className="container mx-auto px-4 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-4">
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={onBack}
-                className="text-muted-foreground hover:text-foreground touch-manipulation min-h-[44px] px-2 sm:px-3"
+                className="text-muted-foreground hover:text-foreground"
               >
-                <ArrowLeft className="w-4 h-4 mr-1 sm:mr-2 flex-shrink-0" />
-                <span className="hidden sm:inline text-xs sm:text-sm">{t('back_to_dashboard')}</span>
-                <span className="sm:hidden text-xs">Back</span>
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                {t('back_to_dashboard')}
               </Button>
-              <div className="min-w-0">
-                <h1 className="font-semibold text-foreground text-sm sm:text-base md:text-lg truncate">{t('report_management')}</h1>
+              <div>
+                <h1 className="font-semibold text-foreground">{t('report_management')}</h1>
                 <p className="text-sm text-muted-foreground">{t('submit_track_reports')}</p>
               </div>
             </div>
@@ -206,26 +205,26 @@ export default function StaffReportView({ onBack }: Readonly<StaffReportViewProp
       </div>
 
       {/* Tab Navigation */}
-      <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-6">
-        <div className="flex space-x-1 mb-4 sm:mb-6 bg-muted/50 rounded-lg p-1">
+      <div className="container mx-auto px-4 py-6">
+        <div className="flex space-x-1 mb-6 bg-muted/50 rounded-lg p-1">
           <Button
             variant={activeTab === "equipment" ? "default" : "ghost"}
             size="sm"
             onClick={() => setActiveTab("equipment")}
-            className="flex-1 touch-manipulation min-h-[44px] text-xs sm:text-sm"
+            className="flex-1"
           >
-            <Wrench className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-2 flex-shrink-0" />
-            <span className="truncate">{t('equipment_reports')}</span>
+            <Wrench className="w-4 h-4 mr-2" />
+            {t('equipment_reports')}
           </Button>
 
           <Button
             variant={activeTab === "history" ? "default" : "ghost"}
             size="sm"
             onClick={() => setActiveTab("history")}
-            className="flex-1 touch-manipulation min-h-[44px] text-xs sm:text-sm"
+            className="flex-1"
           >
-            <FileText className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-2 flex-shrink-0" />
-            <span className="truncate">{t('report_history')}</span>
+            <FileText className="w-4 h-4 mr-2" />
+            {t('report_history')}
           </Button>
         </div>
 
@@ -283,9 +282,8 @@ export default function StaffReportView({ onBack }: Readonly<StaffReportViewProp
                             setReportDescription(`Customer Report: ${report.description}\n\nStaff Verification: `);
                             setPriority("high");
                           }}
-                          className="touch-manipulation min-h-[36px] text-xs sm:text-sm px-2 sm:px-3"
                         >
-                          <Wrench className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1.5 sm:mr-2 flex-shrink-0" />
+                          <Wrench className="w-4 h-4 mr-2" />
                           {t('create_report')}
                         </Button>
                         <Button

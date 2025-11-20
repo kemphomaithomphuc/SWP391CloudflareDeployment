@@ -402,7 +402,7 @@ export default function PostActivatingView({ onBack }: PostActivatingViewProps) 
   return (
     <div className="min-h-screen bg-black dark:bg-black">
       <div className="container mx-auto px-4 sm:px-6 py-6 max-w-7xl">
-        {/* Header */}
+      {/* Header */}
         <div className="mb-8">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center space-x-4">
@@ -421,10 +421,10 @@ export default function PostActivatingView({ onBack }: PostActivatingViewProps) 
                 <p className="text-sm text-gray-400 mt-1">
                   {t.subtitle}
                 </p>
-              </div>
             </div>
           </div>
         </div>
+      </div>
 
         {/* Quick Stats */}
         <div className="space-y-6 mb-6">
