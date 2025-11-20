@@ -150,10 +150,13 @@ export default function Login({ onSwitchToRegister, onLogin, onStaffLogin, onAdm
         setError(null);
 
         try {
+            console.log("🔵 Attempting login with:", { username: email.trim() });
+            console.log("🔵 API base URL:", api.defaults.baseURL);
             const res = await api.post("/api/auth/login", {
                 username: email.trim(),
                 password: password.trim(),
             });
+            console.log("✅ Login response:", res.status, res.data);
 
 
             if (res.status === 200 && res.data?.success && res.data?.data) {

@@ -13,7 +13,6 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import QRCodeGenerator from './QRCodeGenerator';
-import axios from 'axios';
 import { api } from '../services/api';
 import { checkAndRefreshToken } from '../services/api';
 import { ParkingSessionSummary } from '../types/parking';

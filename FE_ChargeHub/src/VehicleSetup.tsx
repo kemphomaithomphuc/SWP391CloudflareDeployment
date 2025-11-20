@@ -6,7 +6,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "./components/ui/dialog";
 import { ArrowLeft, Car, AlertTriangle } from "lucide-react";
 import { useLanguage } from "./contexts/LanguageContext";
-import axios from "axios";
 import { api } from "./services/api";
 
 
