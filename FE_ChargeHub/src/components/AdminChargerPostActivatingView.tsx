@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
+import { apiBaseUrl } from "../services/api";
 import { ArrowLeft, Search, Filter, Zap, Power, XCircle, CheckCircle, Settings, AlertTriangle, Activity, Clock, Users, Gauge } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -73,7 +74,7 @@ export default function AdminChargerPostActivatingView({ onBack }: AdminChargerP
 
     try {
       console.log("📥 Fetching stations from API...");
-      const response = await axios.get("http://localhost:8080/api/charging-stations", {
+      const response = await axios.get(`${apiBaseUrl}/api/charging-stations`, {
         headers: getAuthHeaders()
       });
 
@@ -131,7 +132,7 @@ export default function AdminChargerPostActivatingView({ onBack }: AdminChargerP
     try {
       console.log(`🔄 Updating station ${stationId} status to ${status}...`);
       const response = await axios.patch(
-        `http://localhost:8080/api/charging-stations/${stationId}/status`,
+        `${apiBaseUrl}/api/charging-stations/${stationId}/status`,
         status,
         {
           headers: getAuthHeaders()

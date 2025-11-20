@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/
 import { Badge } from "./ui/badge";
 // removed unused dialog/separator imports
 import axios from 'axios';
+import { apiBaseUrl } from '../services/api';
 import { toast } from "sonner";
 import { 
   ArrowLeft,
@@ -74,7 +75,7 @@ export default function StaffReportView({ onBack }: Readonly<StaffReportViewProp
   const getAllReports = async() : Promise<ReceivedIssueReport[] | null> => {
     const token = localStorage.getItem("token");
     try {
-      const res = await axios.get("http://localhost:8080/api/issue-reports", {
+      const res = await axios.get(`${apiBaseUrl}/api/issue-reports`, {
         headers: {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -101,7 +102,7 @@ export default function StaffReportView({ onBack }: Readonly<StaffReportViewProp
     const token = localStorage.getItem("token");
     try {
       const res = await axios.put(
-        `http://localhost:8080/api/issue-reports/${reportIssueId}/${"IN_PROGRESS"}`,
+        `${apiBaseUrl}/api/issue-reports/${reportIssueId}/${"IN_PROGRESS"}`,
         {},
         {
           headers: {
@@ -127,7 +128,7 @@ export default function StaffReportView({ onBack }: Readonly<StaffReportViewProp
         status: report.status || "INBOX"
       };
       const res = await axios.post(
-        "http://localhost:8080/api/issue-reports",
+        `${apiBaseUrl}/api/issue-reports`,
         payload,
         {
           headers: {

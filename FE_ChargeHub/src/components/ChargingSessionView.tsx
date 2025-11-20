@@ -14,7 +14,7 @@ import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import QRCodeGenerator from './QRCodeGenerator';
 import axios from 'axios';
-import { api } from '../services/api';
+import { api, apiBaseUrl } from '../services/api';
 
 
 interface ChargingSessionViewProps {
@@ -582,7 +582,7 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
       if (savedOrderId) {
         try {
           const sessionRes = await axios.get(
-            `http://localhost:8080/api/sessions/by-order/${savedOrderId}`,
+            `${apiBaseUrl}/api/sessions/by-order/${savedOrderId}`,
             { headers }
           );
           if (sessionRes.data?.success && sessionRes.data?.data) {
@@ -590,7 +590,7 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
             try {
               if (userId) {
                 const ordersRes = await axios.get(
-                  `http://localhost:8080/api/orders/my-orders?userId=${userId}`,
+                  `${apiBaseUrl}/api/orders/my-orders?userId=${userId}`,
                   { headers }
                 );
                 if (ordersRes.data?.success && Array.isArray(ordersRes.data.data)) {
@@ -618,7 +618,7 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
 
       try {
         const ordersRes = await axios.get(
-          `http://localhost:8080/api/orders/my-orders?userId=${userId}`,
+          `${apiBaseUrl}/api/orders/my-orders?userId=${userId}`,
           { headers }
         );
 
@@ -627,7 +627,7 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
           if (chargingOrder) {
             try {
               const sessionRes = await axios.get(
-                `http://localhost:8080/api/sessions/by-order/${chargingOrder.orderId}`,
+                `${apiBaseUrl}/api/sessions/by-order/${chargingOrder.orderId}`,
                 { headers }
               );
               if (sessionRes.data?.success && sessionRes.data?.data) {
@@ -1010,7 +1010,7 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
       // Stop simulation immediately
       setIsSimulating(false);
       
-      const response = await axios.post(`http://localhost:8080/api/sessions/${currentSessionId}/end`, {
+      const response = await axios.post(`${apiBaseUrl}/api/sessions/${currentSessionId}/end`, {
 
       }, {
         headers: {
@@ -1423,7 +1423,7 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
     options?: { silent?: boolean }
   ): Promise<PaymentDetail | null> => {
     try {
-      const res = await axios.get(`http://localhost:8080/api/payment/detail?sessionId=${sessionId}&userId=${userId}`);
+      const res = await axios.get(`${apiBaseUrl}/api/payment/detail?sessionId=${sessionId}&userId=${userId}`);
 
       if (res.status === 200 && res.data?.success) {
         return parsePaymentDetail(res.data.data);
@@ -1565,7 +1565,7 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
         bankCode: "NCB"
       }
       
-      const res = await axios.post('http://localhost:8080/api/payment/initiate', payload, {
+      const res = await axios.post('${apiBaseUrl}/api/payment/initiate', payload, {
         headers: {
           'Content-Type': 'application/json'
         }

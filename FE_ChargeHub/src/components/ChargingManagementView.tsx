@@ -194,19 +194,47 @@ export default function ChargingManagementView({ onBack, stationId }: ChargingMa
             try {
                 setLoadingOrders(true);
                 const res = await getOrdersByStation(sid, ['BOOKED', 'CHARGING']);
-                setStationOrders(res?.data || []);
+                const orders = res?.data || [];
+                setStationOrders(orders);
 
-                if (res?.data && res.data.length > 0) {
-                    toast.success(language === 'vi'
-                        ? `Đã tải ${res.data.length} đơn hàng`
-                        : `Loaded ${res.data.length} orders`);
+                // Check if there are any active charging sessions
+                const activeSessions = orders.filter((o: any) => 
+                    (o.status || '').toString().toLowerCase() === 'charging' || 
+                    (o.status || '').toString().toLowerCase() === 'active'
+                );
+
+                if (orders.length > 0) {
+                    if (activeSessions.length === 0) {
+                        // Friendly toast when no active charging sessions
+                        toast.info(
+                            language === 'vi' 
+                                ? 'Hiện tại không có phiên sạc nào đang hoạt động' 
+                                : 'No active charging sessions at the moment',
+                            {
+                                description: language === 'vi'
+                                    ? 'Tất cả các đơn hàng đang ở trạng thái chờ xử lý. Bạn có thể xem chi tiết và bắt đầu sạc cho khách hàng.'
+                                    : 'All orders are in pending status. You can view details and start charging for customers.',
+                                duration: 5000,
+                            }
+                        );
+                    } else {
+                        toast.success(language === 'vi'
+                            ? `Đã tải ${orders.length} đơn hàng (${activeSessions.length} đang sạc)`
+                            : `Loaded ${orders.length} orders (${activeSessions.length} charging)`);
+                    }
                 }
             } catch (e: any) {
                 console.error('Error loading orders:', e);
                 const errorMsg = e?.response?.data?.message || e?.message;
-                toast.error(language === 'vi'
-                    ? `Không thể tải đơn hàng: ${errorMsg}`
-                    : `Cannot load orders: ${errorMsg}`);
+                const isNullOrdersError = typeof errorMsg === 'string' && errorMsg.toLowerCase().includes('orders" is null');
+
+                if (!isNullOrdersError) {
+                    toast.error(language === 'vi'
+                        ? `Không thể tải đơn hàng: ${errorMsg}`
+                        : `Cannot load orders: ${errorMsg}`);
+                } else {
+                    console.warn('Skipping toast for null orders error to avoid noise.');
+                }
             } finally {
                 setLoadingOrders(false);
             }
