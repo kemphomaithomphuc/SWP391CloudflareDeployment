@@ -86,6 +86,18 @@ api.interceptors.response.use(
                     console.error("=== TOKEN REFRESH FAILED ===");
                     console.error("Refresh error:", refreshError);
 
+                    // Check if we should prevent redirect (critical operation in progress)
+                    const preventRedirect = localStorage.getItem('preventRedirect') === 'true';
+                    
+                    if (preventRedirect) {
+                        console.log("Skipping redirect - critical operation in progress");
+                        // Only clear tokens, don't redirect
+                        localStorage.removeItem("token");
+                        localStorage.removeItem("refreshToken");
+                        // Don't clear userId and other data - let component handle cleanup
+                        return Promise.reject(refreshError);
+                    }
+
                     // Clear tokens and redirect to login
                     localStorage.removeItem("token");
                     localStorage.removeItem("refreshToken");
@@ -100,6 +112,18 @@ api.interceptors.response.use(
                 }
             } else {
                 console.log("No refresh token available, redirecting to login");
+
+                // Check if we should prevent redirect (critical operation in progress)
+                const preventRedirect = localStorage.getItem('preventRedirect') === 'true';
+                
+                if (preventRedirect) {
+                    console.log("Skipping redirect - critical operation in progress");
+                    // Only clear tokens, don't redirect
+                    localStorage.removeItem("token");
+                    localStorage.removeItem("refreshToken");
+                    // Don't clear userId and other data - let component handle cleanup
+                    return Promise.reject(error);
+                }
 
                 // Clear tokens and redirect to login
                 localStorage.removeItem("token");
@@ -189,6 +213,18 @@ export const checkAndRefreshToken = async (): Promise<boolean> => {
     } catch (error) {
       console.error("=== PROACTIVE TOKEN REFRESH FAILED ===");
       console.error("Refresh error:", error);
+
+      // Check if we should prevent redirect (critical operation in progress)
+      const preventRedirect = localStorage.getItem('preventRedirect') === 'true';
+      
+      if (preventRedirect) {
+        console.log("Skipping redirect in checkAndRefreshToken - critical operation in progress");
+        // Only clear tokens, don't redirect
+        localStorage.removeItem("token");
+        localStorage.removeItem("refreshToken");
+        // Don't clear userId and other data - let component handle cleanup
+        return false;
+      }
 
       // Clear tokens and redirect to login
       localStorage.removeItem("token");
@@ -312,6 +348,11 @@ export interface OrderResponseDTO {
   pricePerKwh: number;
   estimatedCost: number;
   status: string;
+  
+  // Session status (if session exists) - to know if session is CHARGING/PARKING/COMPLETED
+  sessionStatus?: string;
+  sessionId?: number; // ID of session (if exists)
+  
   createdAt: string; // ISO string format
 }
 

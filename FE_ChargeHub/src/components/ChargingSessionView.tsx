@@ -14,12 +14,15 @@ import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import QRCodeGenerator from './QRCodeGenerator';
 import axios from 'axios';
-import { api, apiBaseUrl } from '../services/api';
+import { api, checkAndRefreshToken } from '../services/api';
+import { ParkingSessionSummary } from '../types/parking';
+import fetchParkingMonitoring from '../api/parkingMonitor';
 
 
 interface ChargingSessionViewProps {
   onBack: () => void;
   bookingId: string;
+  onParkingStart?: (summary: ParkingSessionSummary) => void;
 }
 
 interface ChargingSession {
@@ -103,7 +106,36 @@ const getStoredStationInfo = (): StoredStationInfo | null => {
     return null;
   }
 };
-export default function ChargingSessionView({ onBack, bookingId }: ChargingSessionViewProps) {
+
+// Helper function to build ParkingSessionSummary from session and parking monitoring data
+const buildParkingSummary = (
+  session: ChargingSession,
+  parkingMonitoring: any,
+  parkingStartTime?: string
+): ParkingSessionSummary => {
+  const now = new Date().toISOString();
+  
+  const summary: ParkingSessionSummary = {
+    sessionId: session.id,
+    bookingId: session.bookingId,
+    stationName: session.stationName,
+    stationAddress: session.stationAddress,
+    startTime: session.startTime,
+    endTime: session.endTime || now,
+    energyConsumed: session.energyConsumed || 0,
+    totalCost: session.totalCost || 0,
+    parkingStartTime: parkingStartTime || session.endTime || now,
+    ...(session.userName && { userName: session.userName }),
+    ...(session.chargerType && { chargerType: session.chargerType }),
+    ...(session.power && { power: session.power }),
+    ...(session.chargingPointName && { chargingPointName: session.chargingPointName }),
+    ...(session.initialBattery !== undefined && { initialBattery: session.initialBattery }),
+    ...(session.targetBattery !== undefined && { targetBattery: session.targetBattery })
+  };
+  
+  return summary;
+};
+export default function ChargingSessionView({ onBack, bookingId, onParkingStart }: ChargingSessionViewProps) {
   const { language } = useLanguage();
   const { theme } = useTheme();
   const { bookings, updateBookingStatus, startChargingSession, endChargingSession, calculatePenaltyFees } = useBooking();
@@ -732,13 +764,17 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
         // Handle initial battery setup and start simulation - ONLY ONCE
         // Use ref to avoid re-initialization on every API call
         if (!isInitializedRef.current && monitoringData.currentBattery !== undefined) {
-          console.log('🎬 INITIALIZING SESSION (ONCE) - Battery:', monitoringData.currentBattery);
+          console.log('🎬 INITIALIZING SESSION (ONCE) - Battery:', monitoringData.currentBattery, 'Target:', monitoringData.targetBattery);
 
           setSession(prev => {
             const next = {
               ...prev,
               initialBattery: monitoringData.currentBattery,
-              currentBattery: monitoringData.currentBattery
+              currentBattery: monitoringData.currentBattery,
+              // Also set targetBattery from API if available
+              ...(typeof monitoringData.targetBattery === 'number' && !isNaN(monitoringData.targetBattery)
+                ? { targetBattery: monitoringData.targetBattery }
+                : {})
             };
             persistSessionState(next);
             return next;
@@ -756,8 +792,17 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
           console.log('📊 Updating from API (not reinitializing) - Battery:', monitoringData.currentBattery, 'Energy:', monitoringData.powerConsumed, 'Cost:', monitoringData.cost);
         }
 
+        // Check status early to determine if we need to transition to PARKING
+        // Backend returns status as "CHARGING", "PARKING", or "COMPLETED"
+        const rawStatus = monitoringData.status?.toUpperCase() || monitoringData.status;
+        const isParkingStatus = rawStatus === 'PARKING';
+
         // Map API response to ChargingSession format based on actual API structure
-        const derivedStatus = coerceSessionStatus(monitoringData.status, session.status);
+        // Note: If status is PARKING, we handle it below and return early
+        // Here we coerce status for ChargingSession interface (PARKING is mapped to 'stopped')
+        const derivedStatus = isParkingStatus 
+          ? 'stopped' // Treat PARKING as stopped in ChargingSession interface
+          : coerceSessionStatus(monitoringData.status, session.status);
         const updatedSession: ChargingSession = {
           id: sessionId,
           bookingId: orderId ? String(orderId) : session.bookingId,
@@ -770,7 +815,9 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
           pausedTime: session.pausedTime,
           status: derivedStatus,
           currentBattery: monitoringData.currentBattery || session.currentBattery,
-          targetBattery: 100, // Always 100% as final milestone
+          targetBattery: typeof monitoringData.targetBattery === 'number' && !isNaN(monitoringData.targetBattery)
+            ? monitoringData.targetBattery
+            : session.targetBattery || 100, // Use API value or fallback to session value or 100
           initialBattery: session.initialBattery || monitoringData.currentBattery || 0,
           energyConsumed: monitoringData.powerConsumed || session.energyConsumed,
           costPerKWh: session.costPerKWh,
@@ -793,6 +840,76 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
         }
 
         console.log('Updated Session:', updatedSession);
+
+        // Transition to ParkingView if status is PARKING and we haven't already transitioned
+        // Note: isParkingStatus was already checked above
+        if (isParkingStatus && onParkingStart && session.status !== 'stopped') {
+          console.log('🚗 Detected PARKING status from monitoring API, transitioning to ParkingView...');
+          console.log('📊 Monitoring data:', { status: rawStatus, ...monitoringData });
+          
+          // Stop monitoring and simulation immediately
+          setIsMonitoring(false);
+          setIsSimulating(false);
+          if (monitoringIntervalRef.current) {
+            clearInterval(monitoringIntervalRef.current);
+            monitoringIntervalRef.current = null;
+          }
+          
+          // Set status to stopped immediately to prevent monitoring useEffect from running again
+          setSession(prev => {
+            const next = {
+              ...prev,
+              status: 'stopped' as ChargingSession['status'],
+              endTime: monitoringData.currentTime ? 
+                (typeof monitoringData.currentTime === 'string' 
+                  ? monitoringData.currentTime 
+                  : new Date(monitoringData.currentTime).toISOString())
+                : new Date().toISOString()
+            };
+            persistSessionState(next);
+            return next;
+          });
+          
+          // Fetch parking monitoring data to build summary
+          try {
+            const parkingMonitoringData = await fetchParkingMonitoring(sessionId);
+            console.log('📊 Parking monitoring data retrieved:', parkingMonitoringData);
+            
+            // Convert monitoringData.currentTime to ISO string if it's a LocalDateTime
+            const endTimeStr = monitoringData.currentTime 
+              ? (typeof monitoringData.currentTime === 'string' 
+                  ? monitoringData.currentTime 
+                  : new Date(monitoringData.currentTime).toISOString())
+              : new Date().toISOString();
+            
+            // Build parking summary with latest data
+            const parkingSummary = buildParkingSummary(
+              {
+                ...updatedSession,
+                endTime: endTimeStr,
+                energyConsumed: monitoringData.powerConsumed || updatedSession.energyConsumed || 0,
+                totalCost: monitoringData.cost || updatedSession.totalCost || 0
+              },
+              parkingMonitoringData,
+              parkingMonitoringData.parkingStartTime || endTimeStr
+            );
+            
+            console.log('🏁 Parking summary built successfully:', parkingSummary);
+            
+            // Transition to ParkingView
+            onParkingStart(parkingSummary);
+            return updatedSession;
+          } catch (error: any) {
+            console.error('❌ Error fetching parking monitoring data:', error);
+            const errorMessage = error?.response?.data?.message || error?.message || 'Unknown error';
+            toast.error(language === 'vi' 
+              ? `Lỗi khi lấy thông tin đỗ xe: ${errorMessage}. Vui lòng thử lại.` 
+              : `Error fetching parking data: ${errorMessage}. Please try again.`
+            );
+            // Don't return here - let it continue to update session normally
+            // User can manually check parking status later
+          }
+        }
 
         // Update session state
         persistSessionState(updatedSession);
@@ -985,12 +1102,34 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
     // Store previous status for rollback if error occurs
     const previousStatus = session.status;
     
+    // Reset unauthorized count to prevent false redirect from monitoring
+    setUnauthorizedCount(0);
+    
+    // Set flag to prevent redirect during critical operation
+    localStorage.setItem('preventRedirect', 'true');
+    
     try {
       setLoading(true);
       setError(null);
 
-      if (!token) {
+      // Get fresh token from localStorage (may have been refreshed by interceptor)
+      const currentToken = localStorage.getItem("token");
+      if (!currentToken) {
         throw new Error('No authentication token found');
+      }
+
+      // Check and refresh token if needed before API call
+      try {
+        await checkAndRefreshToken();
+      } catch (refreshError) {
+        console.error('Token refresh failed:', refreshError);
+        // Continue with current token, interceptor will handle retry
+      }
+
+      // Get token again after potential refresh
+      const freshToken = localStorage.getItem("token");
+      if (!freshToken) {
+        throw new Error('No authentication token found after refresh');
       }
 
       const currentSessionId = localStorage.getItem("currentSessionId");
@@ -1010,11 +1149,12 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
       // Stop simulation immediately
       setIsSimulating(false);
       
-      const response = await axios.post(`${apiBaseUrl}/api/sessions/${currentSessionId}/end`, {
-
+      // Use api instance instead of axios directly to benefit from auto-refresh token interceptor
+      const response = await api.post(`/api/sessions/${currentSessionId}/end`, {
+        // Empty body
       }, {
         headers: {
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${freshToken}`,
           'Content-Type': 'application/json'
         }
       });
@@ -1024,7 +1164,107 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
         
         saveLastChargedStationSnapshot();
         
+        // Check if backend transitioned to PARKING status
+        // Backend will transition CHARGING -> PARKING when user stops manually
+        // Wrap in try-catch to prevent error propagation and redirect
+        try {
+          // Wait a moment for backend to process the transition
+          await new Promise(resolve => setTimeout(resolve, 500));
+          
+          // Check session status via monitoring API
+          // If this fails, don't propagate error - just continue with payment dialog
+          const monitoringResponse = await api.get(`/api/sessions/${currentSessionId}/monitor`, {
+            headers: {
+              Authorization: `Bearer ${freshToken}`,
+            },
+            timeout: 5000,
+          });
+
+          if (monitoringResponse.data?.success) {
+            const monitoringData = monitoringResponse.data.data;
+            const rawStatus = monitoringData?.status?.toUpperCase() || monitoringData?.status;
+            
+            // If status is PARKING, transition to ParkingView
+            if (rawStatus === 'PARKING' && onParkingStart) {
+              console.log('🚗 Backend transitioned to PARKING after stop, moving to ParkingView...');
+              console.log('📊 Monitoring data after stop:', { status: rawStatus, ...monitoringData });
+              
+              // Stop monitoring immediately (already stopped in handleChargingTerminating, but double-check)
+              setIsMonitoring(false);
+              setIsSimulating(false);
+              if (monitoringIntervalRef.current) {
+                clearInterval(monitoringIntervalRef.current);
+                monitoringIntervalRef.current = null;
+              }
+              
+              // Set status to stopped immediately to prevent monitoring useEffect from running again
+              setSession(prev => {
+                const next = {
+                  ...prev,
+                  status: 'stopped' as ChargingSession['status'],
+                  endTime: monitoringData.currentTime ? 
+                    (typeof monitoringData.currentTime === 'string' 
+                      ? monitoringData.currentTime 
+                      : new Date(monitoringData.currentTime).toISOString())
+                    : new Date().toISOString()
+                };
+                persistSessionState(next);
+                return next;
+              });
+              
+              // Fetch parking monitoring data to build summary
+              try {
+                const parkingMonitoringData = await fetchParkingMonitoring(currentSessionId);
+                console.log('📊 Parking monitoring data retrieved after stop:', parkingMonitoringData);
+                
+                // Convert monitoringData.currentTime to ISO string if needed
+                const endTimeStr = monitoringData.currentTime 
+                  ? (typeof monitoringData.currentTime === 'string' 
+                      ? monitoringData.currentTime 
+                      : new Date(monitoringData.currentTime).toISOString())
+                  : new Date().toISOString();
+                
+                // Get updated session data with latest values
+                const updatedSessionData = {
+                  ...session,
+                  endTime: endTimeStr,
+                  energyConsumed: monitoringData.powerConsumed || session.energyConsumed || 0,
+                  totalCost: monitoringData.cost || session.totalCost || 0
+                };
+                
+                // Build parking summary
+                const parkingSummary = buildParkingSummary(
+                  updatedSessionData,
+                  parkingMonitoringData,
+                  parkingMonitoringData.parkingStartTime || endTimeStr
+                );
+                
+                console.log('🏁 Parking summary built from stop:', parkingSummary);
+                
+                // Transition to ParkingView
+                onParkingStart(parkingSummary);
+                return response.data;
+              } catch (error: any) {
+                console.error('❌ Error fetching parking monitoring after stop:', error);
+                const errorMessage = error?.response?.data?.message || error?.message || 'Unknown error';
+                toast.error(language === 'vi' 
+                  ? `Lỗi khi lấy thông tin đỗ xe: ${errorMessage}. Vui lòng thử lại.` 
+                  : `Error fetching parking data: ${errorMessage}. Please try again.`
+                );
+                // Fall through to show payment dialog
+              }
+            }
+          }
+        } catch (monitoringError: any) {
+          // ✅ Handle monitoring error gracefully - don't propagate to interceptor
+          console.warn('Monitoring check failed after end session (non-critical):', monitoringError);
+          // If it's a 401, we already handled it - don't let interceptor redirect
+          // Continue with payment dialog flow
+          // Fall through to show payment dialog
+        }
+        
         // Update session status to stopped ONLY after successful API call
+        // (Only if not transitioning to PARKING)
         setSession(prev => {
           const next = {
             ...prev,
@@ -1061,7 +1301,10 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
       console.error('Error terminating charging session:', err);
       
       // Handle different types of errors
-      let errorMessage = 'Failed to terminate charging session';
+      let errorMessage = language === 'vi'
+        ? 'Không thể kết thúc phiên sạc'
+        : 'Failed to terminate charging session';
+      let shouldShowRetry = true;
       
       if (err.response) {
         const status = err.response.status;
@@ -1069,29 +1312,54 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
         
         switch (status) {
           case 401:
-            errorMessage = 'Authentication failed. Please login again.';
+            // 401 error - token expired or invalid
+            // Don't redirect (flag prevents it), just show error message
+            errorMessage = language === 'vi' 
+              ? 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.' 
+              : 'Authentication failed. Please login again.';
+            // User can manually navigate or retry after re-login
+            shouldShowRetry = false;
             break;
           case 404:
-            errorMessage = 'Session not found. Please check your session ID.';
+            errorMessage = language === 'vi'
+              ? 'Không tìm thấy phiên sạc. Vui lòng kiểm tra lại.'
+              : 'Session not found. Please check your session ID.';
             break;
           case 500:
-            errorMessage = 'Server error. Please try again later.';
+            errorMessage = language === 'vi'
+              ? 'Lỗi server. Vui lòng thử lại sau.'
+              : 'Server error. Please try again later.';
             break;
           default:
-            errorMessage = serverMessage || `Server error (${status})`;
+            errorMessage = serverMessage || (language === 'vi'
+              ? `Lỗi server (${status})`
+              : `Server error (${status})`);
         }
       } else if (err.request) {
-        errorMessage = 'Network error. Please check your connection.';
+        errorMessage = language === 'vi'
+          ? 'Lỗi mạng. Vui lòng kiểm tra kết nối.'
+          : 'Network error. Please check your connection.';
       } else {
-        errorMessage = err.message || 'Unknown error occurred';
+        errorMessage = err.message || (language === 'vi'
+          ? 'Lỗi không xác định'
+          : 'Unknown error occurred');
       }
       
       setError(errorMessage);
       
-      // Show error toast
-      toast.error(language === 'vi' 
-        ? `Lỗi: ${errorMessage}` 
-        : `Error: ${errorMessage}`
+      // Show error toast with retry option (except for 401)
+      const isAuthError = err.response?.status === 401;
+      toast.error(
+        language === 'vi' 
+          ? `Lỗi: ${errorMessage}` 
+          : `Error: ${errorMessage}`,
+        {
+          duration: isAuthError ? 7000 : 5000,
+          action: !isAuthError && shouldShowRetry ? {
+            label: language === 'vi' ? 'Thử lại' : 'Retry',
+            onClick: () => handleChargingTerminating()
+          } : undefined
+        }
       );
       
       // Reset finishing state so user can retry
@@ -1114,6 +1382,9 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
       
       return null;
     } finally {
+      // ✅ Always clear preventRedirect flag in finally block
+      localStorage.removeItem('preventRedirect');
+      
       setLoading(false);
       setIsChargingFinishing(false);
     }
@@ -1172,7 +1443,7 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
     }
   }, [bookingId, startChargingSession, sessionStarted]);
 
-  // Initial API call and periodic monitoring (every 2 seconds)
+  // Initial API call and periodic monitoring (every 5 seconds)
   useEffect(() => {
     const sessionId = localStorage.getItem("currentSessionId");
     const currentToken = localStorage.getItem("token");
@@ -1220,7 +1491,7 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
     // Initial monitoring call to get initial battery (with loading)
     handleChargingMonitoring(sessionId, true);
 
-    // Set up periodic monitoring every 2 seconds for smooth updates (no loading)
+    // Set up periodic monitoring every 5 seconds for smooth updates (no loading)
     const monitoringInterval = setInterval(async () => {
       // Check if monitoring should stop
       if (session.status === 'stopped') {
@@ -1245,7 +1516,7 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
       
       // Call monitoring without loading indicator
       await handleChargingMonitoring(sessionId, false);
-    }, 2000); // 2 seconds for smooth updates
+    }, 5000); // 5 seconds polling interval
 
     // Store interval ref for manual cleanup
     monitoringIntervalRef.current = monitoringInterval;
@@ -1817,7 +2088,7 @@ export default function ChargingSessionView({ onBack, bookingId }: ChargingSessi
               </div>
               <div className="flex items-center justify-between text-sm text-muted-foreground">
                 <span>{session.initialBattery}%</span>
-                <span>Target: 100%</span>
+                <span>Target: {session.targetBattery}%</span>
               </div>
             </div>
 
